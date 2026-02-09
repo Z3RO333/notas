@@ -51,10 +51,6 @@ export function Dashboard() {
     return diff < 3600000; // 1 hora
   });
   const notasUltimaHora = ultimasHoras.reduce((acc, l) => acc + l.qtd_novas, 0);
-  const atribuidasUltimaHora = ultimasHoras.reduce(
-    (acc, l) => acc + l.qtd_atribuidas,
-    0
-  );
 
   if (loading) {
     return (
