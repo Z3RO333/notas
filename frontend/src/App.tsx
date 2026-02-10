@@ -15,7 +15,7 @@ function NavBar({ userEmail }: { userEmail: string }) {
 
   const handleLogout = () => {
     if (isAzureConfigured) {
-      instance.logoutPopup();
+      instance.logoutRedirect();
     }
   };
 
@@ -87,7 +87,7 @@ function LoginPage() {
   const { instance } = useMsal();
 
   const handleLogin = () => {
-    instance.loginPopup(loginRequest).catch((e) => {
+    instance.loginRedirect(loginRequest).catch((e) => {
       console.error('Erro no login:', e);
     });
   };
