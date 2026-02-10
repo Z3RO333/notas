@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 interface AvatarProps {
   src: string | null | undefined
   nome: string
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
   className?: string
 }
 
@@ -12,12 +12,14 @@ const sizeMap = {
   sm: 'h-8 w-8 text-xs',
   md: 'h-10 w-10 text-sm',
   lg: 'h-14 w-14 text-lg',
+  xl: 'h-24 w-24 text-2xl',
 }
 
 const pixelMap = {
   sm: 32,
   md: 40,
   lg: 56,
+  xl: 96,
 }
 
 function getInitials(nome: string): string {
