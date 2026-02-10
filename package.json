@@ -1,0 +1,7 @@
+{
+  "name": "cockpit-distribuicao",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ]
+}
