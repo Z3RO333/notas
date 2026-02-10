@@ -105,10 +105,16 @@ def read_new_notes(spark: SparkSession) -> list[dict]:
     rows = df.collect()
     notes = []
 
+    skipped_with_order = 0
     for row in rows:
         row_dict = row.asDict()
         numero = str(row_dict.get("NUMERO_NOTA", "")).strip()
         if not numero:
+            continue
+        # Pula notas que ja tem ordem gerada no SAP
+        ordem = row_dict.get("ORDEM")
+        if ordem and str(ordem).strip():
+            skipped_with_order += 1
             continue
         notes.append({
             "numero_nota": numero,
@@ -130,6 +136,8 @@ def read_new_notes(spark: SparkSession) -> list[dict]:
             "raw_data": json.dumps(row_dict, default=str),
         })
 
+    if skipped_with_order:
+        logger.info(f"Ignoradas: {skipped_with_order} notas com ordem SAP ja gerada")
     return notes
 
 
