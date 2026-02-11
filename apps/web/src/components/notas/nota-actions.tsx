@@ -29,6 +29,7 @@ const transitions: Record<NotaStatus, { value: NotaStatus; label: string }[]> = 
   ],
   em_andamento: [
     { value: 'encaminhada_fornecedor', label: 'Encaminhar ao Fornecedor' },
+    { value: 'concluida', label: 'Concluir' },
     { value: 'cancelada', label: 'Cancelar' },
   ],
   encaminhada_fornecedor: [

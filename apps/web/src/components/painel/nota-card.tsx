@@ -1,8 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
+import { CheckCircle, Loader2 } from 'lucide-react'
 import { NotaStatusBadge } from '@/components/notas/nota-status-badge'
+import { concluirNotaRapida } from '@/lib/actions/nota-actions'
 import type { NotaManutencao } from '@/lib/types/database'
 
 const prioridadeLabel: Record<string, string> = {
@@ -24,7 +28,34 @@ interface NotaCardProps {
 }
 
 export function NotaCard({ nota }: NotaCardProps) {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
   const prioridadeCor = nota.prioridade ? (prioridadeColor[nota.prioridade] || 'border-l-gray-300') : 'border-l-gray-300'
+
+  const canConclude = nota.administrador_id && (nota.status === 'em_andamento' || nota.status === 'encaminhada_fornecedor')
+
+  async function handleConcluir(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!nota.administrador_id || loading) return
+
+    const confirmed = window.confirm(`Concluir nota #${nota.numero_nota}?`)
+    if (!confirmed) return
+
+    setLoading(true)
+    try {
+      await concluirNotaRapida({
+        notaId: nota.id,
+        administradorId: nota.administrador_id,
+      })
+      router.refresh()
+    } catch {
+      alert('Erro ao concluir nota. Tente pela pagina de detalhe.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <Link href={`/notas/${nota.id}`}>
@@ -35,7 +66,25 @@ export function NotaCard({ nota }: NotaCardProps) {
           <span className="font-mono text-sm font-bold text-foreground">
             #{nota.numero_nota}
           </span>
-          <NotaStatusBadge status={nota.status} />
+          <div className="flex items-center gap-2">
+            {canConclude && (
+              <button
+                type="button"
+                onClick={handleConcluir}
+                disabled={loading}
+                className="flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
+                title="Concluir nota"
+              >
+                {loading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-3.5 w-3.5" />
+                )}
+                Concluir
+              </button>
+            )}
+            <NotaStatusBadge status={nota.status} />
+          </div>
         </div>
 
         <p className="text-sm text-foreground/80 line-clamp-2 mb-3 min-h-[2.5rem]">
