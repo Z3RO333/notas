@@ -4,6 +4,7 @@ import { LoadChart } from '@/components/dashboard/load-chart'
 import { DistributionTable } from '@/components/dashboard/distribution-table'
 import { SyncHealth } from '@/components/dashboard/sync-health'
 import { DistributeButton } from '@/components/dashboard/distribute-button'
+import { ProductivityTable } from '@/components/dashboard/productivity-table'
 import { RealtimeListener } from '@/components/notas/realtime-listener'
 
 export const dynamic = 'force-dynamic'
@@ -11,7 +12,7 @@ export const dynamic = 'force-dynamic'
 export default async function GestorPage() {
   const supabase = createClient()
 
-  const [cargaResult, syncResult, unassignedResult, adminsResult, concluidasResult] = await Promise.all([
+  const [cargaResult, syncResult, unassignedResult, adminsResult, prodResult, notasResult] = await Promise.all([
     supabase.from('vw_carga_administradores').select('*').order('qtd_abertas', { ascending: false }),
     supabase.from('sync_log').select('*').order('started_at', { ascending: false }).limit(10),
     supabase
@@ -20,18 +21,28 @@ export default async function GestorPage() {
       .is('administrador_id', null)
       .eq('status', 'nova'),
     supabase.from('administradores').select('id, ativo').eq('role', 'admin'),
+    supabase.from('vw_produtividade_mensal').select('*').order('mes', { ascending: false }),
+    // Todas as notas com admin atribuido (abertas + concluidas)
     supabase
       .from('notas_manutencao')
-      .select('id, numero_nota, descricao, administrador_id, updated_at, data_criacao_sap')
-      .eq('status', 'concluida')
+      .select('id, numero_nota, descricao, status, administrador_id, distribuida_em, updated_at, data_criacao_sap')
+      .not('administrador_id', 'is', null)
+      .in('status', ['nova', 'em_andamento', 'encaminhada_fornecedor', 'concluida'])
       .order('updated_at', { ascending: false })
-      .limit(500),
+      .limit(1000),
   ])
 
   const carga = cargaResult.data ?? []
   const syncLogs = syncResult.data ?? []
   const admins = adminsResult.data ?? []
-  const notasConcluidas = concluidasResult.data ?? []
+  const produtividade = prodResult.data ?? []
+  const todasNotas = notasResult.data ?? []
+
+  // Separa concluidas pra produtividade
+  const notasConcluidas = todasNotas.filter((n) => n.status === 'concluida')
+
+  const totalAbertas = carga.reduce((sum, a) => sum + a.qtd_abertas, 0)
+  const totalConcluidas = carga.reduce((sum, a) => sum + a.qtd_concluidas, 0)
 
   const totals = carga.reduce(
     (acc, a) => ({
@@ -72,7 +83,14 @@ export default async function GestorPage() {
         />
       </div>
 
-      <DistributionTable carga={carga} notasConcluidas={notasConcluidas} />
+      <DistributionTable carga={carga} notas={todasNotas} />
+
+      <ProductivityTable
+        data={produtividade}
+        notasConcluidas={notasConcluidas}
+        totalAbertas={totalAbertas}
+        totalConcluidas={totalConcluidas}
+      />
 
       <RealtimeListener />
     </div>
