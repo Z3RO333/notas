@@ -19,7 +19,17 @@ export function RealtimeListener() {
           table: 'notas_manutencao',
         },
         () => {
-          // Revalida a pagina quando qualquer nota muda
+          router.refresh()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notas_historico',
+        },
+        () => {
           router.refresh()
         }
       )

@@ -102,6 +102,24 @@ export interface CargaAdministrador {
   qtd_canceladas: number
 }
 
+export interface ProdutividadeMensal {
+  administrador_id: string
+  nome: string
+  avatar_url: string | null
+  especialidade: Especialidade
+  mes: string
+  qtd_concluidas: number
+}
+
+export interface NotaConcluida {
+  id: string
+  numero_nota: string
+  descricao: string
+  administrador_id: string
+  updated_at: string
+  data_criacao_sap: string | null
+}
+
 export interface DistribuicaoLog {
   id: string
   nota_id: string

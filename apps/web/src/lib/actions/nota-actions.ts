@@ -51,6 +51,28 @@ export async function reatribuirNota(params: {
   revalidatePath('/gestor')
 }
 
+export async function concluirNotaRapida(params: {
+  notaId: string
+  administradorId: string
+}) {
+  const supabase = createClient()
+
+  const { error } = await supabase.rpc('atualizar_status_nota', {
+    p_nota_id: params.notaId,
+    p_novo_status: 'concluida',
+    p_admin_id: params.administradorId,
+    p_ordem_gerada: null,
+    p_fornecedor_encaminhado: null,
+    p_observacoes: null,
+    p_motivo: 'Conclusao rapida pelo painel',
+  })
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/')
+  revalidatePath('/gestor')
+}
+
 export async function distribuirNotasManual() {
   const supabase = createClient()
 
