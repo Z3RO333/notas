@@ -1,9 +1,12 @@
+import Link from 'next/link'
+import { format } from 'date-fns'
 import { Card } from '@/components/ui/card'
 import { Avatar } from '@/components/ui/avatar'
-import type { CargaAdministrador, Especialidade } from '@/lib/types/database'
+import type { CargaAdministrador, NotaConcluida, Especialidade } from '@/lib/types/database'
 
 interface DistributionTableProps {
   carga: CargaAdministrador[]
+  notasConcluidas: NotaConcluida[]
 }
 
 const especialidadeConfig: Record<Especialidade, { label: string; color: string }> = {
@@ -12,7 +15,15 @@ const especialidadeConfig: Record<Especialidade, { label: string; color: string 
   geral: { label: 'Geral', color: 'bg-gray-100 text-gray-800' },
 }
 
-export function DistributionTable({ carga }: DistributionTableProps) {
+export function DistributionTable({ carga, notasConcluidas }: DistributionTableProps) {
+  // Agrupa notas concluidas por admin
+  const concluidasByAdmin = new Map<string, NotaConcluida[]>()
+  for (const nota of notasConcluidas) {
+    const list = concluidasByAdmin.get(nota.administrador_id) ?? []
+    list.push(nota)
+    concluidasByAdmin.set(nota.administrador_id, list)
+  }
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Distribuicao por Admin</h2>
@@ -23,6 +34,7 @@ export function DistributionTable({ carga }: DistributionTableProps) {
             : 0
           const esp = especialidadeConfig[admin.especialidade] || especialidadeConfig.geral
           const barColor = percentual > 80 ? 'bg-red-500' : percentual > 50 ? 'bg-yellow-500' : 'bg-green-500'
+          const adminConcluidas = concluidasByAdmin.get(admin.id) ?? []
 
           return (
             <Card key={admin.id} className={`p-5 flex flex-col items-center gap-3 ${!admin.ativo ? 'opacity-50' : ''}`}>
@@ -67,7 +79,33 @@ export function DistributionTable({ carga }: DistributionTableProps) {
                 </div>
               </div>
 
-              {admin.qtd_concluidas > 0 && (
+              {/* Notas concluidas deste admin */}
+              {adminConcluidas.length > 0 && (
+                <div className="w-full border-t pt-3 space-y-1">
+                  <p className="text-xs font-medium text-green-600 mb-1.5">
+                    {admin.qtd_concluidas} concluida{admin.qtd_concluidas !== 1 ? 's' : ''}
+                  </p>
+                  {adminConcluidas.slice(0, 5).map((nota) => (
+                    <Link
+                      key={nota.id}
+                      href={`/notas/${nota.id}`}
+                      className="flex items-center justify-between text-xs hover:bg-muted/50 rounded px-1.5 py-1 transition-colors"
+                    >
+                      <span className="font-mono font-medium text-foreground">#{nota.numero_nota}</span>
+                      <span className="text-muted-foreground">
+                        {format(new Date(nota.updated_at), 'dd/MM')}
+                      </span>
+                    </Link>
+                  ))}
+                  {adminConcluidas.length > 5 && (
+                    <p className="text-[10px] text-center text-muted-foreground">
+                      +{adminConcluidas.length - 5} mais
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {admin.qtd_concluidas > 0 && adminConcluidas.length === 0 && (
                 <p className="text-xs text-green-600 font-medium">
                   {admin.qtd_concluidas} concluida{admin.qtd_concluidas !== 1 ? 's' : ''}
                 </p>

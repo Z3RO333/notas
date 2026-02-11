@@ -44,7 +44,7 @@ export function Avatar({ src, nome, size = 'md', className }: AvatarProps) {
           alt={nome}
           width={px}
           height={px}
-          className="h-full w-full object-cover"
+          className="h-full w-full object-cover object-top"
         />
       </div>
     )
