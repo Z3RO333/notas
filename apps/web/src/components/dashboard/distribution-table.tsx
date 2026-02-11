@@ -2,11 +2,11 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { Card } from '@/components/ui/card'
 import { Avatar } from '@/components/ui/avatar'
-import type { CargaAdministrador, NotaConcluida, Especialidade } from '@/lib/types/database'
+import type { CargaAdministrador, NotaResumo, Especialidade } from '@/lib/types/database'
 
 interface DistributionTableProps {
   carga: CargaAdministrador[]
-  notasConcluidas: NotaConcluida[]
+  notas: NotaResumo[]
 }
 
 const especialidadeConfig: Record<Especialidade, { label: string; color: string }> = {
@@ -15,13 +15,31 @@ const especialidadeConfig: Record<Especialidade, { label: string; color: string 
   geral: { label: 'Geral', color: 'bg-gray-100 text-gray-800' },
 }
 
-export function DistributionTable({ carga, notasConcluidas }: DistributionTableProps) {
-  // Agrupa notas concluidas por admin
-  const concluidasByAdmin = new Map<string, NotaConcluida[]>()
-  for (const nota of notasConcluidas) {
-    const list = concluidasByAdmin.get(nota.administrador_id) ?? []
-    list.push(nota)
-    concluidasByAdmin.set(nota.administrador_id, list)
+const statusColor: Record<string, string> = {
+  nova: 'text-blue-600',
+  em_andamento: 'text-yellow-600',
+  encaminhada_fornecedor: 'text-purple-600',
+  concluida: 'text-green-600',
+}
+
+const statusLabel: Record<string, string> = {
+  nova: 'Nova',
+  em_andamento: 'Em And.',
+  encaminhada_fornecedor: 'Encam.',
+  concluida: 'Concluida',
+}
+
+export function DistributionTable({ carga, notas }: DistributionTableProps) {
+  // Agrupa notas por admin
+  const notasByAdmin = new Map<string, { abertas: NotaResumo[]; concluidas: NotaResumo[] }>()
+  for (const nota of notas) {
+    const group = notasByAdmin.get(nota.administrador_id) ?? { abertas: [], concluidas: [] }
+    if (nota.status === 'concluida') {
+      group.concluidas.push(nota)
+    } else {
+      group.abertas.push(nota)
+    }
+    notasByAdmin.set(nota.administrador_id, group)
   }
 
   return (
@@ -34,7 +52,7 @@ export function DistributionTable({ carga, notasConcluidas }: DistributionTableP
             : 0
           const esp = especialidadeConfig[admin.especialidade] || especialidadeConfig.geral
           const barColor = percentual > 80 ? 'bg-red-500' : percentual > 50 ? 'bg-yellow-500' : 'bg-green-500'
-          const adminConcluidas = concluidasByAdmin.get(admin.id) ?? []
+          const adminNotas = notasByAdmin.get(admin.id) ?? { abertas: [], concluidas: [] }
 
           return (
             <Card key={admin.id} className={`p-5 flex flex-col items-center gap-3 ${!admin.ativo ? 'opacity-50' : ''}`}>
@@ -79,13 +97,40 @@ export function DistributionTable({ carga, notasConcluidas }: DistributionTableP
                 </div>
               </div>
 
-              {/* Notas concluidas deste admin */}
-              {adminConcluidas.length > 0 && (
-                <div className="w-full border-t pt-3 space-y-1">
-                  <p className="text-xs font-medium text-green-600 mb-1.5">
+              {/* Notas distribuidas (abertas) */}
+              {adminNotas.abertas.length > 0 && (
+                <div className="w-full border-t pt-2 space-y-0.5">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Notas distribuidas</p>
+                  {adminNotas.abertas.slice(0, 5).map((nota) => (
+                    <Link
+                      key={nota.id}
+                      href={`/notas/${nota.id}`}
+                      className="flex items-center justify-between text-xs hover:bg-muted/50 rounded px-1.5 py-1 transition-colors gap-1"
+                    >
+                      <span className="font-mono font-medium text-foreground">#{nota.numero_nota}</span>
+                      <span className={`text-[10px] ${statusColor[nota.status] ?? ''}`}>
+                        {statusLabel[nota.status] ?? nota.status}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {nota.distribuida_em ? format(new Date(nota.distribuida_em), 'dd/MM') : '-'}
+                      </span>
+                    </Link>
+                  ))}
+                  {adminNotas.abertas.length > 5 && (
+                    <p className="text-[10px] text-center text-muted-foreground">
+                      +{adminNotas.abertas.length - 5} mais
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Notas concluidas */}
+              {adminNotas.concluidas.length > 0 && (
+                <div className="w-full border-t pt-2 space-y-0.5">
+                  <p className="text-xs font-medium text-green-600 mb-1">
                     {admin.qtd_concluidas} concluida{admin.qtd_concluidas !== 1 ? 's' : ''}
                   </p>
-                  {adminConcluidas.slice(0, 5).map((nota) => (
+                  {adminNotas.concluidas.slice(0, 5).map((nota) => (
                     <Link
                       key={nota.id}
                       href={`/notas/${nota.id}`}
@@ -97,15 +142,15 @@ export function DistributionTable({ carga, notasConcluidas }: DistributionTableP
                       </span>
                     </Link>
                   ))}
-                  {adminConcluidas.length > 5 && (
+                  {adminNotas.concluidas.length > 5 && (
                     <p className="text-[10px] text-center text-muted-foreground">
-                      +{adminConcluidas.length - 5} mais
+                      +{adminNotas.concluidas.length - 5} mais
                     </p>
                   )}
                 </div>
               )}
 
-              {admin.qtd_concluidas > 0 && adminConcluidas.length === 0 && (
+              {admin.qtd_concluidas > 0 && adminNotas.concluidas.length === 0 && (
                 <p className="text-xs text-green-600 font-medium">
                   {admin.qtd_concluidas} concluida{admin.qtd_concluidas !== 1 ? 's' : ''}
                 </p>

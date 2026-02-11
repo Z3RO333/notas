@@ -111,11 +111,13 @@ export interface ProdutividadeMensal {
   qtd_concluidas: number
 }
 
-export interface NotaConcluida {
+export interface NotaResumo {
   id: string
   numero_nota: string
   descricao: string
+  status: NotaStatus
   administrador_id: string
+  distribuida_em: string | null
   updated_at: string
   data_criacao_sap: string | null
 }
