@@ -16,10 +16,12 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
   function switchMode() {
     setMode((m) => (m === 'login' ? 'register' : 'login'))
     setError('')
+    setSuccess('')
     setConfirmPassword('')
   }
 
@@ -79,9 +81,12 @@ export default function LoginPage() {
       }
 
       // Cria a conta no Supabase Auth
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      const { error: signUpError } = await supabase.auth.signUp({
         email: trimmedEmail,
         password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
+        },
       })
 
       if (signUpError) {
@@ -91,22 +96,11 @@ export default function LoginPage() {
         return
       }
 
-      // signUp sem sessao = confirmacao de email pendente
-      if (!signUpData.session) {
-        setError('Conta criada, mas confirmacao de email pendente. Contate o administrador.')
-        return
-      }
-
-      // Vincula o auth_user_id ao registro do administrador
-      if (signUpData.user) {
-        await supabase
-          .from('administradores')
-          .update({ auth_user_id: signUpData.user.id })
-          .eq('id', admin.id)
-      }
-
-      router.push('/')
-      router.refresh()
+      // Conta criada — email de confirmacao enviado
+      setSuccess('Conta criada! Verifique seu email e clique no link para confirmar. Depois volte aqui e faca login.')
+      setMode('login')
+      setPassword('')
+      setConfirmPassword('')
     } catch {
       setError('Erro inesperado. Tente novamente.')
     } finally {
@@ -177,6 +171,9 @@ export default function LoginPage() {
           )}
           {error && (
             <p className="text-sm text-destructive">{error}</p>
+          )}
+          {success && (
+            <p className="text-sm text-green-600">{success}</p>
           )}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? (
