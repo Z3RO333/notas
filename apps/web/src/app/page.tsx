@@ -6,7 +6,7 @@ import type { CollaboratorData } from '@/lib/types/collaborator'
 
 export const dynamic = 'force-dynamic'
 
-const ADMIN_FIELDS = 'id, nome, ativo, max_notas, avatar_url, especialidade, recebe_distribuicao, em_ferias' as const
+const ADMIN_FIELDS = 'id, nome, ativo, max_notas, avatar_url, especialidade, recebe_distribuicao, em_ferias, role' as const
 const NOTA_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, data_criacao_sap' as const
 
 interface AdminRow {
@@ -18,6 +18,7 @@ interface AdminRow {
   especialidade: string | null
   recebe_distribuicao: boolean
   em_ferias: boolean
+  role: string
 }
 
 const OPEN_STATUSES = new Set(['nova', 'em_andamento', 'encaminhada_fornecedor'])
@@ -48,7 +49,7 @@ export default async function PainelPage() {
     supabase
       .from('administradores')
       .select(ADMIN_FIELDS)
-      .eq('ativo', true)
+      .eq('role', 'admin')
       .order('nome'),
     supabase
       .from('notas_manutencao')
@@ -67,13 +68,15 @@ export default async function PainelPage() {
   const notas = (notasResult.data ?? []) as NotaPanelData[]
   const notasSemAtribuir = (semAtribuirResult.data ?? []) as NotaPanelData[]
 
-  // Filtra gestores que nao recebem ordens e nao tem notas atribuidas
-  const adminsVisiveis = admins.filter(
-    (a) =>
-      a.recebe_distribuicao ||
-      notas.some((n) => n.administrador_id === a.id && OPEN_STATUSES.has(n.status))
-  )
-  const collaborators = adminsVisiveis.map((a) => toCollaboratorData(a, notas))
+  // Ordena: disponiveis primeiro, indisponiveis ao final
+  const sorted = [...admins].sort((a, b) => {
+    const aOk = a.ativo && a.recebe_distribuicao && !a.em_ferias
+    const bOk = b.ativo && b.recebe_distribuicao && !b.em_ferias
+    if (aOk && !bOk) return -1
+    if (!aOk && bOk) return 1
+    return 0
+  })
+  const collaborators = sorted.map((a) => toCollaboratorData(a, notas))
 
   return (
     <div className="space-y-6">
