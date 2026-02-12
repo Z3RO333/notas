@@ -1,13 +1,11 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = ['/login', '/api/auth']
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Rotas publicas — nao precisa de auth
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+  // Rotas publicas de auth
+  if (pathname.startsWith('/api/auth')) {
     return NextResponse.next()
   }
 
@@ -38,7 +36,23 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Sem sessao → redireciona para login
+  if (pathname === '/login') {
+    if (!user?.email) {
+      return NextResponse.next()
+    }
+
+    const { data: admin } = await supabase
+      .from('administradores')
+      .select('role')
+      .eq('email', user.email)
+      .single()
+
+    const url = request.nextUrl.clone()
+    url.pathname = admin?.role === 'gestor' ? '/admin' : '/'
+    return NextResponse.redirect(url)
+  }
+
+  // Sem sessao em rota protegida → redireciona para login
   if (!user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'

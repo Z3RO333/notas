@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { Search } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   Select,
   SelectContent,
@@ -13,7 +12,14 @@ import {
 import { OrdersBulkReassignBar } from '@/components/orders/orders-bulk-reassign-bar'
 import { OrdersOwnerMiniCard } from '@/components/orders/orders-owner-mini-card'
 import { OrdersOwnerAccordion } from '@/components/orders/orders-owner-accordion'
+import { AutoRefreshController } from '@/components/shared/auto-refresh-controller'
+import { GridFilters, type GridFilterOption } from '@/components/data-grid/grid-filters'
+import { GridPagination } from '@/components/data-grid/grid-pagination'
+import { GridSearch } from '@/components/data-grid/grid-search'
+import { GridToolbar } from '@/components/data-grid/grid-toolbar'
+import { buildSortParam, updateSearchParams } from '@/lib/grid/query'
 import type {
+  GridSortState,
   OrderOwnerGroup,
   OrderOwnerMode,
   OrderReassignTarget,
@@ -23,24 +29,28 @@ import type {
 
 interface OrdersOwnerPanelProps {
   rows: OrdemNotaAcompanhamento[]
+  total: number
+  page: number
+  pageSize: number
+  sort: GridSortState
+  q: string
+  status: string
+  responsavel: string
+  unidade: string
+  canViewGlobal: boolean
   canReassign?: boolean
   reassignTargets?: OrderReassignTarget[]
+  responsavelOptions: GridFilterOption[]
+  unidadeOptions: GridFilterOption[]
 }
 
 type OrderStatusFilter = OrdemStatusAcomp | 'todas'
 
+const OWNER_MODE_STORAGE_KEY = 'cockpit:ordens:owner-mode'
+
 const OWNER_MODE_OPTIONS: Array<{ value: OrderOwnerMode; label: string }> = [
   { value: 'atual', label: 'Responsavel atual' },
   { value: 'origem', label: 'Responsavel de origem' },
-]
-
-const STATUS_FILTER_OPTIONS: Array<{ value: OrderStatusFilter; label: string }> = [
-  { value: 'todas', label: 'Todos os status' },
-  { value: 'aberta', label: 'Aberta' },
-  { value: 'em_tratativa', label: 'Em tratativa' },
-  { value: 'concluida', label: 'Concluida' },
-  { value: 'cancelada', label: 'Cancelada' },
-  { value: 'desconhecido', label: 'Desconhecido' },
 ]
 
 function resolveOwner(row: OrdemNotaAcompanhamento, mode: OrderOwnerMode): { id: string; nome: string } {
@@ -89,32 +99,88 @@ function buildGroups(rows: OrdemNotaAcompanhamento[], mode: OrderOwnerMode): Ord
 
 export function OrdersOwnerPanel({
   rows,
+  total,
+  page,
+  pageSize,
+  sort,
+  q,
+  status,
+  responsavel,
+  unidade,
+  canViewGlobal,
   canReassign = false,
   reassignTargets = [],
+  responsavelOptions,
+  unidadeOptions,
 }: OrdersOwnerPanelProps) {
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>('todas')
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  const [searchInput, setSearchInput] = useState(q)
   const [ownerMode, setOwnerMode] = useState<OrderOwnerMode>('atual')
   const [expandedOwnerId, setExpandedOwnerId] = useState<string | null>(null)
   const [selectedNotaIds, setSelectedNotaIds] = useState<string[]>([])
 
-  const normalizedSearch = search.trim().toLowerCase()
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
 
-  const filteredRows = useMemo(() => {
-    return rows.filter((row) => {
-      if (statusFilter !== 'todas' && row.status_ordem !== statusFilter) return false
+  useEffect(() => {
+    setSearchInput(q)
+  }, [q])
 
-      if (!normalizedSearch) return true
+  useEffect(() => {
+    const persisted = window.localStorage.getItem(OWNER_MODE_STORAGE_KEY)
+    if (persisted === 'atual' || persisted === 'origem') {
+      setOwnerMode(persisted)
+    }
+  }, [])
 
-      return (
-        row.numero_nota.toLowerCase().includes(normalizedSearch)
-        || row.ordem_codigo.toLowerCase().includes(normalizedSearch)
-        || (row.descricao ?? '').toLowerCase().includes(normalizedSearch)
-      )
-    })
-  }, [rows, statusFilter, normalizedSearch])
+  useEffect(() => {
+    window.localStorage.setItem(OWNER_MODE_STORAGE_KEY, ownerMode)
+  }, [ownerMode])
 
-  const groups = useMemo(() => buildGroups(filteredRows, ownerMode), [filteredRows, ownerMode])
+  function replaceQuery(updates: Record<string, string | number | null | undefined>) {
+    const next = updateSearchParams(new URLSearchParams(searchParams.toString()), updates)
+    const queryString = next.toString()
+    router.replace(queryString ? `${pathname}?${queryString}` : pathname)
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const normalized = searchInput.trim()
+      if (normalized === q) return
+      replaceQuery({ q: normalized || null, page: 1 })
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchInput, q])
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        event.preventDefault()
+        searchInputRef.current?.focus()
+        return
+      }
+
+      if (event.key.toLowerCase() === 'r' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault()
+        router.refresh()
+        return
+      }
+
+      if (event.key.toLowerCase() === 'a' && event.shiftKey) {
+        event.preventDefault()
+        const visibleIds = Array.from(new Set(rows.map((row) => row.nota_id)))
+        setSelectedNotaIds(visibleIds)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [rows])
+
+  const groups = useMemo(() => buildGroups(rows, ownerMode), [rows, ownerMode])
 
   useEffect(() => {
     setExpandedOwnerId((prev) => {
@@ -125,8 +191,8 @@ export function OrdersOwnerPanel({
   }, [groups])
 
   const visibleNotaIds = useMemo(
-    () => Array.from(new Set(filteredRows.map((row) => row.nota_id))),
-    [filteredRows]
+    () => Array.from(new Set(rows.map((row) => row.nota_id))),
+    [rows]
   )
 
   useEffect(() => {
@@ -164,29 +230,59 @@ export function OrdersOwnerPanel({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 xl:flex-row">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nota, ordem ou descricao..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="pl-9"
-          />
-        </div>
+      <GridToolbar>
+        <GridSearch
+          value={searchInput}
+          onChange={setSearchInput}
+          placeholder="Buscar por nota, ordem ou descricao..."
+          inputRef={searchInputRef}
+        />
 
-        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as OrderStatusFilter)}>
-          <SelectTrigger className="w-full xl:w-48">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_FILTER_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <GridFilters
+          label="Status"
+          value={(status as OrderStatusFilter) || 'todas'}
+          onChange={(value) => replaceQuery({ status: value === 'todas' ? null : value, page: 1 })}
+          options={[
+            { value: 'todas', label: 'Todos os status' },
+            { value: 'aberta', label: 'Aberta' },
+            { value: 'em_tratativa', label: 'Em tratativa' },
+            { value: 'concluida', label: 'Concluida' },
+            { value: 'cancelada', label: 'Cancelada' },
+            { value: 'desconhecido', label: 'Desconhecido' },
+          ]}
+        />
+
+        {canViewGlobal && (
+          <GridFilters
+            label="Responsavel"
+            value={responsavel || 'todos'}
+            onChange={(value) => replaceQuery({ responsavel: value === 'todos' ? null : value, page: 1 })}
+            options={responsavelOptions}
+          />
+        )}
+
+        <GridFilters
+          label="Unidade"
+          value={unidade || 'todas'}
+          onChange={(value) => replaceQuery({ unidade: value === 'todas' ? null : value, page: 1 })}
+          options={unidadeOptions}
+        />
+
+        <GridFilters
+          label="Ordenacao"
+          value={buildSortParam(sort)}
+          onChange={(value) => replaceQuery({ sort: value, page: 1 })}
+          options={[
+            { value: 'data:desc', label: 'Data (mais recente)' },
+            { value: 'data:asc', label: 'Data (mais antiga)' },
+            { value: 'idade:desc', label: 'Idade (maior primeiro)' },
+            { value: 'ordem:asc', label: 'Ordem (A-Z)' },
+            { value: 'status:asc', label: 'Status (A-Z)' },
+            { value: 'responsavel:asc', label: 'Responsavel (A-Z)' },
+            { value: 'unidade:asc', label: 'Unidade (A-Z)' },
+          ]}
+          className="w-full xl:w-56"
+        />
 
         <Select value={ownerMode} onValueChange={(value) => setOwnerMode(value as OrderOwnerMode)}>
           <SelectTrigger className="w-full xl:w-56">
@@ -200,10 +296,12 @@ export function OrdersOwnerPanel({
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </GridToolbar>
 
-      {canBulkReassign && filteredRows.length > 0 && (
-        <div className="flex items-center justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <AutoRefreshController onRefresh={() => router.refresh()} defaultIntervalSec={30} />
+
+        {canBulkReassign && rows.length > 0 && (
           <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
@@ -213,8 +311,8 @@ export function OrdersOwnerPanel({
             />
             Selecionar visiveis
           </label>
-        </div>
-      )}
+        )}
+      </div>
 
       {canBulkReassign && selectedNotaIds.length > 0 && (
         <OrdersBulkReassignBar
@@ -256,6 +354,14 @@ export function OrdersOwnerPanel({
           Nenhuma ordem encontrada com os filtros selecionados.
         </div>
       )}
+
+      <GridPagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={(nextPage) => replaceQuery({ page: nextPage })}
+        onPageSizeChange={(nextSize) => replaceQuery({ pageSize: nextSize, page: 1 })}
+      />
     </div>
   )
 }

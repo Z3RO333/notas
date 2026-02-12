@@ -30,6 +30,7 @@ function revalidateCockpitPaths() {
   revalidatePath('/ordens')
   revalidatePath('/admin')
   revalidatePath('/admin/distribuicao')
+  revalidatePath('/admin/pessoas')
   revalidatePath('/admin/auditoria')
 }
 
@@ -162,7 +163,11 @@ export async function reatribuirOrdensSelecionadas(params: {
   const { supabase, gestorId } = await getGestorContext()
 
   if (!params.notaIds || params.notaIds.length === 0) {
-    return [] as ReassignOrderRow[]
+    return {
+      rows: [] as ReassignOrderRow[],
+      movedCount: 0,
+      skippedCount: 0,
+    }
   }
 
   const { data, error } = await supabase.rpc('reatribuir_ordens_selecionadas', {
@@ -176,16 +181,23 @@ export async function reatribuirOrdensSelecionadas(params: {
   if (error) throw new Error(error.message)
 
   const movedRows = (data ?? []) as ReassignOrderRow[]
+  const movedCount = movedRows.length
+  const skippedCount = Math.max(params.notaIds.length - movedCount, 0)
 
   await logAudit(supabase, gestorId, 'reatribuir_ordens_lote_checkbox', null, {
     modo: params.modo,
     motivo: params.motivo ?? null,
     admin_destino_id: params.adminDestinoId ?? null,
     notas_selecionadas: params.notaIds.length,
-    notas_reatribuidas: movedRows.length,
+    notas_reatribuidas: movedCount,
+    notas_puladas: skippedCount,
     nota_ids: params.notaIds,
   })
 
   revalidateCockpitPaths()
-  return movedRows
+  return {
+    rows: movedRows,
+    movedCount,
+    skippedCount,
+  }
 }

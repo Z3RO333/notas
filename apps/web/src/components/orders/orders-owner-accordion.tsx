@@ -1,5 +1,7 @@
-import Link from 'next/link'
 import { useEffect, useMemo, useRef } from 'react'
+import Link from 'next/link'
+import { type ColumnDef } from '@tanstack/react-table'
+import { DataGrid } from '@/components/data-grid/data-grid'
 import {
   getOrderStatusClass,
   getOrderStatusLabel,
@@ -7,7 +9,7 @@ import {
   getSemaforoLabel,
   sortOrdersByPriority,
 } from '@/lib/orders/metrics'
-import type { OrderOwnerGroup } from '@/lib/types/database'
+import type { OrdemNotaAcompanhamento, OrderOwnerGroup } from '@/lib/types/database'
 
 interface OrdersOwnerAccordionProps {
   group: OrderOwnerGroup
@@ -22,11 +24,6 @@ function formatIsoDate(value: string): string {
   const [year, month, day] = datePart.split('-')
   if (!year || !month || !day) return value
   return `${day}/${month}/${year}`
-}
-
-function rowClasses(isSelected: boolean): string {
-  const selectedClass = isSelected ? 'border-primary/40 bg-primary/5' : ''
-  return `space-y-2 rounded-lg border px-3 py-2.5 ${selectedClass}`
 }
 
 export function OrdersOwnerAccordion({
@@ -47,7 +44,98 @@ export function OrdersOwnerAccordion({
     }
   }, [isOpen])
 
-  const sortedRows = useMemo(() => sortOrdersByPriority(group.rows), [group.rows])
+  const rows = useMemo(() => sortOrdersByPriority(group.rows), [group.rows])
+
+  const allSelected = rows.length > 0 && rows.every((row) => selectedNotaIds.has(row.nota_id))
+
+  function setGroupSelection(nextSelected: boolean) {
+    for (const row of rows) {
+      const isSelected = selectedNotaIds.has(row.nota_id)
+      if (nextSelected && !isSelected) onToggleRowSelection(row.nota_id)
+      if (!nextSelected && isSelected) onToggleRowSelection(row.nota_id)
+    }
+  }
+
+  const columns = useMemo<ColumnDef<OrdemNotaAcompanhamento, unknown>[]>(() => [
+    {
+      id: 'select',
+      header: () => (
+        canReassign ? (
+          <input
+            type="checkbox"
+            checked={allSelected}
+            onChange={(event) => setGroupSelection(event.target.checked)}
+            aria-label={`Selecionar ordens de ${group.nome}`}
+          />
+        ) : null
+      ),
+      cell: ({ row }) => (
+        canReassign ? (
+          <input
+            type="checkbox"
+            checked={selectedNotaIds.has(row.original.nota_id)}
+            onChange={() => onToggleRowSelection(row.original.nota_id)}
+            aria-label={`Selecionar nota ${row.original.numero_nota}`}
+          />
+        ) : null
+      ),
+    },
+    {
+      id: 'nota_ordem',
+      header: 'Nota • Ordem',
+      cell: ({ row }) => (
+        <div className="min-w-[220px]">
+          <Link href={`/notas/${row.original.nota_id}`} className="font-mono text-sm font-semibold hover:underline">
+            #{row.original.numero_nota} • Ordem {row.original.ordem_codigo}
+          </Link>
+          <p className="truncate text-xs text-muted-foreground">{row.original.descricao ?? 'Sem descricao'}</p>
+        </div>
+      ),
+    },
+    {
+      id: 'semaforo',
+      header: 'Prioridade',
+      cell: ({ row }) => (
+        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${getSemaforoClass(row.original.semaforo_atraso)}`}>
+          {getSemaforoLabel(row.original.semaforo_atraso)}
+        </span>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => (
+        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${getOrderStatusClass(row.original.status_ordem)}`}>
+          {getOrderStatusLabel(row.original.status_ordem)}
+        </span>
+      ),
+    },
+    {
+      id: 'responsaveis',
+      header: 'Responsabilidade',
+      cell: ({ row }) => (
+        <div className="space-y-0.5 text-xs">
+          <p><span className="text-muted-foreground">Atual:</span> {row.original.responsavel_atual_nome ?? 'Sem responsavel'}</p>
+          <p><span className="text-muted-foreground">Origem:</span> {row.original.administrador_nome ?? 'Nao identificado'}</p>
+        </div>
+      ),
+    },
+    {
+      id: 'idade',
+      header: 'Idade',
+      cell: ({ row }) => (
+        <div className="text-xs text-muted-foreground">
+          <p>{row.original.dias_em_aberto} dia(s)</p>
+          <p>{formatIsoDate(row.original.ordem_detectada_em)}</p>
+        </div>
+      ),
+    },
+    {
+      id: 'unidade',
+      header: 'Unidade',
+      cell: ({ row }) => row.original.unidade ?? 'Sem unidade',
+    },
+  ], [allSelected, canReassign, group.nome, selectedNotaIds])
 
   return (
     <div ref={ref} className="accordion-grid" data-state={isOpen ? 'open' : 'closed'}>
@@ -60,67 +148,12 @@ export function OrdersOwnerAccordion({
             </span>
           </div>
 
-          {sortedRows.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-              Nenhuma ordem encontrada para este agrupamento.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {sortedRows.map((row) => {
-                const rowSelected = selectedNotaIds.has(row.nota_id)
-
-                return (
-                  <div key={row.ordem_id} className={rowClasses(rowSelected)}>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex min-w-0 flex-1 items-start gap-2">
-                        {canReassign && (
-                          <input
-                            type="checkbox"
-                            className="mt-1 h-4 w-4 rounded border"
-                            checked={rowSelected}
-                            onChange={() => onToggleRowSelection(row.nota_id)}
-                            aria-label={`Selecionar nota ${row.numero_nota}`}
-                          />
-                        )}
-
-                        <Link
-                          href={`/notas/${row.nota_id}`}
-                          className="min-w-0 flex-1 rounded-sm transition-colors hover:bg-muted/30"
-                        >
-                          <p className="font-mono text-sm font-semibold">
-                            #{row.numero_nota} • Ordem {row.ordem_codigo}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {row.descricao ?? 'Sem descricao'}
-                          </p>
-                        </Link>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${getSemaforoClass(row.semaforo_atraso)}`}>
-                          {getSemaforoLabel(row.semaforo_atraso)}
-                        </span>
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${getOrderStatusClass(row.status_ordem)}`}>
-                          {getOrderStatusLabel(row.status_ordem)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <span>{row.dias_em_aberto} dia(s) em aberto</span>
-                      <span>{row.unidade ?? 'Sem unidade'}</span>
-                      <span>Atual: {row.responsavel_atual_nome ?? 'Sem responsavel'}</span>
-                      <span>Origem: {row.administrador_nome ?? 'Nao identificado'}</span>
-                      <span>
-                        Historico: {row.tem_historico ? `${row.qtd_historico} registro(s)` : 'Sem historico'}
-                      </span>
-                      <span>Detectada em {formatIsoDate(row.ordem_detectada_em)}</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+          <DataGrid
+            data={rows}
+            columns={columns}
+            getRowId={(row) => row.ordem_id}
+            emptyMessage="Nenhuma ordem encontrada para este agrupamento."
+          />
         </div>
       </div>
     </div>
