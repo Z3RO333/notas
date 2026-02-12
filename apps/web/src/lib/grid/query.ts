@@ -53,3 +53,28 @@ export function updateSearchParams(
 export function normalizeTextParam(value: string | undefined): string {
   return (value ?? '').trim()
 }
+
+export function parseYearParam(value: string | undefined, fallback: number): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return fallback
+  const year = Math.floor(parsed)
+  if (year < 2000 || year > 2100) return fallback
+  return year
+}
+
+export function parseMonthParam(value: string | undefined, fallback: number): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return fallback
+  const month = Math.floor(parsed)
+  if (month < 1 || month > 12) return fallback
+  return month
+}
+
+export function parseDateParam(value: string | undefined): string {
+  if (!value) return ''
+  const trimmed = value.trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return ''
+  const date = new Date(`${trimmed}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return ''
+  return trimmed
+}

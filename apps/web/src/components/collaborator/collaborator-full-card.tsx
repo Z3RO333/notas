@@ -42,7 +42,7 @@ export function CollaboratorFullCard({
     ? Math.round((collaborator.qtd_abertas / collaborator.max_notas) * 100)
     : 0
   const barColor = percentual > 80 ? 'bg-red-500' : percentual > 50 ? 'bg-yellow-500' : 'bg-green-500'
-  const previewNotas = sortByUrgency(notas).slice(0, 6)
+  const sortedNotas = sortByUrgency(notas)
 
   return (
     <Card className="p-4 space-y-3">
@@ -83,11 +83,11 @@ export function CollaboratorFullCard({
 
       <div className="space-y-2">
         <p className="text-sm font-semibold text-muted-foreground">Notas distribuidas</p>
-        {previewNotas.length === 0 ? (
+        {sortedNotas.length === 0 ? (
           <p className="text-xs text-muted-foreground">Nenhuma nota em aberto.</p>
         ) : (
-          <div className="space-y-1.5">
-            {previewNotas.map((nota) => {
+          <div className="max-h-[24rem] space-y-1.5 overflow-y-auto pr-1">
+            {sortedNotas.map((nota) => {
               const aging = isOpenStatus(nota.status)
                 ? getAgingBadge(getAgingBucket(nota))
                 : {
@@ -110,11 +110,6 @@ export function CollaboratorFullCard({
                 </Link>
               )
             })}
-            {notas.length > previewNotas.length && (
-              <p className="text-center text-xs text-muted-foreground">
-                +{notas.length - previewNotas.length} mais
-              </p>
-            )}
           </div>
         )}
       </div>

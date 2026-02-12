@@ -1,5 +1,5 @@
 import { getAgingBucket, isOpenStatus } from '@/lib/collaborator/aging'
-import type { NotaPanelData } from '@/lib/types/database'
+import type { NotesKpiFilter, NotaPanelData } from '@/lib/types/database'
 
 export interface AgingCounts {
   qtd_novo: number
@@ -31,3 +31,12 @@ export function buildAgingCounts(notas: NotaPanelData[]): AgingCounts {
   }
 }
 
+export function matchNotesKpi(nota: NotaPanelData, kpi: NotesKpiFilter): boolean {
+  if (!isOpenStatus(nota.status)) return false
+  if (kpi === 'notas') return true
+
+  const bucket = getAgingBucket(nota)
+  if (kpi === 'novas') return bucket === 'novo'
+  if (kpi === 'um_dia') return bucket === 'um_dia'
+  return bucket === 'dois_mais'
+}

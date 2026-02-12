@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { type ColumnDef } from '@tanstack/react-table'
 import { DataGrid } from '@/components/data-grid/data-grid'
+import { Avatar } from '@/components/ui/avatar'
 import {
   getOrderStatusClass,
   getOrderStatusLabel,
@@ -142,7 +143,10 @@ export function OrdersOwnerAccordion({
       <div className="accordion-content">
         <div className="space-y-4 rounded-lg border bg-card p-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-semibold">{group.nome}</h3>
+            <div className="flex items-center gap-2">
+              <Avatar src={group.avatar_url} nome={group.nome} size="sm" />
+              <h3 className="text-base font-semibold">{group.nome}</h3>
+            </div>
             <span className="text-sm text-muted-foreground">
               {group.total} ordem{group.total !== 1 ? 's' : ''}
             </span>

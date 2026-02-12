@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { AlertCircle, LayoutGrid, Rows3, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -11,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { buildAgingCounts } from '@/lib/collaborator/metrics'
+import { buildAgingCounts, matchNotesKpi } from '@/lib/collaborator/metrics'
 import { CollaboratorMiniCard } from './collaborator-mini-card'
 import { CollaboratorAccordion } from './collaborator-accordion'
 import { CollaboratorAdminActions } from './collaborator-admin-actions'
@@ -22,7 +23,8 @@ import type {
   NotesViewMode,
   TrackingPositionMode,
 } from '@/lib/types/collaborator'
-import type { NotaPanelData, OrdemAcompanhamento } from '@/lib/types/database'
+import type { NotesKpiFilter, NotaPanelData, OrdemAcompanhamento } from '@/lib/types/database'
+import { updateSearchParams } from '@/lib/grid/query'
 
 interface CollaboratorPanelProps {
   collaborators: CollaboratorData[]
@@ -32,6 +34,16 @@ interface CollaboratorPanelProps {
   currentAdminId?: string | null
   currentAdminRole?: string | null
   ordensAcompanhamento?: OrdemAcompanhamento[]
+  syncWithUrl?: boolean
+  initialSearch?: string
+  initialStatus?: string
+  initialResponsavel?: string
+  initialUnidade?: string
+  responsavelOptions?: Array<{ value: string; label: string }>
+  unidadeOptions?: Array<{ value: string; label: string }>
+  showResponsavelFilter?: boolean
+  showUnidadeFilter?: boolean
+  activeNotesKpi?: NotesKpiFilter | null
 }
 
 const VIEW_MODE_STORAGE_KEY = 'cockpit:panel:view-mode'
@@ -45,12 +57,44 @@ export function CollaboratorPanel({
   currentAdminId,
   currentAdminRole,
   ordensAcompanhamento = [],
+  syncWithUrl = false,
+  initialSearch = '',
+  initialStatus = '',
+  initialResponsavel = '',
+  initialUnidade = '',
+  responsavelOptions = [],
+  unidadeOptions = [],
+  showResponsavelFilter = false,
+  showUnidadeFilter = false,
+  activeNotesKpi = null,
 }: CollaboratorPanelProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('abertas')
+  const [search, setSearch] = useState(initialSearch)
+  const [statusFilter, setStatusFilter] = useState(initialStatus || 'abertas')
+  const [responsavelFilter, setResponsavelFilter] = useState(initialResponsavel || 'todos')
+  const [unidadeFilter, setUnidadeFilter] = useState(initialUnidade || 'todas')
   const [viewMode, setViewMode] = useState<NotesViewMode>('list')
   const [trackingPosition, setTrackingPosition] = useState<TrackingPositionMode>('top')
+
+  useEffect(() => {
+    setSearch(initialSearch)
+  }, [initialSearch])
+
+  useEffect(() => {
+    setStatusFilter(initialStatus || 'abertas')
+  }, [initialStatus])
+
+  useEffect(() => {
+    setResponsavelFilter(initialResponsavel || 'todos')
+  }, [initialResponsavel])
+
+  useEffect(() => {
+    setUnidadeFilter(initialUnidade || 'todas')
+  }, [initialUnidade])
 
   useEffect(() => {
     const persistedViewMode = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY)
@@ -63,6 +107,24 @@ export function CollaboratorPanel({
     }
   }, [])
 
+  function replaceQuery(updates: Record<string, string | number | null | undefined>) {
+    if (!syncWithUrl) return
+    const next = updateSearchParams(new URLSearchParams(searchParams.toString()), updates)
+    const queryString = next.toString()
+    router.replace(queryString ? `${pathname}?${queryString}` : pathname)
+  }
+
+  useEffect(() => {
+    if (!syncWithUrl) return
+    const timer = setTimeout(() => {
+      const normalized = search.trim()
+      if (normalized === initialSearch) return
+      replaceQuery({ q: normalized || null })
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [search, initialSearch, syncWithUrl])
+
   function handleViewModeChange(value: string) {
     const next = value === 'cards' ? 'cards' : 'list'
     setViewMode(next)
@@ -74,6 +136,27 @@ export function CollaboratorPanel({
       value === 'inside' ? 'inside' : value === 'both' ? 'both' : 'top'
     setTrackingPosition(next)
     window.localStorage.setItem(TRACKING_POSITION_STORAGE_KEY, next)
+  }
+
+  function handleStatusChange(value: string) {
+    setStatusFilter(value)
+    if (syncWithUrl) {
+      replaceQuery({ status: value === 'abertas' ? null : value })
+    }
+  }
+
+  function handleResponsavelChange(value: string) {
+    setResponsavelFilter(value)
+    if (syncWithUrl) {
+      replaceQuery({ responsavel: value === 'todos' ? null : value })
+    }
+  }
+
+  function handleUnidadeChange(value: string) {
+    setUnidadeFilter(value)
+    if (syncWithUrl) {
+      replaceQuery({ unidade: value === 'todas' ? null : value })
+    }
   }
 
   const notasByAdmin = useMemo(() => {
@@ -110,6 +193,14 @@ export function CollaboratorPanel({
       filtered = filtered.filter((n) => n.status === statusFilter)
     }
 
+    if (unidadeFilter && unidadeFilter !== 'todas') {
+      filtered = filtered.filter((n) => (n.centro ?? '') === unidadeFilter)
+    }
+
+    if (activeNotesKpi) {
+      filtered = filtered.filter((n) => matchNotesKpi(n, activeNotesKpi))
+    }
+
     if (search) {
       const q = search.toLowerCase()
       filtered = filtered.filter(
@@ -121,6 +212,46 @@ export function CollaboratorPanel({
 
     return filtered
   }
+
+  const filteredNotasSemAtribuir = useMemo(
+    () => filterNotas(notasSemAtribuir ?? []),
+    [notasSemAtribuir, statusFilter, unidadeFilter, activeNotesKpi, search]
+  )
+
+  const visibleCollaborators = useMemo(() => {
+    let list = collaborators
+
+    if (showResponsavelFilter && responsavelFilter && responsavelFilter !== 'todos') {
+      if (responsavelFilter === 'sem_atribuir') {
+        list = []
+      } else {
+        list = list.filter((c) => c.id === responsavelFilter)
+      }
+    }
+
+    const hasActiveFilter = Boolean(
+      search
+      || (statusFilter && statusFilter !== 'abertas')
+      || (unidadeFilter && unidadeFilter !== 'todas')
+      || activeNotesKpi
+      || (showResponsavelFilter && responsavelFilter && responsavelFilter !== 'todos')
+    )
+
+    if (hasActiveFilter) {
+      list = list.filter((collaborator) => filterNotas(notasByAdmin.get(collaborator.id) ?? []).length > 0)
+    }
+
+    return list
+  }, [
+    collaborators,
+    responsavelFilter,
+    showResponsavelFilter,
+    search,
+    statusFilter,
+    unidadeFilter,
+    activeNotesKpi,
+    notasByAdmin,
+  ])
 
   function handleCardClick(id: string) {
     setExpandedId((prev) => (prev === id ? null : id))
@@ -134,8 +265,8 @@ export function CollaboratorPanel({
   const showInsideTracking = isAdminViewer && (trackingPosition === 'inside' || trackingPosition === 'both')
 
   const semAtribuirCollaborator: CollaboratorData | null = useMemo(() => {
-    if (!notasSemAtribuir || notasSemAtribuir.length === 0) return null
-    const aging = buildAgingCounts(notasSemAtribuir)
+    if (!filteredNotasSemAtribuir || filteredNotasSemAtribuir.length === 0) return null
+    const aging = buildAgingCounts(filteredNotasSemAtribuir)
     return {
       id: 'sem-atribuir',
       nome: 'Sem Atribuir',
@@ -145,17 +276,52 @@ export function CollaboratorPanel({
       especialidade: 'geral',
       recebe_distribuicao: false,
       em_ferias: false,
-      qtd_nova: notasSemAtribuir.filter((n) => n.status === 'nova').length,
-      qtd_em_andamento: notasSemAtribuir.filter((n) => n.status === 'em_andamento').length,
-      qtd_encaminhada: notasSemAtribuir.filter((n) => n.status === 'encaminhada_fornecedor').length,
+      qtd_nova: filteredNotasSemAtribuir.filter((n) => n.status === 'nova').length,
+      qtd_em_andamento: filteredNotasSemAtribuir.filter((n) => n.status === 'em_andamento').length,
+      qtd_encaminhada: filteredNotasSemAtribuir.filter((n) => n.status === 'encaminhada_fornecedor').length,
       qtd_novo: aging.qtd_novo,
       qtd_1_dia: aging.qtd_1_dia,
       qtd_2_mais: aging.qtd_2_mais,
-      qtd_abertas: notasSemAtribuir.length,
+      qtd_abertas: filteredNotasSemAtribuir.length,
       qtd_concluidas: 0,
       qtd_acompanhamento_ordens: 0,
     }
-  }, [notasSemAtribuir])
+  }, [filteredNotasSemAtribuir])
+
+  const activeFilterChips = [
+    search ? { key: 'q', label: `Busca: ${search}` } : null,
+    statusFilter && statusFilter !== 'abertas' ? { key: 'status', label: `Status: ${statusFilter}` } : null,
+    showResponsavelFilter && responsavelFilter && responsavelFilter !== 'todos'
+      ? { key: 'responsavel', label: 'Responsavel filtrado' }
+      : null,
+    showUnidadeFilter && unidadeFilter && unidadeFilter !== 'todas'
+      ? { key: 'unidade', label: `Unidade: ${unidadeFilter}` }
+      : null,
+    activeNotesKpi ? { key: 'kpi', label: `KPI: ${activeNotesKpi}` } : null,
+  ].filter(Boolean) as Array<{ key: string; label: string }>
+
+  function clearFilter(filterKey: string) {
+    if (filterKey === 'q') {
+      setSearch('')
+      replaceQuery({ q: null })
+      return
+    }
+    if (filterKey === 'status') {
+      handleStatusChange('abertas')
+      return
+    }
+    if (filterKey === 'responsavel') {
+      handleResponsavelChange('todos')
+      return
+    }
+    if (filterKey === 'unidade') {
+      handleUnidadeChange('todas')
+      return
+    }
+    if (filterKey === 'kpi') {
+      replaceQuery({ kpi: null })
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -177,7 +343,7 @@ export function CollaboratorPanel({
           />
         </div>
 
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter} onValueChange={handleStatusChange}>
           <SelectTrigger className="w-full xl:w-44">
             <SelectValue placeholder="Filtrar status" />
           </SelectTrigger>
@@ -191,6 +357,36 @@ export function CollaboratorPanel({
             <SelectItem value="cancelada">Canceladas</SelectItem>
           </SelectContent>
         </Select>
+
+        {showResponsavelFilter && responsavelOptions.length > 0 && (
+          <Select value={responsavelFilter} onValueChange={handleResponsavelChange}>
+            <SelectTrigger className="w-full xl:w-56">
+              <SelectValue placeholder="Responsavel" />
+            </SelectTrigger>
+            <SelectContent>
+              {responsavelOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {showUnidadeFilter && unidadeOptions.length > 0 && (
+          <Select value={unidadeFilter} onValueChange={handleUnidadeChange}>
+            <SelectTrigger className="w-full xl:w-48">
+              <SelectValue placeholder="Unidade" />
+            </SelectTrigger>
+            <SelectContent>
+              {unidadeOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <Select value={viewMode} onValueChange={handleViewModeChange}>
           <SelectTrigger className="w-full xl:w-48">
@@ -226,11 +422,26 @@ export function CollaboratorPanel({
         )}
       </div>
 
+      {activeFilterChips.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {activeFilterChips.map((chip) => (
+            <button
+              key={chip.key}
+              type="button"
+              className="rounded-full border px-3 py-1 text-xs text-muted-foreground hover:bg-muted/50"
+              onClick={() => clearFilter(chip.key)}
+            >
+              {chip.label} ×
+            </button>
+          ))}
+        </div>
+      )}
+
       {viewMode === 'list' ? (
         <>
           <div className="sticky top-14 z-40 bg-background/95 pb-3 pt-1 backdrop-blur">
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              {collaborators.map((c) => (
+              {visibleCollaborators.map((c) => (
                 <CollaboratorMiniCard
                   key={c.id}
                   collaborator={c}
@@ -239,7 +450,7 @@ export function CollaboratorPanel({
                 />
               ))}
 
-              {mode === 'viewer' && notasSemAtribuir && notasSemAtribuir.length > 0 && (
+              {mode === 'viewer' && semAtribuirCollaborator && filteredNotasSemAtribuir.length > 0 && (
                 <Card
                   onClick={() => handleCardClick('sem-atribuir')}
                   className={`cursor-pointer border-orange-200 p-3 transition-all hover:shadow-md ${
@@ -253,7 +464,7 @@ export function CollaboratorPanel({
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-orange-700">Sem Atribuir</p>
                       <span className="inline-flex items-center rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-700">
-                        {notasSemAtribuir.length} nota{notasSemAtribuir.length !== 1 ? 's' : ''}
+                        {filteredNotasSemAtribuir.length} nota{filteredNotasSemAtribuir.length !== 1 ? 's' : ''}
                       </span>
                     </div>
                   </div>
@@ -262,7 +473,7 @@ export function CollaboratorPanel({
             </div>
           </div>
 
-          {collaborators.map((c) => {
+          {visibleCollaborators.map((c) => {
             const filtered = filterNotas(notasByAdmin.get(c.id) ?? [])
             const tracking = showInsideTracking && c.id === currentAdminId ? ordensAcompanhamento : undefined
             return (
@@ -283,10 +494,10 @@ export function CollaboratorPanel({
             )
           })}
 
-          {mode === 'viewer' && semAtribuirCollaborator && notasSemAtribuir && notasSemAtribuir.length > 0 && (
+          {mode === 'viewer' && semAtribuirCollaborator && filteredNotasSemAtribuir.length > 0 && (
             <CollaboratorAccordion
               collaborator={semAtribuirCollaborator}
-              notas={filterNotas(notasSemAtribuir)}
+              notas={filteredNotasSemAtribuir}
               isOpen={expandedId === 'sem-atribuir'}
               viewMode="list"
             />
@@ -294,7 +505,7 @@ export function CollaboratorPanel({
         </>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          {collaborators.map((c) => {
+          {visibleCollaborators.map((c) => {
             const filtered = filterNotas(notasByAdmin.get(c.id) ?? [])
             const tracking = showInsideTracking && c.id === currentAdminId ? ordensAcompanhamento : undefined
             return (
@@ -313,10 +524,10 @@ export function CollaboratorPanel({
             )
           })}
 
-          {mode === 'viewer' && semAtribuirCollaborator && notasSemAtribuir && notasSemAtribuir.length > 0 && (
+          {mode === 'viewer' && semAtribuirCollaborator && filteredNotasSemAtribuir.length > 0 && (
             <CollaboratorFullCard
               collaborator={semAtribuirCollaborator}
-              notas={filterNotas(notasSemAtribuir)}
+              notas={filteredNotasSemAtribuir}
             />
           )}
         </div>

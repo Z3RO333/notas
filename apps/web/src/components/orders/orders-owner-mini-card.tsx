@@ -1,20 +1,11 @@
 import { Card } from '@/components/ui/card'
+import { Avatar } from '@/components/ui/avatar'
 import type { OrderOwnerGroup } from '@/lib/types/database'
 
 interface OrdersOwnerMiniCardProps {
   group: OrderOwnerGroup
   isExpanded: boolean
   onClick: () => void
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase()
 }
 
 export function OrdersOwnerMiniCard({
@@ -30,9 +21,7 @@ export function OrdersOwnerMiniCard({
       }`}
     >
       <div className="flex items-center gap-2.5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-          {getInitials(group.nome)}
-        </div>
+        <Avatar src={group.avatar_url} nome={group.nome} size="md" />
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{group.nome}</p>
