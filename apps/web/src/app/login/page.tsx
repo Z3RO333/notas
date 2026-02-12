@@ -28,21 +28,28 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const supabase = createClient()
+    try {
+      const supabase = createClient()
 
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: email.toLowerCase().trim(),
+        password,
+      })
 
-    if (authError) {
-      setError('Email ou senha invalidos.')
+      if (authError) {
+        setError(authError.message === 'Email not confirmed'
+          ? 'Email nao confirmado. Tente cadastrar novamente.'
+          : 'Email ou senha invalidos.')
+        return
+      }
+
+      router.push('/')
+      router.refresh()
+    } catch {
+      setError('Erro inesperado. Tente novamente.')
+    } finally {
       setLoading(false)
-      return
     }
-
-    router.push('/')
-    router.refresh()
   }
 
   async function handleRegister(e: React.FormEvent) {
