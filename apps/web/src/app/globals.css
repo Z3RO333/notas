@@ -33,3 +33,18 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Accordion animation */
+.accordion-grid {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 300ms ease-out;
+}
+
+.accordion-grid[data-state="open"] {
+  grid-template-rows: 1fr;
+}
+
+.accordion-grid > .accordion-content {
+  overflow: hidden;
+}

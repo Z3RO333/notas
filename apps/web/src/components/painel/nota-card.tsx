@@ -5,9 +5,18 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { CheckCircle, Loader2 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { NotaStatusBadge } from '@/components/notas/nota-status-badge'
+import { useToast } from '@/components/ui/toast'
 import { concluirNotaRapida } from '@/lib/actions/nota-actions'
-import type { NotaManutencao } from '@/lib/types/database'
+import type { NotaPanelData } from '@/lib/types/database'
 
 const prioridadeLabel: Record<string, string> = {
   '1': 'Muito Alta',
@@ -24,87 +33,119 @@ const prioridadeColor: Record<string, string> = {
 }
 
 interface NotaCardProps {
-  nota: NotaManutencao
+  nota: NotaPanelData
 }
 
 export function NotaCard({ nota }: NotaCardProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const prioridadeCor = nota.prioridade ? (prioridadeColor[nota.prioridade] || 'border-l-gray-300') : 'border-l-gray-300'
 
   const canConclude = nota.administrador_id && (nota.status === 'em_andamento' || nota.status === 'encaminhada_fornecedor')
 
-  async function handleConcluir(e: React.MouseEvent) {
+  function handleConcluirClick(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
+    setConfirmOpen(true)
+  }
 
-    if (!nota.administrador_id || loading) return
-
-    const confirmed = window.confirm(`Concluir nota #${nota.numero_nota}?`)
-    if (!confirmed) return
+  async function handleConfirm() {
+    if (loading) return
 
     setLoading(true)
+    setConfirmOpen(false)
     try {
       await concluirNotaRapida({
         notaId: nota.id,
-        administradorId: nota.administrador_id,
+      })
+      toast({
+        variant: 'success',
+        title: 'Nota concluida',
+        description: `Nota #${nota.numero_nota} foi marcada como concluida.`,
       })
       router.refresh()
     } catch {
-      alert('Erro ao concluir nota. Tente pela pagina de detalhe.')
+      toast({
+        variant: 'error',
+        title: 'Erro ao concluir nota',
+        description: 'Nao foi possivel concluir a nota. Verifique sua conexao e tente novamente.',
+      })
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <Link href={`/notas/${nota.id}`}>
-      <div
-        className={`group rounded-lg border border-l-4 ${prioridadeCor} bg-card p-4 transition-all hover:shadow-md hover:border-l-primary cursor-pointer`}
-      >
-        <div className="flex items-start justify-between gap-2 mb-3">
-          <span className="font-mono text-sm font-bold text-foreground">
-            #{nota.numero_nota}
-          </span>
-          <div className="flex items-center gap-2">
-            {canConclude && (
-              <button
-                type="button"
-                onClick={handleConcluir}
-                disabled={loading}
-                className="flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
-                title="Concluir nota"
-              >
-                {loading ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <CheckCircle className="h-3.5 w-3.5" />
-                )}
-                Concluir
-              </button>
+    <>
+      <Link href={`/notas/${nota.id}`}>
+        <div
+          className={`group rounded-lg border border-l-4 ${prioridadeCor} bg-card p-4 transition-all hover:shadow-md hover:border-l-primary cursor-pointer`}
+        >
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <span className="font-mono text-sm font-bold text-foreground">
+              #{nota.numero_nota}
+            </span>
+            <div className="flex items-center gap-2">
+              {canConclude && (
+                <button
+                  type="button"
+                  onClick={handleConcluirClick}
+                  disabled={loading}
+                  className="flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
+                  title="Concluir nota"
+                >
+                  {loading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-3.5 w-3.5" />
+                  )}
+                  Concluir
+                </button>
+              )}
+              <NotaStatusBadge status={nota.status} />
+            </div>
+          </div>
+
+          <p className="text-sm text-foreground/80 line-clamp-2 mb-3 min-h-[2.5rem]">
+            {nota.descricao}
+          </p>
+
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex items-center gap-3">
+              {nota.centro && (
+                <span className="rounded bg-muted px-1.5 py-0.5">{nota.centro}</span>
+              )}
+              {nota.prioridade && (
+                <span>{prioridadeLabel[nota.prioridade] || nota.prioridade}</span>
+              )}
+            </div>
+            {nota.data_criacao_sap && (
+              <span>{format(new Date(nota.data_criacao_sap), 'dd/MM/yyyy')}</span>
             )}
-            <NotaStatusBadge status={nota.status} />
           </div>
         </div>
+      </Link>
 
-        <p className="text-sm text-foreground/80 line-clamp-2 mb-3 min-h-[2.5rem]">
-          {nota.descricao}
-        </p>
-
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <div className="flex items-center gap-3">
-            {nota.centro && (
-              <span className="rounded bg-muted px-1.5 py-0.5">{nota.centro}</span>
-            )}
-            {nota.prioridade && (
-              <span>{prioridadeLabel[nota.prioridade] || nota.prioridade}</span>
-            )}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Concluir nota #{nota.numero_nota}?</DialogTitle>
+            <DialogDescription>
+              Esta acao marcara a nota como concluida e sera registrada no historico. Tem certeza?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirm} disabled={loading} className="bg-green-600 hover:bg-green-700">
+              {loading ? 'Concluindo...' : 'Confirmar'}
+            </Button>
           </div>
-          {nota.data_criacao_sap && (
-            <span>{format(new Date(nota.data_criacao_sap), 'dd/MM/yyyy')}</span>
-          )}
-        </div>
-      </div>
-    </Link>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

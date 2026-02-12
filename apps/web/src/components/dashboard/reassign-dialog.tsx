@@ -11,7 +11,6 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
@@ -29,10 +28,9 @@ interface ReassignDialogProps {
   notaNumero: string
   currentAdminId: string | null
   admins: Administrador[]
-  gestorId: string
 }
 
-export function ReassignDialog({ notaId, notaNumero, currentAdminId, admins, gestorId }: ReassignDialogProps) {
+export function ReassignDialog({ notaId, notaNumero, currentAdminId, admins }: ReassignDialogProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [selectedAdmin, setSelectedAdmin] = useState('')
@@ -55,7 +53,6 @@ export function ReassignDialog({ notaId, notaNumero, currentAdminId, admins, ges
       await reatribuirNota({
         notaId,
         novoAdminId: selectedAdmin,
-        gestorId,
         motivo: motivo || undefined,
       })
       setOpen(false)
@@ -86,9 +83,9 @@ export function ReassignDialog({ notaId, notaNumero, currentAdminId, admins, ges
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Novo Responsavel</label>
+            <label htmlFor="novo-responsavel" className="text-sm font-medium">Novo Responsavel</label>
             <Select value={selectedAdmin} onValueChange={setSelectedAdmin}>
-              <SelectTrigger>
+              <SelectTrigger id="novo-responsavel">
                 <SelectValue placeholder="Selecione o admin..." />
               </SelectTrigger>
               <SelectContent>
@@ -101,8 +98,9 @@ export function ReassignDialog({ notaId, notaNumero, currentAdminId, admins, ges
             </Select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Motivo (opcional)</label>
+            <label htmlFor="motivo-reatribuicao" className="text-sm font-medium">Motivo (opcional)</label>
             <Textarea
+              id="motivo-reatribuicao"
               placeholder="Motivo da reatribuicao..."
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}

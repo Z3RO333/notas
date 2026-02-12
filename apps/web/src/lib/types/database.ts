@@ -12,7 +12,7 @@ export type UserRole = 'admin' | 'gestor'
 
 export interface Administrador {
   id: string
-  auth_user_id: string
+  auth_user_id: string | null
   nome: string
   email: string
   role: UserRole
@@ -20,6 +20,9 @@ export interface Administrador {
   max_notas: number
   avatar_url: string | null
   especialidade: string | null
+  recebe_distribuicao: boolean
+  em_ferias: boolean
+  motivo_bloqueio: string | null
   created_at: string
   updated_at: string
 }
@@ -94,6 +97,8 @@ export interface CargaAdministrador {
   max_notas: number
   avatar_url: string | null
   especialidade: Especialidade
+  recebe_distribuicao: boolean
+  em_ferias: boolean
   qtd_nova: number
   qtd_em_andamento: number
   qtd_encaminhada: number
@@ -110,6 +115,12 @@ export interface ProdutividadeMensal {
   mes: string
   qtd_concluidas: number
 }
+
+// Campos minimos que NotaCard e CollaboratorPanel precisam
+export type NotaPanelData = Pick<NotaManutencao,
+  'id' | 'numero_nota' | 'descricao' | 'status' | 'administrador_id' |
+  'prioridade' | 'centro' | 'data_criacao_sap'
+>
 
 export interface NotaResumo {
   id: string
@@ -129,4 +140,16 @@ export interface DistribuicaoLog {
   notas_abertas_no_momento: number
   sync_id: string | null
   created_at: string
+}
+
+export interface AdminAuditLog {
+  id: string
+  gestor_id: string
+  acao: string
+  alvo_id: string | null
+  detalhes: Record<string, unknown> | null
+  created_at: string
+  // Joined
+  gestor?: { nome: string } | null
+  alvo?: { nome: string } | null
 }

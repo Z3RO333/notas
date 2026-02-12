@@ -1,17 +1,33 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Wrench, ClipboardList, BarChart3 } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { Wrench, ClipboardList, Shield, LogOut } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
-const links = [
-  { href: '/', label: 'Painel de Ordens', icon: ClipboardList },
-  { href: '/gestor', label: 'Visao Geral', icon: BarChart3 },
-]
+interface TopNavProps {
+  userName?: string | null
+  userRole?: string | null
+}
 
-export function TopNav() {
+export function TopNav({ userName, userRole }: TopNavProps) {
   const pathname = usePathname()
+  const router = useRouter()
+
+  const links = [
+    { href: '/', label: 'Painel de Ordens', icon: ClipboardList },
+    ...(userRole === 'gestor'
+      ? [{ href: '/admin', label: 'Admin', icon: Shield }]
+      : []),
+  ]
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -23,7 +39,7 @@ export function TopNav() {
           <span className="text-lg font-bold tracking-tight">Cockpit</span>
         </Link>
 
-        <nav className="flex items-center gap-1">
+        <nav className="flex items-center gap-1 flex-1">
           {links.map((link) => {
             const Icon = link.icon
             const isActive = link.href === '/'
@@ -47,6 +63,23 @@ export function TopNav() {
             )
           })}
         </nav>
+
+        <div className="flex items-center gap-3">
+          {userName && (
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              {userName}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+            title="Sair"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Sair</span>
+          </button>
+        </div>
       </div>
     </header>
   )

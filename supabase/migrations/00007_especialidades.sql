@@ -1,7 +1,8 @@
 -- 00007_especialidades.sql
 -- Regras de distribuicao por especialidade
 
--- Adiciona grupo de especialidade aos administradores
+-- Adiciona avatar_url e grupo de especialidade aos administradores
+ALTER TABLE public.administradores ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE public.administradores ADD COLUMN IF NOT EXISTS especialidade TEXT DEFAULT 'geral';
 
 -- Tabela de palavras-chave para matching

@@ -1,16 +1,36 @@
 import { createClient } from '@/lib/supabase/server'
 import { StatsCards } from '@/components/dashboard/stats-cards'
 import { LoadChart } from '@/components/dashboard/load-chart'
-import { DistributionTable } from '@/components/dashboard/distribution-table'
 import { SyncHealth } from '@/components/dashboard/sync-health'
 import { DistributeButton } from '@/components/dashboard/distribute-button'
 import { ProductivityTable } from '@/components/dashboard/productivity-table'
+import { CollaboratorPanel } from '@/components/collaborator/collaborator-panel'
 import { RealtimeListener } from '@/components/notas/realtime-listener'
+import type { CargaAdministrador, NotaPanelData } from '@/lib/types/database'
+import type { CollaboratorData } from '@/lib/types/collaborator'
 
 export const dynamic = 'force-dynamic'
 
-export default async function GestorPage() {
-  const supabase = createClient()
+function toCargaCollaboratorData(c: CargaAdministrador): CollaboratorData {
+  return {
+    id: c.id,
+    nome: c.nome,
+    ativo: c.ativo,
+    max_notas: c.max_notas,
+    avatar_url: c.avatar_url,
+    especialidade: c.especialidade,
+    recebe_distribuicao: c.recebe_distribuicao,
+    em_ferias: c.em_ferias,
+    qtd_nova: c.qtd_nova,
+    qtd_em_andamento: c.qtd_em_andamento,
+    qtd_encaminhada: c.qtd_encaminhada,
+    qtd_abertas: c.qtd_abertas,
+    qtd_concluidas: c.qtd_concluidas,
+  }
+}
+
+export default async function AdminDashboardPage() {
+  const supabase = await createClient()
 
   const [cargaResult, syncResult, unassignedResult, adminsResult, prodResult, notasResult] = await Promise.all([
     supabase.from('vw_carga_administradores').select('*').order('qtd_abertas', { ascending: false }),
@@ -22,10 +42,9 @@ export default async function GestorPage() {
       .eq('status', 'nova'),
     supabase.from('administradores').select('id, ativo').eq('role', 'admin'),
     supabase.from('vw_produtividade_mensal').select('*').order('mes', { ascending: false }),
-    // Todas as notas com admin atribuido (abertas + concluidas)
     supabase
       .from('notas_manutencao')
-      .select('id, numero_nota, descricao, status, administrador_id, distribuida_em, updated_at, data_criacao_sap')
+      .select('id, numero_nota, descricao, status, administrador_id, distribuida_em, updated_at, data_criacao_sap, prioridade, centro, ordem_sap')
       .not('administrador_id', 'is', null)
       .in('status', ['nova', 'em_andamento', 'encaminhada_fornecedor', 'concluida'])
       .order('updated_at', { ascending: false })
@@ -38,7 +57,6 @@ export default async function GestorPage() {
   const produtividade = prodResult.data ?? []
   const todasNotas = notasResult.data ?? []
 
-  // Separa concluidas pra produtividade
   const notasConcluidas = todasNotas.filter((n) => n.status === 'concluida')
 
   const totalAbertas = carga.reduce((sum, a) => sum + a.qtd_abertas, 0)
@@ -57,11 +75,15 @@ export default async function GestorPage() {
   const notasSemAtribuir = unassignedResult.count ?? 0
   totals.nova += notasSemAtribuir
 
+  // Filtra gestores que nao recebem ordens e nao tem notas
+  const cargaVisivel = carga.filter((c) => c.recebe_distribuicao || c.qtd_abertas > 0)
+  const collaborators = cargaVisivel.map(toCargaCollaboratorData)
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Visao Geral</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Painel Administrativo</h1>
           <p className="text-sm text-muted-foreground">
             Acompanhamento da distribuicao e carga dos tecnicos
           </p>
@@ -70,6 +92,12 @@ export default async function GestorPage() {
       </div>
 
       <StatsCards {...totals} />
+
+      <CollaboratorPanel
+        collaborators={collaborators}
+        notas={todasNotas as NotaPanelData[]}
+        mode="admin"
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
@@ -82,8 +110,6 @@ export default async function GestorPage() {
           notasSemAtribuir={notasSemAtribuir}
         />
       </div>
-
-      <DistributionTable carga={carga} notas={todasNotas} />
 
       <ProductivityTable
         data={produtividade}
