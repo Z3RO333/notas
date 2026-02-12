@@ -10,6 +10,11 @@ export type NotaStatus =
 
 export type UserRole = 'admin' | 'gestor'
 export type OrderWindowFilter = 30 | 90 | 180
+export interface OrderReassignTarget {
+  id: string
+  nome: string
+}
+
 export type OrdemStatusAcomp =
   | 'aberta'
   | 'em_tratativa'

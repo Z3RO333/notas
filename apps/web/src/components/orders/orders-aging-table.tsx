@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { OrderReassignDialog } from '@/components/orders/order-reassign-dialog'
 import {
   getOrderStatusClass,
   getOrderStatusLabel,
@@ -8,13 +9,20 @@ import {
   getSemaforoLabel,
   sortOrdersByPriority,
 } from '@/lib/orders/metrics'
-import type { OrdemNotaAcompanhamento } from '@/lib/types/database'
+import type {
+  OrdemNotaAcompanhamento,
+  OrderReassignTarget,
+  UserRole,
+} from '@/lib/types/database'
 
 interface OrdersAgingTableProps {
   rows: OrdemNotaAcompanhamento[]
   title?: string
   maxRows?: number
   showAdminColumns?: boolean
+  canReassign?: boolean
+  reassignTargets?: OrderReassignTarget[]
+  currentUserRole?: UserRole | null
 }
 
 export function OrdersAgingTable({
@@ -22,8 +30,12 @@ export function OrdersAgingTable({
   title = 'Ordens em acompanhamento',
   maxRows = 20,
   showAdminColumns = true,
+  canReassign = false,
+  reassignTargets = [],
+  currentUserRole = null,
 }: OrdersAgingTableProps) {
   const sorted = sortOrdersByPriority(rows).slice(0, maxRows)
+  const canShowReassign = canReassign && currentUserRole === 'gestor'
 
   return (
     <Card>
@@ -36,16 +48,15 @@ export function OrdersAgingTable({
         ) : (
           <div className="space-y-2">
             {sorted.map((row) => (
-              <Link
+              <div
                 key={row.ordem_id}
-                href={`/notas/${row.nota_id}`}
-                className="flex flex-col gap-2 rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/30"
+                className="space-y-2 rounded-lg border px-3 py-2.5"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="min-w-0">
+                  <Link href={`/notas/${row.nota_id}`} className="min-w-0 flex-1 rounded-sm transition-colors hover:bg-muted/30">
                     <p className="font-mono text-sm font-semibold">#{row.numero_nota} • Ordem {row.ordem_codigo}</p>
                     <p className="truncate text-xs text-muted-foreground">{row.descricao ?? 'Sem descricao'}</p>
-                  </div>
+                  </Link>
                   <div className="flex items-center gap-1.5">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${getSemaforoClass(row.semaforo_atraso)}`}>
                       {getSemaforoLabel(row.semaforo_atraso)}
@@ -53,6 +64,15 @@ export function OrdersAgingTable({
                     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${getOrderStatusClass(row.status_ordem)}`}>
                       {getOrderStatusLabel(row.status_ordem)}
                     </span>
+                    {canShowReassign && (
+                      <OrderReassignDialog
+                        notaId={row.nota_id}
+                        notaNumero={row.numero_nota}
+                        ordemCodigo={row.ordem_codigo}
+                        currentAdminId={row.responsavel_atual_id}
+                        admins={reassignTargets}
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -76,7 +96,7 @@ export function OrdersAgingTable({
                     Detectada em {format(new Date(row.ordem_detectada_em), 'dd/MM/yyyy')}
                   </span>
                 </div>
-              </Link>
+              </div>
             ))}
 
             {rows.length > maxRows && (
