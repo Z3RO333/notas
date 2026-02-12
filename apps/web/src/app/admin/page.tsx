@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { DistributeButton } from '@/components/dashboard/distribute-button'
+import { DashboardHeaderActions } from '@/components/dashboard/dashboard-header-actions'
 import { KpiStrip } from '@/components/dashboard/kpi-strip'
 import { ThroughputTrend } from '@/components/dashboard/throughput-trend'
 import { TeamCapacity } from '@/components/dashboard/team-capacity'
@@ -129,7 +130,10 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
             Visao executiva e operacional da distribuicao de notas
           </p>
         </div>
-        <DistributeButton />
+        <div className="flex items-center gap-2">
+          <DashboardHeaderActions />
+          <DistributeButton />
+        </div>
       </div>
 
       <KpiStrip items={kpis} />

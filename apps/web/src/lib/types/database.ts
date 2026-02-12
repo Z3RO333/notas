@@ -199,6 +199,31 @@ export interface OrderOwnerGroup {
   total: number
 }
 
+export interface GridSortState {
+  field: string
+  direction: 'asc' | 'desc'
+}
+
+export interface GridFilterState {
+  q?: string
+  status?: string
+  responsavel?: string
+  unidade?: string
+}
+
+export interface GridPaginationState {
+  page: number
+  pageSize: number
+  total: number
+}
+
+export interface SavedUserViewPreferences {
+  density: 'compact' | 'comfortable'
+  hiddenColumns: string[]
+  ownerMode?: OrderOwnerMode
+  autoRefreshSec: number
+}
+
 export interface OrdemNotaHistorico {
   id: string
   ordem_id: string

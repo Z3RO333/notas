@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { useToast } from '@/components/ui/toast'
 import type { OrderReassignTarget } from '@/lib/types/database'
 
 type BulkReassignMode = 'destino_unico' | 'round_robin'
@@ -39,6 +40,7 @@ export function OrdersBulkReassignBar({
   onReassigned,
 }: OrdersBulkReassignBarProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<BulkReassignMode>('destino_unico')
   const [destinationAdminId, setDestinationAdminId] = useState('')
@@ -64,18 +66,23 @@ export function OrdersBulkReassignBar({
     setError('')
 
     try {
-      const rows = await reatribuirOrdensSelecionadas({
+      const result = await reatribuirOrdensSelecionadas({
         notaIds: selectedNotaIds,
         modo: mode,
         adminDestinoId: isDestinationRequired ? destinationAdminId : undefined,
         motivo: motivo || undefined,
       })
 
-      onReassigned?.(rows.length)
+      onReassigned?.(result.movedCount)
       setOpen(false)
       setMotivo('')
       if (mode === 'destino_unico') setDestinationAdminId('')
       onClearSelection()
+      toast({
+        title: 'Reatribuicao concluida',
+        description: `Movidas: ${result.movedCount} | Puladas: ${result.skippedCount}`,
+        variant: 'success',
+      })
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao reatribuir ordens selecionadas')

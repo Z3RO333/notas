@@ -37,7 +37,7 @@ export async function GET(request: Request) {
           .eq('email', user.email)
       }
 
-      return NextResponse.redirect(`${origin}/`)
+      return NextResponse.redirect(`${origin}/api/auth/landing`)
     }
   }
 

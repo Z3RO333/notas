@@ -44,7 +44,7 @@ export default function LoginPage() {
         return
       }
 
-      window.location.href = '/'
+      window.location.href = '/api/auth/landing'
     } catch {
       setError('Erro inesperado. Tente novamente.')
       setLoading(false)
@@ -107,7 +107,7 @@ export default function LoginPage() {
 
       // Se signUp ja retornou sessao, redireciona direto
       if (signUpData.session) {
-        window.location.href = '/'
+        window.location.href = '/api/auth/landing'
         return
       }
 
@@ -124,7 +124,7 @@ export default function LoginPage() {
         return
       }
 
-      window.location.href = '/'
+      window.location.href = '/api/auth/landing'
     } catch {
       setError('Erro inesperado. Tente novamente.')
       setLoading(false)

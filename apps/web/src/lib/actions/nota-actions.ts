@@ -8,6 +8,7 @@ function revalidateCockpitPaths() {
   revalidatePath('/ordens')
   revalidatePath('/admin')
   revalidatePath('/admin/distribuicao')
+  revalidatePath('/admin/pessoas')
   revalidatePath('/admin/auditoria')
 }
 
