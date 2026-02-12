@@ -3,6 +3,13 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
+function revalidateCockpitPaths() {
+  revalidatePath('/')
+  revalidatePath('/admin')
+  revalidatePath('/admin/distribuicao')
+  revalidatePath('/admin/auditoria')
+}
+
 async function getLoggedAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -18,6 +25,20 @@ async function getLoggedAdmin() {
   if (!admin) throw new Error('Administrador nao encontrado')
 
   return { supabase, admin }
+}
+
+async function logAudit(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  gestorId: string,
+  alvoId: string | null,
+  detalhes: Record<string, unknown>
+) {
+  await supabase.from('admin_audit_log').insert({
+    gestor_id: gestorId,
+    acao: 'reatribuir_nota',
+    alvo_id: alvoId,
+    detalhes,
+  })
 }
 
 export async function atualizarStatusNota(params: {
@@ -42,8 +63,7 @@ export async function atualizarStatusNota(params: {
 
   if (error) throw new Error(error.message)
 
-  revalidatePath('/')
-  revalidatePath('/admin')
+  revalidateCockpitPaths()
 }
 
 export async function reatribuirNota(params: {
@@ -52,6 +72,9 @@ export async function reatribuirNota(params: {
   motivo?: string
 }) {
   const { supabase, admin } = await getLoggedAdmin()
+  if (admin.role !== 'gestor') {
+    throw new Error('Sem permissao: apenas gestor pode reatribuir notas')
+  }
 
   const { error } = await supabase.rpc('reatribuir_nota', {
     p_nota_id: params.notaId,
@@ -62,8 +85,13 @@ export async function reatribuirNota(params: {
 
   if (error) throw new Error(error.message)
 
-  revalidatePath('/')
-  revalidatePath('/admin')
+  await logAudit(supabase, admin.id, params.novoAdminId, {
+    nota_id: params.notaId,
+    novo_admin_id: params.novoAdminId,
+    motivo: params.motivo ?? null,
+  })
+
+  revalidateCockpitPaths()
 }
 
 export async function concluirNotaRapida(params: {
@@ -83,8 +111,7 @@ export async function concluirNotaRapida(params: {
 
   if (error) throw new Error(error.message)
 
-  revalidatePath('/')
-  revalidatePath('/admin')
+  revalidateCockpitPaths()
 }
 
 export async function distribuirNotasManual() {
@@ -96,8 +123,7 @@ export async function distribuirNotasManual() {
 
   if (error) throw new Error(error.message)
 
-  revalidatePath('/')
-  revalidatePath('/admin')
+  revalidateCockpitPaths()
 
   return data?.length ?? 0
 }

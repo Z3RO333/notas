@@ -1,13 +1,17 @@
 import { createClient } from '@/lib/supabase/server'
 import { CollaboratorPanel } from '@/components/collaborator/collaborator-panel'
+import { buildAgingCounts } from '@/lib/collaborator/metrics'
 import type { CargaAdministrador, NotaPanelData } from '@/lib/types/database'
 import type { CollaboratorData } from '@/lib/types/collaborator'
 
 export const dynamic = 'force-dynamic'
 
-const NOTA_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, data_criacao_sap' as const
+const NOTA_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, data_criacao_sap, created_at' as const
 
-function toCargaCollaboratorData(c: CargaAdministrador): CollaboratorData {
+function toCargaCollaboratorData(c: CargaAdministrador, notas: NotaPanelData[]): CollaboratorData {
+  const adminNotas = notas.filter((n) => n.administrador_id === c.id)
+  const aging = buildAgingCounts(adminNotas)
+
   return {
     id: c.id,
     nome: c.nome,
@@ -20,15 +24,19 @@ function toCargaCollaboratorData(c: CargaAdministrador): CollaboratorData {
     qtd_nova: c.qtd_nova,
     qtd_em_andamento: c.qtd_em_andamento,
     qtd_encaminhada: c.qtd_encaminhada,
+    qtd_novo: aging.qtd_novo,
+    qtd_1_dia: aging.qtd_1_dia,
+    qtd_2_mais: aging.qtd_2_mais,
     qtd_abertas: c.qtd_abertas,
     qtd_concluidas: c.qtd_concluidas,
+    qtd_acompanhamento_ordens: 0,
   }
 }
 
 export default async function DistribuicaoPage() {
   const supabase = await createClient()
 
-  const [cargaResult, notasResult] = await Promise.all([
+  const [cargaResult, notasResult, adminIdsResult] = await Promise.all([
     supabase.from('vw_carga_administradores').select('*').order('nome'),
     supabase
       .from('notas_manutencao')
@@ -36,9 +44,14 @@ export default async function DistribuicaoPage() {
       .not('administrador_id', 'is', null)
       .in('status', ['nova', 'em_andamento', 'encaminhada_fornecedor'])
       .order('data_criacao_sap', { ascending: true }),
+    supabase
+      .from('administradores')
+      .select('id')
+      .eq('role', 'admin'),
   ])
 
-  const carga = (cargaResult.data ?? []) as CargaAdministrador[]
+  const adminIds = new Set((adminIdsResult.data ?? []).map((a) => a.id))
+  const carga = ((cargaResult.data ?? []) as CargaAdministrador[]).filter((item) => adminIds.has(item.id))
   const notas = (notasResult.data ?? []) as NotaPanelData[]
 
   // Ordena: disponiveis primeiro, indisponiveis ao final
@@ -49,7 +62,7 @@ export default async function DistribuicaoPage() {
     if (!aOk && bOk) return 1
     return 0
   })
-  const collaborators = sorted.map(toCargaCollaboratorData)
+  const collaborators = sorted.map((item) => toCargaCollaboratorData(item, notas))
 
   const totalAtivos = carga.filter((a) => a.ativo).length
   const recebendo = carga.filter((a) => a.ativo && a.recebe_distribuicao && !a.em_ferias).length

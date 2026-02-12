@@ -69,17 +69,23 @@ export function CollaboratorMiniCard({ collaborator, isExpanded, onClick }: Coll
         </div>
       </div>
 
-      {/* Mini metrics */}
+      {/* Mini metrics por atraso */}
       <div className="flex gap-1.5 mt-2">
-        <span className="flex-1 text-center rounded bg-blue-50 py-0.5 text-xs font-bold text-blue-700">
-          {collaborator.qtd_nova}
+        <span className="flex-1 text-center rounded bg-emerald-50 py-0.5 text-xs font-bold text-emerald-700">
+          {collaborator.qtd_novo}
         </span>
-        <span className="flex-1 text-center rounded bg-yellow-50 py-0.5 text-xs font-bold text-yellow-700">
-          {collaborator.qtd_em_andamento}
+        <span className="flex-1 text-center rounded bg-amber-50 py-0.5 text-xs font-bold text-amber-700">
+          {collaborator.qtd_1_dia}
         </span>
-        <span className="flex-1 text-center rounded bg-purple-50 py-0.5 text-xs font-bold text-purple-700">
-          {collaborator.qtd_encaminhada}
+        <span className="flex-1 text-center rounded bg-red-50 py-0.5 text-xs font-bold text-red-700">
+          {collaborator.qtd_2_mais}
         </span>
+      </div>
+
+      <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+        <span>Novo</span>
+        <span>1 dia</span>
+        <span>2+ dias</span>
       </div>
 
       {/* Load bar */}

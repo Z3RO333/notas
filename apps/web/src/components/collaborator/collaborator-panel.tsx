@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Search, AlertCircle } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { AlertCircle, LayoutGrid, Rows3, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
 import {
   Select,
   SelectContent,
@@ -10,31 +11,71 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Card } from '@/components/ui/card'
+import { buildAgingCounts } from '@/lib/collaborator/metrics'
 import { CollaboratorMiniCard } from './collaborator-mini-card'
 import { CollaboratorAccordion } from './collaborator-accordion'
 import { CollaboratorAdminActions } from './collaborator-admin-actions'
-import type { CollaboratorData } from '@/lib/types/collaborator'
-import type { NotaPanelData } from '@/lib/types/database'
+import { CollaboratorFullCard } from './collaborator-full-card'
+import { TrackingOrdersBlock } from './tracking-orders-block'
+import type {
+  CollaboratorData,
+  NotesViewMode,
+  TrackingPositionMode,
+} from '@/lib/types/collaborator'
+import type { NotaPanelData, OrdemAcompanhamento } from '@/lib/types/database'
 
 interface CollaboratorPanelProps {
   collaborators: CollaboratorData[]
   notas: NotaPanelData[]
   mode: 'viewer' | 'admin'
   notasSemAtribuir?: NotaPanelData[]
+  currentAdminId?: string | null
+  currentAdminRole?: string | null
+  ordensAcompanhamento?: OrdemAcompanhamento[]
 }
+
+const VIEW_MODE_STORAGE_KEY = 'cockpit:panel:view-mode'
+const TRACKING_POSITION_STORAGE_KEY = 'cockpit:panel:tracking-position'
 
 export function CollaboratorPanel({
   collaborators,
   notas,
   mode,
   notasSemAtribuir,
+  currentAdminId,
+  currentAdminRole,
+  ordensAcompanhamento = [],
 }: CollaboratorPanelProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('abertas')
+  const [viewMode, setViewMode] = useState<NotesViewMode>('list')
+  const [trackingPosition, setTrackingPosition] = useState<TrackingPositionMode>('top')
 
-  // Group notes by admin in a single pass O(N)
+  useEffect(() => {
+    const persistedViewMode = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY)
+    const persistedTrackingPosition = window.localStorage.getItem(TRACKING_POSITION_STORAGE_KEY)
+    if (persistedViewMode === 'list' || persistedViewMode === 'cards') {
+      setViewMode(persistedViewMode)
+    }
+    if (persistedTrackingPosition === 'top' || persistedTrackingPosition === 'inside' || persistedTrackingPosition === 'both') {
+      setTrackingPosition(persistedTrackingPosition)
+    }
+  }, [])
+
+  function handleViewModeChange(value: string) {
+    const next = value === 'cards' ? 'cards' : 'list'
+    setViewMode(next)
+    window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, next)
+  }
+
+  function handleTrackingPositionChange(value: string) {
+    const next: TrackingPositionMode =
+      value === 'inside' ? 'inside' : value === 'both' ? 'both' : 'top'
+    setTrackingPosition(next)
+    window.localStorage.setItem(TRACKING_POSITION_STORAGE_KEY, next)
+  }
+
   const notasByAdmin = useMemo(() => {
     const map = new Map<string, NotaPanelData[]>()
     for (const nota of notas) {
@@ -49,7 +90,17 @@ export function CollaboratorPanel({
     return map
   }, [notas])
 
-  // Filter notes for the expanded accordion
+  const destinationsByAdmin = useMemo(() => {
+    const map = new Map<string, Array<{ id: string; nome: string }>>()
+    for (const admin of collaborators) {
+      const dests = collaborators
+        .filter((item) => item.id !== admin.id && item.ativo && !item.em_ferias)
+        .map((item) => ({ id: item.id, nome: item.nome }))
+      map.set(admin.id, dests)
+    }
+    return map
+  }, [collaborators])
+
   function filterNotas(list: NotaPanelData[]) {
     let filtered = list
 
@@ -63,8 +114,8 @@ export function CollaboratorPanel({
       const q = search.toLowerCase()
       filtered = filtered.filter(
         (n) =>
-          n.numero_nota.toLowerCase().includes(q) ||
-          n.descricao.toLowerCase().includes(q)
+          n.numero_nota.toLowerCase().includes(q)
+          || n.descricao.toLowerCase().includes(q)
       )
     }
 
@@ -75,10 +126,47 @@ export function CollaboratorPanel({
     setExpandedId((prev) => (prev === id ? null : id))
   }
 
+  const isAdminViewer = mode === 'viewer' && currentAdminRole === 'admin'
+  const isGestorViewer = mode === 'viewer' && currentAdminRole === 'gestor'
+  const shouldShowTrackingControls = isAdminViewer
+  const showTopTracking = ordensAcompanhamento.length > 0
+    && (isGestorViewer || trackingPosition === 'top' || trackingPosition === 'both')
+  const showInsideTracking = isAdminViewer && (trackingPosition === 'inside' || trackingPosition === 'both')
+
+  const semAtribuirCollaborator: CollaboratorData | null = useMemo(() => {
+    if (!notasSemAtribuir || notasSemAtribuir.length === 0) return null
+    const aging = buildAgingCounts(notasSemAtribuir)
+    return {
+      id: 'sem-atribuir',
+      nome: 'Sem Atribuir',
+      ativo: true,
+      max_notas: 0,
+      avatar_url: null,
+      especialidade: 'geral',
+      recebe_distribuicao: false,
+      em_ferias: false,
+      qtd_nova: notasSemAtribuir.filter((n) => n.status === 'nova').length,
+      qtd_em_andamento: notasSemAtribuir.filter((n) => n.status === 'em_andamento').length,
+      qtd_encaminhada: notasSemAtribuir.filter((n) => n.status === 'encaminhada_fornecedor').length,
+      qtd_novo: aging.qtd_novo,
+      qtd_1_dia: aging.qtd_1_dia,
+      qtd_2_mais: aging.qtd_2_mais,
+      qtd_abertas: notasSemAtribuir.length,
+      qtd_concluidas: 0,
+      qtd_acompanhamento_ordens: 0,
+    }
+  }, [notasSemAtribuir])
+
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      {showTopTracking && (
+        <TrackingOrdersBlock
+          orders={ordensAcompanhamento}
+          title={currentAdminRole === 'gestor' ? 'Ordens em acompanhamento (visao gestor)' : 'Minhas ordens em acompanhamento'}
+        />
+      )}
+
+      <div className="flex flex-col gap-3 xl:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -88,8 +176,9 @@ export function CollaboratorPanel({
             className="pl-9"
           />
         </div>
+
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full xl:w-44">
             <SelectValue placeholder="Filtrar status" />
           </SelectTrigger>
           <SelectContent>
@@ -102,81 +191,135 @@ export function CollaboratorPanel({
             <SelectItem value="cancelada">Canceladas</SelectItem>
           </SelectContent>
         </Select>
+
+        <Select value={viewMode} onValueChange={handleViewModeChange}>
+          <SelectTrigger className="w-full xl:w-48">
+            <SelectValue placeholder="Visualizacao" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="list">
+              <div className="flex items-center gap-2">
+                <Rows3 className="h-4 w-4" />
+                Lista vertical
+              </div>
+            </SelectItem>
+            <SelectItem value="cards">
+              <div className="flex items-center gap-2">
+                <LayoutGrid className="h-4 w-4" />
+                Cards completos
+              </div>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        {shouldShowTrackingControls && (
+          <Select value={trackingPosition} onValueChange={handleTrackingPositionChange}>
+            <SelectTrigger className="w-full xl:w-48">
+              <SelectValue placeholder="Acompanhamento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="top">Acompanhamento no topo</SelectItem>
+              <SelectItem value="inside">Acompanhamento dentro</SelectItem>
+              <SelectItem value="both">Acompanhamento em ambos</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
-      {/* Sticky collaborator grid */}
-      <div className="sticky top-14 z-40 bg-background/95 backdrop-blur pt-1 pb-3">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5">
-          {collaborators.map((c) => (
-            <CollaboratorMiniCard
-              key={c.id}
-              collaborator={c}
-              isExpanded={expandedId === c.id}
-              onClick={() => handleCardClick(c.id)}
-            />
-          ))}
+      {viewMode === 'list' ? (
+        <>
+          <div className="sticky top-14 z-40 bg-background/95 pb-3 pt-1 backdrop-blur">
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+              {collaborators.map((c) => (
+                <CollaboratorMiniCard
+                  key={c.id}
+                  collaborator={c}
+                  isExpanded={expandedId === c.id}
+                  onClick={() => handleCardClick(c.id)}
+                />
+              ))}
 
-          {/* "Sem Atribuir" special card (viewer mode only) */}
-          {mode === 'viewer' && notasSemAtribuir && notasSemAtribuir.length > 0 && (
-            <Card
-              onClick={() => handleCardClick('sem-atribuir')}
-              className={`p-3 cursor-pointer transition-all hover:shadow-md border-orange-200 ${
-                expandedId === 'sem-atribuir' ? 'ring-2 ring-orange-500 bg-orange-50' : ''
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
-                  <AlertCircle className="h-5 w-5 text-orange-600" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-sm text-orange-700">Sem Atribuir</p>
-                  <span className="inline-flex items-center rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-700">
-                    {notasSemAtribuir.length} nota{notasSemAtribuir.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              </div>
-            </Card>
+              {mode === 'viewer' && notasSemAtribuir && notasSemAtribuir.length > 0 && (
+                <Card
+                  onClick={() => handleCardClick('sem-atribuir')}
+                  className={`cursor-pointer border-orange-200 p-3 transition-all hover:shadow-md ${
+                    expandedId === 'sem-atribuir' ? 'bg-orange-50 ring-2 ring-orange-500' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+                      <AlertCircle className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-orange-700">Sem Atribuir</p>
+                      <span className="inline-flex items-center rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-700">
+                        {notasSemAtribuir.length} nota{notasSemAtribuir.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+              )}
+            </div>
+          </div>
+
+          {collaborators.map((c) => {
+            const filtered = filterNotas(notasByAdmin.get(c.id) ?? [])
+            const tracking = showInsideTracking && c.id === currentAdminId ? ordensAcompanhamento : undefined
+            return (
+              <CollaboratorAccordion
+                key={c.id}
+                collaborator={c}
+                notas={filtered}
+                isOpen={expandedId === c.id}
+                viewMode="list"
+                adminActions={mode === 'admin' ? (
+                  <CollaboratorAdminActions
+                    admin={c}
+                    destinations={destinationsByAdmin.get(c.id) ?? []}
+                  />
+                ) : undefined}
+                trackingOrders={tracking}
+              />
+            )
+          })}
+
+          {mode === 'viewer' && semAtribuirCollaborator && notasSemAtribuir && notasSemAtribuir.length > 0 && (
+            <CollaboratorAccordion
+              collaborator={semAtribuirCollaborator}
+              notas={filterNotas(notasSemAtribuir)}
+              isOpen={expandedId === 'sem-atribuir'}
+              viewMode="list"
+            />
+          )}
+        </>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          {collaborators.map((c) => {
+            const filtered = filterNotas(notasByAdmin.get(c.id) ?? [])
+            const tracking = showInsideTracking && c.id === currentAdminId ? ordensAcompanhamento : undefined
+            return (
+              <CollaboratorFullCard
+                key={c.id}
+                collaborator={c}
+                notas={filtered}
+                adminActions={mode === 'admin' ? (
+                  <CollaboratorAdminActions
+                    admin={c}
+                    destinations={destinationsByAdmin.get(c.id) ?? []}
+                  />
+                ) : undefined}
+                trackingOrders={tracking}
+              />
+            )
+          })}
+
+          {mode === 'viewer' && semAtribuirCollaborator && notasSemAtribuir && notasSemAtribuir.length > 0 && (
+            <CollaboratorFullCard
+              collaborator={semAtribuirCollaborator}
+              notas={filterNotas(notasSemAtribuir)}
+            />
           )}
         </div>
-      </div>
-
-      {/* Accordion sections */}
-      {collaborators.map((c) => {
-        const adminNotas = notasByAdmin.get(c.id) ?? []
-        const filtered = filterNotas(adminNotas)
-
-        return (
-          <CollaboratorAccordion
-            key={c.id}
-            collaborator={c}
-            notas={filtered}
-            isOpen={expandedId === c.id}
-            adminActions={mode === 'admin' ? <CollaboratorAdminActions admin={c} /> : undefined}
-          />
-        )
-      })}
-
-      {/* Unassigned notes accordion (viewer mode) */}
-      {mode === 'viewer' && notasSemAtribuir && notasSemAtribuir.length > 0 && (
-        <CollaboratorAccordion
-          collaborator={{
-            id: 'sem-atribuir',
-            nome: 'Sem Atribuir',
-            ativo: true,
-            max_notas: 0,
-            avatar_url: null,
-            especialidade: 'geral',
-            recebe_distribuicao: false,
-            em_ferias: false,
-            qtd_nova: notasSemAtribuir.filter((n) => n.status === 'nova').length,
-            qtd_em_andamento: 0,
-            qtd_encaminhada: 0,
-            qtd_abertas: notasSemAtribuir.length,
-            qtd_concluidas: 0,
-          }}
-          notas={filterNotas(notasSemAtribuir)}
-          isOpen={expandedId === 'sem-atribuir'}
-        />
       )}
     </div>
   )
