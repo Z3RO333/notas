@@ -39,7 +39,7 @@ export function ReassignDialog({ notaId, notaNumero, currentAdminId, admins }: R
   const [error, setError] = useState('')
 
   const availableAdmins = admins.filter(
-    (a) => a.ativo && a.role === 'admin' && a.id !== currentAdminId
+    (a) => a.ativo && !a.em_ferias && a.role === 'admin' && a.id !== currentAdminId
   )
 
   async function handleSubmit(e: React.FormEvent) {
@@ -96,6 +96,11 @@ export function ReassignDialog({ notaId, notaNumero, currentAdminId, admins }: R
                 ))}
               </SelectContent>
             </Select>
+            {availableAdmins.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Nenhum administrador elegivel disponivel no momento.
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <label htmlFor="motivo-reatribuicao" className="text-sm font-medium">Motivo (opcional)</label>

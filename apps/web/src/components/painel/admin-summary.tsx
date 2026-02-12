@@ -1,28 +1,23 @@
-import { ClipboardList, AlertTriangle, CheckCircle } from 'lucide-react'
+import { CheckCircle, Clock3, Timer } from 'lucide-react'
+import { getAgingBucket, isOpenStatus } from '@/lib/collaborator/aging'
 import type { NotaPanelData } from '@/lib/types/database'
 
 interface AdminSummaryProps {
   notas: NotaPanelData[]
 }
 
-const ONE_DAY_MS = 24 * 60 * 60 * 1000
-
 export function AdminSummary({ notas }: AdminSummaryProps) {
-  const now = Date.now()
-
   const counts = {
-    nova: notas.filter((n) => n.status === 'nova').length,
-    aging: notas.filter((n) => {
-      if (n.status === 'concluida' || n.status === 'cancelada') return false
-      const created = n.data_criacao_sap ? new Date(n.data_criacao_sap).getTime() : 0
-      return created > 0 && now - created > ONE_DAY_MS
-    }).length,
+    novo: notas.filter((n) => isOpenStatus(n.status) && getAgingBucket(n) === 'novo').length,
+    umDia: notas.filter((n) => isOpenStatus(n.status) && getAgingBucket(n) === 'um_dia').length,
+    doisMais: notas.filter((n) => isOpenStatus(n.status) && getAgingBucket(n) === 'dois_mais').length,
     concluida: notas.filter((n) => n.status === 'concluida').length,
   }
 
   const items = [
-    { label: 'Novas', count: counts.nova, icon: ClipboardList, color: 'text-blue-600 bg-blue-50' },
-    { label: '> 24h', count: counts.aging, icon: AlertTriangle, color: 'text-red-600 bg-red-50' },
+    { label: 'Novo', count: counts.novo, icon: CheckCircle, color: 'text-emerald-700 bg-emerald-50' },
+    { label: '1 dia', count: counts.umDia, icon: Clock3, color: 'text-amber-700 bg-amber-50' },
+    { label: '2+ dias', count: counts.doisMais, icon: Timer, color: 'text-red-700 bg-red-50' },
     { label: 'Concluidas', count: counts.concluida, icon: CheckCircle, color: 'text-green-600 bg-green-50' },
   ]
 

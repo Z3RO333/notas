@@ -9,6 +9,13 @@ export type NotaStatus =
   | 'cancelada'
 
 export type UserRole = 'admin' | 'gestor'
+export type OrderWindowFilter = 30 | 90 | 180
+export type OrdemStatusAcomp =
+  | 'aberta'
+  | 'em_tratativa'
+  | 'concluida'
+  | 'cancelada'
+  | 'desconhecido'
 
 export interface Administrador {
   id: string
@@ -131,10 +138,100 @@ export interface DashboardProdutividade60d {
   concluidas_prev_30d: number
 }
 
+export interface OrdemAcompanhamento {
+  acompanhamento_id: string
+  nota_id: string
+  administrador_id: string
+  administrador_nome: string | null
+  responsavel_atual_id: string | null
+  responsavel_atual_nome: string | null
+  numero_nota: string
+  descricao: string
+  status: NotaStatus
+  ordem_gerada: string
+  data_criacao_sap: string | null
+  created_at: string
+  acompanhamento_em: string
+}
+
+export interface OrdemNotaAcompanhamento {
+  ordem_id: string
+  nota_id: string
+  numero_nota: string
+  ordem_codigo: string
+  administrador_id: string | null
+  administrador_nome: string | null
+  responsavel_atual_id: string | null
+  responsavel_atual_nome: string | null
+  centro: string | null
+  unidade: string | null
+  status_ordem: OrdemStatusAcomp
+  status_ordem_raw: string | null
+  ordem_detectada_em: string
+  status_atualizado_em: string | null
+  dias_para_gerar_ordem: number | null
+  qtd_historico: number
+  tem_historico: boolean
+  dias_em_aberto: number
+  semaforo_atraso: 'verde' | 'amarelo' | 'vermelho' | 'neutro'
+  envolvidos_admin_ids: string[] | null
+  descricao: string | null
+}
+
+export interface OrdemNotaHistorico {
+  id: string
+  ordem_id: string
+  status_anterior: OrdemStatusAcomp | null
+  status_novo: OrdemStatusAcomp
+  status_raw: string | null
+  origem: string
+  sync_id: string | null
+  created_at: string
+}
+
+export interface OrdemNotaKpis {
+  total_ordens_30d: number
+  qtd_abertas_30d: number
+  qtd_em_tratativa_30d: number
+  qtd_concluidas_30d: number
+  qtd_canceladas_30d: number
+  qtd_antigas_7d_30d: number
+  tempo_medio_geracao_dias_30d: number | null
+}
+
+export interface OrdemNotaRankingAdmin {
+  administrador_id: string
+  nome: string
+  qtd_ordens_30d: number
+  qtd_abertas_30d: number
+  qtd_em_tratativa_30d: number
+  qtd_concluidas_30d: number
+  qtd_canceladas_30d: number
+  qtd_antigas_7d_30d: number
+  tempo_medio_geracao_dias_30d: number | null
+}
+
+export interface OrdemNotaRankingUnidade {
+  unidade: string
+  qtd_ordens_30d: number
+  qtd_abertas_30d: number
+  qtd_em_tratativa_30d: number
+  qtd_antigas_7d_30d: number
+  tempo_medio_geracao_dias_30d: number | null
+}
+
+export interface PerspectivaReatribuicaoAdmin30d {
+  administrador_id: string
+  nome: string
+  qtd_enviadas_30d: number
+  qtd_recebidas_30d: number
+  qtd_ordens_acompanhando_abertas: number
+}
+
 // Campos minimos que NotaCard e CollaboratorPanel precisam
 export type NotaPanelData = Pick<NotaManutencao,
   'id' | 'numero_nota' | 'descricao' | 'status' | 'administrador_id' |
-  'prioridade' | 'centro' | 'data_criacao_sap'
+  'prioridade' | 'centro' | 'data_criacao_sap' | 'created_at'
 >
 
 export interface NotaResumo {

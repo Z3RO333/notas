@@ -13,6 +13,7 @@ interface PageProps {
 export default async function NotaDetailPage({ params }: PageProps) {
   const { notaId } = await params
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const [notaResult, historicoResult, adminsResult] = await Promise.all([
     supabase
@@ -37,8 +38,19 @@ export default async function NotaDetailPage({ params }: PageProps) {
 
   const nota = notaResult.data
   const admins = adminsResult.data ?? []
+  const loggedAdminResult = user?.email
+    ? await supabase
+      .from('administradores')
+      .select('role')
+      .eq('email', user.email)
+      .single()
+    : { data: null }
+  const loggedRole = loggedAdminResult.data?.role ?? null
 
-  const canReassign = nota.administrador_id && nota.status !== 'concluida' && nota.status !== 'cancelada'
+  const canReassign = loggedRole === 'gestor'
+    && nota.administrador_id
+    && nota.status !== 'concluida'
+    && nota.status !== 'cancelada'
 
   return (
     <div className="space-y-6">

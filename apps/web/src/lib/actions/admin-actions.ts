@@ -3,7 +3,9 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
-async function getGestorId() {
+type BulkReassignMode = 'destino_unico' | 'round_robin'
+
+async function getGestorContext() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user?.email) throw new Error('Nao autenticado')
@@ -15,11 +17,17 @@ async function getGestorId() {
     .single()
 
   if (!admin || admin.role !== 'gestor') throw new Error('Sem permissao')
-  return admin.id
+  return { supabase, gestorId: admin.id }
 }
 
-async function logAudit(gestorId: string, acao: string, alvoId: string, detalhes?: Record<string, unknown>) {
-  const supabase = await createClient()
+function revalidateCockpitPaths() {
+  revalidatePath('/')
+  revalidatePath('/admin')
+  revalidatePath('/admin/distribuicao')
+  revalidatePath('/admin/auditoria')
+}
+
+async function logAudit(supabase: Awaited<ReturnType<typeof createClient>>, gestorId: string, acao: string, alvoId: string, detalhes?: Record<string, unknown>) {
   await supabase.from('admin_audit_log').insert({
     gestor_id: gestorId,
     acao,
@@ -29,8 +37,7 @@ async function logAudit(gestorId: string, acao: string, alvoId: string, detalhes
 }
 
 export async function toggleDistribuicao(adminId: string, valor: boolean, motivo?: string) {
-  const gestorId = await getGestorId()
-  const supabase = await createClient()
+  const { supabase, gestorId } = await getGestorContext()
 
   const { error } = await supabase
     .from('administradores')
@@ -43,14 +50,13 @@ export async function toggleDistribuicao(adminId: string, valor: boolean, motivo
 
   if (error) throw new Error(error.message)
 
-  await logAudit(gestorId, valor ? 'ativar_distribuicao' : 'desativar_distribuicao', adminId, { motivo })
+  await logAudit(supabase, gestorId, valor ? 'ativar_distribuicao' : 'desativar_distribuicao', adminId, { motivo })
 
-  revalidatePath('/admin')
+  revalidateCockpitPaths()
 }
 
 export async function toggleFerias(adminId: string, valor: boolean, motivo?: string) {
-  const gestorId = await getGestorId()
-  const supabase = await createClient()
+  const { supabase, gestorId } = await getGestorContext()
 
   const { error } = await supabase
     .from('administradores')
@@ -62,14 +68,13 @@ export async function toggleFerias(adminId: string, valor: boolean, motivo?: str
 
   if (error) throw new Error(error.message)
 
-  await logAudit(gestorId, valor ? 'marcar_ferias' : 'retornar_ferias', adminId, { motivo })
+  await logAudit(supabase, gestorId, valor ? 'marcar_ferias' : 'retornar_ferias', adminId, { motivo })
 
-  revalidatePath('/admin')
+  revalidateCockpitPaths()
 }
 
 export async function atualizarMaxNotas(adminId: string, maxNotas: number) {
-  const gestorId = await getGestorId()
-  const supabase = await createClient()
+  const { supabase, gestorId } = await getGestorContext()
 
   const { error } = await supabase
     .from('administradores')
@@ -81,14 +86,13 @@ export async function atualizarMaxNotas(adminId: string, maxNotas: number) {
 
   if (error) throw new Error(error.message)
 
-  await logAudit(gestorId, 'alterar_max_notas', adminId, { max_notas: maxNotas })
+  await logAudit(supabase, gestorId, 'alterar_max_notas', adminId, { max_notas: maxNotas })
 
-  revalidatePath('/admin')
+  revalidateCockpitPaths()
 }
 
 export async function toggleAtivo(adminId: string, valor: boolean, motivo?: string) {
-  const gestorId = await getGestorId()
-  const supabase = await createClient()
+  const { supabase, gestorId } = await getGestorContext()
 
   const { error } = await supabase
     .from('administradores')
@@ -101,7 +105,38 @@ export async function toggleAtivo(adminId: string, valor: boolean, motivo?: stri
 
   if (error) throw new Error(error.message)
 
-  await logAudit(gestorId, valor ? 'ativar_admin' : 'desativar_admin', adminId, { motivo })
+  await logAudit(supabase, gestorId, valor ? 'ativar_admin' : 'desativar_admin', adminId, { motivo })
 
-  revalidatePath('/admin')
+  revalidateCockpitPaths()
+}
+
+export async function reatribuirNotasLote(params: {
+  adminOrigemId: string
+  modo: BulkReassignMode
+  adminDestinoId?: string
+  motivo?: string
+}) {
+  const { supabase, gestorId } = await getGestorContext()
+
+  const { data, error } = await supabase.rpc('reatribuir_notas_lote', {
+    p_admin_origem: params.adminOrigemId,
+    p_gestor_id: gestorId,
+    p_modo: params.modo,
+    p_admin_destino: params.adminDestinoId ?? null,
+    p_motivo: params.motivo ?? null,
+  })
+
+  if (error) throw new Error(error.message)
+
+  const movedCount = data?.length ?? 0
+
+  await logAudit(supabase, gestorId, 'reatribuir_lote', params.adminOrigemId, {
+    modo: params.modo,
+    admin_destino_id: params.adminDestinoId ?? null,
+    motivo: params.motivo ?? null,
+    notas_reatribuidas: movedCount,
+  })
+
+  revalidateCockpitPaths()
+  return movedCount
 }
