@@ -10,12 +10,20 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 
 export default function LoginPage() {
   const router = useRouter()
+  const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  async function handleSubmit(e: React.FormEvent) {
+  function switchMode() {
+    setMode((m) => (m === 'login' ? 'register' : 'login'))
+    setError('')
+    setConfirmPassword('')
+  }
+
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
@@ -37,6 +45,66 @@ export default function LoginPage() {
     router.refresh()
   }
 
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    if (password.length < 6) {
+      setError('A senha deve ter pelo menos 6 caracteres.')
+      setLoading(false)
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setError('As senhas nao coincidem.')
+      setLoading(false)
+      return
+    }
+
+    const supabase = createClient()
+
+    // Verifica se o email esta cadastrado na tabela de administradores
+    const { data: admin } = await supabase
+      .from('administradores')
+      .select('id')
+      .eq('email', email.toLowerCase().trim())
+      .single()
+
+    if (!admin) {
+      setError('Email nao autorizado. Contate o gestor.')
+      setLoading(false)
+      return
+    }
+
+    // Cria a conta no Supabase Auth
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email: email.toLowerCase().trim(),
+      password,
+    })
+
+    if (signUpError) {
+      setError(signUpError.message === 'User already registered'
+        ? 'Este email ja possui conta. Use o login normal.'
+        : signUpError.message)
+      setLoading(false)
+      return
+    }
+
+    // Vincula o auth_user_id ao registro do administrador
+    if (signUpData.user) {
+      await supabase
+        .from('administradores')
+        .update({ auth_user_id: signUpData.user.id })
+        .eq('id', admin.id)
+    }
+
+    router.push('/')
+    router.refresh()
+  }
+
+  const isLogin = mode === 'login'
+
   return (
     <Card className="w-full max-w-sm">
       <CardHeader className="text-center">
@@ -45,11 +113,13 @@ export default function LoginPage() {
         </div>
         <CardTitle className="text-xl">Cockpit de Manutencao</CardTitle>
         <CardDescription>
-          Entre com suas credenciais para acessar o sistema
+          {isLogin
+            ? 'Entre com suas credenciais para acessar o sistema'
+            : 'Crie sua senha para acessar o sistema'}
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={isLogin ? handleLogin : handleRegister} className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="email" className="text-sm font-medium">
               Email
@@ -71,12 +141,29 @@ export default function LoginPage() {
             <Input
               id="password"
               type="password"
-              placeholder="Digite sua senha"
+              placeholder={isLogin ? 'Digite sua senha' : 'Crie uma senha (min. 6 caracteres)'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={6}
             />
           </div>
+          {!isLogin && (
+            <div className="space-y-2">
+              <label htmlFor="confirm-password" className="text-sm font-medium">
+                Confirmar Senha
+              </label>
+              <Input
+                id="confirm-password"
+                type="password"
+                placeholder="Repita a senha"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+          )}
           {error && (
             <p className="text-sm text-destructive">{error}</p>
           )}
@@ -84,13 +171,22 @@ export default function LoginPage() {
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Entrando...
+                {isLogin ? 'Entrando...' : 'Cadastrando...'}
               </>
             ) : (
-              'Entrar'
+              isLogin ? 'Entrar' : 'Cadastrar'
             )}
           </Button>
         </form>
+        <button
+          type="button"
+          onClick={switchMode}
+          className="mt-4 w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {isLogin
+            ? 'Primeiro acesso? Cadastre-se aqui'
+            : 'Ja tem conta? Faca login'}
+        </button>
       </CardContent>
     </Card>
   )
