@@ -233,7 +233,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     if (activeKpi === 'atrasadas') {
       return (query as unknown as { eq: (column: string, value: string) => T }).eq('semaforo_atraso', 'vermelho')
     }
-    return (query as unknown as { in_: (column: string, values: string[]) => T }).in_('status_ordem', ['concluida', 'cancelada'])
+    return (query as unknown as { in: (column: string, values: string[]) => T }).in('status_ordem', ['concluida', 'cancelada'])
   }
 
   let pagedQuery = supabase
