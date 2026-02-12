@@ -5,6 +5,11 @@ import { createClient } from '@/lib/supabase/server'
 
 type BulkReassignMode = 'destino_unico' | 'round_robin'
 
+interface ReassignOrderRow {
+  nota_id: string
+  administrador_destino_id: string
+}
+
 async function getGestorContext() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -22,12 +27,19 @@ async function getGestorContext() {
 
 function revalidateCockpitPaths() {
   revalidatePath('/')
+  revalidatePath('/ordens')
   revalidatePath('/admin')
   revalidatePath('/admin/distribuicao')
   revalidatePath('/admin/auditoria')
 }
 
-async function logAudit(supabase: Awaited<ReturnType<typeof createClient>>, gestorId: string, acao: string, alvoId: string, detalhes?: Record<string, unknown>) {
+async function logAudit(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  gestorId: string,
+  acao: string,
+  alvoId: string | null,
+  detalhes?: Record<string, unknown>
+) {
   await supabase.from('admin_audit_log').insert({
     gestor_id: gestorId,
     acao,
@@ -139,4 +151,41 @@ export async function reatribuirNotasLote(params: {
 
   revalidateCockpitPaths()
   return movedCount
+}
+
+export async function reatribuirOrdensSelecionadas(params: {
+  notaIds: string[]
+  modo: BulkReassignMode
+  adminDestinoId?: string
+  motivo?: string
+}) {
+  const { supabase, gestorId } = await getGestorContext()
+
+  if (!params.notaIds || params.notaIds.length === 0) {
+    return [] as ReassignOrderRow[]
+  }
+
+  const { data, error } = await supabase.rpc('reatribuir_ordens_selecionadas', {
+    p_nota_ids: params.notaIds,
+    p_gestor_id: gestorId,
+    p_modo: params.modo,
+    p_admin_destino: params.adminDestinoId ?? null,
+    p_motivo: params.motivo ?? null,
+  })
+
+  if (error) throw new Error(error.message)
+
+  const movedRows = (data ?? []) as ReassignOrderRow[]
+
+  await logAudit(supabase, gestorId, 'reatribuir_ordens_lote_checkbox', null, {
+    modo: params.modo,
+    motivo: params.motivo ?? null,
+    admin_destino_id: params.adminDestinoId ?? null,
+    notas_selecionadas: params.notaIds.length,
+    notas_reatribuidas: movedRows.length,
+    nota_ids: params.notaIds,
+  })
+
+  revalidateCockpitPaths()
+  return movedRows
 }

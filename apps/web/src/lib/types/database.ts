@@ -15,6 +15,11 @@ export interface OrderReassignTarget {
   nome: string
 }
 
+export interface OrderBulkReassignResult {
+  nota_id: string
+  administrador_destino_id: string
+}
+
 export type OrdemStatusAcomp =
   | 'aberta'
   | 'em_tratativa'
@@ -223,6 +228,13 @@ export interface OrdemNotaRankingUnidade {
   qtd_em_tratativa_30d: number
   qtd_antigas_7d_30d: number
   tempo_medio_geracao_dias_30d: number | null
+}
+
+export interface NotasMetrics30d {
+  qtd_notas_criadas_30d: number
+  qtd_notas_viraram_ordem_30d: number
+  tempo_medio_para_ordem_dias_30d: number | null
+  qtd_pendentes_sem_ordem: number
 }
 
 export interface PerspectivaReatribuicaoAdmin30d {

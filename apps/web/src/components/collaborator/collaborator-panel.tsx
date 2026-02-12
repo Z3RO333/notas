@@ -128,7 +128,7 @@ export function CollaboratorPanel({
 
   const isAdminViewer = mode === 'viewer' && currentAdminRole === 'admin'
   const isGestorViewer = mode === 'viewer' && currentAdminRole === 'gestor'
-  const shouldShowTrackingControls = isAdminViewer
+  const shouldShowTrackingControls = isAdminViewer && ordensAcompanhamento.length > 0
   const showTopTracking = ordensAcompanhamento.length > 0
     && (isGestorViewer || trackingPosition === 'top' || trackingPosition === 'both')
   const showInsideTracking = isAdminViewer && (trackingPosition === 'inside' || trackingPosition === 'both')

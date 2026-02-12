@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Wrench, ClipboardList, Shield, LogOut } from 'lucide-react'
+import { Wrench, ClipboardList, ListChecks, Shield, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
@@ -16,7 +16,8 @@ export function TopNav({ userName, userRole }: TopNavProps) {
   const router = useRouter()
 
   const links = [
-    { href: '/', label: 'Painel de Ordens', icon: ClipboardList },
+    { href: '/', label: 'Painel de Notas', icon: ClipboardList },
+    { href: '/ordens', label: 'Painel de Ordens', icon: ListChecks },
     ...(userRole === 'gestor'
       ? [{ href: '/admin', label: 'Admin', icon: Shield }]
       : []),
