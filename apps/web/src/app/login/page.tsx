@@ -40,14 +40,13 @@ export default function LoginPage() {
         setError(authError.message === 'Email not confirmed'
           ? 'Email nao confirmado. Tente cadastrar novamente.'
           : 'Email ou senha invalidos.')
+        setLoading(false)
         return
       }
 
-      router.push('/')
-      router.refresh()
+      window.location.href = '/'
     } catch {
       setError('Erro inesperado. Tente novamente.')
-    } finally {
       setLoading(false)
     }
   }
@@ -108,8 +107,7 @@ export default function LoginPage() {
 
       // Se signUp ja retornou sessao, redireciona direto
       if (signUpData.session) {
-        router.push('/')
-        router.refresh()
+        window.location.href = '/'
         return
       }
 
@@ -122,14 +120,13 @@ export default function LoginPage() {
       if (loginError) {
         setError('Conta criada, mas nao foi possivel entrar automaticamente. Tente fazer login.')
         setMode('login')
+        setLoading(false)
         return
       }
 
-      router.push('/')
-      router.refresh()
+      window.location.href = '/'
     } catch {
       setError('Erro inesperado. Tente novamente.')
-    } finally {
       setLoading(false)
     }
   }
