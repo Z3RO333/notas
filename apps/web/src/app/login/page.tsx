@@ -62,45 +62,56 @@ export default function LoginPage() {
       return
     }
 
-    const supabase = createClient()
+    try {
+      const supabase = createClient()
+      const trimmedEmail = email.toLowerCase().trim()
 
-    // Verifica se o email esta cadastrado na tabela de administradores
-    const { data: admin } = await supabase
-      .from('administradores')
-      .select('id')
-      .eq('email', email.toLowerCase().trim())
-      .single()
-
-    if (!admin) {
-      setError('Email nao autorizado. Contate o gestor.')
-      setLoading(false)
-      return
-    }
-
-    // Cria a conta no Supabase Auth
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email: email.toLowerCase().trim(),
-      password,
-    })
-
-    if (signUpError) {
-      setError(signUpError.message === 'User already registered'
-        ? 'Este email ja possui conta. Use o login normal.'
-        : signUpError.message)
-      setLoading(false)
-      return
-    }
-
-    // Vincula o auth_user_id ao registro do administrador
-    if (signUpData.user) {
-      await supabase
+      // Verifica se o email esta cadastrado na tabela de administradores
+      const { data: admin, error: adminError } = await supabase
         .from('administradores')
-        .update({ auth_user_id: signUpData.user.id })
-        .eq('id', admin.id)
-    }
+        .select('id')
+        .eq('email', trimmedEmail)
+        .single()
 
-    router.push('/')
-    router.refresh()
+      if (adminError || !admin) {
+        setError('Email nao autorizado. Contate o gestor.')
+        return
+      }
+
+      // Cria a conta no Supabase Auth
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: trimmedEmail,
+        password,
+      })
+
+      if (signUpError) {
+        setError(signUpError.message === 'User already registered'
+          ? 'Este email ja possui conta. Use o login normal.'
+          : signUpError.message)
+        return
+      }
+
+      // signUp sem sessao = confirmacao de email pendente
+      if (!signUpData.session) {
+        setError('Conta criada, mas confirmacao de email pendente. Contate o administrador.')
+        return
+      }
+
+      // Vincula o auth_user_id ao registro do administrador
+      if (signUpData.user) {
+        await supabase
+          .from('administradores')
+          .update({ auth_user_id: signUpData.user.id })
+          .eq('id', admin.id)
+      }
+
+      router.push('/')
+      router.refresh()
+    } catch {
+      setError('Erro inesperado. Tente novamente.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const isLogin = mode === 'login'
