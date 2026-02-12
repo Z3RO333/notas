@@ -10,6 +10,7 @@ export type NotaStatus =
 
 export type UserRole = 'admin' | 'gestor'
 export type OrderWindowFilter = 30 | 90 | 180
+export type OrderOwnerMode = 'atual' | 'origem'
 export interface OrderReassignTarget {
   id: string
   nome: string
@@ -186,6 +187,16 @@ export interface OrdemNotaAcompanhamento {
   semaforo_atraso: 'verde' | 'amarelo' | 'vermelho' | 'neutro'
   envolvidos_admin_ids: string[] | null
   descricao: string | null
+}
+
+export interface OrderOwnerGroup {
+  id: string
+  nome: string
+  rows: OrdemNotaAcompanhamento[]
+  recentes: number
+  atencao: number
+  atrasadas: number
+  total: number
 }
 
 export interface OrdemNotaHistorico {

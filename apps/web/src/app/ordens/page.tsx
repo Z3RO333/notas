@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { OrdersKpiStrip } from '@/components/orders/orders-kpi-strip'
-import { OrdersAgingTable } from '@/components/orders/orders-aging-table'
+import { OrdersOwnerPanel } from '@/components/orders/orders-owner-panel'
 import { OrdersRankingAdmin } from '@/components/orders/orders-ranking-admin'
 import { OrdersRankingUnidade } from '@/components/orders/orders-ranking-unidade'
 import { RealtimeListener } from '@/components/notas/realtime-listener'
@@ -126,35 +126,17 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
 
       <OrdersKpiStrip kpis={orderKpis} windowDays={orderWindow} />
 
-      {currentUserRole === 'gestor' ? (
-        <>
-          <div className="grid gap-6 xl:grid-cols-3">
-            <div className="xl:col-span-2">
-              <OrdersAgingTable
-                rows={rows}
-                title={`Ordens acompanhadas (${orderWindow}d)`}
-                maxRows={50}
-                showAdminColumns
-                canReassign
-                reassignTargets={reassignTargets}
-                currentUserRole={currentUserRole}
-              />
-            </div>
-            <OrdersRankingUnidade rows={rankingUnidade.slice(0, 12)} windowDays={orderWindow} />
-          </div>
+      <OrdersOwnerPanel
+        rows={rows}
+        canReassign={currentUserRole === 'gestor'}
+        reassignTargets={reassignTargets}
+      />
 
+      {currentUserRole === 'gestor' && (
+        <>
           <OrdersRankingAdmin rows={rankingAdmin.slice(0, 12)} windowDays={orderWindow} />
+          <OrdersRankingUnidade rows={rankingUnidade.slice(0, 12)} windowDays={orderWindow} />
         </>
-      ) : (
-        <OrdersAgingTable
-          rows={rows}
-          title={`Minhas ordens em acompanhamento (${orderWindow}d)`}
-          maxRows={50}
-          showAdminColumns
-          canReassign={false}
-          reassignTargets={[]}
-          currentUserRole={currentUserRole}
-        />
       )}
 
       <RealtimeListener />
