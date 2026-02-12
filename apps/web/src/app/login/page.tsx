@@ -16,12 +16,10 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
   function switchMode() {
     setMode((m) => (m === 'login' ? 'register' : 'login'))
     setError('')
-    setSuccess('')
     setConfirmPassword('')
   }
 
@@ -81,12 +79,9 @@ export default function LoginPage() {
       }
 
       // Cria a conta no Supabase Auth
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: trimmedEmail,
         password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
-        },
       })
 
       if (signUpError) {
@@ -96,11 +91,35 @@ export default function LoginPage() {
         return
       }
 
-      // Conta criada — email de confirmacao enviado
-      setSuccess('Conta criada! Verifique seu email e clique no link para confirmar. Depois volte aqui e faca login.')
-      setMode('login')
-      setPassword('')
-      setConfirmPassword('')
+      // Vincula o auth_user_id ao registro do administrador
+      if (signUpData.user) {
+        await supabase
+          .from('administradores')
+          .update({ auth_user_id: signUpData.user.id })
+          .eq('id', admin.id)
+      }
+
+      // Se signUp ja retornou sessao, redireciona direto
+      if (signUpData.session) {
+        router.push('/')
+        router.refresh()
+        return
+      }
+
+      // Fallback: faz login com as credenciais recem-criadas
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      })
+
+      if (loginError) {
+        setError('Conta criada, mas nao foi possivel entrar automaticamente. Tente fazer login.')
+        setMode('login')
+        return
+      }
+
+      router.push('/')
+      router.refresh()
     } catch {
       setError('Erro inesperado. Tente novamente.')
     } finally {
@@ -171,9 +190,6 @@ export default function LoginPage() {
           )}
           {error && (
             <p className="text-sm text-destructive">{error}</p>
-          )}
-          {success && (
-            <p className="text-sm text-green-600">{success}</p>
           )}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? (
