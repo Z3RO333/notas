@@ -29,7 +29,9 @@ export default async function NotaDetailPage({ params }: PageProps) {
     supabase
       .from('administradores')
       .select('*')
-      .eq('ativo', true),
+      .eq('role', 'admin')
+      .eq('ativo', true)
+      .eq('em_ferias', false),
   ])
 
   if (notaResult.error || !notaResult.data) {
@@ -47,10 +49,13 @@ export default async function NotaDetailPage({ params }: PageProps) {
     : { data: null }
   const loggedRole = loggedAdminResult.data?.role ?? null
 
+  const hasOrder = Boolean(
+    (nota.ordem_sap && nota.ordem_sap.trim().length > 0)
+      || (nota.ordem_gerada && nota.ordem_gerada.trim().length > 0)
+  )
   const canReassign = loggedRole === 'gestor'
     && nota.administrador_id
-    && nota.status !== 'concluida'
-    && nota.status !== 'cancelada'
+    && (hasOrder || (nota.status !== 'concluida' && nota.status !== 'cancelada'))
 
   return (
     <div className="space-y-6">

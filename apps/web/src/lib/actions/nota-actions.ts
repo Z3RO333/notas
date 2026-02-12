@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 
 function revalidateCockpitPaths() {
   revalidatePath('/')
+  revalidatePath('/ordens')
   revalidatePath('/admin')
   revalidatePath('/admin/distribuicao')
   revalidatePath('/admin/auditoria')
