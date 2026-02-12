@@ -15,8 +15,16 @@ const especialidadeConfig: Record<Especialidade, { label: string; color: string 
   geral: { label: 'Geral', color: 'bg-gray-100 text-gray-800' },
 }
 
+function getUnavailableLabel(c: CollaboratorData): string | null {
+  if (!c.ativo) return 'Inativo'
+  if (c.em_ferias) return 'Em ferias'
+  if (!c.recebe_distribuicao) return 'Pausado'
+  return null
+}
+
 export function CollaboratorMiniCard({ collaborator, isExpanded, onClick }: CollaboratorMiniCardProps) {
   const esp = especialidadeConfig[collaborator.especialidade] ?? especialidadeConfig.geral
+  const unavailable = getUnavailableLabel(collaborator)
   const percentual = collaborator.max_notas > 0
     ? Math.round((collaborator.qtd_abertas / collaborator.max_notas) * 100)
     : 0
@@ -36,7 +44,7 @@ export function CollaboratorMiniCard({ collaborator, isExpanded, onClick }: Coll
       onClick={onClick}
       className={`p-3 cursor-pointer transition-all hover:shadow-md ${
         isExpanded ? 'ring-2 ring-primary bg-primary/5' : ''
-      } ${!collaborator.ativo ? 'opacity-50' : ''}`}
+      } ${unavailable ? 'opacity-50 grayscale' : ''}`}
     >
       <div className="flex items-center gap-2.5">
         {/* Avatar + status dot */}
@@ -48,9 +56,16 @@ export function CollaboratorMiniCard({ collaborator, isExpanded, onClick }: Coll
         {/* Name + specialty */}
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-sm truncate">{collaborator.nome}</p>
-          <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${esp.color}`}>
-            {esp.label}
-          </span>
+          <div className="flex items-center gap-1">
+            <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${esp.color}`}>
+              {esp.label}
+            </span>
+            {unavailable && (
+              <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-gray-200 text-gray-600">
+                {unavailable}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
