@@ -3,21 +3,37 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
+async function getLoggedAdmin() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user?.email) throw new Error('Nao autenticado')
+
+  const { data: admin } = await supabase
+    .from('administradores')
+    .select('id, role')
+    .eq('email', user.email)
+    .single()
+
+  if (!admin) throw new Error('Administrador nao encontrado')
+
+  return { supabase, admin }
+}
+
 export async function atualizarStatusNota(params: {
   notaId: string
-  administradorId: string
   novoStatus: 'em_andamento' | 'encaminhada_fornecedor' | 'concluida' | 'cancelada'
   ordemGerada?: string
   fornecedorEncaminhado?: string
   observacoes?: string
   motivo?: string
 }) {
-  const supabase = createClient()
+  const { supabase, admin } = await getLoggedAdmin()
 
   const { error } = await supabase.rpc('atualizar_status_nota', {
     p_nota_id: params.notaId,
     p_novo_status: params.novoStatus,
-    p_admin_id: params.administradorId,
+    p_admin_id: admin.id,
     p_ordem_gerada: params.ordemGerada ?? null,
     p_fornecedor_encaminhado: params.fornecedorEncaminhado ?? null,
     p_observacoes: params.observacoes ?? null,
@@ -27,40 +43,38 @@ export async function atualizarStatusNota(params: {
   if (error) throw new Error(error.message)
 
   revalidatePath('/')
-  revalidatePath('/gestor')
+  revalidatePath('/admin')
 }
 
 export async function reatribuirNota(params: {
   notaId: string
   novoAdminId: string
-  gestorId: string
   motivo?: string
 }) {
-  const supabase = createClient()
+  const { supabase, admin } = await getLoggedAdmin()
 
   const { error } = await supabase.rpc('reatribuir_nota', {
     p_nota_id: params.notaId,
     p_novo_admin_id: params.novoAdminId,
-    p_gestor_id: params.gestorId,
+    p_gestor_id: admin.id,
     p_motivo: params.motivo ?? null,
   })
 
   if (error) throw new Error(error.message)
 
   revalidatePath('/')
-  revalidatePath('/gestor')
+  revalidatePath('/admin')
 }
 
 export async function concluirNotaRapida(params: {
   notaId: string
-  administradorId: string
 }) {
-  const supabase = createClient()
+  const { supabase, admin } = await getLoggedAdmin()
 
   const { error } = await supabase.rpc('atualizar_status_nota', {
     p_nota_id: params.notaId,
     p_novo_status: 'concluida',
-    p_admin_id: params.administradorId,
+    p_admin_id: admin.id,
     p_ordem_gerada: null,
     p_fornecedor_encaminhado: null,
     p_observacoes: null,
@@ -70,11 +84,11 @@ export async function concluirNotaRapida(params: {
   if (error) throw new Error(error.message)
 
   revalidatePath('/')
-  revalidatePath('/gestor')
+  revalidatePath('/admin')
 }
 
 export async function distribuirNotasManual() {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data, error } = await supabase.rpc('distribuir_notas', {
     p_sync_id: null,
@@ -83,7 +97,7 @@ export async function distribuirNotasManual() {
   if (error) throw new Error(error.message)
 
   revalidatePath('/')
-  revalidatePath('/gestor')
+  revalidatePath('/admin')
 
   return data?.length ?? 0
 }

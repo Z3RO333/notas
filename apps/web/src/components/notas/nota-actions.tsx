@@ -19,7 +19,7 @@ import type { NotaStatus } from '@/lib/types/database'
 interface NotaActionsProps {
   notaId: string
   currentStatus: NotaStatus
-  administradorId: string | null
+  hasAdmin: boolean
 }
 
 const transitions: Record<NotaStatus, { value: NotaStatus; label: string }[]> = {
@@ -41,7 +41,7 @@ const transitions: Record<NotaStatus, { value: NotaStatus; label: string }[]> = 
   cancelada: [],
 }
 
-export function NotaActions({ notaId, currentStatus, administradorId }: NotaActionsProps) {
+export function NotaActions({ notaId, currentStatus, hasAdmin }: NotaActionsProps) {
   const router = useRouter()
   const [novoStatus, setNovoStatus] = useState<NotaStatus | ''>('')
   const [ordemGerada, setOrdemGerada] = useState('')
@@ -67,7 +67,7 @@ export function NotaActions({ notaId, currentStatus, administradorId }: NotaActi
     )
   }
 
-  if (!administradorId) {
+  if (!hasAdmin) {
     return (
       <Card>
         <CardHeader>
@@ -84,7 +84,7 @@ export function NotaActions({ notaId, currentStatus, administradorId }: NotaActi
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!novoStatus || !administradorId) return
+    if (!novoStatus) return
 
     setLoading(true)
     setError('')
@@ -92,7 +92,6 @@ export function NotaActions({ notaId, currentStatus, administradorId }: NotaActi
     try {
       await atualizarStatusNota({
         notaId,
-        administradorId,
         novoStatus: novoStatus as 'em_andamento' | 'encaminhada_fornecedor' | 'concluida' | 'cancelada',
         ordemGerada: ordemGerada || undefined,
         fornecedorEncaminhado: fornecedor || undefined,
@@ -118,9 +117,9 @@ export function NotaActions({ notaId, currentStatus, administradorId }: NotaActi
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Novo Status</label>
+            <label htmlFor="novo-status" className="text-sm font-medium">Novo Status</label>
             <Select value={novoStatus} onValueChange={(v) => setNovoStatus(v as NotaStatus)}>
-              <SelectTrigger>
+              <SelectTrigger id="novo-status">
                 <SelectValue placeholder="Selecione a acao..." />
               </SelectTrigger>
               <SelectContent>
@@ -136,16 +135,18 @@ export function NotaActions({ notaId, currentStatus, administradorId }: NotaActi
           {(novoStatus === 'encaminhada_fornecedor' || novoStatus === 'concluida') && (
             <>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Numero da Ordem Gerada</label>
+                <label htmlFor="ordem-gerada" className="text-sm font-medium">Numero da Ordem Gerada</label>
                 <Input
+                  id="ordem-gerada"
                   placeholder="Ex: 000400012345"
                   value={ordemGerada}
                   onChange={(e) => setOrdemGerada(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Fornecedor Encaminhado</label>
+                <label htmlFor="fornecedor" className="text-sm font-medium">Fornecedor Encaminhado</label>
                 <Input
+                  id="fornecedor"
                   placeholder="Nome do fornecedor"
                   value={fornecedor}
                   onChange={(e) => setFornecedor(e.target.value)}
@@ -155,8 +156,9 @@ export function NotaActions({ notaId, currentStatus, administradorId }: NotaActi
           )}
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Observacoes</label>
+            <label htmlFor="observacoes" className="text-sm font-medium">Observacoes</label>
             <Textarea
+              id="observacoes"
               placeholder="Observacoes sobre a tratativa..."
               value={observacoes}
               onChange={(e) => setObservacoes(e.target.value)}

@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Trophy, RefreshCw } from 'lucide-react'
+import { Trophy } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Card } from '@/components/ui/card'
@@ -30,30 +29,8 @@ const especialidadeConfig: Record<Especialidade, { label: string; color: string 
   geral: { label: 'Geral', color: 'bg-gray-100 text-gray-800' },
 }
 
-const REFRESH_INTERVAL = 30
-
 export function ProductivityTable({ data, notasConcluidas, totalAbertas, totalConcluidas }: ProductivityTableProps) {
-  const router = useRouter()
-  const [secondsSinceRefresh, setSecondsSinceRefresh] = useState(0)
   const [espFilter, setEspFilter] = useState<string>('todas')
-
-  const refresh = useCallback(() => {
-    router.refresh()
-    setSecondsSinceRefresh(0)
-  }, [router])
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSecondsSinceRefresh((prev) => {
-        if (prev + 1 >= REFRESH_INTERVAL) {
-          refresh()
-          return 0
-        }
-        return prev + 1
-      })
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [refresh])
 
   const months = useMemo(() => {
     const unique = [...new Set(data.map((d) => d.mes))]
@@ -229,17 +206,6 @@ export function ProductivityTable({ data, notasConcluidas, totalAbertas, totalCo
         </div>
       )}
 
-      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-        <RefreshCw className={`h-3 w-3 ${secondsSinceRefresh >= REFRESH_INTERVAL - 2 ? 'animate-spin' : ''}`} />
-        <span>Atualiza automaticamente a cada {REFRESH_INTERVAL}s</span>
-        <button
-          type="button"
-          onClick={refresh}
-          className="underline hover:text-foreground transition-colors"
-        >
-          Atualizar agora
-        </button>
-      </div>
     </div>
   )
 }
