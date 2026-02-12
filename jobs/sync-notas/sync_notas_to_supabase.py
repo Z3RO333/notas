@@ -16,6 +16,7 @@ subprocess.check_call(["pip", "install", "supabase"])
 
 import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -62,11 +63,13 @@ STATUS_COLUMNS_CANDIDATES = [
     "STATUS_TRIM",
 ]
 
-CENTRO_COLUMNS_CANDIDATES = [
-    "CENTRO_LOCALIZACAO",
+NOTA_CENTRO_COLUMNS_CANDIDATES = [
     "CENTRO_MATERIAL",
+    "CENTRO_LOCALIZACAO",
     "CENTRO",
 ]
+
+PMPL_CENTRO_COLUMN = "CENTRO_LOCALIZACAO"
 
 # service_role bypassa RLS - intencional para job de sistema
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
@@ -80,6 +83,27 @@ def _as_clean_text(value) -> str | None:
         return None
     text = str(value).strip()
     return text if text else None
+
+
+def _normalize_centro(value) -> str | None:
+    text = _as_clean_text(value)
+    if not text:
+        return None
+
+    if re.fullmatch(r"\d+(\.0+)?", text):
+        integer_part = text.split(".", maxsplit=1)[0]
+        normalized = integer_part.lstrip("0")
+        return normalized or "0"
+
+    return text
+
+
+def _extract_centro_from_candidates(row_dict: dict, candidates: list[str]) -> str | None:
+    for col in candidates:
+        value = _normalize_centro(row_dict.get(col))
+        if value:
+            return value
+    return None
 
 
 def get_sync_window_days(spark: SparkSession) -> int:
@@ -169,12 +193,17 @@ def read_new_notes(spark: SparkSession, window_days: int, force_window: bool) ->
 
     rows = df.collect()
     notes: list[dict] = []
+    missing_centro = 0
 
     for row in rows:
         row_dict = row.asDict()
         numero = _as_clean_text(row_dict.get("NUMERO_NOTA"))
         if not numero:
             continue
+
+        centro = _extract_centro_from_candidates(row_dict, NOTA_CENTRO_COLUMNS_CANDIDATES)
+        if not centro:
+            missing_centro += 1
 
         notes.append({
             "numero_nota": numero,
@@ -189,12 +218,15 @@ def read_new_notes(spark: SparkSession, window_days: int, force_window: bool) ->
             "data_nota": str(row_dict["DATA_NOTA"]) if row_dict.get("DATA_NOTA") else None,
             "hora_nota": row_dict.get("HORA_NOTA"),
             "ordem_sap": _as_clean_text(row_dict.get("ORDEM")),
-            "centro": _as_clean_text(row_dict.get("CENTRO_MATERIAL")),
+            "centro": centro,
             "status_sap": _as_clean_text(row_dict.get("STATUS_OBJ_ADMIN")),
             "conta_fornecedor": row_dict.get("N_CONTA_FORNECEDOR"),
             "autor_nota": row_dict.get("AUTOR_NOTA_QM_PM"),
             "raw_data": json.dumps(row_dict, default=str),
         })
+
+    if missing_centro > 0:
+        logger.warning("Notas sem centro no lote lido: %s", missing_centro)
 
     return notes
 
@@ -317,11 +349,7 @@ def _extract_status_raw(row_dict: dict) -> str | None:
 
 
 def _extract_centro(row_dict: dict) -> str | None:
-    for col in CENTRO_COLUMNS_CANDIDATES:
-        value = _as_clean_text(row_dict.get(col))
-        if value:
-            return value
-    return None
+    return _normalize_centro(row_dict.get(PMPL_CENTRO_COLUMN))
 
 
 def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]) -> list[dict]:
