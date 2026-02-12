@@ -37,7 +37,8 @@ export const dynamic = 'force-dynamic'
 
 const DEFAULT_SORT: GridSortState = { field: 'data', direction: 'desc' }
 const EMPTY_UUID = '00000000-0000-0000-0000-000000000000'
-const VALID_KPIS: OrdersKpiFilter[] = ['total', 'em_execucao', 'em_aberto', 'atrasadas', 'concluidas']
+const VALID_KPIS: OrdersKpiFilter[] = ['total', 'em_execucao', 'em_aberto', 'atrasadas', 'concluidas', 'avaliadas']
+const AVALIADAS_RAW_STATUS = 'AVALIACAO_DA_EXECUCAO'
 
 interface OrdersPageProps {
   searchParams?: Promise<{
@@ -189,7 +190,11 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     let next = query
 
     if (status && status !== 'todas') {
-      next = (next as unknown as { eq: (column: string, value: string) => T }).eq('status_ordem', status)
+      if (status === 'avaliadas') {
+        next = (next as unknown as { eq: (column: string, value: string) => T }).eq('status_ordem_raw', AVALIADAS_RAW_STATUS)
+      } else {
+        next = (next as unknown as { eq: (column: string, value: string) => T }).eq('status_ordem', status)
+      }
     }
 
     if (canViewGlobal && responsavel && responsavel !== 'todos') {
@@ -221,6 +226,9 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     }
     if (activeKpi === 'em_aberto') {
       return (query as unknown as { eq: (column: string, value: string) => T }).eq('status_ordem', 'aberta')
+    }
+    if (activeKpi === 'avaliadas') {
+      return (query as unknown as { eq: (column: string, value: string) => T }).eq('status_ordem_raw', AVALIADAS_RAW_STATUS)
     }
     if (activeKpi === 'atrasadas') {
       return (query as unknown as { eq: (column: string, value: string) => T }).eq('semaforo_atraso', 'vermelho')
@@ -254,7 +262,18 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   metricsQuery = applyVisibilityFilter(metricsQuery)
   metricsQuery = applyBusinessFilters(metricsQuery)
 
-  const [metricsRowsResult, latestSyncResult] = await Promise.all([
+  let avaliadasCodesQuery = supabase
+    .from('vw_ordens_notas_painel')
+    .select('ordem_codigo')
+    .gte('ordem_detectada_em', period.startIso)
+    .lt('ordem_detectada_em', period.endExclusiveIso)
+    .eq('status_ordem_raw', AVALIADAS_RAW_STATUS)
+    .limit(5000)
+
+  avaliadasCodesQuery = applyVisibilityFilter(avaliadasCodesQuery)
+  avaliadasCodesQuery = applyBusinessFilters(avaliadasCodesQuery)
+
+  const [metricsRowsResult, latestSyncResult, avaliadasCodesResult] = await Promise.all([
     metricsQuery,
     supabase
       .from('sync_log')
@@ -262,6 +281,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       .order('started_at', { ascending: false })
       .limit(1)
       .single(),
+    avaliadasCodesQuery,
   ])
 
   const semResponsavelResult = canViewGlobal
@@ -286,6 +306,13 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const rankingAdmin = canViewGlobal ? buildOrderRankingAdmin(metricsRows) : []
   const rankingUnidade = canViewGlobal ? buildOrderRankingUnidade(metricsRows) : []
   const semResponsavelCount = canViewGlobal ? (semResponsavelResult.count ?? 0) : 0
+  const avaliadasOrderCodes = Array.from(
+    new Set(
+      (avaliadasCodesResult.data ?? [])
+        .map((row) => normalizeTextParam(row.ordem_codigo))
+        .filter(Boolean)
+    )
+  )
 
   const responsavelOptions = [
     { value: 'todos', label: 'Todos os responsaveis' },
@@ -346,6 +373,8 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         unidadeOptions={unidadeOptions}
         avatarById={avatarById}
         semResponsavelCount={semResponsavelCount}
+        canCopyOrders={Boolean(currentUserRole)}
+        avaliadasOrderCodes={avaliadasOrderCodes}
       />
 
       {canViewGlobal && (

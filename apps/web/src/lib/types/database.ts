@@ -14,7 +14,7 @@ export type OrderOwnerMode = 'atual' | 'origem'
 export type PanelViewMode = 'list' | 'cards'
 export type OrdersPeriodMode = 'month' | 'custom'
 export type NotesKpiFilter = 'notas' | 'novas' | 'um_dia' | 'dois_mais'
-export type OrdersKpiFilter = 'total' | 'em_execucao' | 'em_aberto' | 'atrasadas' | 'concluidas'
+export type OrdersKpiFilter = 'total' | 'em_execucao' | 'em_aberto' | 'atrasadas' | 'concluidas' | 'avaliadas'
 export type CriticalityLevel = 'saudavel' | 'atencao' | 'critico'
 export interface OrderReassignTarget {
   id: string
@@ -249,6 +249,7 @@ export interface OrdemNotaKpis {
   qtd_em_tratativa_30d: number
   qtd_concluidas_30d: number
   qtd_canceladas_30d: number
+  qtd_avaliadas_30d: number
   qtd_antigas_7d_30d: number
   tempo_medio_geracao_dias_30d: number | null
 }

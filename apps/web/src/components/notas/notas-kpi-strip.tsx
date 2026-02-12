@@ -56,7 +56,7 @@ export function NotasKpiStrip({
     valueClass: string
   }> = [
     { key: 'notas', label: 'Notas', value: total, icon: ListChecks, valueClass: 'text-foreground' },
-    { key: 'novas', label: 'Novas (0d)', value: novas, icon: Sparkles, valueClass: 'text-emerald-700' },
+    { key: 'novas', label: '0d', value: novas, icon: Sparkles, valueClass: 'text-emerald-700' },
     { key: 'um_dia', label: '1 dia', value: umDia, icon: Clock3, valueClass: 'text-amber-700' },
     { key: 'dois_mais', label: '2+ dias', value: doisMais, icon: AlertTriangle, valueClass: 'text-red-700' },
   ]

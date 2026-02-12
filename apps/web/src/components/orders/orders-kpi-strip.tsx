@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { AlertTriangle, BarChart3, ListChecks, LoaderCircle, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, BarChart3, ClipboardCheck, ListChecks, LoaderCircle, ShieldCheck } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getOrdersKpiValue } from '@/lib/orders/metrics'
 import { updateSearchParams } from '@/lib/grid/query'
@@ -81,6 +81,15 @@ export function OrdersKpiStrip({
       valueClass: 'text-emerald-700',
     },
     {
+      id: 'avaliadas',
+      kpi: 'avaliadas' as const,
+      label: 'Avaliadas',
+      value: fmt(getOrdersKpiValue(kpis, 'avaliadas')),
+      helper: 'Avaliacao da execucao',
+      icon: ClipboardCheck,
+      valueClass: 'text-amber-700',
+    },
+    {
       id: 'atrasadas',
       kpi: 'atrasadas' as const,
       label: 'Atrasadas (7+)',
@@ -93,7 +102,7 @@ export function OrdersKpiStrip({
 
   return (
     <div className={`rounded-lg border p-2 ${frameClass}`}>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
       {cards.map((item) => {
         const Icon = item.icon
         const active = activeKpi === item.kpi
