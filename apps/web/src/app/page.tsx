@@ -8,6 +8,8 @@ import type {
   Especialidade,
   OrdemAcompanhamento,
   OrdemNotaAcompanhamento,
+  OrderReassignTarget,
+  UserRole,
 } from '@/lib/types/database'
 import type { CollaboratorData } from '@/lib/types/collaborator'
 
@@ -27,6 +29,11 @@ interface AdminRow {
   recebe_distribuicao: boolean
   em_ferias: boolean
   role: string
+}
+
+function toUserRole(value: string | null | undefined): UserRole | null {
+  if (value === 'admin' || value === 'gestor') return value
+  return null
 }
 
 function toCollaboratorData(
@@ -90,7 +97,10 @@ export default async function PainelPage() {
       .single()
     : { data: null }
   const currentAdminId = loggedAdminResult.data?.id ?? null
-  const currentAdminRole = loggedAdminResult.data?.role ?? null
+  const currentAdminRole = toUserRole(loggedAdminResult.data?.role)
+  const reassignTargets: OrderReassignTarget[] = admins
+    .filter((admin) => admin.role === 'admin' && admin.ativo && !admin.em_ferias)
+    .map((admin) => ({ id: admin.id, nome: admin.nome }))
 
   let ordensAcompanhamento: OrdemAcompanhamento[] = []
   if (currentAdminRole === 'admin' && currentAdminId) {
@@ -170,6 +180,9 @@ export default async function PainelPage() {
           title={currentAdminRole === 'gestor' ? 'Ordens em acompanhamento (visao gestor)' : 'Minhas ordens em acompanhamento'}
           maxRows={10}
           showAdminColumns={currentAdminRole === 'gestor'}
+          canReassign={currentAdminRole === 'gestor'}
+          reassignTargets={reassignTargets}
+          currentUserRole={currentAdminRole}
         />
       )}
 

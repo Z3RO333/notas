@@ -32,6 +32,7 @@ import type {
   DashboardProdutividade60d,
   OrdemNotaAcompanhamento,
   OrderWindowFilter,
+  OrderReassignTarget,
   SyncLog,
 } from '@/lib/types/database'
 
@@ -65,7 +66,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
   const ordersCutoff = new Date()
   ordersCutoff.setUTCDate(ordersCutoff.getUTCDate() - (orderWindow - 1))
 
-  const [cargaResult, unassignedResult, syncResult, fluxoResult, produtividadeResult, openNotasResult, ordensResult] = await Promise.all([
+  const [cargaResult, unassignedResult, syncResult, fluxoResult, produtividadeResult, openNotasResult, ordensResult, reassignTargetsResult] = await Promise.all([
     supabase.from('vw_carga_administradores').select('*').order('nome'),
     supabase
       .from('notas_manutencao')
@@ -85,6 +86,13 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
       .gte('ordem_detectada_em', ordersCutoff.toISOString())
       .order('ordem_detectada_em', { ascending: false })
       .limit(500),
+    supabase
+      .from('administradores')
+      .select('id, nome')
+      .eq('role', 'admin')
+      .eq('ativo', true)
+      .eq('em_ferias', false)
+      .order('nome'),
   ])
 
   const carga = (cargaResult.data ?? []) as CargaAdministrador[]
@@ -92,6 +100,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
   const produtividadeRows = (produtividadeResult.data ?? []) as DashboardProdutividade60d[]
   const openNotas = (openNotasResult.data ?? []) as OpenNotaAgingRow[]
   const ordensRows = (ordensResult.data ?? []) as OrdemNotaAcompanhamento[]
+  const reassignTargets = (reassignTargetsResult.data ?? []) as OrderReassignTarget[]
   const latestSync = ((syncResult.data ?? []) as SyncLog[])[0] ?? null
   const now = new Date()
   const notasSemAtribuir = unassignedResult.count ?? 0
@@ -173,6 +182,9 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
               title={`Ordens acompanhadas (${orderWindow}d)`}
               maxRows={20}
               showAdminColumns
+              canReassign
+              reassignTargets={reassignTargets}
+              currentUserRole="gestor"
             />
           </div>
           <OrdersRankingUnidade rows={rankingUnidade.slice(0, 12)} windowDays={orderWindow} />
