@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, LayoutGrid, Rows3 } from 'lucide-react'
+import { AlertTriangle, ClipboardCheck, Copy, LayoutGrid, Rows3 } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   Select,
@@ -15,11 +15,14 @@ import { OrdersOwnerMiniCard } from '@/components/orders/orders-owner-mini-card'
 import { OrdersOwnerAccordion } from '@/components/orders/orders-owner-accordion'
 import { OrdersOwnerFullCard } from '@/components/orders/orders-owner-full-card'
 import { AutoRefreshController } from '@/components/shared/auto-refresh-controller'
+import { Button } from '@/components/ui/button'
+import { useToast } from '@/components/ui/toast'
 import { GridFilters, type GridFilterOption } from '@/components/data-grid/grid-filters'
 import { GridPagination } from '@/components/data-grid/grid-pagination'
 import { GridSearch } from '@/components/data-grid/grid-search'
 import { GridToolbar } from '@/components/data-grid/grid-toolbar'
 import { buildSortParam, updateSearchParams } from '@/lib/grid/query'
+import { buildCopyPayload, copyToClipboard } from '@/lib/orders/copy'
 import type {
   GridSortState,
   OrderOwnerGroup,
@@ -49,9 +52,11 @@ interface OrdersOwnerPanelProps {
   unidadeOptions: GridFilterOption[]
   avatarById: Record<string, string | null>
   semResponsavelCount?: number
+  canCopyOrders?: boolean
+  avaliadasOrderCodes?: string[]
 }
 
-type OrderStatusFilter = OrdemStatusAcomp | 'todas'
+type OrderStatusFilter = OrdemStatusAcomp | 'todas' | 'avaliadas'
 
 const OWNER_MODE_STORAGE_KEY = 'cockpit:ordens:owner-mode'
 const VIEW_MODE_STORAGE_KEY = 'cockpit:ordens:view-mode'
@@ -133,10 +138,13 @@ export function OrdersOwnerPanel({
   unidadeOptions,
   avatarById,
   semResponsavelCount = 0,
+  canCopyOrders = false,
+  avaliadasOrderCodes = [],
 }: OrdersOwnerPanelProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { toast } = useToast()
 
   const [searchInput, setSearchInput] = useState(q)
   const [ownerMode, setOwnerMode] = useState<OrderOwnerMode>('atual')
@@ -240,6 +248,22 @@ export function OrdersOwnerPanel({
     && visibleNotaIds.every((id) => selectedNotaIdsSet.has(id))
 
   const canBulkReassign = canReassign && reassignTargets.length > 0
+  const canCopySelected = canBulkReassign
+  const orderCodesByNotaId = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const row of rows) {
+      if (!map.has(row.nota_id)) {
+        const code = (row.ordem_codigo ?? '').trim()
+        if (code) map.set(row.nota_id, code)
+      }
+    }
+    return map
+  }, [rows])
+  const selectedOrderCodes = useMemo(() => (
+    selectedNotaIds
+      .map((notaId) => orderCodesByNotaId.get(notaId) ?? '')
+      .filter(Boolean)
+  ), [selectedNotaIds, orderCodesByNotaId])
 
   function handleCardClick(ownerId: string) {
     setExpandedOwnerId((prev) => (prev === ownerId ? null : ownerId))
@@ -261,6 +285,37 @@ export function OrdersOwnerPanel({
 
       const merged = new Set([...prev, ...visibleNotaIds])
       return Array.from(merged)
+    })
+  }
+
+  async function handleCopyOrders(codes: string[], mode: 'avaliadas' | 'selecionadas') {
+    const payload = buildCopyPayload(codes)
+
+    if (!payload) {
+      toast({
+        title: 'Nenhuma ordem para copiar',
+        description: mode === 'avaliadas'
+          ? 'Nao ha ordens avaliadas no contexto atual.'
+          : 'Selecione ordens para copiar.',
+        variant: 'info',
+      })
+      return
+    }
+
+    const copied = await copyToClipboard(payload)
+    if (!copied) {
+      toast({
+        title: 'Falha ao copiar ordens',
+        description: 'Nao foi possivel copiar para a area de transferencia.',
+        variant: 'error',
+      })
+      return
+    }
+
+    toast({
+      title: mode === 'avaliadas' ? 'Ordens avaliadas copiadas' : 'Ordens selecionadas copiadas',
+      description: `${payload.split('\n').length} ordem(ns) prontas para colar no SAP.`,
+      variant: 'success',
     })
   }
 
@@ -295,6 +350,7 @@ export function OrdersOwnerPanel({
             { value: 'todas', label: 'Todos os status' },
             { value: 'aberta', label: 'Aberta' },
             { value: 'em_tratativa', label: 'Em tratativa' },
+            { value: 'avaliadas', label: 'Avaliadas' },
             { value: 'concluida', label: 'Concluida' },
             { value: 'cancelada', label: 'Cancelada' },
             { value: 'desconhecido', label: 'Desconhecido' },
@@ -378,6 +434,36 @@ export function OrdersOwnerPanel({
               {filter.label} ×
             </button>
           ))}
+        </div>
+      )}
+
+      {canCopyOrders && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/25 p-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => handleCopyOrders(avaliadasOrderCodes, 'avaliadas')}
+            disabled={avaliadasOrderCodes.length === 0}
+          >
+            <ClipboardCheck className="h-4 w-4" />
+            Copiar avaliadas ({avaliadasOrderCodes.length})
+          </Button>
+
+          {canCopySelected && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => handleCopyOrders(selectedOrderCodes, 'selecionadas')}
+              disabled={selectedOrderCodes.length === 0}
+            >
+              <Copy className="h-4 w-4" />
+              Copiar selecionadas ({selectedOrderCodes.length})
+            </Button>
+          )}
         </div>
       )}
 

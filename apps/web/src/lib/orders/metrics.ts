@@ -10,6 +10,7 @@ import type {
 } from '@/lib/types/database'
 
 const FINAL_STATUS = new Set<OrdemStatusAcomp>(['concluida', 'cancelada'])
+const AVALIADA_RAW = 'AVALIACAO_DA_EXECUCAO'
 
 function toWindow(value: unknown): number {
   const parsed = Number(value)
@@ -28,6 +29,7 @@ export function buildOrderKpis(rows: OrdemNotaAcompanhamento[]): OrdemNotaKpis {
   const emTratativa = rows.filter((row) => row.status_ordem === 'em_tratativa').length
   const concluidas = rows.filter((row) => row.status_ordem === 'concluida').length
   const canceladas = rows.filter((row) => row.status_ordem === 'cancelada').length
+  const avaliadas = rows.filter((row) => isAvaliada(row)).length
   const antigas = rows.filter((row) => row.semaforo_atraso === 'vermelho').length
 
   const tempos = rows
@@ -44,9 +46,14 @@ export function buildOrderKpis(rows: OrdemNotaAcompanhamento[]): OrdemNotaKpis {
     qtd_em_tratativa_30d: emTratativa,
     qtd_concluidas_30d: concluidas,
     qtd_canceladas_30d: canceladas,
+    qtd_avaliadas_30d: avaliadas,
     qtd_antigas_7d_30d: antigas,
     tempo_medio_geracao_dias_30d: media,
   }
+}
+
+export function isAvaliada(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
+  return (row.status_ordem_raw ?? '').trim().toUpperCase() === AVALIADA_RAW
 }
 
 export function getOrdersCriticalityLevel(total: number, criticalCount: number): CriticalityLevel {
@@ -62,6 +69,7 @@ export function getOrdersCriticalityLevel(total: number, criticalCount: number):
 export function getOrdersKpiValue(kpis: OrdemNotaKpis, key: OrdersKpiFilter): number {
   if (key === 'em_execucao') return kpis.qtd_em_tratativa_30d
   if (key === 'em_aberto') return kpis.qtd_abertas_30d
+  if (key === 'avaliadas') return kpis.qtd_avaliadas_30d
   if (key === 'atrasadas') return kpis.qtd_antigas_7d_30d
   if (key === 'concluidas') return kpis.qtd_concluidas_30d + kpis.qtd_canceladas_30d
   return kpis.total_ordens_30d
@@ -70,6 +78,7 @@ export function getOrdersKpiValue(kpis: OrdemNotaKpis, key: OrdersKpiFilter): nu
 export function matchOrdersKpi(row: OrdemNotaAcompanhamento, key: OrdersKpiFilter): boolean {
   if (key === 'em_execucao') return row.status_ordem === 'em_tratativa'
   if (key === 'em_aberto') return row.status_ordem === 'aberta'
+  if (key === 'avaliadas') return isAvaliada(row)
   if (key === 'atrasadas') return row.semaforo_atraso === 'vermelho'
   if (key === 'concluidas') return row.status_ordem === 'concluida' || row.status_ordem === 'cancelada'
   return true
