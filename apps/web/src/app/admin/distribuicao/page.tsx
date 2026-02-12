@@ -36,7 +36,7 @@ function toCargaCollaboratorData(c: CargaAdministrador, notas: NotaPanelData[]):
 export default async function DistribuicaoPage() {
   const supabase = await createClient()
 
-  const [cargaResult, notasResult, adminIdsResult] = await Promise.all([
+  const [cargaResult, notasResult] = await Promise.all([
     supabase.from('vw_carga_administradores').select('*').order('nome'),
     supabase
       .from('notas_manutencao')
@@ -44,15 +44,16 @@ export default async function DistribuicaoPage() {
       .not('administrador_id', 'is', null)
       .in('status', ['nova', 'em_andamento', 'encaminhada_fornecedor'])
       .order('data_criacao_sap', { ascending: true }),
-    supabase
-      .from('administradores')
-      .select('id')
-      .eq('role', 'admin'),
   ])
 
-  const adminIds = new Set((adminIdsResult.data ?? []).map((a) => a.id))
-  const carga = ((cargaResult.data ?? []) as CargaAdministrador[]).filter((item) => adminIds.has(item.id))
+  const allCarga = (cargaResult.data ?? []) as CargaAdministrador[]
   const notas = (notasResult.data ?? []) as NotaPanelData[]
+
+  // Mostra quem recebe distribuicao, tem notas, ou esta indisponivel (exclui gestores puros)
+  const notaAdminIds = new Set(notas.map((n) => n.administrador_id).filter(Boolean))
+  const carga = allCarga.filter(
+    (a) => a.recebe_distribuicao || !a.ativo || a.em_ferias || a.qtd_abertas > 0 || notaAdminIds.has(a.id)
+  )
 
   // Ordena: disponiveis primeiro, indisponiveis ao final
   const sorted = [...carga].sort((a, b) => {

@@ -65,7 +65,6 @@ export default async function PainelPage() {
     supabase
       .from('administradores')
       .select(ADMIN_FIELDS)
-      .eq('role', 'admin')
       .order('nome'),
     supabase
       .from('notas_manutencao')
@@ -140,8 +139,14 @@ export default async function PainelPage() {
     return acc
   }, new Map())
 
+  // Mostra quem recebe distribuicao, esta indisponivel, ou tem notas atribuidas
+  const adminIds = new Set(notas.map((n) => n.administrador_id).filter(Boolean))
+  const visiveis = admins.filter(
+    (a) => a.recebe_distribuicao || !a.ativo || a.em_ferias || adminIds.has(a.id)
+  )
+
   // Ordena: disponiveis primeiro, indisponiveis ao final
-  const sorted = [...admins].sort((a, b) => {
+  const sorted = [...visiveis].sort((a, b) => {
     const aOk = a.ativo && a.recebe_distribuicao && !a.em_ferias
     const bOk = b.ativo && b.recebe_distribuicao && !b.em_ferias
     if (aOk && !bOk) return -1
