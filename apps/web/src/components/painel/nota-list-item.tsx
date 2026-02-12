@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { NotaStatusBadge } from '@/components/notas/nota-status-badge'
 import { getAgingBadge, getAgingBucket, isOpenStatus } from '@/lib/collaborator/aging'
 import type { NotaPanelData } from '@/lib/types/database'
 
@@ -37,7 +36,6 @@ export function NotaListItem({ nota }: NotaListItemProps) {
         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${aging.chip}`}>
           {aging.label}
         </span>
-        <NotaStatusBadge status={nota.status} />
         <span className="w-10 text-right text-xs text-muted-foreground">{createdLabel}</span>
       </div>
     </Link>

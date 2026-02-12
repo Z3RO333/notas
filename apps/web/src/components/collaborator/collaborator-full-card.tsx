@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/avatar'
 import { Card } from '@/components/ui/card'
-import { NotaStatusBadge } from '@/components/notas/nota-status-badge'
 import { getAgingBadge, getAgingBucket, getAgingDays, isOpenStatus } from '@/lib/collaborator/aging'
 import type { CollaboratorData } from '@/lib/types/collaborator'
 import type { Especialidade, NotaPanelData, OrdemAcompanhamento } from '@/lib/types/database'
@@ -105,7 +104,6 @@ export function CollaboratorFullCard({
                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${aging.chip}`}>
                       {aging.label}
                     </span>
-                    <NotaStatusBadge status={nota.status} />
                   </div>
                 </Link>
               )
