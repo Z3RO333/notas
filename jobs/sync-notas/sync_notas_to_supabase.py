@@ -7,7 +7,7 @@ Fluxo:
   2. Upsert no Supabase (tabela notas_manutencao)
   3. Registra ordens derivadas de notas (SAP + manual)
   4. Distribui apenas notas pendentes sem ordem
-  5. Enriquecimento de status de ordens via PMPL (>= 7 dias)
+  5. Enriquecimento de status de ordens via PMPL (D0 por padrao)
   6. Registra resultado no sync_log
 """
 
@@ -34,7 +34,7 @@ DEFAULT_WINDOW_DAYS = 30
 BATCH_SIZE = 100
 PMPL_FETCH_BATCH_SIZE = 300
 PMPL_RPC_BATCH_SIZE = 200
-PMPL_MIN_AGE_DAYS = 7
+PMPL_MIN_AGE_DAYS = 0
 
 OPEN_STATUS = {"aberta", "em_tratativa", "desconhecido"}
 
@@ -100,6 +100,21 @@ def get_sync_window_days(spark: SparkSession) -> int:
 def should_force_window(spark: SparkSession) -> bool:
     raw = spark.conf.get("cockpit.sync.force_window", "false")
     return str(raw).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def get_pmpl_min_age_days(spark: SparkSession) -> int:
+    raw = spark.conf.get("cockpit.sync.pm_refresh_min_age_days", str(PMPL_MIN_AGE_DAYS))
+    try:
+        parsed = int(raw)
+    except ValueError:
+        logger.warning(
+            "Valor invalido em cockpit.sync.pm_refresh_min_age_days=%s. Usando %s.",
+            raw,
+            PMPL_MIN_AGE_DAYS,
+        )
+        return PMPL_MIN_AGE_DAYS
+
+    return max(parsed, 0)
 
 
 def create_sync_log(spark: SparkSession) -> str:
@@ -427,6 +442,7 @@ def main():
     spark = SparkSession.builder.getOrCreate()
     window_days = get_sync_window_days(spark)
     force_window = should_force_window(spark)
+    pmpl_min_age_days = get_pmpl_min_age_days(spark)
 
     try:
         supabase.table("sync_log").select("id").limit(1).execute()
@@ -450,13 +466,14 @@ def main():
 
         distributed = run_distribution(sync_id)
 
-        eligible_orders = get_orders_for_pmpl_refresh(min_age_days=PMPL_MIN_AGE_DAYS)
+        eligible_orders = get_orders_for_pmpl_refresh(min_age_days=pmpl_min_age_days)
         pmpl_updates = consolidate_pmpl_status_by_order(spark, eligible_orders)
         _, ordens_status_atualizadas, mudancas_status = push_pmpl_updates(sync_id, pmpl_updates)
 
         metadata = {
             "window_days": window_days,
             "force_window": force_window,
+            "pmpl_min_age_days": pmpl_min_age_days,
             "ordens_detectadas": ordens_detectadas,
             "ordens_status_atualizadas": ordens_status_atualizadas,
             "ordens_mudanca_status": mudancas_status,
@@ -484,7 +501,11 @@ def main():
                 inserted=0,
                 updated=0,
                 distributed=0,
-                metadata={"window_days": window_days, "force_window": force_window},
+                metadata={
+                    "window_days": window_days,
+                    "force_window": force_window,
+                    "pmpl_min_age_days": pmpl_min_age_days,
+                },
                 error=str(e),
             )
         except Exception:

@@ -193,7 +193,11 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     }
 
     if (canViewGlobal && responsavel && responsavel !== 'todos') {
-      next = (next as unknown as { eq: (column: string, value: string) => T }).eq('responsavel_atual_id', responsavel)
+      if (responsavel === '__sem_atual__') {
+        next = (next as unknown as { is: (column: string, value: null) => T }).is('responsavel_atual_id', null)
+      } else {
+        next = (next as unknown as { eq: (column: string, value: string) => T }).eq('responsavel_atual_id', responsavel)
+      }
     }
 
     if (unidade && unidade !== 'todas') {
@@ -260,6 +264,15 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       .single(),
   ])
 
+  const semResponsavelResult = canViewGlobal
+    ? await supabase
+      .from('vw_ordens_notas_painel')
+      .select('nota_id', { count: 'exact', head: true })
+      .gte('ordem_detectada_em', period.startIso)
+      .lt('ordem_detectada_em', period.endExclusiveIso)
+      .is('responsavel_atual_id', null)
+    : { count: 0 }
+
   const rows = (rowsResult.data ?? []) as OrdemNotaAcompanhamento[]
   const total = rowsResult.count ?? 0
   const metricsRows = (metricsRowsResult.data ?? []) as OrdemNotaAcompanhamento[]
@@ -272,9 +285,11 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const criticality = getOrdersCriticalityLevel(orderKpis.total_ordens_30d, orderKpis.qtd_antigas_7d_30d)
   const rankingAdmin = canViewGlobal ? buildOrderRankingAdmin(metricsRows) : []
   const rankingUnidade = canViewGlobal ? buildOrderRankingUnidade(metricsRows) : []
+  const semResponsavelCount = canViewGlobal ? (semResponsavelResult.count ?? 0) : 0
 
   const responsavelOptions = [
     { value: 'todos', label: 'Todos os responsaveis' },
+    { value: '__sem_atual__', label: 'Sem responsavel atual' },
     ...(adminsResult.data ?? []).map((admin) => ({ value: admin.id, label: admin.nome })),
   ]
 
@@ -330,6 +345,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         responsavelOptions={responsavelOptions}
         unidadeOptions={unidadeOptions}
         avatarById={avatarById}
+        semResponsavelCount={semResponsavelCount}
       />
 
       {canViewGlobal && (
