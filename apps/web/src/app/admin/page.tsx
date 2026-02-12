@@ -23,6 +23,7 @@ import {
 } from '@/lib/dashboard/metrics'
 import {
   buildOrderKpis,
+  getOrdersCriticalityLevel,
   buildOrderRankingAdmin,
   buildOrderRankingUnidade,
   parseOrderWindow,
@@ -118,6 +119,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
   const teamCapacityRows = buildTeamCapacityRows(carga)
   const productivityRows = buildProductivityRanking(produtividadeRows)
   const orderKpis = buildOrderKpis(ordensRows)
+  const ordersCriticality = getOrdersCriticalityLevel(orderKpis.total_ordens_30d, orderKpis.qtd_antigas_7d_30d)
   const rankingAdmin = buildOrderRankingAdmin(ordensRows)
   const rankingUnidade = buildOrderRankingUnidade(ordensRows)
 
@@ -177,7 +179,12 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
           </div>
         </div>
 
-        <OrdersKpiStrip kpis={orderKpis} windowDays={orderWindow} />
+        <OrdersKpiStrip
+          kpis={orderKpis}
+          activeKpi={null}
+          criticality={ordersCriticality}
+          interactive={false}
+        />
 
         <div className="grid gap-6 xl:grid-cols-3">
           <div className="xl:col-span-2">

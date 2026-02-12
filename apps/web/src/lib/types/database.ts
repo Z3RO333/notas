@@ -11,9 +11,15 @@ export type NotaStatus =
 export type UserRole = 'admin' | 'gestor'
 export type OrderWindowFilter = 30 | 90 | 180
 export type OrderOwnerMode = 'atual' | 'origem'
+export type PanelViewMode = 'list' | 'cards'
+export type OrdersPeriodMode = 'month' | 'custom'
+export type NotesKpiFilter = 'notas' | 'novas' | 'um_dia' | 'dois_mais'
+export type OrdersKpiFilter = 'total' | 'em_execucao' | 'em_aberto' | 'atrasadas' | 'concluidas'
+export type CriticalityLevel = 'saudavel' | 'atencao' | 'critico'
 export interface OrderReassignTarget {
   id: string
   nome: string
+  avatar_url?: string | null
 }
 
 export interface OrderBulkReassignResult {
@@ -192,6 +198,7 @@ export interface OrdemNotaAcompanhamento {
 export interface OrderOwnerGroup {
   id: string
   nome: string
+  avatar_url: string | null
   rows: OrdemNotaAcompanhamento[]
   recentes: number
   atencao: number
@@ -221,6 +228,7 @@ export interface SavedUserViewPreferences {
   density: 'compact' | 'comfortable'
   hiddenColumns: string[]
   ownerMode?: OrderOwnerMode
+  panelViewMode?: PanelViewMode
   autoRefreshSec: number
 }
 

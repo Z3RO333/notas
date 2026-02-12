@@ -1,9 +1,9 @@
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { OrdersKpiStrip } from '@/components/orders/orders-kpi-strip'
+import { OrdersOwnerPanel } from '@/components/orders/orders-owner-panel'
+import { OrdersPeriodFilter } from '@/components/orders/orders-period-filter'
 import { OrdersRankingAdmin } from '@/components/orders/orders-ranking-admin'
 import { OrdersRankingUnidade } from '@/components/orders/orders-ranking-unidade'
-import { OrdersOwnerPanel } from '@/components/orders/orders-owner-panel'
 import { RealtimeListener } from '@/components/notas/realtime-listener'
 import { LastSyncBadge } from '@/components/shared/last-sync-badge'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
@@ -11,33 +11,42 @@ import {
   buildOrderKpis,
   buildOrderRankingAdmin,
   buildOrderRankingUnidade,
-  parseOrderWindow,
+  getOrdersCriticalityLevel,
 } from '@/lib/orders/metrics'
 import {
   normalizeTextParam,
+  parseDateParam,
+  parseMonthParam,
   parsePageParam,
   parsePageSizeParam,
   parseSortParam,
+  parseYearParam,
   readFirstParam,
 } from '@/lib/grid/query'
 import type {
   GridFilterState,
   GridSortState,
+  OrdersKpiFilter,
+  OrdersPeriodMode,
   OrderReassignTarget,
-  OrderWindowFilter,
   OrdemNotaAcompanhamento,
   UserRole,
 } from '@/lib/types/database'
 
 export const dynamic = 'force-dynamic'
 
-const ORDER_WINDOW_OPTIONS: OrderWindowFilter[] = [30, 90, 180]
 const DEFAULT_SORT: GridSortState = { field: 'data', direction: 'desc' }
 const EMPTY_UUID = '00000000-0000-0000-0000-000000000000'
+const VALID_KPIS: OrdersKpiFilter[] = ['total', 'em_execucao', 'em_aberto', 'atrasadas', 'concluidas']
 
 interface OrdersPageProps {
   searchParams?: Promise<{
-    janela?: string | string[]
+    periodMode?: string | string[]
+    year?: string | string[]
+    month?: string | string[]
+    startDate?: string | string[]
+    endDate?: string | string[]
+    kpi?: string | string[]
     q?: string | string[]
     status?: string | string[]
     responsavel?: string | string[]
@@ -48,20 +57,64 @@ interface OrdersPageProps {
   }>
 }
 
-type OrdersSearchParams = {
-  janela?: string | string[]
-}
-
-function getSelectedWindow(searchParams?: OrdersSearchParams): OrderWindowFilter {
-  const raw = Array.isArray(searchParams?.janela)
-    ? searchParams.janela[0]
-    : searchParams?.janela
-  return parseOrderWindow(raw)
-}
-
 function toUserRole(value: string | null | undefined): UserRole | null {
   if (value === 'admin' || value === 'gestor') return value
   return null
+}
+
+function toIsoDate(date: Date): string {
+  const year = date.getUTCFullYear()
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getUTCDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function getPeriod(
+  periodMode: OrdersPeriodMode,
+  year: number,
+  month: number,
+  startDateRaw: string,
+  endDateRaw: string
+): { startDate: string; endDate: string; startIso: string; endExclusiveIso: string } {
+  if (periodMode === 'month') {
+    const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0))
+    const endExclusive = new Date(Date.UTC(year, month, 1, 0, 0, 0))
+    return {
+      startDate: toIsoDate(start),
+      endDate: toIsoDate(new Date(endExclusive.getTime() - 1)),
+      startIso: start.toISOString(),
+      endExclusiveIso: endExclusive.toISOString(),
+    }
+  }
+
+  const today = new Date()
+  const fallbackEnd = toIsoDate(today)
+  const fallbackStart = toIsoDate(new Date(today.getTime() - (29 * 24 * 60 * 60 * 1000)))
+  const startDate = startDateRaw || fallbackStart
+  const endDate = endDateRaw || fallbackEnd
+
+  const start = new Date(`${startDate}T00:00:00.000Z`)
+  const endExclusive = new Date(`${endDate}T00:00:00.000Z`)
+  endExclusive.setUTCDate(endExclusive.getUTCDate() + 1)
+
+  if (start > endExclusive) {
+    const fixedStart = new Date(`${endDate}T00:00:00.000Z`)
+    const fixedEndExclusive = new Date(`${startDate}T00:00:00.000Z`)
+    fixedEndExclusive.setUTCDate(fixedEndExclusive.getUTCDate() + 1)
+    return {
+      startDate: endDate,
+      endDate: startDate,
+      startIso: fixedStart.toISOString(),
+      endExclusiveIso: fixedEndExclusive.toISOString(),
+    }
+  }
+
+  return {
+    startDate,
+    endDate,
+    startIso: start.toISOString(),
+    endExclusiveIso: endExclusive.toISOString(),
+  }
 }
 
 function mapSortToColumns(sort: GridSortState): Array<{ column: string; ascending: boolean }> {
@@ -76,10 +129,18 @@ function mapSortToColumns(sort: GridSortState): Array<{ column: string; ascendin
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const supabase = await createClient()
   const resolvedSearchParams = searchParams ? await searchParams : undefined
+  const now = new Date()
 
-  const orderWindow = getSelectedWindow(resolvedSearchParams)
-  const cutoff = new Date()
-  cutoff.setUTCDate(cutoff.getUTCDate() - (orderWindow - 1))
+  const periodModeRaw = readFirstParam(resolvedSearchParams?.periodMode)
+  const periodMode: OrdersPeriodMode = periodModeRaw === 'custom' ? 'custom' : 'month'
+  const year = parseYearParam(readFirstParam(resolvedSearchParams?.year), now.getUTCFullYear())
+  const month = parseMonthParam(readFirstParam(resolvedSearchParams?.month), now.getUTCMonth() + 1)
+  const startDateRaw = parseDateParam(readFirstParam(resolvedSearchParams?.startDate))
+  const endDateRaw = parseDateParam(readFirstParam(resolvedSearchParams?.endDate))
+  const period = getPeriod(periodMode, year, month, startDateRaw, endDateRaw)
+
+  const kpiRaw = normalizeTextParam(readFirstParam(resolvedSearchParams?.kpi))
+  const activeKpi = (VALID_KPIS.includes(kpiRaw as OrdersKpiFilter) ? kpiRaw : '') as OrdersKpiFilter | ''
 
   const q = normalizeTextParam(readFirstParam(resolvedSearchParams?.q))
   const status = normalizeTextParam(readFirstParam(resolvedSearchParams?.status))
@@ -108,7 +169,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
 
   const adminsResult = await supabase
     .from('administradores')
-    .select('id, nome')
+    .select('id, nome, avatar_url')
     .eq('role', 'admin')
     .eq('ativo', true)
     .eq('em_ferias', false)
@@ -121,24 +182,21 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   function applyVisibilityFilter<T>(query: T): T {
     if (canViewGlobal) return query
     if (!currentAdminId) return (query as unknown as { eq: (column: string, value: string) => T }).eq('nota_id', EMPTY_UUID)
-
-    return (query as unknown as { or: (value: string) => T }).or(
-      `responsavel_atual_id.eq.${currentAdminId},administrador_id.eq.${currentAdminId},envolvidos_admin_ids.cs.{${currentAdminId}}`
-    )
+    return (query as unknown as { eq: (column: string, value: string) => T }).eq('responsavel_atual_id', currentAdminId)
   }
 
   function applyBusinessFilters<T>(query: T): T {
     let next = query
 
-    if (status) {
+    if (status && status !== 'todas') {
       next = (next as unknown as { eq: (column: string, value: string) => T }).eq('status_ordem', status)
     }
 
-    if (canViewGlobal && responsavel) {
+    if (canViewGlobal && responsavel && responsavel !== 'todos') {
       next = (next as unknown as { eq: (column: string, value: string) => T }).eq('responsavel_atual_id', responsavel)
     }
 
-    if (unidade) {
+    if (unidade && unidade !== 'todas') {
       next = (next as unknown as { eq: (column: string, value: string) => T }).eq('unidade', unidade)
     }
 
@@ -152,13 +210,29 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     return next
   }
 
+  function applyKpiFilter<T>(query: T): T {
+    if (!activeKpi || activeKpi === 'total') return query
+    if (activeKpi === 'em_execucao') {
+      return (query as unknown as { eq: (column: string, value: string) => T }).eq('status_ordem', 'em_tratativa')
+    }
+    if (activeKpi === 'em_aberto') {
+      return (query as unknown as { eq: (column: string, value: string) => T }).eq('status_ordem', 'aberta')
+    }
+    if (activeKpi === 'atrasadas') {
+      return (query as unknown as { eq: (column: string, value: string) => T }).eq('semaforo_atraso', 'vermelho')
+    }
+    return (query as unknown as { in_: (column: string, values: string[]) => T }).in_('status_ordem', ['concluida', 'cancelada'])
+  }
+
   let pagedQuery = supabase
     .from('vw_ordens_notas_painel')
     .select('*', { count: 'exact' })
-    .gte('ordem_detectada_em', cutoff.toISOString())
+    .gte('ordem_detectada_em', period.startIso)
+    .lt('ordem_detectada_em', period.endExclusiveIso)
 
   pagedQuery = applyVisibilityFilter(pagedQuery)
   pagedQuery = applyBusinessFilters(pagedQuery)
+  pagedQuery = applyKpiFilter(pagedQuery)
 
   for (const orderRule of mapSortToColumns(sort)) {
     pagedQuery = pagedQuery.order(orderRule.column, { ascending: orderRule.ascending })
@@ -169,7 +243,8 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   let metricsQuery = supabase
     .from('vw_ordens_notas_painel')
     .select('*')
-    .gte('ordem_detectada_em', cutoff.toISOString())
+    .gte('ordem_detectada_em', period.startIso)
+    .lt('ordem_detectada_em', period.endExclusiveIso)
     .limit(5000)
 
   metricsQuery = applyVisibilityFilter(metricsQuery)
@@ -188,8 +263,13 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const rows = (rowsResult.data ?? []) as OrdemNotaAcompanhamento[]
   const total = rowsResult.count ?? 0
   const metricsRows = (metricsRowsResult.data ?? []) as OrdemNotaAcompanhamento[]
+  const windowDays = Math.max(
+    Math.ceil((new Date(period.endExclusiveIso).getTime() - new Date(period.startIso).getTime()) / (24 * 60 * 60 * 1000)),
+    1
+  )
 
   const orderKpis = buildOrderKpis(metricsRows)
+  const criticality = getOrdersCriticalityLevel(orderKpis.total_ordens_30d, orderKpis.qtd_antigas_7d_30d)
   const rankingAdmin = canViewGlobal ? buildOrderRankingAdmin(metricsRows) : []
   const rankingUnidade = canViewGlobal ? buildOrderRankingUnidade(metricsRows) : []
 
@@ -205,40 +285,33 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       .map((name) => ({ value: name, label: name })),
   ]
 
-  const filters: GridFilterState = {
-    q,
-    status,
-    responsavel,
-    unidade,
-  }
+  const avatarById = Object.fromEntries(
+    (adminsResult.data ?? []).map((admin) => [admin.id, admin.avatar_url ?? null])
+  ) as Record<string, string | null>
 
+  const filters: GridFilterState = { q, status, responsavel, unidade }
   const latestSync = latestSyncResult.data ?? null
 
   return (
     <div className="space-y-6">
       <PageTitleBlock
         title="Painel de Ordens"
-        subtitle="Acompanhamento operacional de ordens originadas de notas."
         rightSlot={<LastSyncBadge timestamp={latestSync?.finished_at ?? null} status={latestSync?.status ?? null} />}
       />
 
-      <div className="flex items-center gap-2">
-        {ORDER_WINDOW_OPTIONS.map((windowDays) => (
-          <Link
-            key={windowDays}
-            href={`/ordens?janela=${windowDays}`}
-            className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-              orderWindow === windowDays
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-border text-muted-foreground hover:bg-muted/50'
-            }`}
-          >
-            {windowDays} dias
-          </Link>
-        ))}
-      </div>
+      <OrdersPeriodFilter
+        periodMode={periodMode}
+        year={year}
+        month={month}
+        startDate={period.startDate}
+        endDate={period.endDate}
+      />
 
-      <OrdersKpiStrip kpis={orderKpis} windowDays={orderWindow} />
+      <OrdersKpiStrip
+        kpis={orderKpis}
+        activeKpi={activeKpi || null}
+        criticality={criticality}
+      />
 
       <OrdersOwnerPanel
         rows={rows}
@@ -250,17 +323,19 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         status={filters.status ?? ''}
         responsavel={filters.responsavel ?? ''}
         unidade={filters.unidade ?? ''}
+        activeKpi={activeKpi || null}
         canViewGlobal={canViewGlobal}
         canReassign={canViewGlobal}
         reassignTargets={reassignTargets}
         responsavelOptions={responsavelOptions}
         unidadeOptions={unidadeOptions}
+        avatarById={avatarById}
       />
 
       {canViewGlobal && (
         <>
-          <OrdersRankingAdmin rows={rankingAdmin.slice(0, 12)} windowDays={orderWindow} />
-          <OrdersRankingUnidade rows={rankingUnidade.slice(0, 12)} windowDays={orderWindow} />
+          <OrdersRankingAdmin rows={rankingAdmin.slice(0, 12)} windowDays={windowDays} />
+          <OrdersRankingUnidade rows={rankingUnidade.slice(0, 12)} windowDays={windowDays} />
         </>
       )}
 

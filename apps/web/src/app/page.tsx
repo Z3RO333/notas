@@ -1,29 +1,25 @@
 import { createClient } from '@/lib/supabase/server'
-import { NotasGrid } from '@/components/notas/notas-grid'
+import { CollaboratorPanel } from '@/components/collaborator/collaborator-panel'
+import { NotasKpiStrip } from '@/components/notas/notas-kpi-strip'
 import { RealtimeListener } from '@/components/notas/realtime-listener'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { LastSyncBadge } from '@/components/shared/last-sync-badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  parsePageParam,
-  parsePageSizeParam,
-  parseSortParam,
-  readFirstParam,
-  normalizeTextParam,
-} from '@/lib/grid/query'
+import { buildAgingCounts } from '@/lib/collaborator/metrics'
+import { isOpenStatus } from '@/lib/collaborator/aging'
+import { normalizeTextParam, readFirstParam } from '@/lib/grid/query'
 import type {
-  GridFilterState,
-  GridSortState,
+  CargaAdministrador,
+  NotesKpiFilter,
   NotaPanelData,
-  NotasMetrics30d,
   UserRole,
 } from '@/lib/types/database'
+import type { CollaboratorData } from '@/lib/types/collaborator'
 
 export const dynamic = 'force-dynamic'
 
 const NOTA_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, data_criacao_sap, created_at' as const
-const DEFAULT_SORT: GridSortState = { field: 'data', direction: 'asc' }
 const EMPTY_UUID = '00000000-0000-0000-0000-000000000000'
+const VALID_NOTES_KPI: NotesKpiFilter[] = ['notas', 'novas', 'um_dia', 'dois_mais']
 
 interface NotesPageProps {
   searchParams?: Promise<{
@@ -31,9 +27,7 @@ interface NotesPageProps {
     status?: string | string[]
     responsavel?: string | string[]
     unidade?: string | string[]
-    sort?: string | string[]
-    page?: string | string[]
-    pageSize?: string | string[]
+    kpi?: string | string[]
   }>
 }
 
@@ -42,30 +36,29 @@ function toUserRole(value: string | null | undefined): UserRole | null {
   return null
 }
 
-function fmtInteger(value: number | null | undefined) {
-  if (value === null || value === undefined || Number.isNaN(value)) return '0'
-  return new Intl.NumberFormat('pt-BR').format(value)
-}
+function toCargaCollaboratorData(c: CargaAdministrador, notas: NotaPanelData[]): CollaboratorData {
+  const adminNotas = notas.filter((n) => n.administrador_id === c.id)
+  const aging = buildAgingCounts(adminNotas)
 
-function fmtFloat(value: number | null | undefined) {
-  if (value === null || value === undefined || Number.isNaN(value)) return '-'
-  return `${value.toFixed(1)} d`
-}
-
-function mapSortToColumns(sort: GridSortState): Array<{ column: string; ascending: boolean }> {
-  if (sort.field === 'numero_nota') return [{ column: 'numero_nota', ascending: sort.direction === 'asc' }]
-  if (sort.field === 'status') return [{ column: 'status', ascending: sort.direction === 'asc' }]
-  if (sort.field === 'responsavel') return [{ column: 'administrador_id', ascending: sort.direction === 'asc' }]
-  if (sort.field === 'idade') {
-    return [
-      { column: 'data_criacao_sap', ascending: true },
-      { column: 'created_at', ascending: true },
-    ]
+  return {
+    id: c.id,
+    nome: c.nome,
+    ativo: c.ativo,
+    max_notas: c.max_notas,
+    avatar_url: c.avatar_url,
+    especialidade: c.especialidade,
+    recebe_distribuicao: c.recebe_distribuicao,
+    em_ferias: c.em_ferias,
+    qtd_nova: c.qtd_nova,
+    qtd_em_andamento: c.qtd_em_andamento,
+    qtd_encaminhada: c.qtd_encaminhada,
+    qtd_novo: aging.qtd_novo,
+    qtd_1_dia: aging.qtd_1_dia,
+    qtd_2_mais: aging.qtd_2_mais,
+    qtd_abertas: c.qtd_abertas,
+    qtd_concluidas: c.qtd_concluidas,
+    qtd_acompanhamento_ordens: 0,
   }
-  return [
-    { column: 'data_criacao_sap', ascending: sort.direction === 'asc' },
-    { column: 'created_at', ascending: sort.direction === 'asc' },
-  ]
 }
 
 export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
@@ -90,14 +83,11 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
   const status = normalizeTextParam(readFirstParam(resolvedSearchParams?.status))
   const responsavel = normalizeTextParam(readFirstParam(resolvedSearchParams?.responsavel))
   const unidade = normalizeTextParam(readFirstParam(resolvedSearchParams?.unidade))
-  const sort = parseSortParam(readFirstParam(resolvedSearchParams?.sort), DEFAULT_SORT)
-  const page = parsePageParam(readFirstParam(resolvedSearchParams?.page))
-  const pageSize = parsePageSizeParam(readFirstParam(resolvedSearchParams?.pageSize), [20, 50, 100])
+  const kpiRaw = normalizeTextParam(readFirstParam(resolvedSearchParams?.kpi))
+  const activeNotesKpi = (VALID_NOTES_KPI.includes(kpiRaw as NotesKpiFilter) ? kpiRaw : '') as NotesKpiFilter | ''
 
-  const from = (page - 1) * pageSize
-  const to = from + pageSize - 1
-
-  const [adminsResult, latestSyncResult, notesMetricsResult] = await Promise.all([
+  const [cargaResult, adminsResult, latestSyncResult] = await Promise.all([
+    supabase.from('vw_carga_administradores').select('*').order('nome'),
     supabase
       .from('administradores')
       .select('id, nome')
@@ -109,17 +99,12 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
       .order('started_at', { ascending: false })
       .limit(1)
       .single(),
-    canViewGlobal
-      ? supabase.from('vw_notas_metrics_30d').select('*').single()
-      : Promise.resolve({ data: null }),
   ])
-
-  const admins = adminsResult.data ?? []
-  const adminNameById = new Map(admins.map((admin) => [admin.id, admin.nome]))
 
   let notesQuery = supabase
     .from('vw_notas_sem_ordem')
-    .select(NOTA_FIELDS, { count: 'exact' })
+    .select(NOTA_FIELDS)
+    .order('data_criacao_sap', { ascending: true })
 
   if (!canViewGlobal) {
     if (!currentAdminId) {
@@ -127,15 +112,23 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
     } else {
       notesQuery = notesQuery.eq('administrador_id', currentAdminId)
     }
-  } else if (responsavel) {
-    notesQuery = notesQuery.eq('administrador_id', responsavel)
+  } else if (responsavel && responsavel !== 'todos') {
+    if (responsavel === 'sem_atribuir') {
+      notesQuery = notesQuery.is('administrador_id', null)
+    } else {
+      notesQuery = notesQuery.eq('administrador_id', responsavel)
+    }
   }
 
-  if (status) {
-    notesQuery = notesQuery.eq('status', status)
+  if (status && status !== 'todas') {
+    if (status === 'abertas') {
+      notesQuery = notesQuery.in('status', ['nova', 'em_andamento', 'encaminhada_fornecedor'])
+    } else {
+      notesQuery = notesQuery.eq('status', status)
+    }
   }
 
-  if (unidade) {
+  if (unidade && unidade !== 'todas') {
     notesQuery = notesQuery.eq('centro', unidade)
   }
 
@@ -144,127 +137,79 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
     notesQuery = notesQuery.or(`numero_nota.ilike.%${escaped}%,descricao.ilike.%${escaped}%`)
   }
 
-  for (const orderRule of mapSortToColumns(sort)) {
-    notesQuery = notesQuery.order(orderRule.column, { ascending: orderRule.ascending })
-  }
+  const notesResult = await notesQuery.limit(5000)
 
-  let unitsQuery = supabase
-    .from('vw_notas_sem_ordem')
-    .select('centro')
-    .not('centro', 'is', null)
-    .limit(1000)
+  const allCarga = (cargaResult.data ?? []) as CargaAdministrador[]
+  const notasFiltradas = (notesResult.data ?? []) as NotaPanelData[]
+  const notasAtribuidas = notasFiltradas.filter((nota) => Boolean(nota.administrador_id))
+  const notasSemAtribuir = notasFiltradas.filter((nota) => !nota.administrador_id)
 
-  if (!canViewGlobal) {
-    if (!currentAdminId) {
-      unitsQuery = unitsQuery.eq('administrador_id', EMPTY_UUID)
-    } else {
-      unitsQuery = unitsQuery.eq('administrador_id', currentAdminId)
-    }
-  } else if (responsavel) {
-    unitsQuery = unitsQuery.eq('administrador_id', responsavel)
-  }
+  const notaAdminIds = new Set(notasAtribuidas.map((n) => n.administrador_id).filter(Boolean) as string[])
+  const carga = allCarga.filter(
+    (admin) => admin.recebe_distribuicao || !admin.ativo || admin.em_ferias || admin.qtd_abertas > 0 || notaAdminIds.has(admin.id)
+  )
 
-  if (status) {
-    unitsQuery = unitsQuery.eq('status', status)
-  }
+  const collaborators = [...carga]
+    .sort((a, b) => {
+      const aOk = a.ativo && a.recebe_distribuicao && !a.em_ferias
+      const bOk = b.ativo && b.recebe_distribuicao && !b.em_ferias
+      if (aOk && !bOk) return -1
+      if (!aOk && bOk) return 1
+      return a.nome.localeCompare(b.nome, 'pt-BR')
+    })
+    .map((item) => toCargaCollaboratorData(item, notasAtribuidas))
 
-  const [notesResult, unitsResult] = await Promise.all([
-    notesQuery.range(from, to),
-    unitsQuery,
-  ])
-
-  const notesRows = (notesResult.data ?? []) as NotaPanelData[]
-  const total = notesResult.count ?? 0
-
-  const gridRows = notesRows.map((row) => ({
-    ...row,
-    responsavel_nome: row.administrador_id ? (adminNameById.get(row.administrador_id) ?? null) : null,
-  }))
-
-  const unitOptions = [
-    { value: 'todas', label: 'Todas as unidades' },
-    ...Array.from(new Set(((unitsResult.data ?? []).map((row) => row.centro).filter(Boolean) as string[]))).sort((a, b) => a.localeCompare(b, 'pt-BR')).map((center) => ({
-      value: center,
-      label: center,
-    })),
-  ]
+  const baseOpenNotas = notasFiltradas.filter((nota) => isOpenStatus(nota.status))
+  const aging = buildAgingCounts(baseOpenNotas)
 
   const responsavelOptions = [
     { value: 'todos', label: 'Todos os responsaveis' },
-    ...admins.map((admin) => ({ value: admin.id, label: admin.nome })),
+    ...((adminsResult.data ?? []).map((admin) => ({ value: admin.id, label: admin.nome }))),
+    { value: 'sem_atribuir', label: 'Sem atribuir' },
+  ]
+
+  const unidadeOptions = [
+    { value: 'todas', label: 'Todas as unidades' },
+    ...Array.from(new Set(notasFiltradas.map((nota) => nota.centro).filter(Boolean) as string[]))
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+      .map((centro) => ({ value: centro, label: centro })),
   ]
 
   const latestSync = latestSyncResult.data ?? null
-  const notesMetrics = (notesMetricsResult.data ?? null) as NotasMetrics30d | null
-
-  const filters: GridFilterState = {
-    q,
-    status,
-    responsavel,
-    unidade,
-  }
 
   return (
     <div className="space-y-6">
       <PageTitleBlock
         title="Painel de Notas"
-        subtitle="Tratativa operacional de notas sem ordem gerada."
+        subtitle="Operacao de notas sem ordem."
         rightSlot={<LastSyncBadge timestamp={latestSync?.finished_at ?? null} status={latestSync?.status ?? null} />}
       />
 
-      {canViewGlobal && notesMetrics && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Notas criadas (30d)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{fmtInteger(notesMetrics.qtd_notas_criadas_30d)}</p>
-            </CardContent>
-          </Card>
+      <NotasKpiStrip
+        total={baseOpenNotas.length}
+        novas={aging.qtd_novo}
+        umDia={aging.qtd_1_dia}
+        doisMais={aging.qtd_2_mais}
+        activeKpi={activeNotesKpi || null}
+      />
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Viraram ordem (30d)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-emerald-700">{fmtInteger(notesMetrics.qtd_notas_viraram_ordem_30d)}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Tempo medio p/ ordem</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-amber-700">{fmtFloat(notesMetrics.tempo_medio_para_ordem_dias_30d)}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pendentes sem ordem</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-sky-700">{fmtInteger(notesMetrics.qtd_pendentes_sem_ordem)}</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      <NotasGrid
-        rows={gridRows}
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        sort={sort}
-        q={filters.q ?? ''}
-        status={filters.status ?? ''}
-        responsavel={filters.responsavel ?? ''}
-        unidade={filters.unidade ?? ''}
-        canViewGlobal={canViewGlobal}
+      <CollaboratorPanel
+        collaborators={collaborators}
+        notas={notasAtribuidas}
+        notasSemAtribuir={canViewGlobal ? notasSemAtribuir : undefined}
+        mode="viewer"
+        currentAdminId={currentAdminId}
+        currentAdminRole={currentAdminRole}
+        syncWithUrl
+        initialSearch={q}
+        initialStatus={status}
+        initialResponsavel={responsavel}
+        initialUnidade={unidade}
         responsavelOptions={responsavelOptions}
-        unidadeOptions={unitOptions}
+        unidadeOptions={unidadeOptions}
+        showResponsavelFilter={canViewGlobal}
+        showUnidadeFilter
+        activeNotesKpi={activeNotesKpi || null}
       />
 
       <RealtimeListener />

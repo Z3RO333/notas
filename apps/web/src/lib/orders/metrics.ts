@@ -1,4 +1,6 @@
 import type {
+  CriticalityLevel,
+  OrdersKpiFilter,
   OrderWindowFilter,
   OrdemNotaAcompanhamento,
   OrdemNotaKpis,
@@ -45,6 +47,32 @@ export function buildOrderKpis(rows: OrdemNotaAcompanhamento[]): OrdemNotaKpis {
     qtd_antigas_7d_30d: antigas,
     tempo_medio_geracao_dias_30d: media,
   }
+}
+
+export function getOrdersCriticalityLevel(total: number, criticalCount: number): CriticalityLevel {
+  if (total <= 0 || criticalCount <= 0) return 'saudavel'
+
+  const ratio = criticalCount / Math.max(total, 1)
+
+  if (criticalCount >= 20 || ratio >= 0.35) return 'critico'
+  if (criticalCount >= 6 || ratio >= 0.15) return 'atencao'
+  return 'saudavel'
+}
+
+export function getOrdersKpiValue(kpis: OrdemNotaKpis, key: OrdersKpiFilter): number {
+  if (key === 'em_execucao') return kpis.qtd_em_tratativa_30d
+  if (key === 'em_aberto') return kpis.qtd_abertas_30d
+  if (key === 'atrasadas') return kpis.qtd_antigas_7d_30d
+  if (key === 'concluidas') return kpis.qtd_concluidas_30d + kpis.qtd_canceladas_30d
+  return kpis.total_ordens_30d
+}
+
+export function matchOrdersKpi(row: OrdemNotaAcompanhamento, key: OrdersKpiFilter): boolean {
+  if (key === 'em_execucao') return row.status_ordem === 'em_tratativa'
+  if (key === 'em_aberto') return row.status_ordem === 'aberta'
+  if (key === 'atrasadas') return row.semaforo_atraso === 'vermelho'
+  if (key === 'concluidas') return row.status_ordem === 'concluida' || row.status_ordem === 'cancelada'
+  return true
 }
 
 export function buildOrderRankingAdmin(rows: OrdemNotaAcompanhamento[]): OrdemNotaRankingAdmin[] {

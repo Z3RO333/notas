@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { LayoutGrid, Rows3 } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   Select,
@@ -12,6 +13,7 @@ import {
 import { OrdersBulkReassignBar } from '@/components/orders/orders-bulk-reassign-bar'
 import { OrdersOwnerMiniCard } from '@/components/orders/orders-owner-mini-card'
 import { OrdersOwnerAccordion } from '@/components/orders/orders-owner-accordion'
+import { OrdersOwnerFullCard } from '@/components/orders/orders-owner-full-card'
 import { AutoRefreshController } from '@/components/shared/auto-refresh-controller'
 import { GridFilters, type GridFilterOption } from '@/components/data-grid/grid-filters'
 import { GridPagination } from '@/components/data-grid/grid-pagination'
@@ -23,6 +25,8 @@ import type {
   OrderOwnerGroup,
   OrderOwnerMode,
   OrderReassignTarget,
+  OrdersKpiFilter,
+  PanelViewMode,
   OrdemNotaAcompanhamento,
   OrdemStatusAcomp,
 } from '@/lib/types/database'
@@ -37,20 +41,28 @@ interface OrdersOwnerPanelProps {
   status: string
   responsavel: string
   unidade: string
+  activeKpi: OrdersKpiFilter | null
   canViewGlobal: boolean
   canReassign?: boolean
   reassignTargets?: OrderReassignTarget[]
   responsavelOptions: GridFilterOption[]
   unidadeOptions: GridFilterOption[]
+  avatarById: Record<string, string | null>
 }
 
 type OrderStatusFilter = OrdemStatusAcomp | 'todas'
 
 const OWNER_MODE_STORAGE_KEY = 'cockpit:ordens:owner-mode'
+const VIEW_MODE_STORAGE_KEY = 'cockpit:ordens:view-mode'
 
 const OWNER_MODE_OPTIONS: Array<{ value: OrderOwnerMode; label: string }> = [
   { value: 'atual', label: 'Responsavel atual' },
   { value: 'origem', label: 'Responsavel de origem' },
+]
+
+const VIEW_MODE_OPTIONS: Array<{ value: PanelViewMode; label: string; icon: typeof Rows3 }> = [
+  { value: 'list', label: 'Lista vertical', icon: Rows3 },
+  { value: 'cards', label: 'Cards completos', icon: LayoutGrid },
 ]
 
 function resolveOwner(row: OrdemNotaAcompanhamento, mode: OrderOwnerMode): { id: string; nome: string } {
@@ -67,7 +79,11 @@ function resolveOwner(row: OrdemNotaAcompanhamento, mode: OrderOwnerMode): { id:
   }
 }
 
-function buildGroups(rows: OrdemNotaAcompanhamento[], mode: OrderOwnerMode): OrderOwnerGroup[] {
+function buildGroups(
+  rows: OrdemNotaAcompanhamento[],
+  mode: OrderOwnerMode,
+  avatarById: Record<string, string | null>
+): OrderOwnerGroup[] {
   const map = new Map<string, OrderOwnerGroup>()
 
   for (const row of rows) {
@@ -75,6 +91,7 @@ function buildGroups(rows: OrdemNotaAcompanhamento[], mode: OrderOwnerMode): Ord
     const current = map.get(owner.id) ?? {
       id: owner.id,
       nome: owner.nome,
+      avatar_url: avatarById[owner.id] ?? null,
       rows: [],
       recentes: 0,
       atencao: 0,
@@ -107,11 +124,13 @@ export function OrdersOwnerPanel({
   status,
   responsavel,
   unidade,
+  activeKpi,
   canViewGlobal,
   canReassign = false,
   reassignTargets = [],
   responsavelOptions,
   unidadeOptions,
+  avatarById,
 }: OrdersOwnerPanelProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -119,6 +138,7 @@ export function OrdersOwnerPanel({
 
   const [searchInput, setSearchInput] = useState(q)
   const [ownerMode, setOwnerMode] = useState<OrderOwnerMode>('atual')
+  const [viewMode, setViewMode] = useState<PanelViewMode>('list')
   const [expandedOwnerId, setExpandedOwnerId] = useState<string | null>(null)
   const [selectedNotaIds, setSelectedNotaIds] = useState<string[]>([])
 
@@ -129,15 +149,24 @@ export function OrdersOwnerPanel({
   }, [q])
 
   useEffect(() => {
-    const persisted = window.localStorage.getItem(OWNER_MODE_STORAGE_KEY)
-    if (persisted === 'atual' || persisted === 'origem') {
-      setOwnerMode(persisted)
+    const persistedOwnerMode = window.localStorage.getItem(OWNER_MODE_STORAGE_KEY)
+    if (persistedOwnerMode === 'atual' || persistedOwnerMode === 'origem') {
+      setOwnerMode(persistedOwnerMode)
+    }
+
+    const persistedViewMode = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY)
+    if (persistedViewMode === 'list' || persistedViewMode === 'cards') {
+      setViewMode(persistedViewMode)
     }
   }, [])
 
   useEffect(() => {
     window.localStorage.setItem(OWNER_MODE_STORAGE_KEY, ownerMode)
   }, [ownerMode])
+
+  useEffect(() => {
+    window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode)
+  }, [viewMode])
 
   function replaceQuery(updates: Record<string, string | number | null | undefined>) {
     const next = updateSearchParams(new URLSearchParams(searchParams.toString()), updates)
@@ -180,7 +209,7 @@ export function OrdersOwnerPanel({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [rows])
 
-  const groups = useMemo(() => buildGroups(rows, ownerMode), [rows, ownerMode])
+  const groups = useMemo(() => buildGroups(rows, ownerMode, avatarById), [rows, ownerMode, avatarById])
 
   useEffect(() => {
     setExpandedOwnerId((prev) => {
@@ -227,6 +256,14 @@ export function OrdersOwnerPanel({
       return Array.from(merged)
     })
   }
+
+  const activeFilters = [
+    q ? { key: 'q', label: `Busca: ${q}` } : null,
+    status ? { key: 'status', label: `Status: ${status}` } : null,
+    responsavel ? { key: 'responsavel', label: 'Responsavel filtrado' } : null,
+    unidade ? { key: 'unidade', label: `Unidade: ${unidade}` } : null,
+    activeKpi ? { key: 'kpi', label: `KPI: ${activeKpi}` } : null,
+  ].filter(Boolean) as Array<{ key: string; label: string }>
 
   return (
     <div className="space-y-4">
@@ -296,7 +333,41 @@ export function OrdersOwnerPanel({
             ))}
           </SelectContent>
         </Select>
+
+        <Select value={viewMode} onValueChange={(value) => setViewMode(value as PanelViewMode)}>
+          <SelectTrigger className="w-full xl:w-48">
+            <SelectValue placeholder="Visualizacao" />
+          </SelectTrigger>
+          <SelectContent>
+            {VIEW_MODE_OPTIONS.map((option) => {
+              const Icon = option.icon
+              return (
+                <SelectItem key={option.value} value={option.value}>
+                  <div className="flex items-center gap-2">
+                    <Icon className="h-4 w-4" />
+                    {option.label}
+                  </div>
+                </SelectItem>
+              )
+            })}
+          </SelectContent>
+        </Select>
       </GridToolbar>
+
+      {activeFilters.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {activeFilters.map((filter) => (
+            <button
+              key={filter.key}
+              type="button"
+              className="rounded-full border px-3 py-1 text-xs text-muted-foreground hover:bg-muted/50"
+              onClick={() => replaceQuery({ [filter.key]: null, page: 1 })}
+            >
+              {filter.label} ×
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <AutoRefreshController onRefresh={() => router.refresh()} defaultIntervalSec={30} />
@@ -324,31 +395,45 @@ export function OrdersOwnerPanel({
       )}
 
       {groups.length > 0 ? (
-        <>
-          <div className="sticky top-14 z-40 bg-background/95 pb-3 pt-1 backdrop-blur">
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              {groups.map((group) => (
-                <OrdersOwnerMiniCard
-                  key={group.id}
-                  group={group}
-                  isExpanded={expandedOwnerId === group.id}
-                  onClick={() => handleCardClick(group.id)}
-                />
-              ))}
+        viewMode === 'list' ? (
+          <>
+            <div className="sticky top-14 z-40 bg-background/95 pb-3 pt-1 backdrop-blur">
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                {groups.map((group) => (
+                  <OrdersOwnerMiniCard
+                    key={group.id}
+                    group={group}
+                    isExpanded={expandedOwnerId === group.id}
+                    onClick={() => handleCardClick(group.id)}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
 
-          {groups.map((group) => (
-            <OrdersOwnerAccordion
-              key={group.id}
-              group={group}
-              isOpen={expandedOwnerId === group.id}
-              canReassign={canBulkReassign}
-              selectedNotaIds={selectedNotaIdsSet}
-              onToggleRowSelection={handleToggleRowSelection}
-            />
-          ))}
-        </>
+            {groups.map((group) => (
+              <OrdersOwnerAccordion
+                key={group.id}
+                group={group}
+                isOpen={expandedOwnerId === group.id}
+                canReassign={canBulkReassign}
+                selectedNotaIds={selectedNotaIdsSet}
+                onToggleRowSelection={handleToggleRowSelection}
+              />
+            ))}
+          </>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            {groups.map((group) => (
+              <OrdersOwnerFullCard
+                key={group.id}
+                group={group}
+                canReassign={canBulkReassign}
+                selectedNotaIds={selectedNotaIdsSet}
+                onToggleRowSelection={handleToggleRowSelection}
+              />
+            ))}
+          </div>
+        )
       ) : (
         <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
           Nenhuma ordem encontrada com os filtros selecionados.
