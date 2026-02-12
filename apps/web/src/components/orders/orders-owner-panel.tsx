@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { LayoutGrid, Rows3 } from 'lucide-react'
+import { AlertTriangle, LayoutGrid, Rows3 } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   Select,
@@ -48,6 +48,7 @@ interface OrdersOwnerPanelProps {
   responsavelOptions: GridFilterOption[]
   unidadeOptions: GridFilterOption[]
   avatarById: Record<string, string | null>
+  semResponsavelCount?: number
 }
 
 type OrderStatusFilter = OrdemStatusAcomp | 'todas'
@@ -131,6 +132,7 @@ export function OrdersOwnerPanel({
   responsavelOptions,
   unidadeOptions,
   avatarById,
+  semResponsavelCount = 0,
 }: OrdersOwnerPanelProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -224,6 +226,11 @@ export function OrdersOwnerPanel({
     [rows]
   )
 
+  const semResponsavelVisibleIds = useMemo(
+    () => Array.from(new Set(rows.filter((row) => !row.responsavel_atual_id).map((row) => row.nota_id))),
+    [rows]
+  )
+
   useEffect(() => {
     setSelectedNotaIds((prev) => prev.filter((id) => visibleNotaIds.includes(id)))
   }, [visibleNotaIds])
@@ -260,7 +267,12 @@ export function OrdersOwnerPanel({
   const activeFilters = [
     q ? { key: 'q', label: `Busca: ${q}` } : null,
     status ? { key: 'status', label: `Status: ${status}` } : null,
-    responsavel ? { key: 'responsavel', label: 'Responsavel filtrado' } : null,
+    responsavel
+      ? {
+        key: 'responsavel',
+        label: responsavel === '__sem_atual__' ? 'Responsavel: sem dono' : 'Responsavel filtrado',
+      }
+      : null,
     unidade ? { key: 'unidade', label: `Unidade: ${unidade}` } : null,
     activeKpi ? { key: 'kpi', label: `KPI: ${activeKpi}` } : null,
   ].filter(Boolean) as Array<{ key: string; label: string }>
@@ -366,6 +378,35 @@ export function OrdersOwnerPanel({
               {filter.label} ×
             </button>
           ))}
+        </div>
+      )}
+
+      {canViewGlobal && semResponsavelCount > 0 && (
+        <div className="rounded-lg border border-red-300 bg-red-50/80 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="inline-flex items-center gap-2 text-sm font-medium text-red-800">
+              <AlertTriangle className="h-4 w-4" />
+              Ordens sem dono: {semResponsavelCount}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                onClick={() => replaceQuery({ responsavel: '__sem_atual__', page: 1 })}
+              >
+                Filtrar sem dono
+              </button>
+              {canBulkReassign && semResponsavelVisibleIds.length > 0 && (
+                <button
+                  type="button"
+                  className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                  onClick={() => setSelectedNotaIds(semResponsavelVisibleIds)}
+                >
+                  Selecionar sem dono visiveis
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
