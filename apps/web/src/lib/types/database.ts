@@ -116,6 +116,21 @@ export interface ProdutividadeMensal {
   qtd_concluidas: number
 }
 
+export interface DashboardFluxoDiario90d {
+  dia: string
+  qtd_entradas: number
+  qtd_concluidas: number
+}
+
+export interface DashboardProdutividade60d {
+  administrador_id: string
+  nome: string
+  avatar_url: string | null
+  especialidade: Especialidade | null
+  concluidas_30d: number
+  concluidas_prev_30d: number
+}
+
 // Campos minimos que NotaCard e CollaboratorPanel precisam
 export type NotaPanelData = Pick<NotaManutencao,
   'id' | 'numero_nota' | 'descricao' | 'status' | 'administrador_id' |
