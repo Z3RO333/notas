@@ -38,11 +38,23 @@ export default async function DistribuicaoPage() {
       .order('data_criacao_sap', { ascending: true }),
   ])
 
-  const carga = cargaResult.data ?? []
+  const carga = (cargaResult.data ?? []) as CargaAdministrador[]
   const notas = (notasResult.data ?? []) as NotaPanelData[]
 
-  const ativos = carga.filter((a) => a.ativo && a.recebe_distribuicao)
-  const collaborators = ativos.map(toCargaCollaboratorData)
+  // Ordena: disponiveis primeiro, indisponiveis ao final
+  const sorted = [...carga].sort((a, b) => {
+    const aOk = a.ativo && a.recebe_distribuicao && !a.em_ferias
+    const bOk = b.ativo && b.recebe_distribuicao && !b.em_ferias
+    if (aOk && !bOk) return -1
+    if (!aOk && bOk) return 1
+    return 0
+  })
+  const collaborators = sorted.map(toCargaCollaboratorData)
+
+  const totalAtivos = carga.filter((a) => a.ativo).length
+  const recebendo = carga.filter((a) => a.ativo && a.recebe_distribuicao && !a.em_ferias).length
+  const emFerias = carga.filter((a) => a.em_ferias).length
+  const inativos = carga.filter((a) => !a.ativo).length
 
   return (
     <div className="space-y-6">
@@ -57,16 +69,22 @@ export default async function DistribuicaoPage() {
       <div className="flex flex-wrap gap-4 text-sm">
         <div className="rounded-lg border px-4 py-2">
           <span className="text-muted-foreground">Ativos: </span>
-          <span className="font-semibold">{ativos.length}</span>
+          <span className="font-semibold">{totalAtivos}</span>
         </div>
         <div className="rounded-lg border px-4 py-2">
           <span className="text-muted-foreground">Recebendo notas: </span>
-          <span className="font-semibold">{ativos.filter((a) => a.recebe_distribuicao && !a.em_ferias).length}</span>
+          <span className="font-semibold">{recebendo}</span>
         </div>
         <div className="rounded-lg border px-4 py-2">
           <span className="text-muted-foreground">Em ferias: </span>
-          <span className="font-semibold">{ativos.filter((a) => a.em_ferias).length}</span>
+          <span className="font-semibold">{emFerias}</span>
         </div>
+        {inativos > 0 && (
+          <div className="rounded-lg border px-4 py-2">
+            <span className="text-muted-foreground">Inativos: </span>
+            <span className="font-semibold">{inativos}</span>
+          </div>
+        )}
       </div>
 
       <CollaboratorPanel
