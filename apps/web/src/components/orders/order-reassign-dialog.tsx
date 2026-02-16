@@ -23,6 +23,8 @@ interface OrderReassignDialogProps {
   ordemCodigo: string
   currentAdminId: string | null
   admins: OrderReassignTarget[]
+  skipRouterRefresh?: boolean
+  onReassigned?: (payload: { notaId: string; novoAdminId: string }) => void
 }
 
 export function OrderReassignDialog({
@@ -31,6 +33,8 @@ export function OrderReassignDialog({
   ordemCodigo,
   currentAdminId,
   admins,
+  skipRouterRefresh = false,
+  onReassigned,
 }: OrderReassignDialogProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -59,7 +63,10 @@ export function OrderReassignDialog({
       setOpen(false)
       setSelectedAdmin('')
       setMotivo('')
-      router.refresh()
+      onReassigned?.({ notaId, novoAdminId: selectedAdmin })
+      if (!skipRouterRefresh) {
+        router.refresh()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao reatribuir ordem')
     } finally {
