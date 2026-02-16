@@ -13,6 +13,7 @@ export type OrderWindowFilter = 30 | 90 | 180
 export type OrderOwnerMode = 'atual' | 'origem'
 export type PanelViewMode = 'list' | 'cards'
 export type OrdersPeriodMode = 'month' | 'custom'
+export type OrdersPeriodModeOperational = 'all' | 'year' | 'year_month' | 'month' | 'range'
 export type NotesKpiFilter = 'notas' | 'novas' | 'um_dia' | 'dois_mais'
 export type OrdersKpiFilter = 'total' | 'em_execucao' | 'em_aberto' | 'atrasadas' | 'concluidas' | 'avaliadas'
 export type CriticalityLevel = 'saudavel' | 'atencao' | 'critico'
@@ -216,6 +217,69 @@ export interface OrdemKpisRpc {
   avaliadas: number
   atrasadas_7d: number
   sem_responsavel: number
+}
+
+export interface OrdersWorkspaceFilters {
+  periodMode: OrdersPeriodModeOperational
+  year: number | null
+  month: number | null
+  startDate: string | null
+  endDate: string | null
+  q: string
+  status: string
+  responsavel: string
+  unidade: string
+  prioridade: string
+}
+
+export interface OrdersWorkspaceCursor {
+  ordem_detectada_em: string
+  ordem_id: string
+}
+
+export interface OrdersOwnerSummary {
+  administrador_id: string | null
+  nome: string
+  avatar_url: string | null
+  total: number
+  abertas: number
+  atrasadas: number
+}
+
+export interface OrdersWorkspaceKpis {
+  total: number
+  abertas: number
+  em_tratativa: number
+  atrasadas: number
+  sem_responsavel: number
+}
+
+export interface OrdersWorkspaceResponse {
+  rows: OrdemNotaAcompanhamento[]
+  nextCursor: OrdersWorkspaceCursor | null
+  kpis: OrdersWorkspaceKpis
+  ownerSummary: OrdersOwnerSummary[]
+  reassignTargets: OrderReassignTarget[]
+  currentUser: {
+    role: UserRole
+    adminId: string
+    canViewGlobal: boolean
+  }
+}
+
+export interface OrderTimelineEvent {
+  id: string
+  origem: 'ordem' | 'nota'
+  created_at: string
+  titulo: string
+  descricao: string
+}
+
+export interface OrderDetailDrawerData {
+  ordem: OrdemNotaAcompanhamento
+  descricao_nota: string | null
+  envolvidos: Array<{ id: string; nome: string }>
+  timeline: OrderTimelineEvent[]
 }
 
 export interface GridSortState {

@@ -32,6 +32,8 @@ interface OrdersBulkReassignBarProps {
   admins: OrderReassignTarget[]
   onClearSelection: () => void
   onReassigned?: (count: number) => void
+  skipRouterRefresh?: boolean
+  onSuccess?: (result: { movedCount: number; skippedCount: number; rows: Array<{ nota_id: string; administrador_destino_id: string }> }) => void
 }
 
 export function OrdersBulkReassignBar({
@@ -39,6 +41,8 @@ export function OrdersBulkReassignBar({
   admins,
   onClearSelection,
   onReassigned,
+  skipRouterRefresh = false,
+  onSuccess,
 }: OrdersBulkReassignBarProps) {
   const router = useRouter()
   const { toast } = useToast()
@@ -75,6 +79,11 @@ export function OrdersBulkReassignBar({
       })
 
       onReassigned?.(result.movedCount)
+      onSuccess?.({
+        movedCount: result.movedCount,
+        skippedCount: result.skippedCount,
+        rows: result.rows,
+      })
       setOpen(false)
       setMotivo('')
       if (mode === 'destino_unico') setDestinationAdminId('')
@@ -84,7 +93,9 @@ export function OrdersBulkReassignBar({
         description: `Movidas: ${result.movedCount} | Puladas: ${result.skippedCount}`,
         variant: 'success',
       })
-      router.refresh()
+      if (!skipRouterRefresh) {
+        router.refresh()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao reatribuir ordens selecionadas')
     } finally {
