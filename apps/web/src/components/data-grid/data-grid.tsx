@@ -28,6 +28,7 @@ interface DataGridProps<TData> {
   errorMessage?: string | null
   emptyMessage?: string
   density?: 'compact' | 'comfortable'
+  rowClassName?: (row: TData) => string
 }
 
 export function DataGrid<TData>({
@@ -44,6 +45,7 @@ export function DataGrid<TData>({
   errorMessage = null,
   emptyMessage,
   density = 'comfortable',
+  rowClassName,
 }: DataGridProps<TData>) {
   const table = useReactTable({
     data,
@@ -101,7 +103,7 @@ export function DataGrid<TData>({
 
           <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="border-b last:border-b-0 hover:bg-muted/20">
+              <tr key={row.id} className={`border-b last:border-b-0 hover:bg-muted/20 ${rowClassName ? rowClassName(row.original) : ''}`}>
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className={bodyCellClass}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

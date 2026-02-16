@@ -1,5 +1,6 @@
 import type {
   CriticalityLevel,
+  OrdemKpisRpc,
   OrdersKpiFilter,
   OrderWindowFilter,
   OrdemNotaAcompanhamento,
@@ -49,6 +50,19 @@ export function buildOrderKpis(rows: OrdemNotaAcompanhamento[]): OrdemNotaKpis {
     qtd_avaliadas_30d: avaliadas,
     qtd_antigas_7d_30d: antigas,
     tempo_medio_geracao_dias_30d: media,
+  }
+}
+
+export function buildOrderKpisFromRpc(rpc: OrdemKpisRpc): OrdemNotaKpis {
+  return {
+    total_ordens_30d: rpc.total,
+    qtd_abertas_30d: rpc.abertas,
+    qtd_em_tratativa_30d: rpc.em_tratativa,
+    qtd_concluidas_30d: rpc.concluidas,
+    qtd_canceladas_30d: rpc.canceladas,
+    qtd_avaliadas_30d: rpc.avaliadas,
+    qtd_antigas_7d_30d: rpc.atrasadas_7d,
+    tempo_medio_geracao_dias_30d: null,
   }
 }
 

@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { type ColumnDef } from '@tanstack/react-table'
+import { ExternalLink } from 'lucide-react'
 import { DataGrid } from '@/components/data-grid/data-grid'
 import { Avatar } from '@/components/ui/avatar'
+import { OrderReassignDialog } from '@/components/orders/order-reassign-dialog'
 import {
   getOrderStatusClass,
   getOrderStatusLabel,
@@ -10,7 +12,7 @@ import {
   getSemaforoLabel,
   sortOrdersByPriority,
 } from '@/lib/orders/metrics'
-import type { OrdemNotaAcompanhamento, OrderOwnerGroup } from '@/lib/types/database'
+import type { OrdemNotaAcompanhamento, OrderOwnerGroup, OrderReassignTarget } from '@/lib/types/database'
 
 interface OrdersOwnerAccordionProps {
   group: OrderOwnerGroup
@@ -18,6 +20,7 @@ interface OrdersOwnerAccordionProps {
   canReassign: boolean
   selectedNotaIds: Set<string>
   onToggleRowSelection: (notaId: string) => void
+  reassignTargets?: OrderReassignTarget[]
 }
 
 function formatIsoDate(value: string): string {
@@ -33,6 +36,7 @@ export function OrdersOwnerAccordion({
   canReassign,
   selectedNotaIds,
   onToggleRowSelection,
+  reassignTargets = [],
 }: OrdersOwnerAccordionProps) {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -136,7 +140,31 @@ export function OrdersOwnerAccordion({
       header: 'Unidade',
       cell: ({ row }) => row.original.unidade ?? 'Sem unidade',
     },
-  ], [allSelected, canReassign, group.nome, selectedNotaIds])
+    {
+      id: 'acoes',
+      header: '',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1">
+          {canReassign && reassignTargets.length > 0 && (
+            <OrderReassignDialog
+              notaId={row.original.nota_id}
+              notaNumero={row.original.numero_nota}
+              ordemCodigo={row.original.ordem_codigo}
+              currentAdminId={row.original.responsavel_atual_id}
+              admins={reassignTargets}
+            />
+          )}
+          <Link
+            href={`/notas/${row.original.nota_id}`}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            title="Ver detalhes"
+          >
+            <ExternalLink className="h-3 w-3" />
+          </Link>
+        </div>
+      ),
+    },
+  ], [allSelected, canReassign, group.nome, selectedNotaIds, reassignTargets])
 
   return (
     <div ref={ref} className="accordion-grid" data-state={isOpen ? 'open' : 'closed'}>
@@ -149,6 +177,9 @@ export function OrdersOwnerAccordion({
             </div>
             <span className="text-sm text-muted-foreground">
               {group.total} ordem{group.total !== 1 ? 's' : ''}
+              {group.atrasadas > 0 && (
+                <span className="ml-1 text-red-600">({group.atrasadas} atrasada{group.atrasadas !== 1 ? 's' : ''})</span>
+              )}
             </span>
           </div>
 
@@ -157,6 +188,7 @@ export function OrdersOwnerAccordion({
             columns={columns}
             getRowId={(row) => row.ordem_id}
             emptyMessage="Nenhuma ordem encontrada para este agrupamento."
+            rowClassName={(row) => row.semaforo_atraso === 'vermelho' ? 'bg-red-50/50' : ''}
           />
         </div>
       </div>
