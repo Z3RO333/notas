@@ -39,6 +39,7 @@ const DEFAULT_SORT: GridSortState = { field: 'data', direction: 'desc' }
 const EMPTY_UUID = '00000000-0000-0000-0000-000000000000'
 const VALID_KPIS: OrdersKpiFilter[] = ['total', 'em_execucao', 'em_aberto', 'atrasadas', 'concluidas', 'avaliadas']
 const AVALIADAS_RAW_STATUS = 'AVALIACAO_DA_EXECUCAO'
+const METRICS_FETCH_PAGE_SIZE = 1000
 
 interface OrdersPageProps {
   searchParams?: Promise<{
@@ -251,38 +252,57 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   }
 
   const rowsResult = await pagedQuery.range(from, to)
+  const metricsRows: OrdemNotaAcompanhamento[] = []
+  for (let offset = 0; ; offset += METRICS_FETCH_PAGE_SIZE) {
+    let batchQuery = supabase
+      .from('vw_ordens_notas_painel')
+      .select('*')
+      .gte('ordem_detectada_em', period.startIso)
+      .lt('ordem_detectada_em', period.endExclusiveIso)
 
-  let metricsQuery = supabase
-    .from('vw_ordens_notas_painel')
-    .select('*')
-    .gte('ordem_detectada_em', period.startIso)
-    .lt('ordem_detectada_em', period.endExclusiveIso)
-    .limit(5000)
+    batchQuery = applyVisibilityFilter(batchQuery)
+    batchQuery = applyBusinessFilters(batchQuery)
+    batchQuery = batchQuery
+      .order('ordem_detectada_em', { ascending: false })
+      .range(offset, offset + METRICS_FETCH_PAGE_SIZE - 1)
 
-  metricsQuery = applyVisibilityFilter(metricsQuery)
-  metricsQuery = applyBusinessFilters(metricsQuery)
+    const { data, error } = await batchQuery
+    if (error) throw error
 
-  let avaliadasCodesQuery = supabase
-    .from('vw_ordens_notas_painel')
-    .select('ordem_codigo')
-    .gte('ordem_detectada_em', period.startIso)
-    .lt('ordem_detectada_em', period.endExclusiveIso)
-    .eq('status_ordem_raw', AVALIADAS_RAW_STATUS)
-    .limit(5000)
+    const batch = (data ?? []) as OrdemNotaAcompanhamento[]
+    metricsRows.push(...batch)
+    if (batch.length < METRICS_FETCH_PAGE_SIZE) break
+  }
 
-  avaliadasCodesQuery = applyVisibilityFilter(avaliadasCodesQuery)
-  avaliadasCodesQuery = applyBusinessFilters(avaliadasCodesQuery)
+  const avaliadasCodesRows: Array<{ ordem_codigo: string | null }> = []
+  for (let offset = 0; ; offset += METRICS_FETCH_PAGE_SIZE) {
+    let batchQuery = supabase
+      .from('vw_ordens_notas_painel')
+      .select('ordem_codigo')
+      .gte('ordem_detectada_em', period.startIso)
+      .lt('ordem_detectada_em', period.endExclusiveIso)
+      .eq('status_ordem_raw', AVALIADAS_RAW_STATUS)
 
-  const [metricsRowsResult, latestSyncResult, avaliadasCodesResult] = await Promise.all([
-    metricsQuery,
-    supabase
-      .from('sync_log')
-      .select('finished_at, status')
-      .order('started_at', { ascending: false })
-      .limit(1)
-      .single(),
-    avaliadasCodesQuery,
-  ])
+    batchQuery = applyVisibilityFilter(batchQuery)
+    batchQuery = applyBusinessFilters(batchQuery)
+    batchQuery = batchQuery
+      .order('ordem_codigo', { ascending: true })
+      .range(offset, offset + METRICS_FETCH_PAGE_SIZE - 1)
+
+    const { data, error } = await batchQuery
+    if (error) throw error
+
+    const batch = (data ?? []) as Array<{ ordem_codigo: string | null }>
+    avaliadasCodesRows.push(...batch)
+    if (batch.length < METRICS_FETCH_PAGE_SIZE) break
+  }
+
+  const latestSyncResult = await supabase
+    .from('sync_log')
+    .select('finished_at, status')
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .single()
 
   const semResponsavelResult = canViewGlobal
     ? await supabase
@@ -295,7 +315,6 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
 
   const rows = (rowsResult.data ?? []) as OrdemNotaAcompanhamento[]
   const total = rowsResult.count ?? 0
-  const metricsRows = (metricsRowsResult.data ?? []) as OrdemNotaAcompanhamento[]
   const windowDays = Math.max(
     Math.ceil((new Date(period.endExclusiveIso).getTime() - new Date(period.startIso).getTime()) / (24 * 60 * 60 * 1000)),
     1
@@ -308,8 +327,8 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const semResponsavelCount = canViewGlobal ? (semResponsavelResult.count ?? 0) : 0
   const avaliadasOrderCodes = Array.from(
     new Set(
-      (avaliadasCodesResult.data ?? [])
-        .map((row) => normalizeTextParam(row.ordem_codigo))
+      avaliadasCodesRows
+        .map((row) => normalizeTextParam(row.ordem_codigo ?? undefined))
         .filter(Boolean)
     )
   )

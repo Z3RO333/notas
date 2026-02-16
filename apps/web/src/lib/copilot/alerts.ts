@@ -9,10 +9,6 @@ function formatInteger(value: number): string {
   return new Intl.NumberFormat('pt-BR').format(value)
 }
 
-function formatPercent(ratio: number): string {
-  return `${Math.round(ratio * 100)}%`
-}
-
 /**
  * Build expanded copilot alerts.
  * Includes the original dashboard alerts plus new ISO-based and SLA-based alerts.
@@ -112,30 +108,18 @@ export function buildCopilotAlerts(params: {
     }
   }
 
-  // 6. Capacidade limite (admin individual com carga >= 90%)
-  const adminsLimite = isoAdmins.filter(
-    (a) => a.max_notas > 0 && a.qtd_abertas / a.max_notas >= 0.9
-  )
-  if (adminsLimite.length > 0) {
+  // 6. Sobrecarga relativa da equipe
+  const adminsSobrecarregados = isoAdmins.filter((a) => a.workload_pressure >= 130)
+  if (adminsSobrecarregados.length > 0) {
     alerts.push({
-      id: 'capacidade-limite',
+      id: 'sobrecarga-equipe',
       level: 'warning',
-      title: 'Capacidade no limite',
-      description: `${adminsLimite.length} colaborador(es) com carga >= 90%: ${adminsLimite.slice(0, 3).map((a) => `${a.nome} (${formatPercent(a.qtd_abertas / a.max_notas)})`).join(', ')}.`,
+      title: 'Sobrecarga na equipe',
+      description: `${adminsSobrecarregados.length} colaborador(es) com pressao relativa elevada: ${adminsSobrecarregados.slice(0, 3).map((a) => `${a.nome} (${a.workload_pressure.toFixed(0)}%)`).join(', ')}.`,
     })
   }
 
-  // 7. Capacidade global elevada
-  if (summary.utilizacao_capacidade >= 0.85 && adminsLimite.length === 0) {
-    alerts.push({
-      id: 'capacidade-global',
-      level: 'warning',
-      title: 'Capacidade elevada',
-      description: `Utilizacao global em ${formatPercent(summary.utilizacao_capacidade)}.`,
-    })
-  }
-
-  // 8. Backlog envelhecido
+  // 7. Backlog envelhecido
   if (summary.aging_48h >= 10) {
     alerts.push({
       id: 'aging',

@@ -25,7 +25,6 @@ const HOUR_MS = 60 * 60 * 1000
 const DASHBOARD_WINDOW_DAYS = 30
 const AGING_THRESHOLD_HOURS = 48
 const AGING_WARNING_COUNT = 10
-const UTILIZATION_WARNING_RATIO = 0.85
 const SYNC_STALE_MINUTES = 60
 
 const OPEN_STATUS_SET = new Set<NotaStatus>([
@@ -135,8 +134,7 @@ export function buildTeamCapacityRows(carga: CargaAdministrador[]): DashboardTea
       label: ESPECIALIDADE_LABEL[especialidade],
       admins: 0,
       abertas: 0,
-      capacidade: 0,
-      utilizacao: 0,
+      media_abertas: 0,
     })
   }
 
@@ -147,15 +145,14 @@ export function buildTeamCapacityRows(carga: CargaAdministrador[]): DashboardTea
 
     target.admins += 1
     target.abertas += toNumber(row.qtd_abertas)
-    target.capacidade += toNumber(row.max_notas)
   }
 
   const result = [...grouped.values()].map((item) => ({
     ...item,
-    utilizacao: item.abertas / Math.max(item.capacidade, 1),
+    media_abertas: item.abertas / Math.max(item.admins, 1),
   }))
 
-  return result.sort((a, b) => b.utilizacao - a.utilizacao)
+  return result.sort((a, b) => b.media_abertas - a.media_abertas)
 }
 
 export function buildProductivityRanking(
@@ -194,7 +191,6 @@ export function buildDashboardSummary(params: {
   const nowMs = now.getTime()
 
   const abertasAgora = params.carga.reduce((acc, row) => acc + toNumber(row.qtd_abertas), 0)
-  const capacidadeTotal = params.carga.reduce((acc, row) => acc + toNumber(row.max_notas), 0)
 
   const aging48h = params.notasAbertas.reduce((acc, row) => {
     if (!OPEN_STATUS_SET.has(row.status)) return acc
@@ -213,8 +209,6 @@ export function buildDashboardSummary(params: {
     entradas_30d: entradas30d,
     concluidas_30d: concluidas30d,
     taxa_fechamento_30d: concluidas30d / Math.max(entradas30d, 1),
-    utilizacao_capacidade: abertasAgora / Math.max(capacidadeTotal, 1),
-    capacidade_total: capacidadeTotal,
   }
 }
 
@@ -224,48 +218,31 @@ export function buildKpis(summary: DashboardSummaryMetrics): DashboardKpiItem[] 
       id: 'abertas_agora',
       label: 'Abertas agora',
       value: formatInteger(summary.abertas_agora),
-      helper: `${formatInteger(summary.capacidade_total)} capacidade total`,
-      tone: summary.utilizacao_capacidade >= 1 ? 'danger' : 'neutral',
+      tone: 'neutral',
     },
     {
       id: 'sem_atribuir',
       label: 'Sem atribuir',
       value: formatInteger(summary.sem_atribuir),
-      helper: 'Notas novas sem responsavel',
       tone: summary.sem_atribuir > 0 ? 'danger' : 'success',
     },
     {
       id: 'aging_48h',
       label: 'Aging > 48h',
       value: formatInteger(summary.aging_48h),
-      helper: 'Notas abertas acima do limite',
       tone: summary.aging_48h >= AGING_WARNING_COUNT ? 'warning' : 'neutral',
     },
     {
       id: 'concluidas_30d',
       label: 'Concluidas (30d)',
       value: formatInteger(summary.concluidas_30d),
-      helper: `${formatInteger(summary.entradas_30d)} entradas no periodo`,
       tone: 'success',
     },
     {
       id: 'taxa_fechamento_30d',
       label: 'Taxa de fechamento',
       value: formatPercentFromRatio(summary.taxa_fechamento_30d),
-      helper: 'Concluidas / entradas (30 dias)',
       tone: summary.taxa_fechamento_30d >= 1 ? 'success' : 'warning',
-    },
-    {
-      id: 'utilizacao_capacidade',
-      label: 'Utilizacao capacidade',
-      value: formatPercentFromRatio(summary.utilizacao_capacidade),
-      helper: `${formatInteger(summary.abertas_agora)}/${formatInteger(summary.capacidade_total)} em carga`,
-      tone:
-        summary.utilizacao_capacidade >= 1
-          ? 'danger'
-          : summary.utilizacao_capacidade >= UTILIZATION_WARNING_RATIO
-            ? 'warning'
-            : 'neutral',
     },
   ]
 }
@@ -313,15 +290,6 @@ export function buildAlerts(params: {
           : `Ultimo sync iniciado ha ${minutesSinceSync} min (limite ${SYNC_STALE_MINUTES} min).`,
       })
     }
-  }
-
-  if (params.summary.utilizacao_capacidade >= UTILIZATION_WARNING_RATIO) {
-    alerts.push({
-      id: 'capacidade',
-      level: 'warning',
-      title: 'Capacidade elevada',
-      description: `Utilizacao atual em ${formatPercentFromRatio(params.summary.utilizacao_capacidade)}.`,
-    })
   }
 
   if (params.summary.aging_48h >= AGING_WARNING_COUNT) {

@@ -2,7 +2,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock3,
-  Gauge,
   Layers3,
   Percent,
 } from 'lucide-react'
@@ -20,7 +19,6 @@ const iconByKpi: Record<DashboardKpiId, ComponentType<{ className?: string }>> =
   aging_48h: Clock3,
   concluidas_30d: CheckCircle2,
   taxa_fechamento_30d: Percent,
-  utilizacao_capacidade: Gauge,
 }
 
 const toneClasses: Record<DashboardTone, { icon: string; value: string }> = {
@@ -51,13 +49,14 @@ export function KpiStrip({ items }: KpiStripProps) {
 
         return (
           <Card key={item.id}>
-            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{item.label}</CardTitle>
-              <Icon className={`h-4 w-4 ${tone.icon}`} />
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Icon className={`h-4 w-4 ${tone.icon}`} />
+                <span>{item.label}</span>
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-1">
+            <CardContent>
               <div className={`text-3xl font-bold ${tone.value}`}>{item.value}</div>
-              <p className="text-xs text-muted-foreground">{item.helper}</p>
             </CardContent>
           </Card>
         )

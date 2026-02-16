@@ -42,7 +42,7 @@ export function WorkloadRadar({ rows }: WorkloadRadarProps) {
 
 function WorkloadRadarCard({ row }: { row: WorkloadRadarRow }) {
   const statusConfig = getWorkloadStatusConfig(row.workload_status)
-  const pctCarga = row.max_notas > 0 ? Math.round((row.qtd_abertas / row.max_notas) * 100) : 0
+  const pctCarga = Math.round(row.pct_carga)
   const barWidth = Math.min(pctCarga, 100)
 
   return (
@@ -70,7 +70,7 @@ function WorkloadRadarCard({ row }: { row: WorkloadRadarRow }) {
       <div className="mt-2.5">
         <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-0.5">
           <span>Carga</span>
-          <span className="font-medium">{row.qtd_abertas}/{row.max_notas} ({pctCarga}%)</span>
+          <span className="font-medium">{row.qtd_abertas} abertas ({pctCarga}%)</span>
         </div>
         <div className="h-1.5 w-full rounded-full bg-background/60">
           <div

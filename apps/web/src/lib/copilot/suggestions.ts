@@ -14,10 +14,10 @@ function uid(): string {
  * Generate actionable suggestions based on current operational state.
  *
  * Rules:
- * 1. Redistribuir: Admin sobrecarregado + outro ocioso
+ * 1. Redistribuir: Admin sobrecarregado + outro com menor carga
  * 2. Escalar: Notas criticas (5+d) sem acao
  * 3. Ferias: Admin em ferias com notas abertas
- * 4. Pausar distribuicao: Admin proximo do limite
+ * 4. Pausar distribuicao: Admin com carga persistente elevada
  * 5. Investigar unidade: Unidade com muitas ordens vermelhas
  */
 export function buildSuggestions(params: {
@@ -33,18 +33,28 @@ export function buildSuggestions(params: {
   const ociosos = radarRows.filter(
     (r) => r.workload_status === 'ocioso' && !r.em_ferias && r.recebe_distribuicao
   )
+  const equilibrados = radarRows.filter(
+    (r) => r.workload_status === 'equilibrado' && !r.em_ferias && r.recebe_distribuicao
+  )
   const sobrecarregados = radarRows.filter(
     (r) => r.workload_status === 'sobrecarregado' && !r.em_ferias
   )
 
   // 1. Redistribuir de sobrecarregados para ociosos
   for (const sobre of sobrecarregados) {
-    const melhorOcioso = ociosos[0]
-    if (!melhorOcioso) break
+    const candidatos = [...ociosos, ...equilibrados]
+      .filter((candidato) => candidato.administrador_id !== sobre.administrador_id)
+      .sort((a, b) => a.qtd_abertas - b.qtd_abertas)
+    const melhorDestino = candidatos[0]
+    if (!melhorDestino) break
 
-    const notasParaTransferir = Math.min(
-      Math.ceil(sobre.qtd_abertas * 0.2),
-      melhorOcioso.max_notas - melhorOcioso.qtd_abertas
+    const diferencaCarga = Math.max(sobre.qtd_abertas - melhorDestino.qtd_abertas, 0)
+    const notasParaTransferir = Math.max(
+      1,
+      Math.min(
+        Math.ceil(sobre.qtd_abertas * 0.25),
+        Math.ceil(diferencaCarga / 2)
+      )
     )
 
     if (notasParaTransferir > 0) {
@@ -53,12 +63,12 @@ export function buildSuggestions(params: {
         prioridade: 'alta',
         acao: 'redistribuir',
         titulo: `Redistribuir notas de ${sobre.nome}`,
-        descricao: `Transferir ~${notasParaTransferir} nota(s) de ${sobre.nome} (${sobre.qtd_abertas}/${sobre.max_notas}) para ${melhorOcioso.nome} (${melhorOcioso.qtd_abertas}/${melhorOcioso.max_notas}).`,
+        descricao: `Transferir ~${notasParaTransferir} nota(s) de ${sobre.nome} (${sobre.qtd_abertas} abertas) para ${melhorDestino.nome} (${melhorDestino.qtd_abertas} abertas).`,
         impacto: `Reduz ISO de ${sobre.nome} e equilibra carga da equipe.`,
         adminId: sobre.administrador_id,
         adminNome: sobre.nome,
-        targetAdminId: melhorOcioso.administrador_id,
-        targetAdminNome: melhorOcioso.nome,
+        targetAdminId: melhorDestino.administrador_id,
+        targetAdminNome: melhorDestino.nome,
       })
     }
   }
@@ -94,22 +104,22 @@ export function buildSuggestions(params: {
     })
   }
 
-  // 4. Pausar distribuicao para admins no limite
-  const noLimite = radarRows.filter(
+  // 4. Pausar distribuicao para admins com sobrecarga recorrente
+  const cargaElevada = radarRows.filter(
     (r) =>
       !r.em_ferias &&
       r.recebe_distribuicao &&
-      r.max_notas > 0 &&
-      r.qtd_abertas / r.max_notas >= 0.9
+      (r.workload_status === 'sobrecarregado' || r.workload_status === 'carregado') &&
+      r.qtd_abertas >= 15
   )
-  for (const admin of noLimite) {
+  for (const admin of cargaElevada) {
     if (sobrecarregados.some((s) => s.administrador_id === admin.administrador_id)) continue
     suggestions.push({
       id: uid(),
       prioridade: 'media',
       acao: 'pausar_distribuicao',
       titulo: `Pausar distribuicao para ${admin.nome}`,
-      descricao: `${admin.nome} esta em ${Math.round((admin.qtd_abertas / admin.max_notas) * 100)}% da capacidade.`,
+      descricao: `${admin.nome} esta com ${admin.qtd_abertas} nota(s) aberta(s) e carga elevada.`,
       impacto: 'Evita sobrecarga e permite foco na resolucao do backlog.',
       adminId: admin.administrador_id,
       adminNome: admin.nome,

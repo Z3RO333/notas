@@ -75,7 +75,7 @@ export default async function DistribuicaoPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Gestao da Distribuicao</h1>
         <p className="text-sm text-muted-foreground">
-          Controle quem recebe notas, ferias e limites de carga
+          Controle quem recebe notas, ferias e carga de trabalho
         </p>
       </div>
 

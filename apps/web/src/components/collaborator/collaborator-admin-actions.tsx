@@ -8,7 +8,6 @@ import {
   toggleDistribuicao,
   toggleFerias,
   toggleAtivo,
-  atualizarMaxNotas,
   reatribuirNotasLote,
 } from '@/lib/actions/admin-actions'
 import type { CollaboratorData } from '@/lib/types/collaborator'
@@ -29,8 +28,6 @@ interface PendingToggle {
 export function CollaboratorAdminActions({ admin, destinations }: CollaboratorAdminActionsProps) {
   const { toast } = useToast()
   const [isPending, startTransition] = useTransition()
-  const [editingMax, setEditingMax] = useState(false)
-  const [maxValue, setMaxValue] = useState(admin.max_notas)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [pendingToggle, setPendingToggle] = useState<PendingToggle | null>(null)
 
@@ -62,18 +59,6 @@ export function CollaboratorAdminActions({ admin, destinations }: CollaboratorAd
         toast({ title: `${label} atualizado`, variant: 'success' })
       } catch {
         toast({ title: `Erro ao atualizar ${label.toLowerCase()}`, variant: 'error' })
-      }
-    })
-  }
-
-  function handleSaveMax() {
-    startTransition(async () => {
-      try {
-        await atualizarMaxNotas(admin.id, maxValue)
-        toast({ title: 'Limite atualizado', variant: 'success' })
-        setEditingMax(false)
-      } catch {
-        toast({ title: 'Erro ao atualizar limite', variant: 'error' })
       }
     })
   }
@@ -128,38 +113,6 @@ export function CollaboratorAdminActions({ admin, destinations }: CollaboratorAd
             disabled={!admin.ativo}
             onCheckedChange={(v) => handleToggle('ferias', 'Ferias', v)}
           />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span>Max:</span>
-          {editingMax ? (
-            <div className="flex items-center gap-1.5">
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={maxValue}
-                onChange={(e) => setMaxValue(Number(e.target.value))}
-                className="w-14 rounded border px-2 py-0.5 text-sm text-center"
-              />
-              <button onClick={handleSaveMax} className="text-xs font-medium text-primary hover:underline">
-                OK
-              </button>
-              <button
-                onClick={() => { setEditingMax(false); setMaxValue(admin.max_notas) }}
-                className="text-xs text-muted-foreground hover:underline"
-              >
-                X
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setEditingMax(true)}
-              className="font-medium text-primary hover:underline"
-            >
-              {admin.max_notas}
-            </button>
-          )}
         </div>
       </div>
 
