@@ -429,6 +429,10 @@ export function NotasGrid({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <AutoRefreshController onRefresh={() => router.refresh()} defaultIntervalSec={30} />
 
+        <span className="hidden lg:inline text-[11px] text-muted-foreground/60">
+          / buscar &middot; r atualizar &middot; Shift+A selecionar tudo
+        </span>
+
         {selectedCount > 0 && (
           <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary">
             {selectedCount} selecionada(s)

@@ -12,26 +12,45 @@ export const metadata: Metadata = {
   description: 'Painel de ordens de manutencao',
 }
 
+function isDynamicServerUsageError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  return (error as { digest?: string }).digest === 'DYNAMIC_SERVER_USAGE'
+}
+
 export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
   let userName: string | null = null
   let userRole: string | null = null
 
-  if (user?.email) {
-    const { data: admin } = await supabase
-      .from('administradores')
-      .select('nome, role')
-      .eq('email', user.email)
-      .single()
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-    userName = admin?.nome ?? user.email
-    userRole = admin?.role ?? null
+    if (userError) {
+      console.error('RootLayout auth.getUser failed:', userError.message)
+    }
+
+    if (user?.email) {
+      const { data: admin, error: adminError } = await supabase
+        .from('administradores')
+        .select('nome, role')
+        .eq('email', user.email)
+        .maybeSingle()
+
+      if (adminError) {
+        console.error('RootLayout administradores query failed:', adminError.message)
+      }
+
+      userName = admin?.nome ?? user.email
+      userRole = admin?.role ?? null
+    }
+  } catch (error) {
+    if (!isDynamicServerUsageError(error)) {
+      console.error('RootLayout failed to load session context:', error)
+    }
   }
 
   return (

@@ -3,7 +3,7 @@ Databricks Job: Sync notas de manutencao do streaming para o Supabase.
 Roda a cada 5 minutos via Databricks Jobs scheduler.
 
 Fluxo:
-  1. Le notas novas/atualizadas de manutencao.streaming.notas_qm
+  1. Le notas novas/atualizadas de qmel_clean
   2. Upsert no Supabase (tabela notas_manutencao)
   3. Registra ordens derivadas de notas (SAP + manual)
   4. Distribui apenas notas pendentes sem ordem
@@ -17,7 +17,7 @@ subprocess.check_call(["pip", "install", "supabase"])
 import json
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
 
 from pyspark.sql import SparkSession
@@ -27,11 +27,16 @@ from supabase import Client, create_client
 # Secrets armazenados no Databricks scope "cockpit"
 SUPABASE_URL = dbutils.secrets.get(scope="cockpit", key="SUPABASE_URL")
 SUPABASE_SERVICE_KEY = dbutils.secrets.get(scope="cockpit", key="SUPABASE_SERVICE_ROLE_KEY")
-STREAMING_TABLE = "manutencao.streaming.notas_qm"
+STREAMING_TABLE = "manutencao.streaming.qmel_clean"
 PMPL_TABLE = "manutencao.gold.pmpl_pmos"
 
-VALID_WINDOWS = {30, 90, 180}
+VALID_WINDOWS = {30, 90, 180, 365}
 DEFAULT_WINDOW_DAYS = 30
+DEFAULT_SYNC_START_DATE = "2026-01-01"
+MAX_WATERMARK_FUTURE_DAYS = 1
+VALID_BOOTSTRAP_MODES = {"auto", "force", "off"}
+DEFAULT_BOOTSTRAP_MODE = "auto"
+BOOTSTRAP_CHECKPOINT_SCAN_LIMIT = 500
 BATCH_SIZE = 100
 PMPL_FETCH_BATCH_SIZE = 300
 PMPL_RPC_BATCH_SIZE = 200
@@ -106,6 +111,86 @@ def _extract_centro_from_candidates(row_dict: dict, candidates: list[str]) -> st
     return None
 
 
+def _normalize_iso_date(value) -> str | None:
+    text = _as_clean_text(value)
+    if not text:
+        return None
+
+    candidate = text[:10]
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", candidate):
+        return None
+
+    try:
+        date.fromisoformat(candidate)
+    except ValueError:
+        return None
+
+    return candidate
+
+
+def _watermark_is_too_future(iso_date: str, max_future_days: int = MAX_WATERMARK_FUTURE_DAYS) -> bool:
+    candidate = date.fromisoformat(iso_date)
+    max_allowed = datetime.now(timezone.utc).date() + timedelta(days=max_future_days)
+    return candidate > max_allowed
+
+
+def _build_data_criacao_date_expr() -> str:
+    # Suporta date/timestamp e formatos string comuns (yyyy-MM-dd, yyyyMMdd, dd/MM/yyyy).
+    return (
+        "coalesce("
+        "to_date(DATA_CRIACAO), "
+        "to_date(cast(DATA_CRIACAO as string), 'yyyy-MM-dd'), "
+        "to_date(cast(DATA_CRIACAO as string), 'yyyyMMdd'), "
+        "to_date(cast(DATA_CRIACAO as string), 'dd/MM/yyyy')"
+        ")"
+    )
+
+
+def _log_empty_result_diagnostics(spark: SparkSession, effective_start: str, data_criacao_expr: str):
+    """Loga diagnosticos do source quando a leitura retorna zero linhas."""
+    try:
+        summary_row = spark.sql(f"""
+            SELECT
+              COUNT(*) AS total_rows,
+              SUM(CASE WHEN {data_criacao_expr} IS NULL THEN 1 ELSE 0 END) AS data_criacao_invalidas,
+              MIN({data_criacao_expr}) AS min_data_criacao,
+              MAX({data_criacao_expr}) AS max_data_criacao
+            FROM {STREAMING_TABLE}
+        """).collect()[0]
+
+        filtered_row = spark.sql(f"""
+            SELECT COUNT(*) AS total_filtradas
+            FROM {STREAMING_TABLE}
+            WHERE {data_criacao_expr} >= date('{effective_start}')
+        """).collect()[0]
+
+        sample_rows = [
+            row.asDict()
+            for row in spark.sql(f"""
+                SELECT
+                  DATA_CRIACAO,
+                  NUMERO_NOTA,
+                  {data_criacao_expr} AS data_criacao_norm
+                FROM {STREAMING_TABLE}
+                ORDER BY {data_criacao_expr} DESC, DATA_CRIACAO DESC
+                LIMIT 5
+            """).collect()
+        ]
+
+        logger.warning(
+            "Diagnostico source vazio: total_rows=%s, invalidas_data_criacao=%s, min_data=%s, max_data=%s, total_filtradas=%s, effective_start=%s",
+            summary_row["total_rows"],
+            summary_row["data_criacao_invalidas"],
+            summary_row["min_data_criacao"],
+            summary_row["max_data_criacao"],
+            filtered_row["total_filtradas"],
+            effective_start,
+        )
+        logger.warning("Amostra DATA_CRIACAO (top 5): %s", sample_rows)
+    except Exception as diag_error:
+        logger.warning("Falha ao gerar diagnostico de source vazio: %s", diag_error)
+
+
 def get_sync_window_days(spark: SparkSession) -> int:
     raw = spark.conf.get("cockpit.sync.window_days", str(DEFAULT_WINDOW_DAYS))
     try:
@@ -124,6 +209,24 @@ def get_sync_window_days(spark: SparkSession) -> int:
 def should_force_window(spark: SparkSession) -> bool:
     raw = spark.conf.get("cockpit.sync.force_window", "false")
     return str(raw).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def should_ignore_watermark(spark: SparkSession) -> bool:
+    raw = spark.conf.get("cockpit.sync.ignore_watermark", "false")
+    return str(raw).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def get_sync_start_date(spark: SparkSession) -> str:
+    raw = spark.conf.get("cockpit.sync.start_date", DEFAULT_SYNC_START_DATE)
+    parsed = _normalize_iso_date(raw)
+    if not parsed:
+        logger.warning(
+            "Valor invalido em cockpit.sync.start_date=%s. Usando %s.",
+            raw,
+            DEFAULT_SYNC_START_DATE,
+        )
+        return DEFAULT_SYNC_START_DATE
+    return parsed
 
 
 def get_pmpl_min_age_days(spark: SparkSession) -> int:
@@ -168,30 +271,158 @@ def get_watermark() -> str | None:
     return None
 
 
-def read_new_notes(spark: SparkSession, window_days: int, force_window: bool) -> list[dict]:
+def get_bootstrap_mode(spark: SparkSession) -> str:
+    raw = _as_clean_text(spark.conf.get("cockpit.sync.bootstrap_mode", DEFAULT_BOOTSTRAP_MODE))
+    mode = (raw or DEFAULT_BOOTSTRAP_MODE).lower()
+    if mode not in VALID_BOOTSTRAP_MODES:
+        logger.warning(
+            "Modo invalido em cockpit.sync.bootstrap_mode=%s. Usando %s.",
+            raw,
+            DEFAULT_BOOTSTRAP_MODE,
+        )
+        return DEFAULT_BOOTSTRAP_MODE
+    return mode
+
+
+def has_bootstrap_checkpoint(sync_start_date: str) -> bool:
+    """Verifica se ja houve bootstrap bem-sucedido para a origem e periodo configurados."""
+    result = (
+        supabase.table("sync_log")
+        .select("status, metadata")
+        .eq("status", "success")
+        .order("started_at", desc=True)
+        .limit(BOOTSTRAP_CHECKPOINT_SCAN_LIMIT)
+        .execute()
+    )
+
+    for row in (result.data or []):
+        metadata = row.get("metadata")
+        if not isinstance(metadata, dict):
+            continue
+
+        if (
+            metadata.get("full_bootstrap") is True
+            and metadata.get("streaming_table") == STREAMING_TABLE
+            and metadata.get("sync_start_date") == sync_start_date
+        ):
+            return True
+
+    return False
+
+
+def should_run_full_bootstrap(bootstrap_mode: str, sync_start_date: str) -> bool:
+    if bootstrap_mode == "force":
+        logger.info("Bootstrap forcado por cockpit.sync.bootstrap_mode=force.")
+        return True
+
+    if bootstrap_mode == "off":
+        logger.info("Bootstrap desativado por cockpit.sync.bootstrap_mode=off.")
+        return False
+
+    if has_bootstrap_checkpoint(sync_start_date):
+        logger.info(
+            "Bootstrap auto nao necessario: checkpoint encontrado para tabela=%s e sync_start_date=%s.",
+            STREAMING_TABLE,
+            sync_start_date,
+        )
+        return False
+
+    logger.info(
+        "Bootstrap auto ativado: nenhum checkpoint para tabela=%s e sync_start_date=%s.",
+        STREAMING_TABLE,
+        sync_start_date,
+    )
+    return True
+
+
+def read_new_notes(
+    spark: SparkSession,
+    window_days: int,
+    force_window: bool,
+    ignore_watermark: bool,
+    sync_start_date: str,
+    full_bootstrap: bool,
+) -> list[dict]:
     """Le notas do streaming table. Usa watermark, com opcao de forcar janela."""
     watermark = get_watermark()
+    logger.info(
+        "Parametros leitura -> watermark_bruto=%s, sync_start_date=%s, force_window=%s, ignore_watermark=%s, full_bootstrap=%s, window_days=%s",
+        watermark,
+        sync_start_date,
+        force_window,
+        ignore_watermark,
+        full_bootstrap,
+        window_days,
+    )
 
-    if watermark and not force_window:
-        logger.info("Watermark (DATA_CRIACAO): %s", watermark)
-        df = spark.sql(f"""
-            SELECT * FROM {STREAMING_TABLE}
-            WHERE DATA_CRIACAO >= '{watermark}'
-            ORDER BY DATA_CRIACAO ASC, NUMERO_NOTA ASC
-        """)
-    else:
+    data_criacao_expr = _build_data_criacao_date_expr()
+
+    if full_bootstrap:
         logger.info(
-            "Leitura por janela fixa: ultimos %s dias (force_window=%s)",
-            window_days,
-            force_window,
+            "Bootstrap inicial ativo: leitura ampla da tabela %s desde %s.",
+            STREAMING_TABLE,
+            sync_start_date,
         )
         df = spark.sql(f"""
-            SELECT * FROM {STREAMING_TABLE}
-            WHERE DATA_CRIACAO >= current_date() - INTERVAL {window_days} DAYS
-            ORDER BY DATA_CRIACAO ASC, NUMERO_NOTA ASC
+            SELECT *
+            FROM (
+                SELECT *, {data_criacao_expr} AS DATA_CRIACAO_NORM
+                FROM {STREAMING_TABLE}
+            ) t
+            WHERE DATA_CRIACAO_NORM >= date('{sync_start_date}')
+            ORDER BY DATA_CRIACAO_NORM ASC, NUMERO_NOTA ASC
+        """)
+        effective_start = sync_start_date
+    elif force_window:
+        window_start_date = (datetime.now(timezone.utc).date() - timedelta(days=window_days)).isoformat()
+        effective_start = max(window_start_date, sync_start_date)
+        logger.info(
+            "Leitura por janela fixa: ultimos %s dias (force_window=%s, inicio_efetivo=%s)",
+            window_days,
+            force_window,
+            effective_start,
+        )
+    elif ignore_watermark:
+        effective_start = sync_start_date
+        logger.info("Leitura configurada para ignorar watermark. Inicio efetivo=%s", effective_start)
+    else:
+        watermark_date = _normalize_iso_date(watermark)
+        if watermark_date and _watermark_is_too_future(watermark_date):
+            logger.warning(
+                "Watermark %s esta no futuro (> %s dia(s)). Ignorando watermark e usando sync_start_date=%s",
+                watermark_date,
+                MAX_WATERMARK_FUTURE_DAYS,
+                sync_start_date,
+            )
+            watermark_date = None
+        if watermark_date:
+            effective_start = max(watermark_date, sync_start_date)
+            logger.info(
+                "Watermark (DATA_CRIACAO): %s | inicio_configurado=%s | inicio_efetivo=%s",
+                watermark_date,
+                sync_start_date,
+                effective_start,
+            )
+        else:
+            effective_start = sync_start_date
+            logger.info("Sem watermark valido. Leitura iniciando em %s", effective_start)
+
+    if not full_bootstrap:
+        df = spark.sql(f"""
+            SELECT *
+            FROM (
+                SELECT *, {data_criacao_expr} AS DATA_CRIACAO_NORM
+                FROM {STREAMING_TABLE}
+            ) t
+            WHERE DATA_CRIACAO_NORM >= date('{effective_start}')
+            ORDER BY DATA_CRIACAO_NORM ASC, NUMERO_NOTA ASC
         """)
 
     rows = df.collect()
+    if not rows:
+        diagnostics_start = effective_start or sync_start_date
+        _log_empty_result_diagnostics(spark, diagnostics_start, data_criacao_expr)
+
     notes: list[dict] = []
     missing_centro = 0
 
@@ -239,11 +470,31 @@ def upsert_notes(notes: list[dict], sync_id: str) -> tuple[int, int]:
     if not notes:
         return 0, 0
 
+    # Deduplica por numero_nota para evitar violacao de unique em lotes com repeticao.
+    deduped_by_number: dict[str, dict] = {}
     for note in notes:
-        note["sync_id"] = sync_id
+        numero = _as_clean_text(note.get("numero_nota"))
+        if not numero:
+            continue
+
+        payload = dict(note)
+        payload["numero_nota"] = numero
+        payload["sync_id"] = sync_id
+        deduped_by_number[numero] = payload
+
+    deduped_notes = list(deduped_by_number.values())
+    if not deduped_notes:
+        return 0, 0
+
+    duplicated_count = len(notes) - len(deduped_notes)
+    if duplicated_count > 0:
+        logger.warning(
+            "Notas duplicadas no lote por numero_nota: %s (mantendo ultimo registro por chave).",
+            duplicated_count,
+        )
 
     existing_numbers = set()
-    numero_notas = [n["numero_nota"] for n in notes if n["numero_nota"]]
+    numero_notas = [n["numero_nota"] for n in deduped_notes]
 
     for i in range(0, len(numero_notas), BATCH_SIZE):
         batch = numero_notas[i:i + BATCH_SIZE]
@@ -255,15 +506,6 @@ def upsert_notes(notes: list[dict], sync_id: str) -> tuple[int, int]:
         )
         existing_numbers.update(r["numero_nota"] for r in (result.data or []))
 
-    new_notes = [n for n in notes if n["numero_nota"] and n["numero_nota"] not in existing_numbers]
-    update_notes = [n for n in notes if n["numero_nota"] and n["numero_nota"] in existing_numbers]
-
-    if new_notes:
-        for i in range(0, len(new_notes), 500):
-            batch = new_notes[i:i + 500]
-            supabase.table("notas_manutencao").insert(batch).execute()
-        logger.info("Inseridas: %s", len(new_notes))
-
     sap_fields = [
         "tipo_nota", "descricao", "descricao_objeto", "prioridade",
         "tipo_prioridade", "criado_por_sap", "solicitante",
@@ -272,19 +514,31 @@ def upsert_notes(notes: list[dict], sync_id: str) -> tuple[int, int]:
         "raw_data", "sync_id",
     ]
 
-    for note in update_notes:
-        update_data = {k: note[k] for k in sap_fields if k in note}
+    upsert_payload = [
+        {
+            "numero_nota": note["numero_nota"],
+            **{k: note[k] for k in sap_fields if k in note},
+        }
+        for note in deduped_notes
+    ]
+
+    for i in range(0, len(upsert_payload), 500):
+        batch = upsert_payload[i:i + 500]
         (
             supabase.table("notas_manutencao")
-            .update(update_data)
-            .eq("numero_nota", note["numero_nota"])
+            .upsert(batch, on_conflict="numero_nota")
             .execute()
         )
 
-    if update_notes:
-        logger.info("Atualizadas: %s", len(update_notes))
+    inserted_count = sum(1 for note in deduped_notes if note["numero_nota"] not in existing_numbers)
+    updated_count = len(deduped_notes) - inserted_count
 
-    return len(new_notes), len(update_notes)
+    if inserted_count:
+        logger.info("Inseridas: %s", inserted_count)
+    if updated_count:
+        logger.info("Atualizadas: %s", updated_count)
+
+    return inserted_count, updated_count
 
 
 def run_register_orders(sync_id: str) -> tuple[int, int]:
@@ -470,6 +724,9 @@ def main():
     spark = SparkSession.builder.getOrCreate()
     window_days = get_sync_window_days(spark)
     force_window = should_force_window(spark)
+    ignore_watermark = should_ignore_watermark(spark)
+    sync_start_date = get_sync_start_date(spark)
+    bootstrap_mode = get_bootstrap_mode(spark)
     pmpl_min_age_days = get_pmpl_min_age_days(spark)
 
     try:
@@ -485,7 +742,15 @@ def main():
     logger.info("Sync iniciado: %s", sync_id)
 
     try:
-        notes = read_new_notes(spark, window_days=window_days, force_window=force_window)
+        full_bootstrap = should_run_full_bootstrap(bootstrap_mode, sync_start_date)
+        notes = read_new_notes(
+            spark,
+            window_days=window_days,
+            force_window=force_window,
+            ignore_watermark=ignore_watermark,
+            sync_start_date=sync_start_date,
+            full_bootstrap=full_bootstrap,
+        )
         logger.info("Lidas: %s notas do streaming", len(notes))
 
         inserted, updated = upsert_notes(notes, sync_id)
@@ -501,6 +766,11 @@ def main():
         metadata = {
             "window_days": window_days,
             "force_window": force_window,
+            "ignore_watermark": ignore_watermark,
+            "sync_start_date": sync_start_date,
+            "streaming_table": STREAMING_TABLE,
+            "bootstrap_mode": bootstrap_mode,
+            "full_bootstrap": full_bootstrap,
             "pmpl_min_age_days": pmpl_min_age_days,
             "ordens_detectadas": ordens_detectadas,
             "ordens_status_atualizadas": ordens_status_atualizadas,
@@ -532,6 +802,10 @@ def main():
                 metadata={
                     "window_days": window_days,
                     "force_window": force_window,
+                    "ignore_watermark": ignore_watermark,
+                    "sync_start_date": sync_start_date,
+                    "streaming_table": STREAMING_TABLE,
+                    "bootstrap_mode": bootstrap_mode,
                     "pmpl_min_age_days": pmpl_min_age_days,
                 },
                 error=str(e),
