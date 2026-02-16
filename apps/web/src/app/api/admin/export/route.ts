@@ -52,12 +52,20 @@ export async function GET(request: Request) {
   const cutoff = new Date()
   cutoff.setUTCDate(cutoff.getUTCDate() - 29)
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('vw_ordens_notas_painel')
     .select('numero_nota, ordem_codigo, unidade, responsavel_atual_nome, administrador_nome, status_ordem, dias_em_aberto, ordem_detectada_em')
     .gte('ordem_detectada_em', cutoff.toISOString())
     .order('ordem_detectada_em', { ascending: false })
     .limit(10000)
+
+  if (error) {
+    return new NextResponse(`Erro ao consultar dados: ${error.message}`, { status: 500 })
+  }
+
+  if (!data || data.length === 0) {
+    return new NextResponse('Nenhum dado encontrado para o periodo', { status: 404 })
+  }
 
   const headers = [
     'numero_nota',
@@ -72,7 +80,7 @@ export async function GET(request: Request) {
 
   const lines = [headers.join(',')]
 
-  for (const row of data ?? []) {
+  for (const row of data) {
     lines.push([
       toCsvCell(row.numero_nota),
       toCsvCell(row.ordem_codigo),

@@ -13,13 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { reatribuirNota } from '@/lib/actions/nota-actions'
 import type { OrderReassignTarget } from '@/lib/types/database'
 
@@ -46,6 +40,7 @@ export function OrderReassignDialog({
   const [error, setError] = useState('')
 
   const availableAdmins = admins.filter((admin) => admin.id !== currentAdminId)
+  const adminOptions = availableAdmins.map((a) => ({ value: a.id, label: a.nome }))
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -91,18 +86,13 @@ export function OrderReassignDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <label htmlFor={`ordem-destino-${notaId}`} className="text-sm font-medium">Novo responsavel</label>
-            <Select value={selectedAdmin} onValueChange={setSelectedAdmin}>
-              <SelectTrigger id={`ordem-destino-${notaId}`}>
-                <SelectValue placeholder="Selecione o admin..." />
-              </SelectTrigger>
-              <SelectContent>
-                {availableAdmins.map((admin) => (
-                  <SelectItem key={admin.id} value={admin.id}>
-                    {admin.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              id={`ordem-destino-${notaId}`}
+              options={adminOptions}
+              value={selectedAdmin}
+              onValueChange={setSelectedAdmin}
+              placeholder="Selecione o admin..."
+            />
             {availableAdmins.length === 0 && (
               <p className="text-xs text-muted-foreground">Nenhum administrador elegivel disponivel.</p>
             )}
@@ -125,8 +115,8 @@ export function OrderReassignDialog({
             <Button type="button" variant="outline" disabled={loading} onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={!selectedAdmin || loading}>
-              {loading ? 'Reatribuindo...' : 'Confirmar'}
+            <Button type="submit" disabled={!selectedAdmin} isLoading={loading}>
+              Confirmar
             </Button>
           </div>
         </form>

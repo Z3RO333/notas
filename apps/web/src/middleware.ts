@@ -36,42 +36,39 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (pathname === '/login') {
-    if (!user?.email) {
-      return NextResponse.next()
-    }
-
-    const { data: admin } = await supabase
-      .from('administradores')
-      .select('role')
-      .eq('email', user.email)
-      .single()
-
-    const url = request.nextUrl.clone()
-    url.pathname = admin?.role === 'gestor' ? '/admin' : '/'
-    return NextResponse.redirect(url)
-  }
-
-  // Sem sessao em rota protegida → redireciona para login
+  // Sem sessao e nao esta em /login → redireciona para login
   if (!user) {
+    if (pathname === '/login') return NextResponse.next()
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // Rotas /admin/* → verificar role = gestor
-  if (pathname.startsWith('/admin')) {
+  // Usuario autenticado — buscar role uma unica vez
+  const needsRoleCheck = pathname === '/login' || pathname.startsWith('/admin')
+
+  let adminRole: string | null = null
+  if (needsRoleCheck && user.email) {
     const { data: admin } = await supabase
       .from('administradores')
       .select('role')
       .eq('email', user.email)
       .single()
+    adminRole = admin?.role ?? null
+  }
 
-    if (!admin || admin.role !== 'gestor') {
-      const url = request.nextUrl.clone()
-      url.pathname = '/'
-      return NextResponse.redirect(url)
-    }
+  // Ja logado em /login → redirecionar para home
+  if (pathname === '/login') {
+    const url = request.nextUrl.clone()
+    url.pathname = adminRole === 'gestor' ? '/admin' : '/'
+    return NextResponse.redirect(url)
+  }
+
+  // Rotas /admin/* → verificar role = gestor
+  if (pathname.startsWith('/admin') && adminRole !== 'gestor') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/'
+    return NextResponse.redirect(url)
   }
 
   return supabaseResponse

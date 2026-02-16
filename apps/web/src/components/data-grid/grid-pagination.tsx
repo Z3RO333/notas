@@ -55,7 +55,7 @@ export function GridPagination({
         </Button>
 
         <span className="text-xs text-muted-foreground sm:text-sm">
-          Pagina {page} de {totalPages}
+          Pag. {page} de {totalPages}
         </span>
 
         <Button type="button" size="sm" variant="outline" disabled={!canNext} onClick={() => onPageChange(page + 1)}>
