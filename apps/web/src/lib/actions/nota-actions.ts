@@ -129,3 +129,41 @@ export async function distribuirNotasManual() {
 
   return data?.length ?? 0
 }
+
+export async function buscarCodigosAvaliadas(params: {
+  startIso: string
+  endExclusiveIso: string
+  adminId?: string | null
+}): Promise<string[]> {
+  const supabase = await createClient()
+  const AVALIADAS_RAW_STATUS = 'AVALIACAO_DA_EXECUCAO'
+  const PAGE_SIZE = 1000
+
+  const codes: string[] = []
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    let query = supabase
+      .from('vw_ordens_notas_painel')
+      .select('ordem_codigo')
+      .gte('ordem_detectada_em', params.startIso)
+      .lt('ordem_detectada_em', params.endExclusiveIso)
+      .eq('status_ordem_raw', AVALIADAS_RAW_STATUS)
+      .order('ordem_codigo', { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1)
+
+    if (params.adminId) {
+      query = query.eq('responsavel_atual_id', params.adminId)
+    }
+
+    const { data, error } = await query
+    if (error) throw new Error(error.message)
+
+    const batch = (data ?? []) as Array<{ ordem_codigo: string | null }>
+    for (const row of batch) {
+      const code = (row.ordem_codigo ?? '').trim()
+      if (code) codes.push(code)
+    }
+    if (batch.length < PAGE_SIZE) break
+  }
+
+  return Array.from(new Set(codes))
+}

@@ -8,9 +8,7 @@ import { RealtimeListener } from '@/components/notas/realtime-listener'
 import { LastSyncBadge } from '@/components/shared/last-sync-badge'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
 import {
-  buildOrderKpis,
-  buildOrderRankingAdmin,
-  buildOrderRankingUnidade,
+  buildOrderKpisFromRpc,
   getOrdersCriticalityLevel,
 } from '@/lib/orders/metrics'
 import {
@@ -26,6 +24,9 @@ import {
 import type {
   GridFilterState,
   GridSortState,
+  OrdemKpisRpc,
+  OrdemNotaRankingAdmin,
+  OrdemNotaRankingUnidade,
   OrdersKpiFilter,
   OrdersPeriodMode,
   OrderReassignTarget,
@@ -39,7 +40,7 @@ const DEFAULT_SORT: GridSortState = { field: 'data', direction: 'desc' }
 const EMPTY_UUID = '00000000-0000-0000-0000-000000000000'
 const VALID_KPIS: OrdersKpiFilter[] = ['total', 'em_execucao', 'em_aberto', 'atrasadas', 'concluidas', 'avaliadas']
 const AVALIADAS_RAW_STATUS = 'AVALIACAO_DA_EXECUCAO'
-const METRICS_FETCH_PAGE_SIZE = 1000
+const VALID_PRIORIDADES = ['verde', 'amarelo', 'vermelho']
 
 interface OrdersPageProps {
   searchParams?: Promise<{
@@ -53,6 +54,7 @@ interface OrdersPageProps {
     status?: string | string[]
     responsavel?: string | string[]
     unidade?: string | string[]
+    prioridade?: string | string[]
     sort?: string | string[]
     page?: string | string[]
     pageSize?: string | string[]
@@ -148,6 +150,8 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const status = normalizeTextParam(readFirstParam(resolvedSearchParams?.status))
   const responsavel = normalizeTextParam(readFirstParam(resolvedSearchParams?.responsavel))
   const unidade = normalizeTextParam(readFirstParam(resolvedSearchParams?.unidade))
+  const prioridadeRaw = normalizeTextParam(readFirstParam(resolvedSearchParams?.prioridade))
+  const prioridade = VALID_PRIORIDADES.includes(prioridadeRaw) ? prioridadeRaw : ''
   const sort = parseSortParam(readFirstParam(resolvedSearchParams?.sort), DEFAULT_SORT)
   const page = parsePageParam(readFirstParam(resolvedSearchParams?.page))
   const pageSize = parsePageSizeParam(readFirstParam(resolvedSearchParams?.pageSize), [20, 50, 100])
@@ -210,6 +214,10 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       next = (next as unknown as { eq: (column: string, value: string) => T }).eq('unidade', unidade)
     }
 
+    if (prioridade) {
+      next = (next as unknown as { eq: (column: string, value: string) => T }).eq('semaforo_atraso', prioridade)
+    }
+
     if (q) {
       const escaped = q.replace(/[%_]/g, '')
       next = (next as unknown as { or: (value: string) => T }).or(
@@ -237,6 +245,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     return (query as unknown as { in: (column: string, values: string[]) => T }).in('status_ordem', ['concluida', 'cancelada'])
   }
 
+  // Paged data query
   let pagedQuery = supabase
     .from('vw_ordens_notas_painel')
     .select('*', { count: 'exact' })
@@ -251,67 +260,56 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     pagedQuery = pagedQuery.order(orderRule.column, { ascending: orderRule.ascending })
   }
 
-  const rowsResult = await pagedQuery.range(from, to)
-  const metricsRows: OrdemNotaAcompanhamento[] = []
-  for (let offset = 0; ; offset += METRICS_FETCH_PAGE_SIZE) {
-    let batchQuery = supabase
-      .from('vw_ordens_notas_painel')
-      .select('*')
-      .gte('ordem_detectada_em', period.startIso)
-      .lt('ordem_detectada_em', period.endExclusiveIso)
+  // KPIs via RPC (single aggregation query instead of fetching all rows)
+  const kpisRpcPromise = supabase.rpc('calcular_kpis_ordens', {
+    p_start_iso: period.startIso,
+    p_end_exclusive_iso: period.endExclusiveIso,
+    p_admin_id: canViewGlobal ? null : currentAdminId,
+    p_status: (status && status !== 'todas') ? status : null,
+    p_unidade: (unidade && unidade !== 'todas') ? unidade : null,
+    p_responsavel: canViewGlobal ? (responsavel || null) : null,
+  })
 
-    batchQuery = applyVisibilityFilter(batchQuery)
-    batchQuery = applyBusinessFilters(batchQuery)
-    batchQuery = batchQuery
-      .order('ordem_detectada_em', { ascending: false })
-      .range(offset, offset + METRICS_FETCH_PAGE_SIZE - 1)
+  // Rankings via RPC (only for gestor)
+  const rankingAdminPromise = canViewGlobal
+    ? supabase.rpc('calcular_ranking_ordens_admin', {
+      p_start_iso: period.startIso,
+      p_end_exclusive_iso: period.endExclusiveIso,
+    })
+    : Promise.resolve({ data: null, error: null })
 
-    const { data, error } = await batchQuery
-    if (error) throw error
+  const rankingUnidadePromise = canViewGlobal
+    ? supabase.rpc('calcular_ranking_ordens_unidade', {
+      p_start_iso: period.startIso,
+      p_end_exclusive_iso: period.endExclusiveIso,
+    })
+    : Promise.resolve({ data: null, error: null })
 
-    const batch = (data ?? []) as OrdemNotaAcompanhamento[]
-    metricsRows.push(...batch)
-    if (batch.length < METRICS_FETCH_PAGE_SIZE) break
-  }
-
-  const avaliadasCodesRows: Array<{ ordem_codigo: string | null }> = []
-  for (let offset = 0; ; offset += METRICS_FETCH_PAGE_SIZE) {
-    let batchQuery = supabase
-      .from('vw_ordens_notas_painel')
-      .select('ordem_codigo')
-      .gte('ordem_detectada_em', period.startIso)
-      .lt('ordem_detectada_em', period.endExclusiveIso)
-      .eq('status_ordem_raw', AVALIADAS_RAW_STATUS)
-
-    batchQuery = applyVisibilityFilter(batchQuery)
-    batchQuery = applyBusinessFilters(batchQuery)
-    batchQuery = batchQuery
-      .order('ordem_codigo', { ascending: true })
-      .range(offset, offset + METRICS_FETCH_PAGE_SIZE - 1)
-
-    const { data, error } = await batchQuery
-    if (error) throw error
-
-    const batch = (data ?? []) as Array<{ ordem_codigo: string | null }>
-    avaliadasCodesRows.push(...batch)
-    if (batch.length < METRICS_FETCH_PAGE_SIZE) break
-  }
-
-  const latestSyncResult = await supabase
+  const latestSyncPromise = supabase
     .from('sync_log')
     .select('finished_at, status')
     .order('started_at', { ascending: false })
     .limit(1)
     .single()
 
-  const semResponsavelResult = canViewGlobal
-    ? await supabase
-      .from('vw_ordens_notas_painel')
-      .select('nota_id', { count: 'exact', head: true })
-      .gte('ordem_detectada_em', period.startIso)
-      .lt('ordem_detectada_em', period.endExclusiveIso)
-      .is('responsavel_atual_id', null)
-    : { count: 0 }
+  // Unidades for filter options (lightweight query)
+  const unidadesPromise = supabase
+    .from('vw_ordens_notas_painel')
+    .select('unidade')
+    .gte('ordem_detectada_em', period.startIso)
+    .lt('ordem_detectada_em', period.endExclusiveIso)
+    .not('unidade', 'is', null)
+
+  // Run all queries in parallel
+  const [rowsResult, kpisRpcResult, rankingAdminResult, rankingUnidadeResult, latestSyncResult, unidadesResult] =
+    await Promise.all([
+      pagedQuery.range(from, to),
+      kpisRpcPromise,
+      rankingAdminPromise,
+      rankingUnidadePromise,
+      latestSyncPromise,
+      unidadesPromise,
+    ])
 
   const rows = (rowsResult.data ?? []) as OrdemNotaAcompanhamento[]
   const total = rowsResult.count ?? 0
@@ -320,18 +318,19 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     1
   )
 
-  const orderKpis = buildOrderKpis(metricsRows)
+  // KPIs from RPC
+  const kpisRaw = (kpisRpcResult.data ?? {
+    total: 0, abertas: 0, em_tratativa: 0, concluidas: 0,
+    canceladas: 0, avaliadas: 0, atrasadas_7d: 0, sem_responsavel: 0,
+  }) as OrdemKpisRpc
+  const orderKpis = buildOrderKpisFromRpc(kpisRaw)
   const criticality = getOrdersCriticalityLevel(orderKpis.total_ordens_30d, orderKpis.qtd_antigas_7d_30d)
-  const rankingAdmin = canViewGlobal ? buildOrderRankingAdmin(metricsRows) : []
-  const rankingUnidade = canViewGlobal ? buildOrderRankingUnidade(metricsRows) : []
-  const semResponsavelCount = canViewGlobal ? (semResponsavelResult.count ?? 0) : 0
-  const avaliadasOrderCodes = Array.from(
-    new Set(
-      avaliadasCodesRows
-        .map((row) => normalizeTextParam(row.ordem_codigo ?? undefined))
-        .filter(Boolean)
-    )
-  )
+
+  // Rankings from RPC
+  const rankingAdmin = (rankingAdminResult.data ?? []) as OrdemNotaRankingAdmin[]
+  const rankingUnidade = (rankingUnidadeResult.data ?? []) as OrdemNotaRankingUnidade[]
+
+  const semResponsavelCount = canViewGlobal ? (kpisRaw.sem_responsavel ?? 0) : 0
 
   const responsavelOptions = [
     { value: 'todos', label: 'Todos os responsaveis' },
@@ -339,11 +338,17 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     ...(adminsResult.data ?? []).map((admin) => ({ value: admin.id, label: admin.nome })),
   ]
 
+  const unidadeNames = Array.from(
+    new Set(
+      ((unidadesResult.data ?? []) as Array<{ unidade: string | null }>)
+        .map((row) => row.unidade)
+        .filter(Boolean) as string[]
+    )
+  ).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+
   const unidadeOptions = [
     { value: 'todas', label: 'Todas as unidades' },
-    ...Array.from(new Set(metricsRows.map((row) => row.unidade).filter(Boolean) as string[]))
-      .sort((a, b) => a.localeCompare(b, 'pt-BR'))
-      .map((name) => ({ value: name, label: name })),
+    ...unidadeNames.map((name) => ({ value: name, label: name })),
   ]
 
   const avatarById = Object.fromEntries(
@@ -384,6 +389,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         status={filters.status ?? ''}
         responsavel={filters.responsavel ?? ''}
         unidade={filters.unidade ?? ''}
+        prioridade={prioridade}
         activeKpi={activeKpi || null}
         canViewGlobal={canViewGlobal}
         canReassign={canViewGlobal}
@@ -393,7 +399,9 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         avatarById={avatarById}
         semResponsavelCount={semResponsavelCount}
         canCopyOrders={Boolean(currentUserRole)}
-        avaliadasOrderCodes={avaliadasOrderCodes}
+        periodStartIso={period.startIso}
+        periodEndExclusiveIso={period.endExclusiveIso}
+        currentAdminId={canViewGlobal ? null : currentAdminId}
       />
 
       {canViewGlobal && (

@@ -23,6 +23,7 @@ import { GridSearch } from '@/components/data-grid/grid-search'
 import { GridToolbar } from '@/components/data-grid/grid-toolbar'
 import { buildSortParam, updateSearchParams } from '@/lib/grid/query'
 import { buildCopyPayload, copyToClipboard } from '@/lib/orders/copy'
+import { buscarCodigosAvaliadas } from '@/lib/actions/nota-actions'
 import type {
   GridSortState,
   OrderOwnerGroup,
@@ -44,6 +45,7 @@ interface OrdersOwnerPanelProps {
   status: string
   responsavel: string
   unidade: string
+  prioridade: string
   activeKpi: OrdersKpiFilter | null
   canViewGlobal: boolean
   canReassign?: boolean
@@ -53,7 +55,9 @@ interface OrdersOwnerPanelProps {
   avatarById: Record<string, string | null>
   semResponsavelCount?: number
   canCopyOrders?: boolean
-  avaliadasOrderCodes?: string[]
+  periodStartIso: string
+  periodEndExclusiveIso: string
+  currentAdminId: string | null
 }
 
 type OrderStatusFilter = OrdemStatusAcomp | 'todas' | 'avaliadas'
@@ -102,6 +106,7 @@ function buildGroups(
       recentes: 0,
       atencao: 0,
       atrasadas: 0,
+      abertas: 0,
       total: 0,
     }
 
@@ -110,6 +115,7 @@ function buildGroups(
     if (row.semaforo_atraso === 'verde') current.recentes += 1
     if (row.semaforo_atraso === 'amarelo') current.atencao += 1
     if (row.semaforo_atraso === 'vermelho') current.atrasadas += 1
+    if (row.status_ordem === 'aberta') current.abertas += 1
 
     map.set(owner.id, current)
   }
@@ -130,6 +136,7 @@ export function OrdersOwnerPanel({
   status,
   responsavel,
   unidade,
+  prioridade,
   activeKpi,
   canViewGlobal,
   canReassign = false,
@@ -139,7 +146,9 @@ export function OrdersOwnerPanel({
   avatarById,
   semResponsavelCount = 0,
   canCopyOrders = false,
-  avaliadasOrderCodes = [],
+  periodStartIso,
+  periodEndExclusiveIso,
+  currentAdminId,
 }: OrdersOwnerPanelProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -151,6 +160,7 @@ export function OrdersOwnerPanel({
   const [viewMode, setViewMode] = useState<PanelViewMode>('list')
   const [expandedOwnerId, setExpandedOwnerId] = useState<string | null>(null)
   const [selectedNotaIds, setSelectedNotaIds] = useState<string[]>([])
+  const [avaliadasLoading, setAvaliadasLoading] = useState(false)
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -288,6 +298,26 @@ export function OrdersOwnerPanel({
     })
   }
 
+  async function handleCopyAvaliadas() {
+    setAvaliadasLoading(true)
+    try {
+      const codes = await buscarCodigosAvaliadas({
+        startIso: periodStartIso,
+        endExclusiveIso: periodEndExclusiveIso,
+        adminId: currentAdminId,
+      })
+      await handleCopyOrders(codes, 'avaliadas')
+    } catch {
+      toast({
+        title: 'Erro ao buscar avaliadas',
+        description: 'Nao foi possivel buscar os codigos de ordens avaliadas.',
+        variant: 'error',
+      })
+    } finally {
+      setAvaliadasLoading(false)
+    }
+  }
+
   async function handleCopyOrders(codes: string[], mode: 'avaliadas' | 'selecionadas') {
     const payload = buildCopyPayload(codes)
 
@@ -329,11 +359,13 @@ export function OrdersOwnerPanel({
       }
       : null,
     unidade ? { key: 'unidade', label: `Unidade: ${unidade}` } : null,
+    prioridade ? { key: 'prioridade', label: `Prioridade: ${prioridade}` } : null,
     activeKpi ? { key: 'kpi', label: `KPI: ${activeKpi}` } : null,
   ].filter(Boolean) as Array<{ key: string; label: string }>
 
   return (
     <div className="space-y-4">
+      {/* Linha 1: Busca + filtros operacionais */}
       <GridToolbar>
         <GridSearch
           value={searchInput}
@@ -374,6 +406,18 @@ export function OrdersOwnerPanel({
         />
 
         <GridFilters
+          label="Prioridade"
+          value={prioridade || 'todas'}
+          onChange={(value) => replaceQuery({ prioridade: value === 'todas' ? null : value, page: 1 })}
+          options={[
+            { value: 'todas', label: 'Todas' },
+            { value: 'verde', label: 'Recentes (0-2d)' },
+            { value: 'amarelo', label: 'Atencao (3-6d)' },
+            { value: 'vermelho', label: 'Atrasadas (7+d)' },
+          ]}
+        />
+
+        <GridFilters
           label="Ordenacao"
           value={buildSortParam(sort)}
           onChange={(value) => replaceQuery({ sort: value, page: 1 })}
@@ -388,9 +432,12 @@ export function OrdersOwnerPanel({
           ]}
           className="w-full xl:w-56"
         />
+      </GridToolbar>
 
+      {/* Linha 2: Controles secundarios */}
+      <div className="flex flex-wrap items-center gap-2">
         <Select value={ownerMode} onValueChange={(value) => setOwnerMode(value as OrderOwnerMode)}>
-          <SelectTrigger className="w-full xl:w-56">
+          <SelectTrigger className="w-48">
             <SelectValue placeholder="Agrupar por" />
           </SelectTrigger>
           <SelectContent>
@@ -403,7 +450,7 @@ export function OrdersOwnerPanel({
         </Select>
 
         <Select value={viewMode} onValueChange={(value) => setViewMode(value as PanelViewMode)}>
-          <SelectTrigger className="w-full xl:w-48">
+          <SelectTrigger className="w-44">
             <SelectValue placeholder="Visualizacao" />
           </SelectTrigger>
           <SelectContent>
@@ -420,7 +467,21 @@ export function OrdersOwnerPanel({
             })}
           </SelectContent>
         </Select>
-      </GridToolbar>
+
+        <AutoRefreshController onRefresh={() => router.refresh()} defaultIntervalSec={30} />
+
+        {canBulkReassign && rows.length > 0 && (
+          <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border"
+              checked={allVisibleSelected}
+              onChange={handleToggleSelectAll}
+            />
+            Selecionar visiveis
+          </label>
+        )}
+      </div>
 
       {activeFilters.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -444,11 +505,11 @@ export function OrdersOwnerPanel({
             variant="outline"
             size="sm"
             className="gap-1.5"
-            onClick={() => handleCopyOrders(avaliadasOrderCodes, 'avaliadas')}
-            disabled={avaliadasOrderCodes.length === 0}
+            onClick={handleCopyAvaliadas}
+            isLoading={avaliadasLoading}
           >
             <ClipboardCheck className="h-4 w-4" />
-            Copiar avaliadas ({avaliadasOrderCodes.length})
+            Copiar avaliadas
           </Button>
 
           {canCopySelected && (
@@ -496,22 +557,6 @@ export function OrdersOwnerPanel({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <AutoRefreshController onRefresh={() => router.refresh()} defaultIntervalSec={30} />
-
-        {canBulkReassign && rows.length > 0 && (
-          <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border"
-              checked={allVisibleSelected}
-              onChange={handleToggleSelectAll}
-            />
-            Selecionar visiveis
-          </label>
-        )}
-      </div>
-
       {canBulkReassign && selectedNotaIds.length > 0 && (
         <OrdersBulkReassignBar
           selectedNotaIds={selectedNotaIds}
@@ -545,6 +590,7 @@ export function OrdersOwnerPanel({
                 canReassign={canBulkReassign}
                 selectedNotaIds={selectedNotaIdsSet}
                 onToggleRowSelection={handleToggleRowSelection}
+                reassignTargets={reassignTargets}
               />
             ))}
           </>

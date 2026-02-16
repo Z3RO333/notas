@@ -27,6 +27,7 @@ export function OrdersOwnerMiniCard({
           <p className="truncate text-sm font-semibold">{group.nome}</p>
           <p className="text-[10px] text-muted-foreground">
             {group.total} ordem{group.total !== 1 ? 's' : ''}
+            {group.abertas > 0 && ` · ${group.abertas} aberta${group.abertas !== 1 ? 's' : ''}`}
           </p>
         </div>
       </div>
@@ -44,9 +45,9 @@ export function OrdersOwnerMiniCard({
       </div>
 
       <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-        <span>0-2d</span>
-        <span>3-6d</span>
-        <span>7+d</span>
+        <span>Rec.</span>
+        <span>Atenc.</span>
+        <span>Atras.</span>
       </div>
     </Card>
   )

@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/toast'
 import type { OrderReassignTarget } from '@/lib/types/database'
@@ -132,18 +133,13 @@ export function OrdersBulkReassignBar({
               {isDestinationRequired && (
                 <div className="space-y-2">
                   <label htmlFor="bulk-destino" className="text-sm font-medium">Destino</label>
-                  <Select value={destinationAdminId} onValueChange={setDestinationAdminId}>
-                    <SelectTrigger id="bulk-destino">
-                      <SelectValue placeholder="Selecione o novo responsavel" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {admins.map((admin) => (
-                        <SelectItem key={admin.id} value={admin.id}>
-                          {admin.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    id="bulk-destino"
+                    options={admins.map((admin) => ({ value: admin.id, label: admin.nome }))}
+                    value={destinationAdminId}
+                    onValueChange={setDestinationAdminId}
+                    placeholder="Selecione o novo responsavel..."
+                  />
                 </div>
               )}
 
@@ -168,8 +164,8 @@ export function OrdersBulkReassignBar({
                 <Button type="button" variant="outline" disabled={loading} onClick={() => setOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={!canSubmit || loading}>
-                  {loading ? 'Reatribuindo...' : 'Confirmar reatribuicao'}
+                <Button type="submit" disabled={!canSubmit} isLoading={loading}>
+                  Confirmar reatribuicao
                 </Button>
               </div>
             </form>

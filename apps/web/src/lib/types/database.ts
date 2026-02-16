@@ -203,7 +203,19 @@ export interface OrderOwnerGroup {
   recentes: number
   atencao: number
   atrasadas: number
+  abertas: number
   total: number
+}
+
+export interface OrdemKpisRpc {
+  total: number
+  abertas: number
+  em_tratativa: number
+  concluidas: number
+  canceladas: number
+  avaliadas: number
+  atrasadas_7d: number
+  sem_responsavel: number
 }
 
 export interface GridSortState {
