@@ -32,7 +32,6 @@ export function DynamicKpiStrip({ items }: DynamicKpiStripProps) {
           <p className={`text-2xl font-bold mt-0.5 ${TONE_VALUE_CLASSES[item.tone]}`}>
             {item.value}
           </p>
-          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{item.helper}</p>
         </div>
       ))}
     </div>

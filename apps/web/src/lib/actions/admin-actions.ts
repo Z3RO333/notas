@@ -41,12 +41,17 @@ async function logAudit(
   alvoId: string | null,
   detalhes?: Record<string, unknown>
 ) {
-  await supabase.from('admin_audit_log').insert({
+  const { error } = await supabase.from('admin_audit_log').insert({
     gestor_id: gestorId,
     acao,
     alvo_id: alvoId,
     detalhes: detalhes ?? null,
   })
+
+  // Auditoria nao deve interromper o fluxo principal da operacao.
+  if (error) {
+    console.error('Falha ao gravar admin_audit_log:', error.message)
+  }
 }
 
 export async function toggleDistribuicao(adminId: string, valor: boolean, motivo?: string) {
@@ -82,24 +87,6 @@ export async function toggleFerias(adminId: string, valor: boolean, motivo?: str
   if (error) throw new Error(error.message)
 
   await logAudit(supabase, gestorId, valor ? 'marcar_ferias' : 'retornar_ferias', adminId, { motivo })
-
-  revalidateCockpitPaths()
-}
-
-export async function atualizarMaxNotas(adminId: string, maxNotas: number) {
-  const { supabase, gestorId } = await getGestorContext()
-
-  const { error } = await supabase
-    .from('administradores')
-    .update({
-      max_notas: maxNotas,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', adminId)
-
-  if (error) throw new Error(error.message)
-
-  await logAudit(supabase, gestorId, 'alterar_max_notas', adminId, { max_notas: maxNotas })
 
   revalidateCockpitPaths()
 }
@@ -161,8 +148,11 @@ export async function reatribuirOrdensSelecionadas(params: {
   motivo?: string
 }) {
   const { supabase, gestorId } = await getGestorContext()
+  const uniqueNotaIds = Array.from(
+    new Set((params.notaIds ?? []).filter((id): id is string => Boolean(id && id.trim())))
+  )
 
-  if (!params.notaIds || params.notaIds.length === 0) {
+  if (uniqueNotaIds.length === 0) {
     return {
       rows: [] as ReassignOrderRow[],
       movedCount: 0,
@@ -171,7 +161,7 @@ export async function reatribuirOrdensSelecionadas(params: {
   }
 
   const { data, error } = await supabase.rpc('reatribuir_ordens_selecionadas', {
-    p_nota_ids: params.notaIds,
+    p_nota_ids: uniqueNotaIds,
     p_gestor_id: gestorId,
     p_modo: params.modo,
     p_admin_destino: params.adminDestinoId ?? null,
@@ -182,16 +172,16 @@ export async function reatribuirOrdensSelecionadas(params: {
 
   const movedRows = (data ?? []) as ReassignOrderRow[]
   const movedCount = movedRows.length
-  const skippedCount = Math.max(params.notaIds.length - movedCount, 0)
+  const skippedCount = Math.max(uniqueNotaIds.length - movedCount, 0)
 
   await logAudit(supabase, gestorId, 'reatribuir_ordens_lote_checkbox', null, {
     modo: params.modo,
     motivo: params.motivo ?? null,
     admin_destino_id: params.adminDestinoId ?? null,
-    notas_selecionadas: params.notaIds.length,
+    notas_selecionadas: uniqueNotaIds.length,
     notas_reatribuidas: movedCount,
     notas_puladas: skippedCount,
-    nota_ids: params.notaIds,
+    nota_ids_amostra: uniqueNotaIds.slice(0, 200),
   })
 
   revalidateCockpitPaths()

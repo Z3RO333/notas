@@ -74,7 +74,7 @@ export default async function PessoasPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Gestao de Pessoas</h1>
         <p className="text-sm text-muted-foreground">
-          Controle de disponibilidade, ferias e capacidade operacional dos colaboradores.
+          Controle de disponibilidade, ferias e carga operacional dos colaboradores.
         </p>
       </div>
 

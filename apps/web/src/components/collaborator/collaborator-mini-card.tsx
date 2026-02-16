@@ -25,10 +25,6 @@ function getUnavailableLabel(c: CollaboratorData): string | null {
 export function CollaboratorMiniCard({ collaborator, isExpanded, onClick }: CollaboratorMiniCardProps) {
   const esp = especialidadeConfig[collaborator.especialidade] ?? especialidadeConfig.geral
   const unavailable = getUnavailableLabel(collaborator)
-  const percentual = collaborator.max_notas > 0
-    ? Math.round((collaborator.qtd_abertas / collaborator.max_notas) * 100)
-    : 0
-  const barColor = percentual > 80 ? 'bg-red-500' : percentual > 50 ? 'bg-yellow-500' : 'bg-green-500'
 
   // Status dot
   const statusDot = !collaborator.ativo
@@ -88,18 +84,8 @@ export function CollaboratorMiniCard({ collaborator, isExpanded, onClick }: Coll
         <span>2+ dias</span>
       </div>
 
-      {/* Load bar */}
-      <div className="mt-2 space-y-0.5">
-        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-          <span>{collaborator.qtd_abertas}/{collaborator.max_notas}</span>
-          <span>{percentual}%</span>
-        </div>
-        <div className="h-1.5 w-full rounded-full bg-muted">
-          <div
-            className={`h-1.5 rounded-full transition-all ${barColor}`}
-            style={{ width: `${Math.min(percentual, 100)}%` }}
-          />
-        </div>
+      <div className="mt-2 rounded bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
+        {collaborator.qtd_abertas} nota(s) abertas
       </div>
     </Card>
   )

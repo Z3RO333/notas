@@ -43,6 +43,7 @@ export const dynamic = 'force-dynamic'
 const OPEN_STATUSES = ['nova', 'em_andamento', 'encaminhada_fornecedor'] as const
 const OPEN_NOTAS_FIELDS = 'data_criacao_sap, created_at, status' as const
 const ORDER_WINDOW_OPTIONS: OrderWindowFilter[] = [30, 90, 180]
+const ORDERS_FETCH_PAGE_SIZE = 1000
 
 interface AdminDashboardPageProps {
   searchParams?: Promise<{
@@ -68,7 +69,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
   const ordersCutoff = new Date()
   ordersCutoff.setUTCDate(ordersCutoff.getUTCDate() - (orderWindow - 1))
 
-  const [cargaResult, unassignedResult, syncResult, fluxoResult, produtividadeResult, openNotasResult, ordensResult, reassignTargetsResult] = await Promise.all([
+  const [cargaResult, unassignedResult, syncResult, fluxoResult, produtividadeResult, openNotasResult, reassignTargetsResult] = await Promise.all([
     supabase.from('vw_carga_administradores').select('*').order('nome'),
     supabase
       .from('notas_manutencao')
@@ -83,12 +84,6 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
       .select(OPEN_NOTAS_FIELDS)
       .in('status', OPEN_STATUSES),
     supabase
-      .from('vw_ordens_notas_painel')
-      .select('*')
-      .gte('ordem_detectada_em', ordersCutoff.toISOString())
-      .order('ordem_detectada_em', { ascending: false })
-      .limit(500),
-    supabase
       .from('administradores')
       .select('id, nome')
       .eq('role', 'admin')
@@ -97,11 +92,25 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
       .order('nome'),
   ])
 
+  const ordensRows: OrdemNotaAcompanhamento[] = []
+  for (let offset = 0; ; offset += ORDERS_FETCH_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from('vw_ordens_notas_painel')
+      .select('*')
+      .gte('ordem_detectada_em', ordersCutoff.toISOString())
+      .order('ordem_detectada_em', { ascending: false })
+      .range(offset, offset + ORDERS_FETCH_PAGE_SIZE - 1)
+
+    if (error) throw error
+    const batch = (data ?? []) as OrdemNotaAcompanhamento[]
+    ordensRows.push(...batch)
+    if (batch.length < ORDERS_FETCH_PAGE_SIZE) break
+  }
+
   const carga = (cargaResult.data ?? []) as CargaAdministrador[]
   const fluxoRows = (fluxoResult.data ?? []) as DashboardFluxoDiario90d[]
   const produtividadeRows = (produtividadeResult.data ?? []) as DashboardProdutividade60d[]
   const openNotas = (openNotasResult.data ?? []) as OpenNotaAgingRow[]
-  const ordensRows = (ordensResult.data ?? []) as OrdemNotaAcompanhamento[]
   const reassignTargets = (reassignTargetsResult.data ?? []) as OrderReassignTarget[]
   const latestSync = ((syncResult.data ?? []) as SyncLog[])[0] ?? null
   const now = new Date()

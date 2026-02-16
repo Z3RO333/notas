@@ -37,10 +37,6 @@ export function CollaboratorFullCard({
   trackingOrders,
 }: CollaboratorFullCardProps) {
   const esp = especialidadeConfig[collaborator.especialidade] ?? especialidadeConfig.geral
-  const percentual = collaborator.max_notas > 0
-    ? Math.round((collaborator.qtd_abertas / collaborator.max_notas) * 100)
-    : 0
-  const barColor = percentual > 80 ? 'bg-red-500' : percentual > 50 ? 'bg-yellow-500' : 'bg-green-500'
   const sortedNotas = sortByUrgency(notas)
 
   return (
@@ -70,14 +66,8 @@ export function CollaboratorFullCard({
         </div>
       </div>
 
-      <div className="space-y-1">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{collaborator.qtd_abertas} abertas de {collaborator.max_notas}</span>
-          <span>{percentual}%</span>
-        </div>
-        <div className="h-2 w-full rounded-full bg-muted">
-          <div className={`h-2 rounded-full ${barColor}`} style={{ width: `${Math.min(percentual, 100)}%` }} />
-        </div>
+      <div className="rounded bg-slate-50 px-3 py-2 text-sm text-slate-700">
+        <span className="font-semibold">{collaborator.qtd_abertas}</span> nota(s) aberta(s)
       </div>
 
       <div className="space-y-2">

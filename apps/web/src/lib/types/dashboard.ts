@@ -6,7 +6,6 @@ export type DashboardKpiId =
   | 'aging_48h'
   | 'concluidas_30d'
   | 'taxa_fechamento_30d'
-  | 'utilizacao_capacidade'
 
 export type DashboardTone = 'neutral' | 'success' | 'warning' | 'danger'
 export type DashboardAlertLevel = 'critical' | 'warning' | 'info'
@@ -18,15 +17,13 @@ export interface DashboardSummaryMetrics {
   entradas_30d: number
   concluidas_30d: number
   taxa_fechamento_30d: number
-  utilizacao_capacidade: number
-  capacidade_total: number
 }
 
 export interface DashboardKpiItem {
   id: DashboardKpiId
   label: string
   value: string
-  helper: string
+  helper?: string
   tone: DashboardTone
 }
 
@@ -42,8 +39,7 @@ export interface DashboardTeamCapacityRow {
   label: string
   admins: number
   abertas: number
-  capacidade: number
-  utilizacao: number
+  media_abertas: number
 }
 
 export interface DashboardProductivityRow {

@@ -14,7 +14,7 @@ import { buildPredictions } from '@/lib/copilot/predictions'
 import { buildSuggestions } from '@/lib/copilot/suggestions'
 import { buildProductivityDetailRows } from '@/lib/copilot/productivity'
 import { sortRadarRows } from '@/lib/copilot/workload'
-import { getIsoFaixa, getIsoFaixaConfig } from '@/lib/copilot/iso'
+import { getIsoFaixaConfig } from '@/lib/copilot/iso'
 import {
   buildDashboardSummary,
   buildThroughput30d,
@@ -39,6 +39,7 @@ export const dynamic = 'force-dynamic'
 const OPEN_STATUSES = ['nova', 'em_andamento', 'encaminhada_fornecedor'] as const
 const OPEN_NOTAS_FIELDS = 'data_criacao_sap, created_at, status' as const
 const NOTA_PANEL_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, data_criacao_sap, created_at' as const
+const ORDERS_FETCH_PAGE_SIZE = 1000
 
 export default async function CopilotPage() {
   const supabase = await createClient()
@@ -55,7 +56,6 @@ export default async function CopilotPage() {
     notasPanelResult,
     syncResult,
     unassignedResult,
-    ordensResult,
   ] = await Promise.all([
     supabase.from('vw_iso_por_admin').select('*').order('iso_score', { ascending: false }),
     supabase.from('vw_iso_global').select('*').single(),
@@ -74,13 +74,22 @@ export default async function CopilotPage() {
       .select('id', { count: 'exact', head: true })
       .is('administrador_id', null)
       .eq('status', 'nova'),
-    supabase
+  ])
+
+  const ordensRows: Array<Pick<OrdemNotaAcompanhamento, 'unidade' | 'semaforo_atraso'>> = []
+  for (let offset = 0; ; offset += ORDERS_FETCH_PAGE_SIZE) {
+    const { data, error } = await supabase
       .from('vw_ordens_notas_painel')
-      .select('*')
+      .select('unidade, semaforo_atraso')
       .not('status_ordem', 'in', '("concluida","cancelada")')
       .order('dias_em_aberto', { ascending: false })
-      .limit(500),
-  ])
+      .range(offset, offset + ORDERS_FETCH_PAGE_SIZE - 1)
+
+    if (error) throw error
+    const batch = (data ?? []) as Array<Pick<OrdemNotaAcompanhamento, 'unidade' | 'semaforo_atraso'>>
+    ordensRows.push(...batch)
+    if (batch.length < ORDERS_FETCH_PAGE_SIZE) break
+  }
 
   const now = new Date()
   const isoAdmins = (isoAdminsResult.data ?? []) as IsoAdminRow[]
@@ -97,7 +106,6 @@ export default async function CopilotPage() {
   const fluxoRows = (fluxoResult.data ?? []) as DashboardFluxoDiario90d[]
   const openNotas = (openNotasResult.data ?? []) as OpenNotaAgingRow[]
   const notasPanel = (notasPanelResult.data ?? []) as NotaPanelData[]
-  const ordensRows = (ordensResult.data ?? []) as OrdemNotaAcompanhamento[]
   const latestSync = ((syncResult.data ?? []) as SyncLog[])[0] ?? null
   const notasSemAtribuir = unassignedResult.count ?? 0
 
@@ -134,13 +142,9 @@ export default async function CopilotPage() {
   })
 
   // Predictions
-  const capacidadeTotal = carga.reduce((s, c) => s + c.max_notas, 0)
-  const abertasAgora = carga.reduce((s, c) => s + c.qtd_abertas, 0)
   const predictions = buildPredictions({
     throughput: throughput30d,
     radarRows,
-    capacidadeTotal,
-    abertasAgora,
   })
 
   // Suggestions

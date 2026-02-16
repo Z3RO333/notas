@@ -113,10 +113,10 @@ export interface ProductivityDetailRow {
 
 export type PredictionSeverity = 'alta' | 'media' | 'baixa'
 export type PredictionType =
-  | 'capacidade_estouro'
+  | 'backlog_crescendo'
   | 'aging_sla_estouro'
   | 'taxa_entrada_alta'
-  | 'admin_limite'
+  | 'sobrecarga_continua'
 
 export interface Prediction {
   tipo: PredictionType
@@ -161,7 +161,7 @@ export interface DynamicKpiItem {
   id: string
   label: string
   value: string
-  helper: string
+  helper?: string
   tone: 'neutral' | 'success' | 'warning' | 'danger'
   pulse?: boolean
 }

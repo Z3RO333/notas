@@ -1,7 +1,7 @@
 'use client'
 
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { AlertTriangle, TrendingUp, Clock, User } from 'lucide-react'
+import { TrendingUp, Clock, Users } from 'lucide-react'
 import type { Prediction, PredictionSeverity } from '@/lib/types/copilot'
 
 interface PredictionsPanelProps {
@@ -27,10 +27,10 @@ const SEVERITY_CONFIG: Record<PredictionSeverity, { border: string; icon: string
 }
 
 const TYPE_ICON = {
-  capacidade_estouro: TrendingUp,
+  backlog_crescendo: TrendingUp,
   aging_sla_estouro: Clock,
   taxa_entrada_alta: TrendingUp,
-  admin_limite: User,
+  sobrecarga_continua: Users,
 }
 
 export function PredictionsPanel({ predictions }: PredictionsPanelProps) {
