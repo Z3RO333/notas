@@ -49,7 +49,7 @@ export function OrdersKpiStrip({
       kpi: 'total' as const,
       label: 'Total de ordens',
       value: fmt(getOrdersKpiValue(kpis, 'total')),
-      helper: 'Clique para ver todas',
+      helper: 'Visao geral',
       icon: ListChecks,
       valueClass: 'text-foreground',
     },
@@ -85,7 +85,7 @@ export function OrdersKpiStrip({
       kpi: 'avaliadas' as const,
       label: 'Avaliadas',
       value: fmt(getOrdersKpiValue(kpis, 'avaliadas')),
-      helper: 'Status AVALIACAO_DA_EXECUCAO',
+      helper: 'Com avaliacao da execucao',
       icon: ClipboardCheck,
       valueClass: 'text-amber-700',
     },
@@ -94,7 +94,7 @@ export function OrdersKpiStrip({
       kpi: 'atrasadas' as const,
       label: 'Atrasadas (7+)',
       value: fmt(getOrdersKpiValue(kpis, 'atrasadas')),
-      helper: 'Subconjunto de abertas/em execucao',
+      helper: 'Abertas/em execucao (7+ dias)',
       icon: AlertTriangle,
       valueClass: 'text-red-700',
     },
@@ -123,7 +123,7 @@ export function OrdersKpiStrip({
               <p className={`text-3xl font-bold ${item.valueClass}`}>{item.value}</p>
               <p className="text-xs text-muted-foreground">
                 {interactive
-                  ? (active ? 'KPI ativo (clique para limpar)' : item.helper)
+                  ? (active ? 'KPI ativo. Clique para limpar.' : item.helper)
                   : item.helper}
               </p>
             </CardContent>
