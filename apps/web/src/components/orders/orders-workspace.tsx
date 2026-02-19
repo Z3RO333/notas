@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   BarChart3,
   ClipboardCheck,
+  Download,
   LayoutGrid,
   ListChecks,
   Loader2,
@@ -13,12 +14,11 @@ import {
   RefreshCcw,
   Rows3,
   ShieldCheck,
-  Upload,
 } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { OrdersBulkReassignBar } from '@/components/orders/orders-bulk-reassign-bar'
 import { OrderReassignDialog } from '@/components/orders/order-reassign-dialog'
 import { OrdersDetailDrawer } from '@/components/orders/orders-detail-drawer'
-import { OrdersImportDialog } from '@/components/orders/orders-import-dialog'
 import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -119,6 +119,28 @@ function formatDelayText(row: Pick<OrdemNotaAcompanhamento, 'semaforo_atraso' | 
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('pt-BR').format(value)
+}
+
+function exportOrdersToXlsx(rows: OrdemNotaAcompanhamento[]) {
+  const data = rows.map((row) => ({
+    'Ordem': row.ordem_codigo,
+    'Nota': row.numero_nota,
+    'Status': getOrderStatusLabel(row.status_ordem),
+    'Status RAW': row.status_ordem_raw ?? '',
+    'Centro': row.centro ?? '',
+    'Unidade': row.unidade ?? '',
+    'Responsavel': row.administrador_nome ?? 'Sem responsavel',
+    'Semaforo': getSemaforoLabel(row.semaforo_atraso),
+    'Dias em aberto': row.dias_em_aberto,
+    'Detectada em': formatIsoDate(row.ordem_detectada_em),
+    'Descricao': row.descricao ?? '',
+  }))
+
+  const ws = XLSX.utils.json_to_sheet(data)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Ordens')
+  const filename = `ordens_${new Date().toISOString().slice(0, 10)}.xlsx`
+  XLSX.writeFile(wb, filename)
 }
 
 function resolveKpiFrameClass(total: number, overdue: number): string {
@@ -236,7 +258,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   const [selectedNotaIds, setSelectedNotaIds] = useState<string[]>([])
   const [detailRow, setDetailRow] = useState<OrdemNotaAcompanhamento | null>(null)
   const [currentUser, setCurrentUser] = useState(initialUser)
-  const [importOpen, setImportOpen] = useState(false)
   const [ownerCardsViewMode, setOwnerCardsViewMode] = useState<PanelViewMode>('list')
 
   const fetchAbortRef = useRef<AbortController | null>(null)
@@ -339,7 +360,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   }
 
   function toggleSelectAllLoaded() {
-    setSelectedNotaIds((prev) => {
+    setSelectedNotaIds(() => {
       if (allLoadedSelected) return []
       return Array.from(new Set(rows.map((row) => row.nota_id)))
     })
@@ -802,9 +823,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             <input type="checkbox" checked={allLoadedSelected} onChange={toggleSelectAllLoaded} />
             Selecionar carregadas
           </label>
-          <Button type="button" variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-            <Upload className="mr-2 h-3.5 w-3.5" />
-            Importar planilha
+          <Button type="button" variant="outline" size="sm" onClick={() => exportOrdersToXlsx(rows)} disabled={rows.length === 0}>
+            <Download className="mr-2 h-3.5 w-3.5" />
+            Exportar planilha
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={() => fetchWorkspace(true)}>
             <RefreshCcw className="mr-2 h-3.5 w-3.5" />
@@ -941,15 +962,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         }}
       />
 
-      <OrdersImportDialog
-        open={importOpen}
-        onOpenChange={(next) => {
-          setImportOpen(next)
-          if (!next) fetchWorkspace(true)
-        }}
-        userRole={currentUser.role}
-        adminId={currentUser.adminId}
-      />
     </div>
   )
 }
