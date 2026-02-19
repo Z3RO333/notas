@@ -502,14 +502,16 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           {kpiCards.map((item) => {
             const Icon = item.icon
             return (
-              <Card key={item.key}>
+              <Card key={item.key} className="h-full">
                 <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{item.label}</CardTitle>
+                  <CardTitle className="min-h-[2.5rem] flex-1 pr-2 text-sm font-medium leading-tight text-muted-foreground">
+                    {item.label}
+                  </CardTitle>
                   <Icon className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent className="space-y-1">
                   <p className={`text-3xl font-bold ${item.valueClass}`}>{formatNumber(item.value)}</p>
-                  <p className="text-xs text-muted-foreground">{item.helper}</p>
+                  <p className="min-h-[2rem] text-xs leading-4 text-muted-foreground">{item.helper}</p>
                 </CardContent>
               </Card>
             )
