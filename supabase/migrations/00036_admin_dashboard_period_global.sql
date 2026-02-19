@@ -12,6 +12,202 @@ CREATE INDEX IF NOT EXISTS idx_notas_historico_status_concluida_dashboard
 CREATE INDEX IF NOT EXISTS idx_ordens_acomp_nota_detectada_dashboard
   ON public.ordens_notas_acompanhamento (nota_id, ordem_detectada_em DESC);
 
+ALTER TABLE public.ordens_notas_acompanhamento
+  ADD COLUMN IF NOT EXISTS data_entrada TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_ordens_notas_acompanhamento_data_entrada_dashboard
+  ON public.ordens_notas_acompanhamento (data_entrada DESC)
+  WHERE data_entrada IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_ordens_notas_acompanhamento_data_referencia_dashboard
+  ON public.ordens_notas_acompanhamento ((COALESCE(data_entrada, ordem_detectada_em)) DESC);
+
+CREATE OR REPLACE VIEW public.vw_ordens_notas_painel AS
+WITH historico AS (
+  SELECT
+    na.nota_id,
+    COUNT(*)::BIGINT AS qtd_historico,
+    ARRAY_AGG(DISTINCT na.administrador_id) AS historico_admin_ids
+  FROM public.nota_acompanhamentos na
+  GROUP BY na.nota_id
+),
+base AS (
+  SELECT
+    o.id AS ordem_id,
+    o.nota_id,
+    o.numero_nota,
+    o.ordem_codigo,
+    o.administrador_id,
+    origem.nome AS administrador_nome,
+    n.administrador_id AS responsavel_atual_id,
+    atual.nome AS responsavel_atual_nome,
+    o.centro,
+    COALESCE(o.unidade, d.unidade) AS unidade,
+    o.status_ordem,
+    o.status_ordem_raw,
+    COALESCE(o.data_entrada, o.ordem_detectada_em) AS ordem_detectada_em,
+    o.status_atualizado_em,
+    o.dias_para_gerar_ordem,
+    COALESCE(h.qtd_historico, 0)::BIGINT AS qtd_historico,
+    COALESCE(h.historico_admin_ids, ARRAY[]::UUID[]) AS historico_admin_ids,
+    n.descricao
+  FROM public.ordens_notas_acompanhamento o
+  LEFT JOIN public.notas_manutencao n ON n.id = o.nota_id
+  LEFT JOIN public.administradores origem ON origem.id = o.administrador_id
+  LEFT JOIN public.administradores atual ON atual.id = n.administrador_id
+  LEFT JOIN public.dim_centro_unidade d ON d.centro = o.centro
+  LEFT JOIN historico h ON h.nota_id = o.nota_id
+)
+SELECT
+  b.ordem_id,
+  b.nota_id,
+  b.numero_nota,
+  b.ordem_codigo,
+  b.administrador_id,
+  b.administrador_nome,
+  b.responsavel_atual_id,
+  b.responsavel_atual_nome,
+  b.centro,
+  b.unidade,
+  b.status_ordem,
+  b.status_ordem_raw,
+  b.ordem_detectada_em,
+  b.status_atualizado_em,
+  b.dias_para_gerar_ordem,
+  b.qtd_historico,
+  (b.qtd_historico > 0) AS tem_historico,
+  CASE
+    WHEN b.status_ordem IN ('concluida', 'cancelada') THEN 0
+    ELSE GREATEST((current_date - b.ordem_detectada_em::date), 0)
+  END::INTEGER AS dias_em_aberto,
+  CASE
+    WHEN b.status_ordem IN ('concluida', 'cancelada') THEN 'neutro'
+    WHEN GREATEST((current_date - b.ordem_detectada_em::date), 0) >= 7 THEN 'vermelho'
+    WHEN GREATEST((current_date - b.ordem_detectada_em::date), 0) >= 3 THEN 'amarelo'
+    ELSE 'verde'
+  END AS semaforo_atraso,
+  ARRAY(
+    SELECT DISTINCT x
+    FROM unnest(
+      b.historico_admin_ids
+      || ARRAY[b.administrador_id, b.responsavel_atual_id]
+    ) AS x
+    WHERE x IS NOT NULL
+  ) AS envolvidos_admin_ids,
+  b.descricao
+FROM base b;
+
+CREATE OR REPLACE FUNCTION public.atualizar_status_ordens_pmpl_lote(
+  p_updates JSONB,
+  p_sync_id UUID DEFAULT NULL
+)
+RETURNS TABLE(total_recebidas INTEGER, ordens_atualizadas INTEGER, mudancas_status INTEGER) AS $$
+DECLARE
+  v_item JSONB;
+  v_ordem public.ordens_notas_acompanhamento%ROWTYPE;
+  v_ordem_codigo TEXT;
+  v_status_raw TEXT;
+  v_status_novo public.ordem_status_acomp;
+  v_centro TEXT;
+  v_unidade TEXT;
+  v_data_entrada_raw TEXT;
+  v_data_entrada TIMESTAMPTZ;
+  v_total INTEGER := 0;
+  v_atualizadas INTEGER := 0;
+  v_mudancas INTEGER := 0;
+BEGIN
+  IF p_updates IS NULL OR jsonb_typeof(p_updates) <> 'array' THEN
+    RETURN QUERY SELECT 0, 0, 0;
+    RETURN;
+  END IF;
+
+  FOR v_item IN
+    SELECT value FROM jsonb_array_elements(p_updates)
+  LOOP
+    v_total := v_total + 1;
+    v_ordem_codigo := NULLIF(BTRIM(v_item ->> 'ordem_codigo'), '');
+
+    IF v_ordem_codigo IS NULL THEN
+      CONTINUE;
+    END IF;
+
+    v_status_raw := NULLIF(BTRIM(v_item ->> 'status_raw'), '');
+    v_status_novo := public.normalizar_status_ordem(v_status_raw);
+    v_centro := NULLIF(BTRIM(v_item ->> 'centro'), '');
+    v_data_entrada_raw := NULLIF(BTRIM(v_item ->> 'data_entrada'), '');
+    v_data_entrada := NULL;
+
+    IF v_data_entrada_raw IS NOT NULL THEN
+      BEGIN
+        v_data_entrada := v_data_entrada_raw::TIMESTAMPTZ;
+      EXCEPTION
+        WHEN OTHERS THEN
+          v_data_entrada := NULL;
+      END;
+    END IF;
+
+    SELECT *
+    INTO v_ordem
+    FROM public.ordens_notas_acompanhamento o
+    WHERE o.ordem_codigo = v_ordem_codigo
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+      CONTINUE;
+    END IF;
+
+    IF v_centro IS NOT NULL THEN
+      SELECT d.unidade INTO v_unidade
+      FROM public.dim_centro_unidade d
+      WHERE d.centro = v_centro;
+    ELSE
+      v_unidade := NULL;
+    END IF;
+
+    UPDATE public.ordens_notas_acompanhamento
+    SET
+      status_ordem = v_status_novo,
+      status_ordem_raw = COALESCE(v_status_raw, ordens_notas_acompanhamento.status_ordem_raw),
+      centro = COALESCE(v_centro, ordens_notas_acompanhamento.centro),
+      unidade = COALESCE(v_unidade, ordens_notas_acompanhamento.unidade),
+      data_entrada = CASE
+        WHEN v_data_entrada IS NULL THEN ordens_notas_acompanhamento.data_entrada
+        WHEN ordens_notas_acompanhamento.data_entrada IS NULL THEN v_data_entrada
+        ELSE LEAST(ordens_notas_acompanhamento.data_entrada, v_data_entrada)
+      END,
+      status_atualizado_em = now(),
+      sync_id = COALESCE(p_sync_id, ordens_notas_acompanhamento.sync_id),
+      updated_at = now()
+    WHERE id = v_ordem.id;
+
+    v_atualizadas := v_atualizadas + 1;
+
+    IF v_ordem.status_ordem IS DISTINCT FROM v_status_novo THEN
+      INSERT INTO public.ordens_notas_historico (
+        ordem_id,
+        status_anterior,
+        status_novo,
+        status_raw,
+        origem,
+        sync_id
+      )
+      VALUES (
+        v_ordem.id,
+        v_ordem.status_ordem,
+        v_status_novo,
+        v_status_raw,
+        'pmpl_sync',
+        p_sync_id
+      );
+
+      v_mudancas := v_mudancas + 1;
+    END IF;
+  END LOOP;
+
+  RETURN QUERY SELECT v_total, v_atualizadas, v_mudancas;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 CREATE OR REPLACE FUNCTION public.calcular_metricas_notas_dashboard(
   p_start_iso TIMESTAMPTZ,
   p_end_exclusive_iso TIMESTAMPTZ
@@ -77,7 +273,7 @@ AS $$
     JOIN public.ordens_notas_acompanhamento o
       ON o.nota_id = n.id
     JOIN periodo p ON TRUE
-    WHERE o.ordem_detectada_em < p.end_exclusive_iso
+    WHERE COALESCE(o.data_entrada, o.ordem_detectada_em) < p.end_exclusive_iso
   ),
   agg_concluidas AS (
     SELECT
@@ -262,8 +458,9 @@ STABLE
 AS $$
   SELECT v.*
   FROM public.vw_ordens_notas_painel v
-  WHERE v.ordem_detectada_em >= p_start_iso
-    AND v.ordem_detectada_em < p_end_exclusive_iso
+  JOIN public.ordens_notas_acompanhamento o ON o.id = v.ordem_id
+  WHERE COALESCE(o.data_entrada, o.ordem_detectada_em) >= p_start_iso
+    AND COALESCE(o.data_entrada, o.ordem_detectada_em) < p_end_exclusive_iso
   ORDER BY
     CASE v.semaforo_atraso
       WHEN 'vermelho' THEN 3
@@ -275,7 +472,7 @@ AS $$
       WHEN v.status_ordem IN ('concluida', 'cancelada') THEN 0
       ELSE 1
     END DESC,
-    v.ordem_detectada_em DESC,
+    COALESCE(o.data_entrada, o.ordem_detectada_em) DESC,
     v.ordem_codigo ASC
   LIMIT LEAST(GREATEST(COALESCE(p_limit, 20), 1), 1000);
 $$;
