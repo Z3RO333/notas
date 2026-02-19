@@ -200,6 +200,7 @@ export async function POST(request: Request) {
           status_ordem_raw: row.status_ordem_raw ?? null,
           centro: row.centro ?? null,
           ordem_detectada_em: parseIsoDate(row.ordem_detectada_em) ?? now,
+          data_entrada: parseIsoDate(row.ordem_detectada_em),
           created_at: now,
           updated_at: now,
         })
@@ -225,7 +226,10 @@ export async function POST(request: Request) {
       }
       if (row.ordem_detectada_em !== null) {
         const iso = parseIsoDate(row.ordem_detectada_em)
-        if (iso) updatePayload.ordem_detectada_em = iso
+        if (iso) {
+          updatePayload.ordem_detectada_em = iso
+          updatePayload.data_entrada = iso
+        }
       }
 
       const { error: updateError } = await supabase

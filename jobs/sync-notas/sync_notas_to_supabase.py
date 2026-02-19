@@ -75,6 +75,13 @@ NOTA_CENTRO_COLUMNS_CANDIDATES = [
 ]
 
 PMPL_CENTRO_COLUMN = "CENTRO_LOCALIZACAO"
+PMPL_DATA_ENTRADA_COLUMNS_CANDIDATES = [
+    "DATA_ENTRADA",
+    "DATA_CRIACAO",
+    "DATA_ABERTURA",
+    "DT_CRIACAO",
+    "DT_ENTRADA",
+]
 
 # service_role bypassa RLS - intencional para job de sistema
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
@@ -126,6 +133,40 @@ def _normalize_iso_date(value) -> str | None:
         return None
 
     return candidate
+
+
+def _normalize_iso_datetime(value) -> str | None:
+    text = _as_clean_text(value)
+    if not text:
+        return None
+
+    normalized = text.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        parsed = None
+        for fmt in (
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%d %H:%M",
+            "%d/%m/%Y %H:%M:%S",
+            "%d/%m/%Y %H:%M",
+            "%Y-%m-%d",
+            "%d/%m/%Y",
+        ):
+            try:
+                parsed = datetime.strptime(text, fmt)
+                break
+            except ValueError:
+                continue
+        if parsed is None:
+            return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    else:
+        parsed = parsed.astimezone(timezone.utc)
+
+    return parsed.isoformat()
 
 
 def _watermark_is_too_future(iso_date: str, max_future_days: int = MAX_WATERMARK_FUTURE_DAYS) -> bool:
@@ -568,7 +609,7 @@ def get_orders_for_pmpl_refresh(min_age_days: int = PMPL_MIN_AGE_DAYS) -> list[s
 
     while True:
         result = (
-            supabase.table("ordens_notas_acompanhamento")
+            supabase.table("vw_ordens_notas_painel")
             .select("ordem_codigo")
             .lte("ordem_detectada_em", cutoff.isoformat())
             .in_("status_ordem", list(OPEN_STATUS))
@@ -606,6 +647,14 @@ def _extract_centro(row_dict: dict) -> str | None:
     return _normalize_centro(row_dict.get(PMPL_CENTRO_COLUMN))
 
 
+def _extract_data_entrada(row_dict: dict) -> str | None:
+    for col in PMPL_DATA_ENTRADA_COLUMNS_CANDIDATES:
+        value = _normalize_iso_datetime(row_dict.get(col))
+        if value:
+            return value
+    return None
+
+
 def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]) -> list[dict]:
     """Consolida um unico status por ordem consultando manutencao.gold.pmpl_pmos."""
     if not ordem_codes:
@@ -634,6 +683,7 @@ def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]
                 continue
 
             centro = _extract_centro(row_dict)
+            data_entrada = _extract_data_entrada(row_dict)
             priority = STATUS_PRIORITY.get(status_raw, 0)
 
             current = best_by_order.get(ordem_codigo)
@@ -642,14 +692,18 @@ def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]
                     "ordem_codigo": ordem_codigo,
                     "status_raw": status_raw,
                     "centro": centro,
+                    "data_entrada": data_entrada or (current.get("data_entrada") if current else None),
                     "priority": priority,
                 }
+            elif current.get("data_entrada") is None and data_entrada is not None:
+                current["data_entrada"] = data_entrada
 
     updates = [
         {
             "ordem_codigo": v["ordem_codigo"],
             "status_raw": v["status_raw"],
             "centro": v["centro"],
+            "data_entrada": v.get("data_entrada"),
         }
         for v in best_by_order.values()
     ]
