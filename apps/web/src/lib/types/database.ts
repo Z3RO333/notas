@@ -243,6 +243,8 @@ export interface OrdersOwnerSummary {
   avatar_url: string | null
   total: number
   abertas: number
+  recentes: number
+  atencao: number
   atrasadas: number
 }
 
@@ -250,6 +252,9 @@ export interface OrdersWorkspaceKpis {
   total: number
   abertas: number
   em_tratativa: number
+  concluidas: number
+  canceladas: number
+  avaliadas: number
   atrasadas: number
   sem_responsavel: number
 }
@@ -402,4 +407,54 @@ export interface AdminAuditLog {
   // Joined
   gestor?: { nome: string } | null
   alvo?: { nome: string } | null
+}
+
+// ============================================================
+// Spreadsheet Import Types
+// ============================================================
+
+export type ImportSystemField =
+  | 'ordem_codigo'
+  | 'numero_nota'
+  | 'status_ordem_raw'
+  | 'centro'
+  | 'ordem_detectada_em'
+
+export type ImportMode =
+  | 'create_and_update'
+  | 'create_only'
+  | 'update_only'
+  | 'skip_existing'
+
+export type RawSpreadsheetRow = Record<string, string>
+
+export interface MappedImportRow {
+  rowIndex: number
+  ordem_codigo: string
+  numero_nota: string | null
+  status_ordem_raw: string | null
+  centro: string | null
+  ordem_detectada_em: string | null
+}
+
+export interface ImportRowError {
+  linha: number
+  ordem_codigo: string
+  motivo: string
+}
+
+export interface ImportBatchResult {
+  created: number
+  updated: number
+  skipped: number
+  errors: ImportRowError[]
+}
+
+export interface ImportProgress {
+  totalRows: number
+  processedRows: number
+  created: number
+  updated: number
+  skipped: number
+  errors: ImportRowError[]
 }

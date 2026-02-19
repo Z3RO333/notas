@@ -2,11 +2,24 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { AlertTriangle, Loader2, RefreshCcw } from 'lucide-react'
+import {
+  AlertTriangle,
+  BarChart3,
+  ClipboardCheck,
+  ListChecks,
+  Loader2,
+  LoaderCircle,
+  RefreshCcw,
+  ShieldCheck,
+  Upload,
+} from 'lucide-react'
 import { OrdersBulkReassignBar } from '@/components/orders/orders-bulk-reassign-bar'
 import { OrderReassignDialog } from '@/components/orders/order-reassign-dialog'
 import { OrdersDetailDrawer } from '@/components/orders/orders-detail-drawer'
+import { OrdersImportDialog } from '@/components/orders/orders-import-dialog'
+import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -90,6 +103,19 @@ function formatIsoDate(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleString('pt-BR')
+}
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat('pt-BR').format(value)
+}
+
+function resolveKpiFrameClass(total: number, overdue: number): string {
+  if (total <= 0 || overdue <= 0) return 'border-border'
+
+  const ratio = overdue / Math.max(total, 1)
+  if (overdue >= 20 || ratio >= 0.35) return 'border-red-300 bg-red-50/30'
+  if (overdue >= 6 || ratio >= 0.15) return 'border-amber-300 bg-amber-50/30'
+  return 'border-border'
 }
 
 function toIsoStart(dateInput: string | null): string | null {
@@ -183,6 +209,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     total: 0,
     abertas: 0,
     em_tratativa: 0,
+    concluidas: 0,
+    canceladas: 0,
+    avaliadas: 0,
     atrasadas: 0,
     sem_responsavel: 0,
   })
@@ -195,6 +224,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   const [selectedNotaIds, setSelectedNotaIds] = useState<string[]>([])
   const [detailRow, setDetailRow] = useState<OrdemNotaAcompanhamento | null>(null)
   const [currentUser, setCurrentUser] = useState(initialUser)
+  const [importOpen, setImportOpen] = useState(false)
 
   const fetchAbortRef = useRef<AbortController | null>(null)
   const parentRef = useRef<HTMLDivElement | null>(null)
@@ -354,64 +384,162 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     fetchWorkspace(false)
   }, [virtualRows, loadingInitial, loadingMore, nextCursor, rows.length, fetchWorkspace])
 
+  const kpiFrameClass = resolveKpiFrameClass(kpis.total, kpis.atrasadas)
+  const kpiCards = [
+    {
+      key: 'total',
+      label: 'Total de ordens',
+      value: kpis.total,
+      helper: 'Clique para ver todas',
+      icon: ListChecks,
+      valueClass: 'text-foreground',
+    },
+    {
+      key: 'em_execucao',
+      label: 'Em execucao',
+      value: kpis.em_tratativa,
+      helper: 'Status em tratativa',
+      icon: LoaderCircle,
+      valueClass: 'text-indigo-700',
+    },
+    {
+      key: 'em_aberto',
+      label: 'Em aberto',
+      value: kpis.abertas,
+      helper: 'Status aberto',
+      icon: BarChart3,
+      valueClass: 'text-sky-700',
+    },
+    {
+      key: 'concluidas',
+      label: 'Concluidas',
+      value: kpis.concluidas + kpis.canceladas,
+      helper: 'Concluidas + canceladas',
+      icon: ShieldCheck,
+      valueClass: 'text-emerald-700',
+    },
+    {
+      key: 'avaliadas',
+      label: 'Avaliadas',
+      value: kpis.avaliadas,
+      helper: 'Avaliacao da execucao',
+      icon: ClipboardCheck,
+      valueClass: 'text-amber-700',
+    },
+    {
+      key: 'atrasadas',
+      label: 'Atrasadas (7+)',
+      value: kpis.atrasadas,
+      helper: 'Semaforo vermelho',
+      icon: AlertTriangle,
+      valueClass: 'text-red-700',
+    },
+  ] as const
+
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="rounded-lg border p-3">
-          <p className="text-xs text-muted-foreground">Total</p>
-          <p className="text-2xl font-bold">{kpis.total}</p>
+      <div className={`rounded-lg border p-2 ${kpiFrameClass}`}>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+          {kpiCards.map((item) => {
+            const Icon = item.icon
+            return (
+              <Card key={item.key}>
+                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">{item.label}</CardTitle>
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent className="space-y-1">
+                  <p className={`text-3xl font-bold ${item.valueClass}`}>{formatNumber(item.value)}</p>
+                  <p className="text-xs text-muted-foreground">{item.helper}</p>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
-        <div className="rounded-lg border p-3">
-          <p className="text-xs text-muted-foreground">Abertas</p>
-          <p className="text-2xl font-bold text-sky-700">{kpis.abertas}</p>
-        </div>
-        <div className="rounded-lg border p-3">
-          <p className="text-xs text-muted-foreground">Em tratativa</p>
-          <p className="text-2xl font-bold text-indigo-700">{kpis.em_tratativa}</p>
-        </div>
-        <div className="rounded-lg border p-3">
-          <p className="text-xs text-muted-foreground">Atrasadas</p>
-          <p className="text-2xl font-bold text-red-700">{kpis.atrasadas}</p>
-        </div>
-        {currentUser.canViewGlobal && (
-          <div className="rounded-lg border p-3">
-            <p className="text-xs text-muted-foreground">Sem responsavel</p>
-            <p className="text-2xl font-bold text-amber-700">{kpis.sem_responsavel}</p>
-          </div>
-        )}
       </div>
 
       <div className="rounded-lg border p-3">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between gap-2">
           <p className="text-sm font-semibold">Carteira por colaborador</p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setFilters((prev) => ({ ...prev, responsavel: 'todos' }))}
-          >
-            Todos
-          </Button>
+          <div className="flex items-center gap-2">
+            {currentUser.canViewGlobal && kpis.sem_responsavel > 0 && (
+              <button
+                type="button"
+                className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                onClick={() => setFilters((prev) => ({ ...prev, responsavel: '__sem_atual__' }))}
+              >
+                Sem dono: {formatNumber(kpis.sem_responsavel)}
+              </button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setFilters((prev) => ({ ...prev, responsavel: 'todos' }))}
+            >
+              Todos
+            </Button>
+          </div>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {ownerSummary.map((owner) => {
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+          {ownerSummary
+            .filter((owner) => owner.total > 0 || owner.administrador_id === null)
+            .map((owner) => {
             const ownerKey = owner.administrador_id ?? '__sem_atual__'
             const active = filters.responsavel === ownerKey
+            const isSemResponsavel = owner.administrador_id === null
+
             return (
-              <button
+              <Card
                 key={ownerKey}
-                type="button"
-                className={`rounded-lg border p-3 text-left transition-colors ${
-                  active ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-muted/40'
+                onClick={() => setFilters((prev) => ({
+                  ...prev,
+                  responsavel: prev.responsavel === ownerKey ? 'todos' : ownerKey,
+                }))}
+                className={`cursor-pointer p-3 transition-all hover:shadow-md ${
+                  active ? 'ring-2 ring-primary bg-primary/5' : ''
+                } ${
+                  isSemResponsavel ? 'border-orange-200 bg-orange-50/30' : ''
                 }`}
-                onClick={() => setFilters((prev) => ({ ...prev, responsavel: ownerKey }))}
               >
-                <p className="truncate text-sm font-semibold">{owner.nome}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Total: {owner.total}</p>
-                <p className="text-xs text-muted-foreground">Abertas: {owner.abertas}</p>
-                <p className="text-xs text-red-700">Atrasadas: {owner.atrasadas}</p>
-              </button>
+                <div className="flex items-center gap-2.5">
+                  <div className="relative shrink-0">
+                    <Avatar src={owner.avatar_url} nome={owner.nome} size="md" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{owner.nome}</p>
+                    <div className="flex items-center gap-1">
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
+                        {formatNumber(owner.total)} ordem{owner.total !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-2 flex gap-1.5">
+                  <span className="flex-1 rounded bg-emerald-50 py-0.5 text-center text-xs font-bold text-emerald-700">
+                    {formatNumber(owner.recentes)}
+                  </span>
+                  <span className="flex-1 rounded bg-amber-50 py-0.5 text-center text-xs font-bold text-amber-700">
+                    {formatNumber(owner.atencao)}
+                  </span>
+                  <span className="flex-1 rounded bg-red-50 py-0.5 text-center text-xs font-bold text-red-700">
+                    {formatNumber(owner.atrasadas)}
+                  </span>
+                </div>
+
+                <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+                  <span>Rec.</span>
+                  <span>Atenc.</span>
+                  <span>Atras.</span>
+                </div>
+
+                <div className="mt-2 rounded bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
+                  {formatNumber(owner.abertas)} ordem{owner.abertas !== 1 ? 's' : ''} aberta{owner.abertas !== 1 ? 's' : ''}
+                </div>
+              </Card>
             )
           })}
         </div>
@@ -565,6 +693,10 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             <input type="checkbox" checked={allLoadedSelected} onChange={toggleSelectAllLoaded} />
             Selecionar carregadas
           </label>
+          <Button type="button" variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="mr-2 h-3.5 w-3.5" />
+            Importar planilha
+          </Button>
           <Button type="button" variant="outline" size="sm" onClick={() => fetchWorkspace(true)}>
             <RefreshCcw className="mr-2 h-3.5 w-3.5" />
             Atualizar
@@ -698,6 +830,16 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         onReassigned={({ notaId, novoAdminId }) => {
           applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])
         }}
+      />
+
+      <OrdersImportDialog
+        open={importOpen}
+        onOpenChange={(next) => {
+          setImportOpen(next)
+          if (!next) fetchWorkspace(true)
+        }}
+        userRole={currentUser.role}
+        adminId={currentUser.adminId}
       />
     </div>
   )
