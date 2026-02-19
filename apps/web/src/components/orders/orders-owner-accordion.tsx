@@ -90,7 +90,7 @@ export function OrdersOwnerAccordion({
       cell: ({ row }) => (
         <div className="min-w-[220px]">
           <Link href={`/notas/${row.original.nota_id}`} className="font-mono text-sm font-semibold hover:underline">
-            #{row.original.numero_nota} • Ordem {row.original.ordem_codigo}
+            {row.original.numero_nota} • Ordem {row.original.ordem_codigo}
           </Link>
           <p className="truncate text-xs text-muted-foreground">{row.original.descricao ?? 'Sem descricao'}</p>
         </div>

@@ -96,7 +96,7 @@ export function OrdersOwnerFullCard({
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <Link href={`/notas/${row.nota_id}`} className="font-mono text-sm font-semibold hover:underline">
-                  #{row.numero_nota} • Ordem {row.ordem_codigo}
+                  {row.numero_nota} • Ordem {row.ordem_codigo}
                 </Link>
                 <p className="truncate text-xs text-muted-foreground">{row.descricao ?? 'Sem descricao'}</p>
               </div>
