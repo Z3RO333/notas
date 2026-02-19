@@ -495,7 +495,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Select value={ownerCardsViewMode} onValueChange={handleOwnerCardsViewModeChange}>
               <SelectTrigger className="w-44">
-                <SelectValue placeholder="Visualizacao" />
+                <SelectValue placeholder="Visualização" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="list">
