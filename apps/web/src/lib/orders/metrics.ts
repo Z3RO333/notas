@@ -28,11 +28,9 @@ export function parseOrderWindow(value: unknown): OrderWindowFilter {
 export function buildOrderKpis(rows: OrdemNotaAcompanhamento[]): OrdemNotaKpis {
   const total = rows.length
   const abertas = rows.filter((row) => row.status_ordem === 'aberta').length
-  const emTratativa = rows.filter((row) => (
-    row.status_ordem === 'em_tratativa'
-    || row.status_ordem === 'desconhecido'
-    || isAvaliada(row)
-  )).length
+  const emTratativa = rows.filter((row) =>
+    row.status_ordem === 'em_tratativa' || row.status_ordem === 'desconhecido'
+  ).length
   const concluidas = rows.filter((row) => row.status_ordem === 'concluida' && !isAvaliada(row)).length
   const canceladas = rows.filter((row) => row.status_ordem === 'cancelada').length
   const avaliadas = rows.filter((row) => isAvaliada(row)).length
@@ -98,9 +96,7 @@ export function getOrdersKpiValue(kpis: OrdemNotaKpis, key: OrdersKpiFilter): nu
 }
 
 export function matchOrdersKpi(row: OrdemNotaAcompanhamento, key: OrdersKpiFilter): boolean {
-  if (key === 'em_execucao') {
-    return row.status_ordem === 'em_tratativa' || row.status_ordem === 'desconhecido' || isAvaliada(row)
-  }
+  if (key === 'em_execucao') return row.status_ordem === 'em_tratativa' || row.status_ordem === 'desconhecido'
   if (key === 'em_aberto') return row.status_ordem === 'aberta'
   if (key === 'avaliadas') return isAvaliada(row)
   if (key === 'atrasadas') {
