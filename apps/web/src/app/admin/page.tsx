@@ -137,9 +137,6 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Painel Administrativo</h1>
-          <p className="text-sm text-muted-foreground">
-            Visao executiva e operacional da distribuicao de notas
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <DashboardHeaderActions />
