@@ -442,9 +442,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     },
     {
       key: 'em_aberto',
-      label: 'Em aberto',
+      label: 'Em Processamento',
       value: kpis.abertas,
-      helper: 'Status aberto',
+      helper: 'Status em processamento',
       icon: BarChart3,
       valueClass: 'text-sky-700',
     },

@@ -181,7 +181,6 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
     <div className="space-y-6">
       <PageTitleBlock
         title="Painel de Notas"
-        subtitle="Operacao de notas sem ordem."
         rightSlot={<LastSyncBadge timestamp={latestSync?.finished_at ?? null} status={latestSync?.status ?? null} />}
       />
 
