@@ -21,14 +21,17 @@ export function OrdersOwnerMiniCard({
       }`}
     >
       <div className="flex items-center gap-2.5">
-        <Avatar src={group.avatar_url} nome={group.nome} size="md" />
+        <div className="relative shrink-0">
+          <Avatar src={group.avatar_url} nome={group.nome} size="md" />
+        </div>
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{group.nome}</p>
-          <p className="text-[10px] text-muted-foreground">
-            {group.total} ordem{group.total !== 1 ? 's' : ''}
-            {group.abertas > 0 && ` · ${group.abertas} aberta${group.abertas !== 1 ? 's' : ''}`}
-          </p>
+          <div className="flex items-center gap-1">
+            <span className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
+              {group.total} ordem{group.total !== 1 ? 's' : ''}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -48,6 +51,10 @@ export function OrdersOwnerMiniCard({
         <span>Rec.</span>
         <span>Atenc.</span>
         <span>Atras.</span>
+      </div>
+
+      <div className="mt-2 rounded bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
+        {group.abertas} ordem{group.abertas !== 1 ? 's' : ''} aberta{group.abertas !== 1 ? 's' : ''}
       </div>
     </Card>
   )

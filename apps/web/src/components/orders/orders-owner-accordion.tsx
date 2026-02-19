@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ExternalLink } from 'lucide-react'
 import { DataGrid } from '@/components/data-grid/data-grid'
-import { Avatar } from '@/components/ui/avatar'
 import { OrderReassignDialog } from '@/components/orders/order-reassign-dialog'
 import {
   getOrderStatusClass,
@@ -172,8 +171,7 @@ export function OrdersOwnerAccordion({
         <div className="space-y-4 rounded-lg border bg-card p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Avatar src={group.avatar_url} nome={group.nome} size="sm" />
-              <h3 className="text-base font-semibold">{group.nome}</h3>
+              <h3 className="font-semibold text-base">{group.nome}</h3>
             </div>
             <span className="text-sm text-muted-foreground">
               {group.total} ordem{group.total !== 1 ? 's' : ''}
