@@ -147,6 +147,26 @@ export interface DashboardFluxoDiario90d {
   qtd_concluidas: number
 }
 
+export interface DashboardNotasMetricsRpc {
+  abertas_periodo: number
+  sem_atribuir_periodo: number
+  aging_48h_periodo: number
+  qtd_notas_criadas_periodo: number
+  qtd_notas_convertidas_periodo: number
+  qtd_concluidas_periodo: number
+  taxa_nota_ordem_periodo: number
+  taxa_fechamento_periodo: number
+}
+
+export interface DashboardProdutividadePeriodoRpc {
+  administrador_id: string
+  nome: string
+  avatar_url: string | null
+  especialidade: string | null
+  concluidas_periodo: number
+  concluidas_periodo_anterior: number
+}
+
 export interface DashboardProdutividade60d {
   administrador_id: string
   nome: string

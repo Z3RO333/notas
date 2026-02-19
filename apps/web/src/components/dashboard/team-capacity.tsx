@@ -17,8 +17,9 @@ export function TeamCapacity({ rows }: TeamCapacityProps) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-lg">Carga por equipe</CardTitle>
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Agora</span>
       </CardHeader>
       <CardContent className="space-y-4">
         {rows.map((row) => {

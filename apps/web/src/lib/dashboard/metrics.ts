@@ -125,6 +125,17 @@ export function buildThroughput30d(
   return points
 }
 
+export function buildThroughputRange(rows: DashboardFluxoDiario90d[]): DashboardThroughputPoint[] {
+  return rows
+    .map((row) => ({
+      dia: normalizeDay(row.dia),
+      label: `${normalizeDay(row.dia).slice(8, 10)}/${normalizeDay(row.dia).slice(5, 7)}`,
+      qtd_entradas: toNumber(row.qtd_entradas),
+      qtd_concluidas: toNumber(row.qtd_concluidas),
+    }))
+    .sort((a, b) => a.dia.localeCompare(b.dia))
+}
+
 export function buildTeamCapacityRows(carga: CargaAdministrador[]): DashboardTeamCapacityRow[] {
   const grouped = new Map<Especialidade, DashboardTeamCapacityRow>()
 
@@ -208,6 +219,8 @@ export function buildDashboardSummary(params: {
     aging_48h: aging48h,
     entradas_30d: entradas30d,
     concluidas_30d: concluidas30d,
+    notas_convertidas_30d: 0,
+    taxa_nota_ordem_30d: 0,
     taxa_fechamento_30d: concluidas30d / Math.max(entradas30d, 1),
   }
 }
@@ -216,33 +229,38 @@ export function buildKpis(summary: DashboardSummaryMetrics): DashboardKpiItem[] 
   return [
     {
       id: 'abertas_agora',
-      label: 'Abertas agora',
+      label: 'Abertas no periodo',
       value: formatInteger(summary.abertas_agora),
       tone: 'neutral',
+      helper: 'Notas abertas criadas no periodo',
     },
     {
       id: 'sem_atribuir',
       label: 'Sem atribuir',
       value: formatInteger(summary.sem_atribuir),
       tone: summary.sem_atribuir > 0 ? 'danger' : 'success',
+      helper: 'Notas novas sem responsavel',
     },
     {
       id: 'aging_48h',
       label: 'Aging > 48h',
       value: formatInteger(summary.aging_48h),
       tone: summary.aging_48h >= AGING_WARNING_COUNT ? 'warning' : 'neutral',
+      helper: 'Abertas ha mais de 48h',
     },
     {
-      id: 'concluidas_30d',
-      label: 'Concluidas (30d)',
-      value: formatInteger(summary.concluidas_30d),
-      tone: 'success',
+      id: 'taxa_nota_ordem_30d',
+      label: 'Taxa Nota->Ordem',
+      value: formatPercentFromRatio(summary.taxa_nota_ordem_30d),
+      tone: summary.taxa_nota_ordem_30d >= 0.7 ? 'success' : summary.taxa_nota_ordem_30d >= 0.4 ? 'warning' : 'danger',
+      helper: `${formatInteger(summary.notas_convertidas_30d)} de ${formatInteger(summary.entradas_30d)} notas`,
     },
     {
       id: 'taxa_fechamento_30d',
       label: 'Taxa de fechamento',
       value: formatPercentFromRatio(summary.taxa_fechamento_30d),
       tone: summary.taxa_fechamento_30d >= 1 ? 'success' : 'warning',
+      helper: `${formatInteger(summary.concluidas_30d)} concluidas para ${formatInteger(summary.entradas_30d)} entradas`,
     },
   ]
 }
@@ -261,7 +279,7 @@ export function buildAlerts(params: {
       id: 'sem-atribuir',
       level: 'critical',
       title: 'Notas sem atribuicao',
-      description: `${formatInteger(params.summary.sem_atribuir)} nota(s) nova(s) aguardando distribuicao.`,
+      description: `${formatInteger(params.summary.sem_atribuir)} nota(s) nova(s) sem atribuicao no periodo selecionado.`,
     })
   }
 
@@ -297,7 +315,7 @@ export function buildAlerts(params: {
       id: 'aging',
       level: 'warning',
       title: 'Backlog envelhecido',
-      description: `${formatInteger(params.summary.aging_48h)} nota(s) aberta(s) acima de 48h.`,
+      description: `${formatInteger(params.summary.aging_48h)} nota(s) aberta(s) acima de 48h no periodo selecionado.`,
     })
   }
 

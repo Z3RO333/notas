@@ -3,7 +3,7 @@ import type { OrdemNotaRankingAdmin } from '@/lib/types/database'
 
 interface OrdersRankingAdminProps {
   rows: OrdemNotaRankingAdmin[]
-  windowDays: number
+  periodLabel: string
 }
 
 function fmt(value: number | null): string {
@@ -11,11 +11,11 @@ function fmt(value: number | null): string {
   return new Intl.NumberFormat('pt-BR').format(value)
 }
 
-export function OrdersRankingAdmin({ rows, windowDays }: OrdersRankingAdminProps) {
+export function OrdersRankingAdmin({ rows, periodLabel }: OrdersRankingAdminProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Ranking por colaborador ({windowDays}d)</CardTitle>
+        <CardTitle className="text-lg">Ranking por colaborador ({periodLabel})</CardTitle>
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (

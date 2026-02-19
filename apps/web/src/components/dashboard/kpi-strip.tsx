@@ -1,7 +1,7 @@
 import {
   AlertTriangle,
-  CheckCircle2,
   Clock3,
+  GitMerge,
   Layers3,
   Percent,
 } from 'lucide-react'
@@ -17,7 +17,7 @@ const iconByKpi: Record<DashboardKpiId, ComponentType<{ className?: string }>> =
   abertas_agora: Layers3,
   sem_atribuir: AlertTriangle,
   aging_48h: Clock3,
-  concluidas_30d: CheckCircle2,
+  taxa_nota_ordem_30d: GitMerge,
   taxa_fechamento_30d: Percent,
 }
 
@@ -48,15 +48,16 @@ export function KpiStrip({ items }: KpiStripProps) {
         const tone = toneClasses[item.tone]
 
         return (
-          <Card key={item.id}>
+          <Card key={item.id} className="h-full">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <CardTitle className="flex min-h-[2.5rem] items-start gap-2 text-sm font-medium text-muted-foreground">
                 <Icon className={`h-4 w-4 ${tone.icon}`} />
-                <span>{item.label}</span>
+                <span className="leading-tight">{item.label}</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-1">
               <div className={`text-3xl font-bold ${tone.value}`}>{item.value}</div>
+              <p className="min-h-[2rem] text-xs leading-4 text-muted-foreground">{item.helper ?? ''}</p>
             </CardContent>
           </Card>
         )

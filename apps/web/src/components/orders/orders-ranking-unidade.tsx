@@ -3,7 +3,7 @@ import type { OrdemNotaRankingUnidade } from '@/lib/types/database'
 
 interface OrdersRankingUnidadeProps {
   rows: OrdemNotaRankingUnidade[]
-  windowDays: number
+  periodLabel: string
 }
 
 function fmt(value: number | null): string {
@@ -11,11 +11,11 @@ function fmt(value: number | null): string {
   return new Intl.NumberFormat('pt-BR').format(value)
 }
 
-export function OrdersRankingUnidade({ rows, windowDays }: OrdersRankingUnidadeProps) {
+export function OrdersRankingUnidade({ rows, periodLabel }: OrdersRankingUnidadeProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Ranking por unidade ({windowDays}d)</CardTitle>
+        <CardTitle className="text-lg">Ranking por unidade ({periodLabel})</CardTitle>
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
