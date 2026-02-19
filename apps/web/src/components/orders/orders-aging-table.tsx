@@ -115,7 +115,7 @@ export function OrdersAgingTable({
 
       <CardContent className="space-y-2">
         {sorted.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhuma ordem encontrada para esta janela.</p>
+          <p className="text-sm text-muted-foreground">Nenhuma ordem encontrada para o periodo selecionado.</p>
         ) : (
           <div className="space-y-2">
             {sorted.map((row) => {

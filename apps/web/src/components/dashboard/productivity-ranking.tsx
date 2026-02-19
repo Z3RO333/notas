@@ -8,6 +8,7 @@ import type { DashboardProductivityRow } from '@/lib/types/dashboard'
 
 interface ProductivityRankingProps {
   rows: DashboardProductivityRow[]
+  periodLabel?: string
 }
 
 function getVariationStyle(value: number): { icon: ComponentType<{ className?: string }>; tone: string; text: string } {
@@ -32,13 +33,13 @@ function getVariationStyle(value: number): { icon: ComponentType<{ className?: s
   }
 }
 
-export function ProductivityRanking({ rows }: ProductivityRankingProps) {
+export function ProductivityRanking({ rows, periodLabel = '30d' }: ProductivityRankingProps) {
   const topRows = rows.slice(0, 8)
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-lg">Produtividade individual (30d)</CardTitle>
+        <CardTitle className="text-lg">Produtividade individual ({periodLabel})</CardTitle>
         <Link href="/admin/pessoas" className="text-sm font-medium text-primary hover:underline">
           Ver pessoas
         </Link>

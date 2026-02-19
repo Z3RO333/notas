@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
 import { DistributeButton } from '@/components/dashboard/distribute-button'
 import { DashboardHeaderActions } from '@/components/dashboard/dashboard-header-actions'
+import { AdminPeriodFilter } from '@/components/dashboard/admin-period-filter'
 import { KpiStrip } from '@/components/dashboard/kpi-strip'
 import { ThroughputTrend } from '@/components/dashboard/throughput-trend'
 import { TeamCapacity } from '@/components/dashboard/team-capacity'
@@ -14,75 +14,97 @@ import { OrdersRankingUnidade } from '@/components/orders/orders-ranking-unidade
 import { RealtimeListener } from '@/components/notas/realtime-listener'
 import {
   buildAlerts,
-  buildDashboardSummary,
   buildKpis,
   buildProductivityRanking,
   buildTeamCapacityRows,
-  buildThroughput30d,
-  type OpenNotaAgingRow,
+  buildThroughputRange,
 } from '@/lib/dashboard/metrics'
+import { resolveAdminDashboardPeriod, type AdminDashboardSearchParams } from '@/lib/dashboard/period'
 import {
-  buildOrderKpis,
   getOrdersCriticalityLevel,
-  buildOrderRankingAdmin,
-  buildOrderRankingUnidade,
-  parseOrderWindow,
 } from '@/lib/orders/metrics'
 import type {
   CargaAdministrador,
   DashboardFluxoDiario90d,
+  DashboardNotasMetricsRpc,
   DashboardProdutividade60d,
+  DashboardProdutividadePeriodoRpc,
   OrdemNotaAcompanhamento,
-  OrderWindowFilter,
+  OrdemNotaKpis,
+  OrdemNotaRankingAdmin,
+  OrdemNotaRankingUnidade,
   OrderReassignTarget,
+  OrdersWorkspaceKpis,
   SyncLog,
 } from '@/lib/types/database'
+import type { DashboardSummaryMetrics } from '@/lib/types/dashboard'
 
 export const dynamic = 'force-dynamic'
 
-const OPEN_STATUSES = ['nova', 'em_andamento', 'encaminhada_fornecedor'] as const
-const OPEN_NOTAS_FIELDS = 'data_criacao_sap, created_at, status' as const
-const ORDER_WINDOW_OPTIONS: OrderWindowFilter[] = [30, 90, 180]
-const ORDERS_FETCH_PAGE_SIZE = 1000
+const DASHBOARD_ORDERS_LIMIT = 20
 
 interface AdminDashboardPageProps {
-  searchParams?: Promise<{
-    janela?: string | string[]
-  }>
-}
-
-type AdminDashboardSearchParams = {
-  janela?: string | string[]
-}
-
-function getSelectedWindow(searchParams?: AdminDashboardSearchParams): OrderWindowFilter {
-  const raw = Array.isArray(searchParams?.janela)
-    ? searchParams.janela[0]
-    : searchParams?.janela
-  return parseOrderWindow(raw)
+  searchParams?: Promise<AdminDashboardSearchParams>
 }
 
 export default async function AdminDashboardPage({ searchParams }: AdminDashboardPageProps) {
   const supabase = await createClient()
   const resolvedSearchParams = searchParams ? await searchParams : undefined
-  const orderWindow = getSelectedWindow(resolvedSearchParams)
-  const ordersCutoff = new Date()
-  ordersCutoff.setUTCDate(ordersCutoff.getUTCDate() - (orderWindow - 1))
+  const period = resolveAdminDashboardPeriod(resolvedSearchParams)
+  const now = new Date()
 
-  const [cargaResult, unassignedResult, syncResult, fluxoResult, produtividadeResult, openNotasResult, reassignTargetsResult] = await Promise.all([
+  const [
+    cargaResult,
+    syncResult,
+    notasMetricsResult,
+    fluxoResult,
+    produtividadeResult,
+    orderKpisResult,
+    ordensRowsResult,
+    rankingAdminResult,
+    rankingUnidadeResult,
+    reassignTargetsResult,
+  ] = await Promise.all([
     supabase.from('vw_carga_administradores').select('*').order('nome'),
-    supabase
-      .from('notas_manutencao')
-      .select('id', { count: 'exact', head: true })
-      .is('administrador_id', null)
-      .eq('status', 'nova'),
     supabase.from('sync_log').select('*').order('started_at', { ascending: false }).limit(1),
-    supabase.from('vw_dashboard_fluxo_diario_90d').select('*').order('dia', { ascending: true }),
-    supabase.from('vw_dashboard_produtividade_60d').select('*').order('concluidas_30d', { ascending: false }),
-    supabase
-      .from('notas_manutencao')
-      .select(OPEN_NOTAS_FIELDS)
-      .in('status', OPEN_STATUSES),
+    supabase.rpc('calcular_metricas_notas_dashboard', {
+      p_start_iso: period.startIso,
+      p_end_exclusive_iso: period.endExclusiveIso,
+    }),
+    supabase.rpc('listar_fluxo_notas_dashboard', {
+      p_start_iso: period.startIso,
+      p_end_exclusive_iso: period.endExclusiveIso,
+    }),
+    supabase.rpc('calcular_produtividade_notas_dashboard', {
+      p_start_iso: period.startIso,
+      p_end_exclusive_iso: period.endExclusiveIso,
+    }),
+    supabase.rpc('calcular_kpis_ordens_operacional', {
+      p_period_mode: 'range',
+      p_start_iso: period.startIso,
+      p_end_exclusive_iso: period.endExclusiveIso,
+      p_year: null,
+      p_month: null,
+      p_status: null,
+      p_unidade: null,
+      p_responsavel: null,
+      p_prioridade: null,
+      p_q: null,
+      p_admin_scope: null,
+    }),
+    supabase.rpc('buscar_ordens_prioritarias_dashboard', {
+      p_start_iso: period.startIso,
+      p_end_exclusive_iso: period.endExclusiveIso,
+      p_limit: DASHBOARD_ORDERS_LIMIT,
+    }),
+    supabase.rpc('calcular_ranking_ordens_admin', {
+      p_start_iso: period.startIso,
+      p_end_exclusive_iso: period.endExclusiveIso,
+    }),
+    supabase.rpc('calcular_ranking_ordens_unidade', {
+      p_start_iso: period.startIso,
+      p_end_exclusive_iso: period.endExclusiveIso,
+    }),
     supabase
       .from('administradores')
       .select('id, nome')
@@ -92,45 +114,87 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
       .order('nome'),
   ])
 
-  const ordensRows: OrdemNotaAcompanhamento[] = []
-  for (let offset = 0; ; offset += ORDERS_FETCH_PAGE_SIZE) {
-    const { data, error } = await supabase
-      .from('vw_ordens_notas_painel')
-      .select('*')
-      .gte('ordem_detectada_em', ordersCutoff.toISOString())
-      .order('ordem_detectada_em', { ascending: false })
-      .range(offset, offset + ORDERS_FETCH_PAGE_SIZE - 1)
-
-    if (error) throw error
-    const batch = (data ?? []) as OrdemNotaAcompanhamento[]
-    ordensRows.push(...batch)
-    if (batch.length < ORDERS_FETCH_PAGE_SIZE) break
-  }
+  const firstError = [
+    cargaResult.error,
+    syncResult.error,
+    notasMetricsResult.error,
+    fluxoResult.error,
+    produtividadeResult.error,
+    orderKpisResult.error,
+    ordensRowsResult.error,
+    rankingAdminResult.error,
+    rankingUnidadeResult.error,
+    reassignTargetsResult.error,
+  ].find(Boolean)
+  if (firstError) throw firstError
 
   const carga = (cargaResult.data ?? []) as CargaAdministrador[]
+  const notasMetrics = ((notasMetricsResult.data ?? {}) as Partial<DashboardNotasMetricsRpc>)
   const fluxoRows = (fluxoResult.data ?? []) as DashboardFluxoDiario90d[]
-  const produtividadeRows = (produtividadeResult.data ?? []) as DashboardProdutividade60d[]
-  const openNotas = (openNotasResult.data ?? []) as OpenNotaAgingRow[]
+  const produtividadeRowsRaw = (produtividadeResult.data ?? []) as DashboardProdutividadePeriodoRpc[]
+  const produtividadeRows: DashboardProdutividade60d[] = produtividadeRowsRaw.map((row) => ({
+    administrador_id: row.administrador_id,
+    nome: row.nome,
+    avatar_url: row.avatar_url,
+    especialidade: row.especialidade as DashboardProdutividade60d['especialidade'],
+    concluidas_30d: Number(row.concluidas_periodo ?? 0),
+    concluidas_prev_30d: Number(row.concluidas_periodo_anterior ?? 0),
+  }))
+  const ordensRows = (ordensRowsResult.data ?? []) as OrdemNotaAcompanhamento[]
+  const rankingAdminRaw = (rankingAdminResult.data ?? []) as Partial<OrdemNotaRankingAdmin>[]
+  const rankingUnidadeRaw = (rankingUnidadeResult.data ?? []) as Partial<OrdemNotaRankingUnidade>[]
   const reassignTargets = (reassignTargetsResult.data ?? []) as OrderReassignTarget[]
   const latestSync = ((syncResult.data ?? []) as SyncLog[])[0] ?? null
-  const now = new Date()
-  const notasSemAtribuir = unassignedResult.count ?? 0
-  const throughput30d = buildThroughput30d(fluxoRows, now)
-  const summary = buildDashboardSummary({
-    carga,
-    notasSemAtribuir,
-    notasAbertas: openNotas,
-    throughput30d,
-    now,
-  })
+  const throughput = buildThroughputRange(fluxoRows)
+  const summary: DashboardSummaryMetrics = {
+    abertas_agora: Number(notasMetrics.abertas_periodo ?? 0),
+    sem_atribuir: Number(notasMetrics.sem_atribuir_periodo ?? 0),
+    aging_48h: Number(notasMetrics.aging_48h_periodo ?? 0),
+    entradas_30d: Number(notasMetrics.qtd_notas_criadas_periodo ?? 0),
+    concluidas_30d: Number(notasMetrics.qtd_concluidas_periodo ?? 0),
+    notas_convertidas_30d: Number(notasMetrics.qtd_notas_convertidas_periodo ?? 0),
+    taxa_nota_ordem_30d: Number(notasMetrics.taxa_nota_ordem_periodo ?? 0),
+    taxa_fechamento_30d: Number(notasMetrics.taxa_fechamento_periodo ?? 0),
+  }
   const kpis = buildKpis(summary)
   const alerts = buildAlerts({ summary, latestSync, now })
   const teamCapacityRows = buildTeamCapacityRows(carga)
   const productivityRows = buildProductivityRanking(produtividadeRows)
-  const orderKpis = buildOrderKpis(ordensRows)
+  const rawOrderKpis = (orderKpisResult.data ?? {}) as Partial<OrdersWorkspaceKpis>
+  const orderKpis: OrdemNotaKpis = {
+    total_ordens_30d: Number(rawOrderKpis.total ?? 0),
+    qtd_abertas_30d: Number(rawOrderKpis.abertas ?? 0),
+    qtd_em_tratativa_30d: Number(rawOrderKpis.em_tratativa ?? 0),
+    qtd_concluidas_30d: Number(rawOrderKpis.concluidas ?? 0),
+    qtd_canceladas_30d: Number(rawOrderKpis.canceladas ?? 0),
+    qtd_avaliadas_30d: Number(rawOrderKpis.avaliadas ?? 0),
+    qtd_antigas_7d_30d: Number(rawOrderKpis.atrasadas ?? 0),
+    tempo_medio_geracao_dias_30d: null,
+  }
   const ordersCriticality = getOrdersCriticalityLevel(orderKpis.total_ordens_30d, orderKpis.qtd_antigas_7d_30d)
-  const rankingAdmin = buildOrderRankingAdmin(ordensRows)
-  const rankingUnidade = buildOrderRankingUnidade(ordensRows)
+  const rankingAdmin: OrdemNotaRankingAdmin[] = rankingAdminRaw.map((row) => ({
+    administrador_id: row.administrador_id ?? '',
+    nome: row.nome ?? 'Sem nome',
+    qtd_ordens_30d: Number(row.qtd_ordens_30d ?? 0),
+    qtd_abertas_30d: Number(row.qtd_abertas_30d ?? 0),
+    qtd_em_tratativa_30d: Number(row.qtd_em_tratativa_30d ?? 0),
+    qtd_concluidas_30d: Number(row.qtd_concluidas_30d ?? 0),
+    qtd_canceladas_30d: Number(row.qtd_canceladas_30d ?? 0),
+    qtd_antigas_7d_30d: Number(row.qtd_antigas_7d_30d ?? 0),
+    tempo_medio_geracao_dias_30d: row.tempo_medio_geracao_dias_30d === null || row.tempo_medio_geracao_dias_30d === undefined
+      ? null
+      : Number(row.tempo_medio_geracao_dias_30d),
+  }))
+  const rankingUnidade: OrdemNotaRankingUnidade[] = rankingUnidadeRaw.map((row) => ({
+    unidade: row.unidade ?? 'Sem unidade',
+    qtd_ordens_30d: Number(row.qtd_ordens_30d ?? 0),
+    qtd_abertas_30d: Number(row.qtd_abertas_30d ?? 0),
+    qtd_em_tratativa_30d: Number(row.qtd_em_tratativa_30d ?? 0),
+    qtd_antigas_7d_30d: Number(row.qtd_antigas_7d_30d ?? 0),
+    tempo_medio_geracao_dias_30d: row.tempo_medio_geracao_dias_30d === null || row.tempo_medio_geracao_dias_30d === undefined
+      ? null
+      : Number(row.tempo_medio_geracao_dias_30d),
+  }))
 
   return (
     <div className="space-y-6">
@@ -144,45 +208,49 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
         </div>
       </div>
 
-      <KpiStrip items={kpis} />
-
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <ThroughputTrend data={throughput30d} />
+      <section className="space-y-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight">Notas</h2>
+            <p className="text-sm text-muted-foreground">
+              Entrada, conversao e fechamento no periodo selecionado.
+            </p>
+          </div>
+          <AdminPeriodFilter
+            periodPreset={period.preset}
+            startDate={period.startDate}
+            endDate={period.endDate}
+          />
         </div>
-        <AlertsPanel alerts={alerts} latestSync={latestSync} />
-      </div>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <ProductivityRanking rows={productivityRows} />
+        <KpiStrip items={kpis} />
+
+        <div className="grid gap-6 xl:grid-cols-3">
+          <div className="xl:col-span-2">
+            <ThroughputTrend data={throughput} spanDays={period.spanDays} periodLabel={period.periodLabel} />
+          </div>
+          <AlertsPanel alerts={alerts} latestSync={latestSync} />
         </div>
-        <TeamCapacity rows={teamCapacityRows} />
-      </div>
+
+        <div className="grid gap-6 xl:grid-cols-3">
+          <div className="xl:col-span-2">
+            <ProductivityRanking rows={productivityRows} periodLabel={period.periodLabel} />
+          </div>
+          <TeamCapacity rows={teamCapacityRows} />
+        </div>
+      </section>
 
       <section className="space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-xl font-semibold tracking-tight">Acompanhamento de Ordens</h2>
             <p className="text-sm text-muted-foreground">
-              Semaforo de envelhecimento, responsavel atual e historico de envolvidos.
+              Semaforo de envelhecimento, responsavel atual e historico no mesmo periodo selecionado.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {ORDER_WINDOW_OPTIONS.map((windowDays) => (
-              <Link
-                key={windowDays}
-                href={`/admin?janela=${windowDays}`}
-                className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  orderWindow === windowDays
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border text-muted-foreground hover:bg-muted/50'
-                }`}
-              >
-                {windowDays} dias
-              </Link>
-            ))}
-          </div>
+          <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">
+            Periodo: {period.periodLabel}
+          </span>
         </div>
 
         <OrdersKpiStrip
@@ -196,7 +264,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
           <div className="xl:col-span-2">
             <OrdersAgingTable
               rows={ordensRows}
-              title={`Ordens acompanhadas (${orderWindow}d)`}
+              title={`Ordens acompanhadas (${period.periodLabel})`}
               maxRows={20}
               showAdminColumns
               canReassign
@@ -204,10 +272,10 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
               currentUserRole="gestor"
             />
           </div>
-          <OrdersRankingUnidade rows={rankingUnidade.slice(0, 12)} windowDays={orderWindow} />
+          <OrdersRankingUnidade rows={rankingUnidade.slice(0, 12)} periodLabel={period.periodLabel} />
         </div>
 
-        <OrdersRankingAdmin rows={rankingAdmin.slice(0, 12)} windowDays={orderWindow} />
+        <OrdersRankingAdmin rows={rankingAdmin.slice(0, 12)} periodLabel={period.periodLabel} />
       </section>
 
       <RealtimeListener />

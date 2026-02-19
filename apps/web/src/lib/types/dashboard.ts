@@ -4,7 +4,7 @@ export type DashboardKpiId =
   | 'abertas_agora'
   | 'sem_atribuir'
   | 'aging_48h'
-  | 'concluidas_30d'
+  | 'taxa_nota_ordem_30d'
   | 'taxa_fechamento_30d'
 
 export type DashboardTone = 'neutral' | 'success' | 'warning' | 'danger'
@@ -16,6 +16,8 @@ export interface DashboardSummaryMetrics {
   aging_48h: number
   entradas_30d: number
   concluidas_30d: number
+  notas_convertidas_30d: number
+  taxa_nota_ordem_30d: number
   taxa_fechamento_30d: number
 }
 
