@@ -325,8 +325,8 @@ export function OrdersOwnerPanel({
       toast({
         title: 'Nenhuma ordem para copiar',
         description: mode === 'avaliadas'
-          ? 'Nao ha ordens avaliadas no contexto atual.'
-          : 'Selecione ordens para copiar.',
+          ? 'Nenhuma ordem avaliada no contexto atual.'
+          : 'Selecione ao menos uma ordem.',
         variant: 'info',
       })
       return
@@ -355,7 +355,7 @@ export function OrdersOwnerPanel({
     responsavel
       ? {
         key: 'responsavel',
-        label: responsavel === '__sem_atual__' ? 'Responsavel: sem dono' : 'Responsavel filtrado',
+        label: responsavel === '__sem_atual__' ? 'Responsavel: sem responsavel' : 'Responsavel',
       }
       : null,
     unidade ? { key: 'unidade', label: `Unidade: ${unidade}` } : null,
@@ -533,7 +533,7 @@ export function OrdersOwnerPanel({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="inline-flex items-center gap-2 text-sm font-medium text-red-800">
               <AlertTriangle className="h-4 w-4" />
-              Ordens sem dono: {semResponsavelCount}
+              Ordens sem responsavel: {semResponsavelCount}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -541,7 +541,7 @@ export function OrdersOwnerPanel({
                 className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
                 onClick={() => replaceQuery({ responsavel: '__sem_atual__', page: 1 })}
               >
-                Filtrar sem dono
+                Filtrar sem responsavel
               </button>
               {canBulkReassign && semResponsavelVisibleIds.length > 0 && (
                 <button
@@ -549,7 +549,7 @@ export function OrdersOwnerPanel({
                   className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
                   onClick={() => setSelectedNotaIds(semResponsavelVisibleIds)}
                 >
-                  Selecionar sem dono visiveis
+                  Selecionar sem responsavel
                 </button>
               )}
             </div>
