@@ -165,7 +165,7 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
   const responsavelOptions = [
     { value: 'todos', label: 'Todos os responsaveis' },
     ...((adminsResult.data ?? []).map((admin) => ({ value: admin.id, label: admin.nome }))),
-    { value: 'sem_atribuir', label: 'Sem atribuir' },
+    { value: 'sem_atribuir', label: 'Nao atribuidas' },
   ]
 
   const unidadeOptions = [

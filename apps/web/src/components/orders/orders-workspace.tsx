@@ -408,7 +408,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       key: 'total',
       label: 'Total de ordens',
       value: kpis.total,
-      helper: 'Clique para ver todas',
+      helper: 'Visao geral',
       icon: ListChecks,
       valueClass: 'text-foreground',
     },
@@ -416,7 +416,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       key: 'em_execucao',
       label: 'Em execucao',
       value: kpis.em_tratativa,
-      helper: 'Em tratativa + desconhecido',
+      helper: 'Tratativa, avaliacao e desconhecido',
       icon: LoaderCircle,
       valueClass: 'text-indigo-700',
     },
@@ -440,7 +440,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       key: 'avaliadas',
       label: 'Avaliadas',
       value: kpis.avaliadas,
-      helper: 'Status AVALIACAO_DA_EXECUCAO',
+      helper: 'Com avaliacao da execucao',
       icon: ClipboardCheck,
       valueClass: 'text-amber-700',
     },
@@ -448,7 +448,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       key: 'atrasadas',
       label: 'Atrasadas (7+)',
       value: kpis.atrasadas,
-      helper: 'Subconjunto de abertas/em execucao',
+      helper: 'Abertas/em execucao (7+ dias)',
       icon: AlertTriangle,
       valueClass: 'text-red-700',
     },
@@ -519,7 +519,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                 className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
                 onClick={() => setFilters((prev) => ({ ...prev, responsavel: '__sem_atual__' }))}
               >
-                Sem dono: {formatNumber(kpis.sem_responsavel)}
+                Sem responsavel: {formatNumber(kpis.sem_responsavel)}
               </button>
             )}
             <Button
@@ -835,7 +835,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           </div>
         ) : rows.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Nenhuma ordem encontrada com os filtros atuais.
+            Nenhuma ordem para os filtros aplicados.
           </div>
         ) : (
           <div
@@ -889,7 +889,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                       {overdue && (
                         <span className="inline-flex items-center gap-1 rounded-md bg-red-100 px-2 py-1 text-[11px] font-medium text-red-700">
                           <AlertTriangle className="h-3 w-3" />
-                          Critica
+                          Prioridade alta
                         </span>
                       )}
 

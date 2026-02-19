@@ -269,7 +269,7 @@ export function CollaboratorPanel({
     const aging = buildAgingCounts(filteredNotasSemAtribuir)
     return {
       id: 'sem-atribuir',
-      nome: 'Sem Atribuir',
+      nome: 'Nao atribuidas',
       ativo: true,
       max_notas: 0,
       avatar_url: null,
@@ -292,7 +292,7 @@ export function CollaboratorPanel({
     search ? { key: 'q', label: `Busca: ${search}` } : null,
     statusFilter && statusFilter !== 'abertas' ? { key: 'status', label: `Status: ${statusFilter}` } : null,
     showResponsavelFilter && responsavelFilter && responsavelFilter !== 'todos'
-      ? { key: 'responsavel', label: 'Responsavel filtrado' }
+      ? { key: 'responsavel', label: 'Responsavel' }
       : null,
     showUnidadeFilter && unidadeFilter && unidadeFilter !== 'todas'
       ? { key: 'unidade', label: `Unidade: ${unidadeFilter}` }
@@ -328,7 +328,7 @@ export function CollaboratorPanel({
       {showTopTracking && (
         <TrackingOrdersBlock
           orders={ordensAcompanhamento}
-          title={currentAdminRole === 'gestor' ? 'Ordens em acompanhamento (visao gestor)' : 'Minhas ordens em acompanhamento'}
+          title={currentAdminRole === 'gestor' ? 'Ordens em acompanhamento (gestao)' : 'Minhas ordens em acompanhamento'}
         />
       )}
 
@@ -336,7 +336,7 @@ export function CollaboratorPanel({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar por numero ou descricao..."
+            placeholder="Buscar por numero ou descricao"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -351,7 +351,7 @@ export function CollaboratorPanel({
             <SelectItem value="abertas">Abertas</SelectItem>
             <SelectItem value="todas">Todas</SelectItem>
             <SelectItem value="nova">Novas</SelectItem>
-            <SelectItem value="em_andamento">Em Andamento</SelectItem>
+            <SelectItem value="em_andamento">Em andamento</SelectItem>
             <SelectItem value="encaminhada_fornecedor">Encaminhadas</SelectItem>
             <SelectItem value="concluida">Concluidas</SelectItem>
             <SelectItem value="cancelada">Canceladas</SelectItem>
@@ -462,7 +462,7 @@ export function CollaboratorPanel({
                       <AlertCircle className="h-5 w-5 text-orange-600" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-orange-700">Sem Atribuir</p>
+                      <p className="text-sm font-semibold text-orange-700">Nao atribuidas</p>
                       <span className="inline-flex items-center rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-700">
                         {filteredNotasSemAtribuir.length} nota{filteredNotasSemAtribuir.length !== 1 ? 's' : ''}
                       </span>
