@@ -6,10 +6,12 @@ import {
   AlertTriangle,
   BarChart3,
   ClipboardCheck,
+  LayoutGrid,
   ListChecks,
   Loader2,
   LoaderCircle,
   RefreshCcw,
+  Rows3,
   ShieldCheck,
   Upload,
 } from 'lucide-react'
@@ -37,6 +39,7 @@ import {
 import type {
   OrdersOwnerSummary,
   OrdersPeriodModeOperational,
+  PanelViewMode,
   OrdersWorkspaceCursor,
   OrdersWorkspaceFilters,
   OrdersWorkspaceKpis,
@@ -94,6 +97,8 @@ const PRIORIDADE_OPTIONS = [
   { value: 'amarelo', label: 'Atencao (3-6d)' },
   { value: 'vermelho', label: 'Atrasada (7+d)' },
 ]
+
+const OWNER_CARDS_VIEW_MODE_STORAGE_KEY = 'cockpit:ordens:owner-cards:view-mode'
 
 function sanitizeText(value: string): string {
   return value.trim()
@@ -225,6 +230,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   const [detailRow, setDetailRow] = useState<OrdemNotaAcompanhamento | null>(null)
   const [currentUser, setCurrentUser] = useState(initialUser)
   const [importOpen, setImportOpen] = useState(false)
+  const [ownerCardsViewMode, setOwnerCardsViewMode] = useState<PanelViewMode>('list')
 
   const fetchAbortRef = useRef<AbortController | null>(null)
   const parentRef = useRef<HTMLDivElement | null>(null)
@@ -246,6 +252,13 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     }, 250)
     return () => clearTimeout(timer)
   }, [searchInput])
+
+  useEffect(() => {
+    const persisted = window.localStorage.getItem(OWNER_CARDS_VIEW_MODE_STORAGE_KEY)
+    if (persisted === 'list' || persisted === 'cards') {
+      setOwnerCardsViewMode(persisted)
+    }
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -367,6 +380,11 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     return options
   }, [ownerSummary])
 
+  const visibleOwners = useMemo(
+    () => ownerSummary.filter((owner) => owner.total > 0 || owner.administrador_id === null),
+    [ownerSummary]
+  )
+
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
@@ -436,6 +454,19 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     },
   ] as const
 
+  function handleOwnerCardsViewModeChange(value: string) {
+    const next: PanelViewMode = value === 'cards' ? 'cards' : 'list'
+    setOwnerCardsViewMode(next)
+    window.localStorage.setItem(OWNER_CARDS_VIEW_MODE_STORAGE_KEY, next)
+  }
+
+  function toggleOwnerFilter(ownerKey: string) {
+    setFilters((prev) => ({
+      ...prev,
+      responsavel: prev.responsavel === ownerKey ? 'todos' : ownerKey,
+    }))
+  }
+
   return (
     <div className="space-y-4">
       <div className={`rounded-lg border p-2 ${kpiFrameClass}`}>
@@ -461,7 +492,27 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       <div className="rounded-lg border p-3">
         <div className="mb-3 flex items-center justify-between gap-2">
           <p className="text-sm font-semibold">Carteira por colaborador</p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Select value={ownerCardsViewMode} onValueChange={handleOwnerCardsViewModeChange}>
+              <SelectTrigger className="w-44">
+                <SelectValue placeholder="Visualizacao" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="list">
+                  <div className="flex items-center gap-2">
+                    <Rows3 className="h-4 w-4" />
+                    Lista vertical
+                  </div>
+                </SelectItem>
+                <SelectItem value="cards">
+                  <div className="flex items-center gap-2">
+                    <LayoutGrid className="h-4 w-4" />
+                    Cards completos
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
             {currentUser.canViewGlobal && kpis.sem_responsavel > 0 && (
               <button
                 type="button"
@@ -482,67 +533,118 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-          {ownerSummary
-            .filter((owner) => owner.total > 0 || owner.administrador_id === null)
-            .map((owner) => {
-            const ownerKey = owner.administrador_id ?? '__sem_atual__'
-            const active = filters.responsavel === ownerKey
-            const isSemResponsavel = owner.administrador_id === null
+        {ownerCardsViewMode === 'list' ? (
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            {visibleOwners.map((owner) => {
+              const ownerKey = owner.administrador_id ?? '__sem_atual__'
+              const active = filters.responsavel === ownerKey
+              const isSemResponsavel = owner.administrador_id === null
 
-            return (
-              <Card
-                key={ownerKey}
-                onClick={() => setFilters((prev) => ({
-                  ...prev,
-                  responsavel: prev.responsavel === ownerKey ? 'todos' : ownerKey,
-                }))}
-                className={`cursor-pointer p-3 transition-all hover:shadow-md ${
-                  active ? 'ring-2 ring-primary bg-primary/5' : ''
-                } ${
-                  isSemResponsavel ? 'border-orange-200 bg-orange-50/30' : ''
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="relative shrink-0">
-                    <Avatar src={owner.avatar_url} nome={owner.nome} size="md" />
-                  </div>
+              return (
+                <Card
+                  key={ownerKey}
+                  onClick={() => toggleOwnerFilter(ownerKey)}
+                  className={`cursor-pointer p-3 transition-all hover:shadow-md ${
+                    active ? 'ring-2 ring-primary bg-primary/5' : ''
+                  } ${
+                    isSemResponsavel ? 'border-orange-200 bg-orange-50/30' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="relative shrink-0">
+                      <Avatar src={owner.avatar_url} nome={owner.nome} size="md" />
+                    </div>
 
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{owner.nome}</p>
-                    <div className="flex items-center gap-1">
-                      <span className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
-                        {formatNumber(owner.total)} ordem{owner.total !== 1 ? 's' : ''}
-                      </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">{owner.nome}</p>
+                      <div className="flex items-center gap-1">
+                        <span className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
+                          {formatNumber(owner.total)} ordem{owner.total !== 1 ? 's' : ''}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="mt-2 flex gap-1.5">
-                  <span className="flex-1 rounded bg-emerald-50 py-0.5 text-center text-xs font-bold text-emerald-700">
-                    {formatNumber(owner.recentes)}
-                  </span>
-                  <span className="flex-1 rounded bg-amber-50 py-0.5 text-center text-xs font-bold text-amber-700">
-                    {formatNumber(owner.atencao)}
-                  </span>
-                  <span className="flex-1 rounded bg-red-50 py-0.5 text-center text-xs font-bold text-red-700">
-                    {formatNumber(owner.atrasadas)}
-                  </span>
-                </div>
+                  <div className="mt-2 flex gap-1.5">
+                    <span className="flex-1 rounded bg-emerald-50 py-0.5 text-center text-xs font-bold text-emerald-700">
+                      {formatNumber(owner.recentes)}
+                    </span>
+                    <span className="flex-1 rounded bg-amber-50 py-0.5 text-center text-xs font-bold text-amber-700">
+                      {formatNumber(owner.atencao)}
+                    </span>
+                    <span className="flex-1 rounded bg-red-50 py-0.5 text-center text-xs font-bold text-red-700">
+                      {formatNumber(owner.atrasadas)}
+                    </span>
+                  </div>
 
-                <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-                  <span>Rec.</span>
-                  <span>Atenc.</span>
-                  <span>Atras.</span>
-                </div>
+                  <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+                    <span>Rec.</span>
+                    <span>Atenc.</span>
+                    <span>Atras.</span>
+                  </div>
 
-                <div className="mt-2 rounded bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
-                  {formatNumber(owner.abertas)} ordem{owner.abertas !== 1 ? 's' : ''} aberta{owner.abertas !== 1 ? 's' : ''}
-                </div>
-              </Card>
-            )
-          })}
-        </div>
+                  <div className="mt-2 rounded bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
+                    {formatNumber(owner.abertas)} ordem{owner.abertas !== 1 ? 's' : ''} aberta{owner.abertas !== 1 ? 's' : ''}
+                  </div>
+                </Card>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            {visibleOwners.map((owner) => {
+              const ownerKey = owner.administrador_id ?? '__sem_atual__'
+              const active = filters.responsavel === ownerKey
+              const isSemResponsavel = owner.administrador_id === null
+
+              return (
+                <Card
+                  key={ownerKey}
+                  onClick={() => toggleOwnerFilter(ownerKey)}
+                  className={`cursor-pointer p-4 transition-all hover:shadow-md ${
+                    active ? 'ring-2 ring-primary bg-primary/5' : ''
+                  } ${
+                    isSemResponsavel ? 'border-orange-200 bg-orange-50/30' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="relative shrink-0">
+                      <Avatar src={owner.avatar_url} nome={owner.nome} size="lg" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-base font-semibold">{owner.nome}</p>
+                      <div className="flex items-center gap-1">
+                        <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                          {formatNumber(owner.total)} ordem{owner.total !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded bg-emerald-50 px-2 py-1">
+                      <p className="text-lg font-bold text-emerald-700">{formatNumber(owner.recentes)}</p>
+                      <p className="text-[11px] text-emerald-700">0-2d</p>
+                    </div>
+                    <div className="rounded bg-amber-50 px-2 py-1">
+                      <p className="text-lg font-bold text-amber-700">{formatNumber(owner.atencao)}</p>
+                      <p className="text-[11px] text-amber-700">3-6d</p>
+                    </div>
+                    <div className="rounded bg-red-50 px-2 py-1">
+                      <p className="text-lg font-bold text-red-700">{formatNumber(owner.atrasadas)}</p>
+                      <p className="text-[11px] text-red-700">7+d</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 rounded bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                    <span className="font-semibold">{formatNumber(owner.abertas)}</span> ordem{owner.abertas !== 1 ? 's' : ''} aberta{owner.abertas !== 1 ? 's' : ''}
+                  </div>
+                </Card>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       <div className="grid gap-2 rounded-lg border p-3 lg:grid-cols-6">
