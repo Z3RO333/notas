@@ -86,7 +86,7 @@ export function OrderReassignDialog({
         <DialogHeader>
           <DialogTitle>Reatribuir ordem {ordemCodigo}</DialogTitle>
           <DialogDescription>
-            Nota #{notaNumero}. Selecione o novo responsavel para continuidade da tratativa.
+            Nota {notaNumero}. Selecione o novo responsavel para continuidade da tratativa.
           </DialogDescription>
         </DialogHeader>
 

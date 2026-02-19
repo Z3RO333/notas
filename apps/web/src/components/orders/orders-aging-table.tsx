@@ -139,7 +139,7 @@ export function OrdersAgingTable({
                       )}
 
                       <Link href={`/notas/${row.nota_id}`} className="min-w-0 flex-1 rounded-sm transition-colors hover:bg-muted/30">
-                        <p className="font-mono text-sm font-semibold">#{row.numero_nota} • Ordem {row.ordem_codigo}</p>
+                        <p className="font-mono text-sm font-semibold">{row.numero_nota} • Ordem {row.ordem_codigo}</p>
                         <p className="truncate text-xs text-muted-foreground">{row.descricao ?? 'Sem descricao'}</p>
                       </Link>
                     </div>

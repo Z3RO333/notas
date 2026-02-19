@@ -875,7 +875,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
                       <div className="min-w-0">
                         <p className="truncate font-mono text-sm font-semibold">
-                          #{row.numero_nota} • Ordem {row.ordem_codigo}
+                          {row.numero_nota} • Ordem {row.ordem_codigo}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">{row.descricao ?? 'Sem descricao'}</p>
                         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">

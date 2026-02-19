@@ -82,7 +82,7 @@ export function OrdersDetailDrawer({
   }, [open, notaId])
 
   const current = useMemo(() => data?.ordem ?? row, [data, row])
-  const title = current ? `Nota #${current.numero_nota} • Ordem ${current.ordem_codigo}` : 'Detalhes da ordem'
+  const title = current ? `Nota ${current.numero_nota} • Ordem ${current.ordem_codigo}` : 'Detalhes da ordem'
   const subtitle = current?.descricao ?? data?.descricao_nota ?? undefined
 
   return (
