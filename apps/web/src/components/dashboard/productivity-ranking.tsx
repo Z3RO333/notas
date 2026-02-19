@@ -39,8 +39,8 @@ export function ProductivityRanking({ rows }: ProductivityRankingProps) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-lg">Produtividade individual (30d)</CardTitle>
-        <Link href="/admin/distribuicao" className="text-sm font-medium text-primary hover:underline">
-          Ver distribuicao
+        <Link href="/admin/pessoas" className="text-sm font-medium text-primary hover:underline">
+          Ver pessoas
         </Link>
       </CardHeader>
       <CardContent>
