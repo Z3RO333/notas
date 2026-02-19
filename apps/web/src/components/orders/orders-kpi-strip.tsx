@@ -110,18 +110,20 @@ export function OrdersKpiStrip({
           <button
             key={item.id}
             type="button"
-            className="text-left disabled:cursor-default"
+            className="h-full text-left disabled:cursor-default"
             onClick={() => handleToggle(item.kpi)}
             disabled={!interactive}
           >
-            <Card className={`transition-all hover:shadow-sm ${active ? 'ring-2 ring-primary bg-primary/5' : ''}`}>
+            <Card className={`h-full transition-all hover:shadow-sm ${active ? 'ring-2 ring-primary bg-primary/5' : ''}`}>
             <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{item.label}</CardTitle>
+              <CardTitle className="min-h-[2.5rem] flex-1 pr-2 text-sm font-medium leading-tight text-muted-foreground">
+                {item.label}
+              </CardTitle>
               <Icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent className="space-y-1">
               <p className={`text-3xl font-bold ${item.valueClass}`}>{item.value}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="min-h-[2rem] text-xs leading-4 text-muted-foreground">
                 {interactive
                   ? (active ? 'KPI ativo. Clique para limpar.' : item.helper)
                   : item.helper}
