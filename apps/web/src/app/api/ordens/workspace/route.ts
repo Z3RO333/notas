@@ -73,6 +73,9 @@ function emptyKpis(): OrdersWorkspaceKpis {
     total: 0,
     abertas: 0,
     em_tratativa: 0,
+    concluidas: 0,
+    canceladas: 0,
+    avaliadas: 0,
     atrasadas: 0,
     sem_responsavel: 0,
   }
@@ -188,12 +191,25 @@ export async function GET(request: Request) {
   }
 
   const rows = (rowsResult.data ?? []) as OrdemNotaAcompanhamento[]
-  const summary = (summaryResult.data ?? []) as OrdersOwnerSummary[]
+  const rawSummary = (summaryResult.data ?? []) as Array<Partial<OrdersOwnerSummary>>
+  const summary: OrdersOwnerSummary[] = rawSummary.map((item) => ({
+    administrador_id: item.administrador_id ?? null,
+    nome: item.nome ?? 'Sem nome',
+    avatar_url: item.avatar_url ?? null,
+    total: Number(item.total ?? 0),
+    abertas: Number(item.abertas ?? 0),
+    recentes: Number(item.recentes ?? 0),
+    atencao: Number(item.atencao ?? 0),
+    atrasadas: Number(item.atrasadas ?? 0),
+  }))
   const rawKpis = (kpisResult.data ?? {}) as Partial<OrdersWorkspaceKpis>
   const kpis: OrdersWorkspaceKpis = {
     total: Number(rawKpis.total ?? 0),
     abertas: Number(rawKpis.abertas ?? 0),
     em_tratativa: Number(rawKpis.em_tratativa ?? 0),
+    concluidas: Number(rawKpis.concluidas ?? 0),
+    canceladas: Number(rawKpis.canceladas ?? 0),
+    avaliadas: Number(rawKpis.avaliadas ?? 0),
     atrasadas: Number(rawKpis.atrasadas ?? 0),
     sem_responsavel: Number(rawKpis.sem_responsavel ?? 0),
   }
