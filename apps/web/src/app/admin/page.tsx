@@ -166,7 +166,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
       <section className="space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-xl font-semibold tracking-tight">Acompanhamento de Ordens (origem nota)</h2>
+            <h2 className="text-xl font-semibold tracking-tight">Acompanhamento de Ordens</h2>
             <p className="text-sm text-muted-foreground">
               Semaforo de envelhecimento, responsavel atual e historico de envolvidos.
             </p>

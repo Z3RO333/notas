@@ -110,6 +110,13 @@ function formatIsoDate(value: string): string {
   return date.toLocaleString('pt-BR')
 }
 
+function formatDelayText(row: Pick<OrdemNotaAcompanhamento, 'semaforo_atraso' | 'dias_em_aberto'>): string {
+  if (row.semaforo_atraso !== 'vermelho') return `${row.dias_em_aberto} dia(s) em aberto`
+  // Semaforo vermelho comeca em 7 dias; atraso real e o excedente ao prazo.
+  const delayDays = Math.max(1, row.dias_em_aberto - 6)
+  return `${delayDays} dia(s) de atraso`
+}
+
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('pt-BR').format(value)
 }
@@ -413,14 +420,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       valueClass: 'text-foreground',
     },
     {
-      key: 'em_execucao',
-      label: 'Em execucao',
-      value: kpis.em_tratativa,
-      helper: 'Tratativa, avaliacao e desconhecido',
-      icon: LoaderCircle,
-      valueClass: 'text-indigo-700',
-    },
-    {
       key: 'em_aberto',
       label: 'Em aberto',
       value: kpis.abertas,
@@ -429,12 +428,12 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       valueClass: 'text-sky-700',
     },
     {
-      key: 'concluidas',
-      label: 'Concluidas',
-      value: kpis.concluidas + kpis.canceladas,
-      helper: 'Concluidas + canceladas',
-      icon: ShieldCheck,
-      valueClass: 'text-emerald-700',
+      key: 'em_execucao',
+      label: 'Em execucao',
+      value: kpis.em_tratativa,
+      helper: 'Tratativa, avaliacao e desconhecido',
+      icon: LoaderCircle,
+      valueClass: 'text-indigo-700',
     },
     {
       key: 'avaliadas',
@@ -443,6 +442,14 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       helper: 'Com avaliacao da execucao',
       icon: ClipboardCheck,
       valueClass: 'text-amber-700',
+    },
+    {
+      key: 'concluidas',
+      label: 'Concluidas',
+      value: kpis.concluidas + kpis.canceladas,
+      helper: 'Concluidas + canceladas',
+      icon: ShieldCheck,
+      valueClass: 'text-emerald-700',
     },
     {
       key: 'atrasadas',
@@ -879,7 +886,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                             {getOrderStatusLabel(row.status_ordem)}
                           </span>
                           <span className="text-muted-foreground">{row.unidade ?? 'Sem unidade'}</span>
-                          <span className="text-muted-foreground">{row.dias_em_aberto} dia(s)</span>
+                          <span className="text-muted-foreground">{formatDelayText(row)}</span>
                           <span className="text-muted-foreground">{formatIsoDate(row.ordem_detectada_em)}</span>
                         </div>
                       </div>
@@ -889,7 +896,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                       {overdue && (
                         <span className="inline-flex items-center gap-1 rounded-md bg-red-100 px-2 py-1 text-[11px] font-medium text-red-700">
                           <AlertTriangle className="h-3 w-3" />
-                          Prioridade alta
+                          {formatDelayText(row)}
                         </span>
                       )}
 
