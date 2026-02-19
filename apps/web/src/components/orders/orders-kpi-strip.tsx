@@ -85,7 +85,7 @@ export function OrdersKpiStrip({
       kpi: 'avaliadas' as const,
       label: 'Avaliadas',
       value: fmt(getOrdersKpiValue(kpis, 'avaliadas')),
-      helper: 'Subconjunto de concluidas',
+      helper: 'Status AVALIACAO_DA_EXECUCAO',
       icon: ClipboardCheck,
       valueClass: 'text-amber-700',
     },

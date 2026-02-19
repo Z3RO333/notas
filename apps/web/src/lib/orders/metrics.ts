@@ -31,7 +31,7 @@ export function buildOrderKpis(rows: OrdemNotaAcompanhamento[]): OrdemNotaKpis {
   const emTratativa = rows.filter((row) => row.status_ordem === 'em_tratativa' || row.status_ordem === 'desconhecido').length
   const concluidas = rows.filter((row) => row.status_ordem === 'concluida').length
   const canceladas = rows.filter((row) => row.status_ordem === 'cancelada').length
-  const avaliadas = rows.filter((row) => row.status_ordem === 'concluida' && isAvaliada(row)).length
+  const avaliadas = rows.filter((row) => isAvaliada(row)).length
   const antigas = rows.filter((row) => row.semaforo_atraso === 'vermelho' && OPEN_STATUS.has(row.status_ordem)).length
 
   const tempos = rows
@@ -93,7 +93,7 @@ export function getOrdersKpiValue(kpis: OrdemNotaKpis, key: OrdersKpiFilter): nu
 export function matchOrdersKpi(row: OrdemNotaAcompanhamento, key: OrdersKpiFilter): boolean {
   if (key === 'em_execucao') return row.status_ordem === 'em_tratativa' || row.status_ordem === 'desconhecido'
   if (key === 'em_aberto') return row.status_ordem === 'aberta'
-  if (key === 'avaliadas') return row.status_ordem === 'concluida' && isAvaliada(row)
+  if (key === 'avaliadas') return isAvaliada(row)
   if (key === 'atrasadas') return row.semaforo_atraso === 'vermelho' && OPEN_STATUS.has(row.status_ordem)
   if (key === 'concluidas') return row.status_ordem === 'concluida' || row.status_ordem === 'cancelada'
   return true

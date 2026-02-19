@@ -440,7 +440,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       key: 'avaliadas',
       label: 'Avaliadas',
       value: kpis.avaliadas,
-      helper: 'Subconjunto de concluidas',
+      helper: 'Status AVALIACAO_DA_EXECUCAO',
       icon: ClipboardCheck,
       valueClass: 'text-amber-700',
     },
