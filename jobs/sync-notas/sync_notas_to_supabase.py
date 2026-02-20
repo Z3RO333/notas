@@ -50,10 +50,12 @@ STATUS_PRIORITY = {
     "CONCLUIDO": 4,
     "AGUARDANDO_FATURAMENTO_NF": 4,
     "EXECUCAO_SATISFATORIO": 4,
+    "EXECUCAO_SATISFATORIA": 4,   # variante feminina (depende da configuração SAP)
     # Em andamento
     "EM_PROCESSAMENTO": 3,
     "EM_EXECUCAO": 3,
     "AVALIACAO_DA_EXECUCAO": 3,
+    "AVALIACAO_DE_EXECUCAO": 3,   # variante sem "DA"
     "EQUIPAMENTO_EM_CONSERTO": 3,
     "EXECUCAO_NAO_REALIZADA": 3,
     "ENVIAR_EMAIL_PFORNECEDOR": 3,

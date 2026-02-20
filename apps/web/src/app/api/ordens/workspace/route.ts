@@ -214,6 +214,12 @@ export async function GET(request: Request) {
     atrasadas: Number(item.atrasadas ?? 0),
   }))
   const rawKpis = (kpisResult.data ?? {}) as Partial<OrdersWorkspaceKpis>
+
+  // DEBUG: remover após validar que em_avaliacao e avaliadas retornam valores corretos
+  if (process.env.DEBUG_KPIS === '1') {
+    console.log('[DEBUG workspace/kpis] raw RPC response:', JSON.stringify(kpisResult.data))
+  }
+
   const kpis: OrdersWorkspaceKpis = {
     total: Number(rawKpis.total ?? 0),
     abertas: Number(rawKpis.abertas ?? 0),
