@@ -22,6 +22,7 @@ import {
 import { resolveAdminDashboardPeriod, type AdminDashboardSearchParams } from '@/lib/dashboard/period'
 import {
   getOrdersCriticalityLevel,
+  workspaceKpisToOrdemNotaKpis,
 } from '@/lib/orders/metrics'
 import type {
   CargaAdministrador,
@@ -61,6 +62,8 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
     produtividadeResult,
     orderKpisResult,
     ordensRowsResult,
+    pmplKpisResult,
+    pmplRowsResult,
     rankingAdminResult,
     rankingUnidadeResult,
     reassignTargetsResult,
@@ -91,11 +94,33 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
       p_prioridade: null,
       p_q: null,
       p_admin_scope: null,
+      p_tipo_ordem: 'PMOS',
     }),
     supabase.rpc('buscar_ordens_prioritarias_dashboard', {
       p_start_iso: period.startIso,
       p_end_exclusive_iso: period.endExclusiveIso,
       p_limit: DASHBOARD_ORDERS_LIMIT,
+      p_tipo_ordem: 'PMOS',
+    }),
+    supabase.rpc('calcular_kpis_ordens_operacional', {
+      p_period_mode: 'range',
+      p_start_iso: period.startIso,
+      p_end_exclusive_iso: period.endExclusiveIso,
+      p_year: null,
+      p_month: null,
+      p_status: null,
+      p_unidade: null,
+      p_responsavel: null,
+      p_prioridade: null,
+      p_q: null,
+      p_admin_scope: null,
+      p_tipo_ordem: 'PMPL',
+    }),
+    supabase.rpc('buscar_ordens_prioritarias_dashboard', {
+      p_start_iso: period.startIso,
+      p_end_exclusive_iso: period.endExclusiveIso,
+      p_limit: DASHBOARD_ORDERS_LIMIT,
+      p_tipo_ordem: 'PMPL',
     }),
     supabase.rpc('calcular_ranking_ordens_admin', {
       p_start_iso: period.startIso,
@@ -122,6 +147,8 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
     produtividadeResult.error,
     orderKpisResult.error,
     ordensRowsResult.error,
+    pmplKpisResult.error,
+    pmplRowsResult.error,
     rankingAdminResult.error,
     rankingUnidadeResult.error,
     reassignTargetsResult.error,
@@ -161,18 +188,32 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
   const teamCapacityRows = buildTeamCapacityRows(carga)
   const productivityRows = buildProductivityRanking(produtividadeRows)
   const rawOrderKpis = (orderKpisResult.data ?? {}) as Partial<OrdersWorkspaceKpis>
-  const orderKpis: OrdemNotaKpis = {
-    total_ordens_30d: Number(rawOrderKpis.total ?? 0),
-    qtd_abertas_30d: Number(rawOrderKpis.abertas ?? 0),
-    qtd_em_tratativa_30d: Number(rawOrderKpis.em_tratativa ?? 0),
-    qtd_em_avaliacao_30d: Number(rawOrderKpis.em_avaliacao ?? 0),
-    qtd_concluidas_30d: Number(rawOrderKpis.concluidas ?? 0),
-    qtd_canceladas_30d: Number(rawOrderKpis.canceladas ?? 0),
-    qtd_avaliadas_30d: Number(rawOrderKpis.avaliadas ?? 0),
-    qtd_antigas_7d_30d: Number(rawOrderKpis.atrasadas ?? 0),
-    tempo_medio_geracao_dias_30d: null,
-  }
+  const orderKpis: OrdemNotaKpis = workspaceKpisToOrdemNotaKpis({
+    total: Number(rawOrderKpis.total ?? 0),
+    abertas: Number(rawOrderKpis.abertas ?? 0),
+    em_tratativa: Number(rawOrderKpis.em_tratativa ?? 0),
+    em_avaliacao: Number(rawOrderKpis.em_avaliacao ?? 0),
+    concluidas: Number(rawOrderKpis.concluidas ?? 0),
+    canceladas: Number(rawOrderKpis.canceladas ?? 0),
+    avaliadas: Number(rawOrderKpis.avaliadas ?? 0),
+    atrasadas: Number(rawOrderKpis.atrasadas ?? 0),
+    sem_responsavel: 0,
+  })
   const ordersCriticality = getOrdersCriticalityLevel(orderKpis.total_ordens_30d, orderKpis.qtd_antigas_7d_30d)
+  const rawPmplKpis = (pmplKpisResult.data ?? {}) as Partial<OrdersWorkspaceKpis>
+  const pmplOrderKpis: OrdemNotaKpis = workspaceKpisToOrdemNotaKpis({
+    total: Number(rawPmplKpis.total ?? 0),
+    abertas: Number(rawPmplKpis.abertas ?? 0),
+    em_tratativa: Number(rawPmplKpis.em_tratativa ?? 0),
+    em_avaliacao: Number(rawPmplKpis.em_avaliacao ?? 0),
+    concluidas: Number(rawPmplKpis.concluidas ?? 0),
+    canceladas: Number(rawPmplKpis.canceladas ?? 0),
+    avaliadas: Number(rawPmplKpis.avaliadas ?? 0),
+    atrasadas: Number(rawPmplKpis.atrasadas ?? 0),
+    sem_responsavel: 0,
+  })
+  const pmplOrdersCriticality = getOrdersCriticalityLevel(pmplOrderKpis.total_ordens_30d, pmplOrderKpis.qtd_antigas_7d_30d)
+  const pmplOrdensRows = (pmplRowsResult.data ?? []) as OrdemNotaAcompanhamento[]
   const rankingAdmin: OrdemNotaRankingAdmin[] = rankingAdminRaw.map((row) => ({
     administrador_id: row.administrador_id ?? '',
     nome: row.nome ?? 'Sem nome',
@@ -244,9 +285,9 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
       <section className="space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-xl font-semibold tracking-tight">Acompanhamento de Ordens</h2>
+            <h2 className="text-xl font-semibold tracking-tight">Acompanhamento PMOS</h2>
             <p className="text-sm text-muted-foreground">
-              Semáforo de envelhecimento, responsável atual e histórico no mesmo período selecionado.
+              Ordens de manutenção operacional (PMOS) no período selecionado.
             </p>
           </div>
           <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">
@@ -265,7 +306,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
           <div className="xl:col-span-2">
             <OrdersAgingTable
               rows={ordensRows}
-              title={`Ordens acompanhadas (${period.periodLabel})`}
+              title={`Ordens PMOS acompanhadas (${period.periodLabel})`}
               maxRows={20}
               showAdminColumns
               canReassign
@@ -277,6 +318,37 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
         </div>
 
         <OrdersRankingAdmin rows={rankingAdmin.slice(0, 12)} periodLabel={period.periodLabel} />
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight">Acompanhamento PMPL</h2>
+            <p className="text-sm text-muted-foreground">
+              Ordens de manutenção planejada (PMPL) no período selecionado.
+            </p>
+          </div>
+          <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">
+            Período: {period.periodLabel}
+          </span>
+        </div>
+
+        <OrdersKpiStrip
+          kpis={pmplOrderKpis}
+          activeKpi={null}
+          criticality={pmplOrdersCriticality}
+          interactive={false}
+        />
+
+        <OrdersAgingTable
+          rows={pmplOrdensRows}
+          title={`Ordens PMPL acompanhadas (${period.periodLabel})`}
+          maxRows={20}
+          showAdminColumns
+          canReassign
+          reassignTargets={reassignTargets}
+          currentUserRole="gestor"
+        />
       </section>
 
       <RealtimeListener />

@@ -8,6 +8,7 @@ import type {
   OrdemNotaRankingAdmin,
   OrdemNotaRankingUnidade,
   OrdemStatusAcomp,
+  OrdersWorkspaceKpis,
 } from '@/lib/types/database'
 
 const FINAL_STATUS = new Set<OrdemStatusAcomp>(['concluida', 'cancelada'])
@@ -277,4 +278,18 @@ export function getSemaforoLabel(semaforo: OrdemNotaAcompanhamento['semaforo_atr
   if (semaforo === 'amarelo') return 'Atenção'
   if (semaforo === 'verde') return 'Recente'
   return 'Neutro'
+}
+
+export function workspaceKpisToOrdemNotaKpis(kpis: OrdersWorkspaceKpis): OrdemNotaKpis {
+  return {
+    total_ordens_30d:             kpis.total,
+    qtd_abertas_30d:              kpis.abertas,
+    qtd_em_tratativa_30d:         kpis.em_tratativa,
+    qtd_em_avaliacao_30d:         kpis.em_avaliacao,
+    qtd_concluidas_30d:           kpis.concluidas,
+    qtd_canceladas_30d:           kpis.canceladas,
+    qtd_avaliadas_30d:            kpis.avaliadas,
+    qtd_antigas_7d_30d:           kpis.atrasadas,
+    tempo_medio_geracao_dias_30d: null,
+  }
 }
