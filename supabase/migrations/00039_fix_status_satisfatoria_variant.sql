@@ -84,7 +84,17 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 -- ============================================================
 -- 4) FILTRO OPERACIONAL — atualizado com helpers
 -- ============================================================
-CREATE OR REPLACE FUNCTION public.filtrar_ordens_workspace(
+-- Drop ambas as versões para evitar ambiguidade se 00045 foi aplicada antes
+DROP FUNCTION IF EXISTS public.filtrar_ordens_workspace(
+  TEXT, INTEGER, INTEGER, TIMESTAMPTZ, TIMESTAMPTZ,
+  TEXT, TEXT, TEXT, TEXT, TEXT, UUID
+);
+DROP FUNCTION IF EXISTS public.filtrar_ordens_workspace(
+  TEXT, INTEGER, INTEGER, TIMESTAMPTZ, TIMESTAMPTZ,
+  TEXT, TEXT, TEXT, TEXT, TEXT, UUID, TEXT
+);
+
+CREATE FUNCTION public.filtrar_ordens_workspace(
   p_period_mode TEXT DEFAULT 'all',
   p_year INTEGER DEFAULT NULL,
   p_month INTEGER DEFAULT NULL,
@@ -95,7 +105,8 @@ CREATE OR REPLACE FUNCTION public.filtrar_ordens_workspace(
   p_responsavel TEXT DEFAULT NULL,
   p_prioridade TEXT DEFAULT NULL,
   p_q TEXT DEFAULT NULL,
-  p_admin_scope UUID DEFAULT NULL
+  p_admin_scope UUID DEFAULT NULL,
+  p_tipo_ordem TEXT DEFAULT NULL
 )
 RETURNS SETOF public.vw_ordens_notas_painel
 LANGUAGE sql
@@ -190,13 +201,27 @@ AS $$
       OR v.numero_nota ILIKE ('%' || p_q || '%')
       OR v.ordem_codigo ILIKE ('%' || p_q || '%')
       OR COALESCE(v.descricao, '') ILIKE ('%' || p_q || '%')
+    )
+    AND (
+      p_tipo_ordem IS NULL
+      OR v.tipo_ordem = p_tipo_ordem
     );
 $$;
 
 -- ============================================================
 -- 5) KPIs OPERACIONAIS — conta ambas as variantes
 -- ============================================================
-CREATE OR REPLACE FUNCTION public.calcular_kpis_ordens_operacional(
+-- Drop ambas as versões para evitar ambiguidade se 00045 foi aplicada antes
+DROP FUNCTION IF EXISTS public.calcular_kpis_ordens_operacional(
+  TEXT, INTEGER, INTEGER, TIMESTAMPTZ, TIMESTAMPTZ,
+  TEXT, TEXT, TEXT, TEXT, TEXT, UUID
+);
+DROP FUNCTION IF EXISTS public.calcular_kpis_ordens_operacional(
+  TEXT, INTEGER, INTEGER, TIMESTAMPTZ, TIMESTAMPTZ,
+  TEXT, TEXT, TEXT, TEXT, TEXT, UUID, TEXT
+);
+
+CREATE FUNCTION public.calcular_kpis_ordens_operacional(
   p_period_mode TEXT DEFAULT 'all',
   p_year INTEGER DEFAULT NULL,
   p_month INTEGER DEFAULT NULL,
@@ -207,7 +232,8 @@ CREATE OR REPLACE FUNCTION public.calcular_kpis_ordens_operacional(
   p_responsavel TEXT DEFAULT NULL,
   p_prioridade TEXT DEFAULT NULL,
   p_q TEXT DEFAULT NULL,
-  p_admin_scope UUID DEFAULT NULL
+  p_admin_scope UUID DEFAULT NULL,
+  p_tipo_ordem TEXT DEFAULT NULL
 )
 RETURNS JSON
 LANGUAGE sql
@@ -226,7 +252,8 @@ AS $$
       p_responsavel => p_responsavel,
       p_prioridade => p_prioridade,
       p_q => p_q,
-      p_admin_scope => p_admin_scope
+      p_admin_scope => p_admin_scope,
+      p_tipo_ordem => p_tipo_ordem
     )
   )
   SELECT json_build_object(
