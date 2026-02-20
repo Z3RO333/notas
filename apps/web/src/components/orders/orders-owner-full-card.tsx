@@ -1,7 +1,8 @@
+import Link from 'next/link'
 import { useMemo } from 'react'
-import { OrderCompactCard } from '@/components/orders/order-compact-card'
 import { Avatar } from '@/components/ui/avatar'
 import { Card } from '@/components/ui/card'
+import { getSemaforoClass } from '@/lib/orders/metrics'
 import { sortOrdersByPriority } from '@/lib/orders/metrics'
 import type { OrderOwnerGroup, OrderReassignTarget } from '@/lib/types/database'
 
@@ -16,7 +17,7 @@ interface OrdersOwnerFullCardProps {
 export function OrdersOwnerFullCard({
   group,
   canReassign,
-  reassignTargets,
+  reassignTargets: _reassignTargets,
   selectedNotaIds,
   onToggleRowSelection,
 }: OrdersOwnerFullCardProps) {
@@ -77,24 +78,32 @@ export function OrdersOwnerFullCard({
 
       <div className="space-y-2">
         <p className="text-sm font-semibold text-muted-foreground">Ordens distribuídas</p>
-      </div>
-
-      <div className="max-h-[34rem] space-y-2 overflow-y-auto pr-1">
-        {rows.map((row) => (
-          <OrderCompactCard
-            key={row.ordem_id}
-            row={row}
-            selected={selectedNotaIds.has(row.nota_id)}
-            showCheckbox={canReassign}
-            onToggleSelection={onToggleRowSelection}
-            showReassign={canReassign && reassignTargets.length > 0}
-            reassignProps={{
-              currentAdminId: row.responsavel_atual_id,
-              admins: reassignTargets,
-            }}
-            notaLinkHref={`/notas/${row.nota_id}`}
-          />
-        ))}
+        {rows.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhuma ordem em aberto.</p>
+        ) : (
+          <div className="max-h-[24rem] space-y-1.5 overflow-y-auto pr-1">
+            {rows.map((row) => {
+              const label = row.ordem_codigo?.trim() ? row.ordem_codigo : `#${row.numero_nota}`
+              return (
+                <Link
+                  key={row.ordem_id}
+                  href={`/notas/${row.nota_id}`}
+                  className="flex items-center justify-between gap-2 rounded px-1 py-1 text-sm hover:bg-muted/50"
+                >
+                  <span className="min-w-0 truncate font-mono font-medium">
+                    {label}
+                    {row.unidade?.trim() && (
+                      <span className="ml-1.5 font-normal text-muted-foreground">· {row.unidade}</span>
+                    )}
+                  </span>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${getSemaforoClass(row.semaforo_atraso)}`}>
+                    {row.dias_em_aberto}d
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
+        )}
       </div>
     </Card>
   )

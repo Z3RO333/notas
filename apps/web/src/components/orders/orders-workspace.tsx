@@ -102,8 +102,8 @@ const PRIORIDADE_OPTIONS = [
 
 const OWNER_CARDS_VIEW_MODE_STORAGE_KEY = 'cockpit:ordens:owner-cards:view-mode'
 const FIXED_OWNER_CARD_ORDER = {
-  'Brenda (CD MANAUS)': 0,
-  'Adriano (CD TARUMÃ)': 1,
+  'Brenda': 0,
+  'Adriano': 1,
 } as const
 
 function normalizePersonName(value: string): string {
@@ -114,11 +114,19 @@ function normalizePersonName(value: string): string {
     .trim()
 }
 
+const CARGO_BADGE: Record<string, { color: string }> = {
+  'CD TURISMO':      { color: 'bg-teal-100 text-teal-800' },
+  'CD MANAUS':       { color: 'bg-blue-100 text-blue-800' },
+  'REFRIGERAÇÃO':    { color: 'bg-cyan-100 text-cyan-800' },
+  'GERAL':           { color: 'bg-gray-100 text-gray-800' },
+  'SEM RESPONSÁVEL': { color: 'bg-orange-100 text-orange-800' },
+}
+
 function resolveOwnerCargo(owner: OrdersOwnerSummary): string {
   if (owner.administrador_id === null) return 'SEM RESPONSÁVEL'
 
   const normalizedName = normalizePersonName(owner.nome)
-  if (normalizedName.includes('adriano')) return 'CD TARUMÃ'
+  if (normalizedName.includes('adriano')) return 'CD TURISMO'
   if (normalizedName.includes('brenda')) return 'CD MANAUS'
   if (normalizedName.includes('suelem')) return 'REFRIGERAÇÃO'
   if (normalizedName.includes('paula')) return 'GERAL'
@@ -655,9 +663,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{owner.nome}</p>
-                      <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      <span className={`mt-0.5 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium ${CARGO_BADGE[ownerCargo]?.color ?? CARGO_BADGE['GERAL'].color}`}>
                         {ownerCargo}
-                      </p>
+                      </span>
                     </div>
                   </div>
 
@@ -711,9 +719,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-base font-semibold">{owner.nome}</p>
-                      <p className="mt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${CARGO_BADGE[ownerCargo]?.color ?? CARGO_BADGE['GERAL'].color}`}>
                         {ownerCargo}
-                      </p>
+                      </span>
                     </div>
                   </div>
 
