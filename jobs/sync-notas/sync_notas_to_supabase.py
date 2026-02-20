@@ -209,16 +209,49 @@ def _watermark_is_too_future(iso_date: str, max_future_days: int = MAX_WATERMARK
     return candidate > max_allowed
 
 
-def _build_data_criacao_date_expr() -> str:
-    # Suporta date/timestamp e formatos string comuns (yyyy-MM-dd, yyyyMMdd, dd/MM/yyyy).
-    return (
-        "coalesce("
-        "to_date(DATA_CRIACAO), "
-        "to_date(cast(DATA_CRIACAO as string), 'yyyy-MM-dd'), "
-        "to_date(cast(DATA_CRIACAO as string), 'yyyyMMdd'), "
-        "to_date(cast(DATA_CRIACAO as string), 'dd/MM/yyyy')"
-        ")"
-    )
+def _resolve_existing_columns(
+    spark: SparkSession,
+    table_name: str,
+    candidates: list[str],
+) -> list[str]:
+    """Retorna colunas candidatas que existem na tabela (preservando ordem)."""
+    existing_map = {col.upper(): col for col in spark.table(table_name).columns}
+    resolved: list[str] = []
+    for candidate in candidates:
+        found = existing_map.get(candidate.upper())
+        if found:
+            resolved.append(found)
+    return resolved
+
+
+def _build_date_expr_from_columns(columns: list[str]) -> str:
+    """Monta expressão Spark SQL robusta para normalizar data a partir de múltiplas colunas."""
+    if not columns:
+        return "NULL"
+
+    parts: list[str] = []
+    for col in columns:
+        parts.extend([
+            f"to_date({col})",
+            f"to_date(cast({col} as string), 'yyyy-MM-dd')",
+            f"to_date(cast({col} as string), 'yyyyMMdd')",
+            f"to_date(cast({col} as string), 'dd/MM/yyyy')",
+        ])
+
+    return "coalesce(" + ", ".join(parts) + ")"
+
+
+def _build_data_criacao_date_expr(spark: SparkSession) -> str:
+    # Suporta date/timestamp e formatos string comuns em múltiplas colunas candidatas.
+    candidates = ["DATA_CRIACAO", "DATA_ENTRADA", "DATA_ABERTURA", "DT_CRIACAO", "DT_ENTRADA"]
+    existing = _resolve_existing_columns(spark, STREAMING_TABLE, candidates)
+    if not existing:
+        logger.warning(
+            "Nenhuma coluna de data candidata encontrada na tabela %s. Candidatas=%s",
+            STREAMING_TABLE,
+            candidates,
+        )
+    return _build_date_expr_from_columns(existing)
 
 
 def _log_empty_result_diagnostics(spark: SparkSession, effective_start: str, data_criacao_expr: str):
@@ -448,7 +481,7 @@ def read_new_notes(
         window_days,
     )
 
-    data_criacao_expr = _build_data_criacao_date_expr()
+    data_criacao_expr = _build_data_criacao_date_expr(spark)
 
     if full_bootstrap:
         logger.info(
@@ -815,10 +848,16 @@ def push_pmpl_updates(sync_id: str, updates: list[dict]) -> tuple[int, int, int]
     return total_recebidas, ordens_atualizadas, mudancas_status
 
 
-def _build_pmpl_data_entrada_date_expr() -> str:
-    """Expressão Spark SQL para extrair data de entrada das colunas candidatas da tabela PMPL."""
-    parts = [f"to_date({col})" for col in PMPL_DATA_ENTRADA_COLUMNS_CANDIDATES]
-    return "coalesce(" + ", ".join(parts) + ")"
+def _build_pmpl_data_entrada_date_expr(spark: SparkSession) -> str:
+    """Expressão Spark SQL para extrair data de entrada usando apenas colunas existentes."""
+    existing = _resolve_existing_columns(spark, PMPL_TABLE, PMPL_DATA_ENTRADA_COLUMNS_CANDIDATES)
+    if not existing:
+        logger.warning(
+            "Nenhuma coluna de data candidata encontrada na tabela %s. Candidatas=%s",
+            PMPL_TABLE,
+            PMPL_DATA_ENTRADA_COLUMNS_CANDIDATES,
+        )
+    return _build_date_expr_from_columns(existing)
 
 
 def read_standalone_pmpl_orders(
@@ -835,7 +874,7 @@ def read_standalone_pmpl_orders(
     window_start = (datetime.now(timezone.utc).date() - timedelta(days=window_days)).isoformat()
     effective_start = max(window_start, sync_start_date)
 
-    data_expr = _build_pmpl_data_entrada_date_expr()
+    data_expr = _build_pmpl_data_entrada_date_expr(spark)
     logger.info(
         "Lendo ordens PMPL standalone: effective_start=%s, window_days=%s",
         effective_start,
