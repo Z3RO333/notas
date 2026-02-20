@@ -106,6 +106,25 @@ const FIXED_OWNER_CARD_ORDER = {
   'Adriano (CD TARUMÃ)': 1,
 } as const
 
+function normalizePersonName(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+function resolveOwnerCargo(owner: OrdersOwnerSummary): string {
+  if (owner.administrador_id === null) return 'SEM RESPONSÁVEL'
+
+  const normalizedName = normalizePersonName(owner.nome)
+  if (normalizedName.includes('adriano')) return 'CD TARUMÃ'
+  if (normalizedName.includes('brenda')) return 'CD MANAUS'
+  if (normalizedName.includes('suelem')) return 'REFRIGERAÇÃO'
+  if (normalizedName.includes('paula')) return 'GERAL'
+  return 'GERAL'
+}
+
 function sanitizeText(value: string): string {
   return value.trim()
 }
@@ -185,7 +204,7 @@ function buildWorkspaceParams(filters: OrdersWorkspaceFilters, cursor: OrdersWor
   if (filters.responsavel && filters.responsavel !== 'todos') params.set('responsavel', filters.responsavel)
   if (filters.unidade) params.set('unidade', filters.unidade)
   if (filters.prioridade && filters.prioridade !== 'todas') params.set('prioridade', filters.prioridade)
-  if (filters.tipoOrdem && filters.tipoOrdem !== 'PMOS') params.set('tipoOrdem', filters.tipoOrdem)
+  if (filters.tipoOrdem) params.set('tipoOrdem', filters.tipoOrdem)
 
   if (cursor) {
     params.set('cursorDetectada', cursor.ordem_detectada_em)
@@ -216,7 +235,7 @@ function syncFiltersToUrl(filters: OrdersWorkspaceFilters) {
   setOrDelete('responsavel', filters.responsavel && filters.responsavel !== 'todos' ? filters.responsavel : null)
   setOrDelete('unidade', filters.unidade || null)
   setOrDelete('prioridade', filters.prioridade && filters.prioridade !== 'todas' ? filters.prioridade : null)
-  setOrDelete('tipoOrdem', filters.tipoOrdem && filters.tipoOrdem !== 'PMOS' ? filters.tipoOrdem : null)
+  setOrDelete('tipoOrdem', filters.tipoOrdem || null)
 
   const query = params.toString()
   window.history.replaceState({}, '', query ? `?${query}` : window.location.pathname)
@@ -617,6 +636,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
               const ownerKey = owner.administrador_id ?? '__sem_atual__'
               const active = filters.responsavel === ownerKey
               const isSemResponsavel = owner.administrador_id === null
+              const ownerCargo = resolveOwnerCargo(owner)
 
               return (
                 <Card
@@ -635,11 +655,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{owner.nome}</p>
-                      <div className="flex items-center gap-1">
-                        <span className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
-                          {formatNumber(owner.total)} ordens
-                        </span>
-                      </div>
+                      <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        {ownerCargo}
+                      </p>
                     </div>
                   </div>
 
@@ -662,7 +680,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                   </div>
 
                   <div className="mt-2 rounded bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
-                    {formatNumber(owner.abertas)} ordens abertas
+                    Total: {formatNumber(owner.total)} ordens
                   </div>
                 </Card>
               )
@@ -674,6 +692,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
               const ownerKey = owner.administrador_id ?? '__sem_atual__'
               const active = filters.responsavel === ownerKey
               const isSemResponsavel = owner.administrador_id === null
+              const ownerCargo = resolveOwnerCargo(owner)
 
               return (
                 <Card
@@ -692,11 +711,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-base font-semibold">{owner.nome}</p>
-                      <div className="flex items-center gap-1">
-                        <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                          {formatNumber(owner.total)} ordens
-                        </span>
-                      </div>
+                      <p className="mt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {ownerCargo}
+                      </p>
                     </div>
                   </div>
 
@@ -716,7 +733,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                   </div>
 
                   <div className="mt-3 rounded bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                    <span className="font-semibold">{formatNumber(owner.abertas)}</span> ordens abertas
+                    <span className="font-semibold">Total:</span> {formatNumber(owner.total)} ordens
                   </div>
                 </Card>
               )
