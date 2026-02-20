@@ -37,6 +37,8 @@ const ESPECIALIDADE_LABEL: Record<Especialidade, string> = {
   refrigeracao: 'Refrigeracao',
   elevadores: 'Elevadores',
   geral: 'Geral',
+  cd_manaus: 'CD MANAUS',
+  cd_taruma: 'CD TARUMÃ',
 }
 
 function toNumber(value: unknown): number {
@@ -66,7 +68,13 @@ function normalizeDay(value: string): string {
 }
 
 function normalizeEspecialidade(value: string | null | undefined): Especialidade {
-  if (value === 'refrigeracao' || value === 'elevadores' || value === 'geral') {
+  if (
+    value === 'refrigeracao'
+    || value === 'elevadores'
+    || value === 'geral'
+    || value === 'cd_manaus'
+    || value === 'cd_taruma'
+  ) {
     return value
   }
   return 'geral'

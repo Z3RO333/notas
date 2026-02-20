@@ -13,6 +13,8 @@ const especialidadeConfig: Record<Especialidade, { label: string; color: string 
   refrigeracao: { label: 'Refrig.', color: 'bg-cyan-100 text-cyan-800' },
   elevadores: { label: 'Elev.', color: 'bg-orange-100 text-orange-800' },
   geral: { label: 'Geral', color: 'bg-gray-100 text-gray-800' },
+  cd_manaus: { label: 'CD MANAUS', color: 'bg-blue-100 text-blue-800' },
+  cd_taruma: { label: 'CD TARUMÃ', color: 'bg-teal-100 text-teal-800' },
 }
 
 function getUnavailableLabel(c: CollaboratorData): string | null {

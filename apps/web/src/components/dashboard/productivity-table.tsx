@@ -27,6 +27,8 @@ const especialidadeConfig: Record<Especialidade, { label: string; color: string 
   refrigeracao: { label: 'Refrigeracao', color: 'bg-cyan-100 text-cyan-800' },
   elevadores: { label: 'Elevadores/Geradores', color: 'bg-orange-100 text-orange-800' },
   geral: { label: 'Geral', color: 'bg-gray-100 text-gray-800' },
+  cd_manaus: { label: 'CD MANAUS', color: 'bg-blue-100 text-blue-800' },
+  cd_taruma: { label: 'CD TARUMÃ', color: 'bg-teal-100 text-teal-800' },
 }
 
 export function ProductivityTable({ data, notasConcluidas, totalAbertas, totalConcluidas }: ProductivityTableProps) {
@@ -122,6 +124,8 @@ export function ProductivityTable({ data, notasConcluidas, totalAbertas, totalCo
               <SelectItem value="refrigeracao">Refrigeracao</SelectItem>
               <SelectItem value="elevadores">Elevadores/Geradores</SelectItem>
               <SelectItem value="geral">Geral</SelectItem>
+              <SelectItem value="cd_manaus">CD MANAUS</SelectItem>
+              <SelectItem value="cd_taruma">CD TARUMÃ</SelectItem>
             </SelectContent>
           </Select>
         </div>
