@@ -183,7 +183,7 @@ export async function GET(request: Request) {
         supabase,
         gestorId: loggedAdmin.id,
         debug: debugOrdersRouting,
-        motivo: 'Auto realocação PMPL/CD (Painel de Ordens)',
+        motivo: 'Auto realocação PMPL/Refrigeração/CD (Painel de Ordens)',
       })
       fixedOwnerLabelByAdminId = routingResult.fixedOwnerLabelByAdminId
     } catch (error) {
