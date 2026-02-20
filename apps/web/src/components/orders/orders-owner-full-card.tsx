@@ -50,7 +50,7 @@ export function OrdersOwnerFullCard({
           <div className="min-w-0">
             <p className="truncate text-lg font-semibold">{group.nome}</p>
             <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-              {group.total} ordem{group.total !== 1 ? 's' : ''}
+              {group.total} ordem{group.total !== 1 ? 'ns' : ''}
             </span>
           </div>
         </div>
@@ -83,7 +83,7 @@ export function OrdersOwnerFullCard({
       </div>
 
       <div className="rounded bg-slate-50 px-3 py-2 text-sm text-slate-700">
-        <span className="font-semibold">{group.abertas}</span> ordem{group.abertas !== 1 ? 's' : ''} aberta{group.abertas !== 1 ? 's' : ''}
+        <span className="font-semibold">{group.abertas}</span> ordem{group.abertas !== 1 ? 'ns' : ''} aberta{group.abertas !== 1 ? 's' : ''}
       </div>
 
       <div className="space-y-2">
