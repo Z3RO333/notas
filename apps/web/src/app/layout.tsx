@@ -8,8 +8,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Cockpit de Manutencao',
-  description: 'Painel de ordens de manutencao',
+  title: 'Cockpit de Manutenção',
+  description: 'Painel de ordens de manutenção',
 }
 
 function isDynamicServerUsageError(error: unknown): boolean {

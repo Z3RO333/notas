@@ -92,7 +92,7 @@ export function OrdersOwnerAccordion({
           <Link href={`/notas/${row.original.nota_id}`} className="font-mono text-sm font-semibold hover:underline">
             {row.original.numero_nota} • Ordem {row.original.ordem_codigo}
           </Link>
-          <p className="truncate text-xs text-muted-foreground">{row.original.descricao ?? 'Sem descricao'}</p>
+          <p className="truncate text-xs text-muted-foreground">{row.original.descricao ?? 'Sem descrição'}</p>
         </div>
       ),
     },
@@ -119,8 +119,8 @@ export function OrdersOwnerAccordion({
       header: 'Responsabilidade',
       cell: ({ row }) => (
         <div className="space-y-0.5 text-xs">
-          <p><span className="text-muted-foreground">Atual:</span> {row.original.responsavel_atual_nome ?? 'Sem responsavel'}</p>
-          <p><span className="text-muted-foreground">Origem:</span> {row.original.administrador_nome ?? 'Nao identificado'}</p>
+          <p><span className="text-muted-foreground">Atual:</span> {row.original.responsavel_atual_nome ?? 'Sem responsável'}</p>
+          <p><span className="text-muted-foreground">Origem:</span> {row.original.administrador_nome ?? 'Não identificado'}</p>
         </div>
       ),
     },

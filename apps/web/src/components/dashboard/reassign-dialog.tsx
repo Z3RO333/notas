@@ -79,7 +79,7 @@ export function ReassignDialog({ notaId, notaNumero, currentAdminId, admins }: R
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label htmlFor="novo-responsavel" className="text-sm font-medium">Novo Responsavel</label>
+            <label htmlFor="novo-responsavel" className="text-sm font-medium">Novo Responsável</label>
             <SearchableSelect
               id="novo-responsavel"
               options={adminOptions}
@@ -89,7 +89,7 @@ export function ReassignDialog({ notaId, notaNumero, currentAdminId, admins }: R
             />
             {availableAdmins.length === 0 && (
               <p className="text-xs text-muted-foreground">
-                Nenhum administrador elegivel disponivel no momento.
+                Nenhum administrador elegível disponível no momento.
               </p>
             )}
           </div>
@@ -97,7 +97,7 @@ export function ReassignDialog({ notaId, notaNumero, currentAdminId, admins }: R
             <label htmlFor="motivo-reatribuicao" className="text-sm font-medium">Motivo (opcional)</label>
             <Textarea
               id="motivo-reatribuicao"
-              placeholder="Motivo da reatribuicao..."
+              placeholder="Motivo da reatribuição..."
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               rows={2}

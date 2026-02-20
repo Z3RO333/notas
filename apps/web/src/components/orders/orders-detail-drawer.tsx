@@ -115,8 +115,8 @@ export function OrdersDetailDrawer({
           </div>
 
           <div className="rounded-lg border p-3 text-sm">
-            <p><span className="text-muted-foreground">Responsavel atual:</span> {current.responsavel_atual_nome ?? 'Sem responsavel'}</p>
-            <p><span className="text-muted-foreground">Responsavel origem:</span> {current.administrador_nome ?? 'Nao identificado'}</p>
+            <p><span className="text-muted-foreground">Responsável atual:</span> {current.responsavel_atual_nome ?? 'Sem responsável'}</p>
+            <p><span className="text-muted-foreground">Responsável origem:</span> {current.administrador_nome ?? 'Não identificado'}</p>
             <p><span className="text-muted-foreground">Unidade:</span> {current.unidade ?? 'Sem unidade'}</p>
             <p><span className="text-muted-foreground">Dias em aberto:</span> {current.dias_em_aberto}</p>
             <p><span className="text-muted-foreground">Detectada em:</span> {formatIsoDate(current.ordem_detectada_em)}</p>
@@ -140,7 +140,7 @@ export function OrdersDetailDrawer({
           <div className="rounded-lg border p-3">
             <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
               <Clock3 className="h-3.5 w-3.5" />
-              Historico recente
+              Histórico recente
             </div>
 
             {loading && (
@@ -158,7 +158,7 @@ export function OrdersDetailDrawer({
             )}
 
             {!loading && !error && (data?.timeline?.length ?? 0) === 0 && (
-              <p className="text-sm text-muted-foreground">Sem historico recente.</p>
+              <p className="text-sm text-muted-foreground">Sem histórico recente.</p>
             )}
 
             {!loading && !error && (data?.timeline?.length ?? 0) > 0 && (

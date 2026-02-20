@@ -1,5 +1,5 @@
 -- 00018_reassign_tracking_and_aging.sql
--- Reatribuicao obrigatoria em lote + acompanhamento de ordens reatribuidas
+-- Reatribuição obrigatória em lote + acompanhamento de ordens reatribuídas
 
 -- ============================================================
 -- 1) TABELA DE ACOMPANHAMENTO
@@ -21,7 +21,7 @@ CREATE INDEX IF NOT EXISTS idx_nota_acompanhamentos_admin
 
 ALTER TABLE public.nota_acompanhamentos DISABLE ROW LEVEL SECURITY;
 
--- Backfill dos responsaveis anteriores historicos
+-- Backfill dos responsáveis anteriores históricos
 WITH historico_reassign AS (
   SELECT
     h.nota_id,
@@ -64,7 +64,7 @@ BEGIN
     AND g.ativo = true;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Gestor invalido para reatribuicao';
+    RAISE EXCEPTION 'Gestor inválido para reatribuição';
   END IF;
 
   SELECT * INTO v_nota
@@ -73,13 +73,13 @@ BEGIN
   FOR UPDATE;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Nota % nao encontrada', p_nota_id;
+    RAISE EXCEPTION 'Nota % não encontrada', p_nota_id;
   END IF;
 
   v_old_admin_id := v_nota.administrador_id;
 
   IF v_old_admin_id IS NOT NULL AND v_old_admin_id = p_novo_admin_id THEN
-    RAISE EXCEPTION 'Novo responsavel deve ser diferente do atual';
+    RAISE EXCEPTION 'Novo responsável deve ser diferente do atual';
   END IF;
 
   PERFORM 1
@@ -90,7 +90,7 @@ BEGIN
     AND a.em_ferias = false;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Destino invalido: admin deve estar ativo e fora de ferias';
+    RAISE EXCEPTION 'Destino inválido: admin deve estar ativo e fora de férias';
   END IF;
 
   UPDATE public.notas_manutencao
@@ -108,7 +108,7 @@ BEGIN
     COALESCE(v_old_admin_id::TEXT, 'NULL'),
     p_novo_admin_id::TEXT,
     p_gestor_id,
-    COALESCE(p_motivo, 'Reatribuicao manual pelo gestor')
+    COALESCE(p_motivo, 'Reatribuição manual pelo gestor')
   );
 
   IF v_old_admin_id IS NOT NULL THEN
@@ -146,11 +146,11 @@ BEGIN
     AND g.ativo = true;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Gestor invalido para reatribuicao em lote';
+    RAISE EXCEPTION 'Gestor inválido para reatribuição em lote';
   END IF;
 
   IF p_modo NOT IN ('destino_unico', 'round_robin') THEN
-    RAISE EXCEPTION 'Modo invalido. Use destino_unico ou round_robin';
+    RAISE EXCEPTION 'Modo inválido. Use destino_unico ou round_robin';
   END IF;
 
   PERFORM 1
@@ -159,7 +159,7 @@ BEGIN
     AND a.role = 'admin';
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Admin de origem invalido';
+    RAISE EXCEPTION 'Admin de origem inválido';
   END IF;
 
   IF p_modo = 'destino_unico' THEN
@@ -176,7 +176,7 @@ BEGIN
       AND a.id <> p_admin_origem;
 
     IF NOT FOUND THEN
-      RAISE EXCEPTION 'Destino unico invalido';
+      RAISE EXCEPTION 'Destino unico inválido';
     END IF;
   ELSE
     SELECT array_agg(a.id ORDER BY a.nome) INTO v_destinos
@@ -189,7 +189,7 @@ BEGIN
     v_destinos_count := COALESCE(array_length(v_destinos, 1), 0);
 
     IF v_destinos_count = 0 THEN
-      RAISE EXCEPTION 'Nao existem destinos elegiveis para round_robin';
+      RAISE EXCEPTION 'Não existem destinos elegíveis para round_robin';
     END IF;
   END IF;
 
@@ -222,7 +222,7 @@ BEGIN
       COALESCE(v_nota.administrador_id::TEXT, 'NULL'),
       v_destino::TEXT,
       p_gestor_id,
-      COALESCE(p_motivo, 'Reatribuicao em lote pelo gestor (' || p_modo || ')')
+      COALESCE(p_motivo, 'Reatribuição em lote pelo gestor (' || p_modo || ')')
     );
 
     IF v_nota.administrador_id IS NOT NULL THEN

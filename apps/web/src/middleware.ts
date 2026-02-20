@@ -36,7 +36,7 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Sem sessao e nao esta em /login → redireciona para login
+  // Sem sessão e não esta em /login → redireciona para login
   if (!user) {
     if (pathname === '/login') return NextResponse.next()
     const url = request.nextUrl.clone()
@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
     adminRole = admin?.role ?? null
   }
 
-  // Ja logado em /login → redirecionar para home
+  // Já logado em /login → redirecionar para home
   if (pathname === '/login') {
     const url = request.nextUrl.clone()
     url.pathname = adminRole === 'gestor' ? '/admin' : '/'

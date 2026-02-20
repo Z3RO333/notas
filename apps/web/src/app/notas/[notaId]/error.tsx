@@ -16,7 +16,7 @@ export default function NotaError({
       <AlertTriangle className="h-10 w-10 text-destructive mb-4" />
       <h2 className="text-lg font-semibold mb-2">Erro ao carregar nota</h2>
       <p className="text-sm text-muted-foreground mb-6 max-w-md">
-        Nao foi possivel carregar os detalhes desta nota. Ela pode ter sido removida ou houve um problema de conexao.
+        Não foi possível carregar os detalhes desta nota. Ela pode ter sido removida ou houve um problema de conexão.
       </p>
       <div className="flex gap-3">
         <Button variant="outline" asChild>

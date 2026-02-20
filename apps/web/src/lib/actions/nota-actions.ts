@@ -16,7 +16,7 @@ async function getLoggedAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user?.email) throw new Error('Nao autenticado')
+  if (!user?.email) throw new Error('Não autenticado')
 
   const { data: admin } = await supabase
     .from('administradores')
@@ -24,7 +24,7 @@ async function getLoggedAdmin() {
     .eq('email', user.email)
     .single()
 
-  if (!admin) throw new Error('Administrador nao encontrado')
+  if (!admin) throw new Error('Administrador não encontrado')
 
   return { supabase, admin }
 }
@@ -136,7 +136,7 @@ export async function buscarCodigosAvaliadas(params: {
   adminId?: string | null
 }): Promise<string[]> {
   const supabase = await createClient()
-  const AVALIADAS_RAW_STATUS = 'AVALIACAO_DA_EXECUCAO'
+  const AVALIADAS_RAW_STATUS = 'EXECUCAO_SATISFATORIO'
   const PAGE_SIZE = 1000
 
   const codes: string[] = []

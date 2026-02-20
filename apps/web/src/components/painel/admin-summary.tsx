@@ -18,7 +18,7 @@ export function AdminSummary({ notas }: AdminSummaryProps) {
     { label: 'Novo', count: counts.novo, icon: CheckCircle, color: 'text-emerald-700 bg-emerald-50' },
     { label: '1 dia', count: counts.umDia, icon: Clock3, color: 'text-amber-700 bg-amber-50' },
     { label: '2+ dias', count: counts.doisMais, icon: Timer, color: 'text-red-700 bg-red-50' },
-    { label: 'Concluidas', count: counts.concluida, icon: CheckCircle, color: 'text-green-600 bg-green-50' },
+    { label: 'Concluídas', count: counts.concluida, icon: CheckCircle, color: 'text-green-600 bg-green-50' },
   ]
 
   return (

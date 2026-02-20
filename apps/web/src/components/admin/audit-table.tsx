@@ -11,10 +11,10 @@ interface AuditTableProps {
 }
 
 const acaoLabels: Record<string, { label: string; color: string }> = {
-  ativar_distribuicao: { label: 'Ativou distribuicao', color: 'text-green-700' },
-  desativar_distribuicao: { label: 'Desativou distribuicao', color: 'text-red-700' },
-  marcar_ferias: { label: 'Marcou ferias', color: 'text-amber-700' },
-  retornar_ferias: { label: 'Retornou de ferias', color: 'text-green-700' },
+  ativar_distribuicao: { label: 'Ativou distribuição', color: 'text-green-700' },
+  desativar_distribuicao: { label: 'Desativou distribuição', color: 'text-red-700' },
+  marcar_ferias: { label: 'Marcou férias', color: 'text-amber-700' },
+  retornar_ferias: { label: 'Retornou de férias', color: 'text-green-700' },
   alterar_max_notas: { label: 'Alterou limite de notas', color: 'text-blue-700' },
   ativar_admin: { label: 'Ativou admin', color: 'text-green-700' },
   desativar_admin: { label: 'Desativou admin', color: 'text-red-700' },
@@ -71,7 +71,7 @@ export function AuditTable({ logs, perspectiva }: AuditTableProps) {
                 <th className="px-4 py-3 text-left font-medium w-8" />
                 <th className="px-4 py-3 text-left font-medium">Data/Hora</th>
                 <th className="px-4 py-3 text-left font-medium">Gestor</th>
-                <th className="px-4 py-3 text-left font-medium">Acao</th>
+                <th className="px-4 py-3 text-left font-medium">Ação</th>
                 <th className="px-4 py-3 text-left font-medium">Alvo</th>
               </tr>
             </thead>

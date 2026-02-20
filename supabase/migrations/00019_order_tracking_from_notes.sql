@@ -1,5 +1,5 @@
 -- 00019_order_tracking_from_notes.sql
--- Acompanhamento de ordens originadas de notas (SAP + manual), com status e semaforo
+-- Acompanhamento de ordens originadas de notas (SAP + manual), com status e semáforo
 
 -- ============================================================
 -- 1) ENUM DE STATUS DE ACOMPANHAMENTO
@@ -592,7 +592,7 @@ BEGIN
       'administrador_id',
       NULL,
       v_admin.id::TEXT,
-      'Distribuicao automatica (' || v_especialidade || ') - sync_id: ' || COALESCE(p_sync_id::TEXT, 'manual')
+      'Distribuição automatica (' || v_especialidade || ') - sync_id: ' || COALESCE(p_sync_id::TEXT, 'manual')
     );
 
     nota_id := v_nota.id;

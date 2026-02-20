@@ -283,12 +283,12 @@ export function NotasGrid({
       accessorKey: 'responsavel_nome',
       header: ({ column }) => (
         <SortableHeader
-          label="Responsavel"
+          label="Responsável"
           isSorted={column.getIsSorted()}
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
         />
       ),
-      cell: ({ row }) => row.original.responsavel_nome ?? 'Sem responsavel',
+      cell: ({ row }) => row.original.responsavel_nome ?? 'Sem responsável',
     },
     {
       id: 'data',
@@ -338,7 +338,7 @@ export function NotasGrid({
     { id: 'idade', label: 'Idade' },
     { id: 'numero_nota', label: 'Nota' },
     { id: 'unidade', label: 'Unidade' },
-    { id: 'responsavel', label: 'Responsavel' },
+    { id: 'responsavel', label: 'Responsável' },
     { id: 'data', label: 'Data' },
     { id: 'status', label: 'Status' },
     { id: 'acoes', label: 'Acoes' },
@@ -355,7 +355,7 @@ export function NotasGrid({
         <GridSearch
           value={searchInput}
           onChange={setSearchInput}
-          placeholder="Buscar por nota ou descricao..."
+          placeholder="Buscar por nota ou descrição..."
           inputRef={searchInputRef}
         />
 
@@ -368,14 +368,14 @@ export function NotasGrid({
             { value: 'nova', label: 'Nova' },
             { value: 'em_andamento', label: 'Em andamento' },
             { value: 'encaminhada_fornecedor', label: 'Encaminhada' },
-            { value: 'concluida', label: 'Concluida' },
+            { value: 'concluida', label: 'Concluída' },
             { value: 'cancelada', label: 'Cancelada' },
           ]}
         />
 
         {canViewGlobal && (
           <GridFilters
-            label="Responsavel"
+            label="Responsável"
             value={responsavel || 'todos'}
             onChange={(value) => replaceQuery({ responsavel: value === 'todos' ? null : value, page: 1 })}
             options={responsavelOptions}
@@ -399,7 +399,7 @@ export function NotasGrid({
             { value: 'idade:desc', label: 'Idade (maior primeiro)' },
             { value: 'numero_nota:asc', label: 'Nota (A-Z)' },
             { value: 'status:asc', label: 'Status (A-Z)' },
-            { value: 'responsavel:asc', label: 'Responsavel (A-Z)' },
+            { value: 'responsavel:asc', label: 'Responsável (A-Z)' },
           ]}
           className="w-full xl:w-56"
         />
@@ -488,8 +488,8 @@ export function NotasGrid({
               <NotaStatusBadge status={selectedRow.status} />
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Responsavel</span>
-              <span>{selectedRow.responsavel_nome ?? 'Sem responsavel'}</span>
+              <span className="text-muted-foreground">Responsável</span>
+              <span>{selectedRow.responsavel_nome ?? 'Sem responsável'}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Unidade</span>

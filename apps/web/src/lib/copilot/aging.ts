@@ -7,7 +7,7 @@ import type { SmartAgingCategory, SmartAgingBadge, SmartAgingCounts } from '@/li
  *   dentro_prazo:      0-1 dia  (verde)
  *   perto_de_estourar: 2 dias   (amarelo pulsante)
  *   estourado:         3-4 dias (laranja)
- *   critico:           5+ dias  (vermelho pulsante)
+ *   crítico:           5+ dias  (vermelho pulsante)
  */
 export function getSmartAgingCategory(
   nota: Pick<NotaPanelData, 'data_criacao_sap' | 'created_at'>,

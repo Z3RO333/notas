@@ -6,7 +6,7 @@ interface GridErrorStateProps {
 }
 
 export function GridErrorState({
-  message = 'Nao foi possivel carregar os dados.',
+  message = 'Não foi possível carregar os dados.',
   onRetry,
 }: GridErrorStateProps) {
   return (

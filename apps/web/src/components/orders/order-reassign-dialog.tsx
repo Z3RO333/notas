@@ -86,13 +86,13 @@ export function OrderReassignDialog({
         <DialogHeader>
           <DialogTitle>Reatribuir ordem {ordemCodigo}</DialogTitle>
           <DialogDescription>
-            Nota {notaNumero}. Selecione o novo responsavel para continuidade da tratativa.
+            Nota {notaNumero}. Selecione o novo responsável para continuidade da tratativa.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label htmlFor={`ordem-destino-${notaId}`} className="text-sm font-medium">Novo responsavel</label>
+            <label htmlFor={`ordem-destino-${notaId}`} className="text-sm font-medium">Novo responsável</label>
             <SearchableSelect
               id={`ordem-destino-${notaId}`}
               options={adminOptions}
@@ -101,7 +101,7 @@ export function OrderReassignDialog({
               placeholder="Selecione o admin..."
             />
             {availableAdmins.length === 0 && (
-              <p className="text-xs text-muted-foreground">Nenhum administrador elegivel disponivel.</p>
+              <p className="text-xs text-muted-foreground">Nenhum administrador elegível disponível.</p>
             )}
           </div>
 
@@ -109,7 +109,7 @@ export function OrderReassignDialog({
             <label htmlFor={`ordem-motivo-${notaId}`} className="text-sm font-medium">Motivo (opcional)</label>
             <Textarea
               id={`ordem-motivo-${notaId}`}
-              placeholder="Ex: reatribuicao por ausencia/ferias"
+              placeholder="Ex: reatribuição por ausência/férias"
               value={motivo}
               onChange={(event) => setMotivo(event.target.value)}
               rows={2}

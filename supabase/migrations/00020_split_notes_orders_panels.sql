@@ -1,5 +1,5 @@
 -- 00020_split_notes_orders_panels.sql
--- Separacao em dois paineis (notas x ordens) + reatribuicao em lote por checkbox
+-- Separacao em dois paineis (notas x ordens) + reatribuição em lote por checkbox
 
 -- ============================================================
 -- 1) VIEW CANONICA: NOTAS SEM ORDEM
@@ -223,7 +223,7 @@ BEGIN
     AND g.ativo = true;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Gestor invalido para reatribuicao em lote de ordens';
+    RAISE EXCEPTION 'Gestor inválido para reatribuição em lote de ordens';
   END IF;
 
   IF p_nota_ids IS NULL OR COALESCE(array_length(p_nota_ids, 1), 0) = 0 THEN
@@ -231,7 +231,7 @@ BEGIN
   END IF;
 
   IF p_modo NOT IN ('destino_unico', 'round_robin') THEN
-    RAISE EXCEPTION 'Modo invalido. Use destino_unico ou round_robin';
+    RAISE EXCEPTION 'Modo inválido. Use destino_unico ou round_robin';
   END IF;
 
   IF p_modo = 'destino_unico' THEN
@@ -247,7 +247,7 @@ BEGIN
       AND a.em_ferias = false;
 
     IF NOT FOUND THEN
-      RAISE EXCEPTION 'Destino unico invalido';
+      RAISE EXCEPTION 'Destino unico inválido';
     END IF;
   ELSE
     SELECT array_agg(a.id ORDER BY a.nome) INTO v_destinos
@@ -259,7 +259,7 @@ BEGIN
     v_destinos_count := COALESCE(array_length(v_destinos, 1), 0);
 
     IF v_destinos_count = 0 THEN
-      RAISE EXCEPTION 'Nao existem destinos elegiveis para round_robin';
+      RAISE EXCEPTION 'Não existem destinos elegíveis para round_robin';
     END IF;
   END IF;
 
@@ -296,7 +296,7 @@ BEGIN
       COALESCE(v_nota.administrador_id::TEXT, 'NULL'),
       v_destino::TEXT,
       p_gestor_id,
-      COALESCE(p_motivo, 'Reatribuicao em lote de ordens pelo gestor (' || p_modo || ')')
+      COALESCE(p_motivo, 'Reatribuição em lote de ordens pelo gestor (' || p_modo || ')')
     );
 
     IF v_nota.administrador_id IS NOT NULL THEN

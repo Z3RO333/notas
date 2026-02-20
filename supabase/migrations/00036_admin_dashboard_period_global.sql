@@ -1,5 +1,5 @@
 -- 00036_admin_dashboard_period_global.sql
--- Dashboard administrativo com periodo global (notas + ordens)
+-- Dashboard administrativo com período global (notas + ordens)
 
 CREATE INDEX IF NOT EXISTS idx_notas_manutencao_data_criacao_sap_dashboard
   ON public.notas_manutencao (data_criacao_sap)

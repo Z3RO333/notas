@@ -192,9 +192,9 @@ export default async function CopilotPage() {
             label="ISO Operacional"
           />
           <div className="flex-1 text-center md:text-left">
-            <h1 className="text-2xl font-bold tracking-tight">Copilot de Operacoes</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Copilot de Operações</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              O que voce precisa resolver hoje — visao inteligente da operacao.
+              O que você precisa resolver hoje — visão inteligente da operação.
             </p>
             <div className="flex flex-wrap items-center gap-3 mt-3 justify-center md:justify-start">
               <span className="text-sm">
@@ -205,7 +205,7 @@ export default async function CopilotPage() {
               </span>
               {isoGlobal.admins_criticos > 0 && (
                 <span className="text-sm text-red-600 font-medium">
-                  {isoGlobal.admins_criticos} em estado critico
+                  {isoGlobal.admins_criticos} em estado crítico
                 </span>
               )}
             </div>

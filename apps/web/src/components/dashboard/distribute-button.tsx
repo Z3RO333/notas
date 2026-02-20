@@ -16,7 +16,7 @@ export function DistributeButton() {
     setMessage('')
     try {
       const count = await distribuirNotasManual()
-      setMessage(`${count} nota${count !== 1 ? 's' : ''} distribuida${count !== 1 ? 's' : ''}`)
+      setMessage(`${count} nota${count !== 1 ? 's' : ''} distribuída${count !== 1 ? 's' : ''}`)
       router.refresh()
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Erro ao distribuir')

@@ -9,7 +9,7 @@ interface NotaHistoricoProps {
 function formatCampo(campo: string): string {
   const map: Record<string, string> = {
     status: 'Status',
-    administrador_id: 'Responsavel',
+    administrador_id: 'Responsável',
   }
   return map[campo] || campo
 }
@@ -21,7 +21,7 @@ function formatValor(campo: string, valor: string | null): string {
       nova: 'Nova',
       em_andamento: 'Em Andamento',
       encaminhada_fornecedor: 'Encaminhada',
-      concluida: 'Concluida',
+      concluida: 'Concluída',
       cancelada: 'Cancelada',
     }
     return labels[valor] || valor
@@ -34,7 +34,7 @@ export function NotaHistoricoTimeline({ historico }: NotaHistoricoProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Historico</CardTitle>
+          <CardTitle className="text-lg">Histórico</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">Nenhum registro ainda.</p>
@@ -46,7 +46,7 @@ export function NotaHistoricoTimeline({ historico }: NotaHistoricoProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Historico</CardTitle>
+        <CardTitle className="text-lg">Histórico</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

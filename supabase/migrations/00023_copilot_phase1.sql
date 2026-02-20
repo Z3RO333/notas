@@ -1,12 +1,12 @@
 -- =============================================
 -- MIGRATION 00022: Copilot Phase 1 — ISO Views
--- Indice de Severidade Operacional por admin e global
+-- Índice de Severidade Operacional por admin e global
 -- =============================================
 
 -- View: ISO por administrador
 -- Calcula 4 componentes (25% cada):
 --   nota_severity: media ponderada do aging das notas abertas
---   order_severity: % ordens com semaforo vermelho
+--   order_severity: % ordens com semáforo vermelho
 --   workload_pressure: carga atual / max_notas * 100
 --   critical_density: % notas com aging >= 3 dias
 CREATE OR REPLACE VIEW public.vw_iso_por_admin AS

@@ -1,5 +1,5 @@
 -- 00004_create_functions.sql
--- Funcoes do cockpit: distribuicao, atualizacao de status, reatribuicao
+-- Funcoes do cockpit: distribuição, atualizacao de status, reatribuição
 
 -- ============================================================
 -- VIEW: carga por administrador
@@ -33,10 +33,10 @@ DECLARE
   v_nota RECORD;
   v_admin RECORD;
 BEGIN
-  -- Advisory lock: previne distribuicao concorrente
+  -- Advisory lock: previne distribuição concorrente
   PERFORM pg_advisory_xact_lock(hashtext('distribuir_notas'));
 
-  -- Loop pelas notas nao atribuidas (mais antiga primeiro)
+  -- Loop pelas notas não atribuídas (mais antiga primeiro)
   FOR v_nota IN
     SELECT id
     FROM public.notas_manutencao
@@ -64,7 +64,7 @@ BEGIN
     ORDER BY open_count ASC, a.nome ASC
     LIMIT 1;
 
-    -- Se nenhum admin disponivel, para a distribuicao
+    -- Se nenhum admin disponivel, para a distribuição
     IF v_admin IS NULL THEN
       EXIT;
     END IF;
@@ -77,7 +77,7 @@ BEGIN
       updated_at = now()
     WHERE id = v_nota.id;
 
-    -- Log da atribuicao
+    -- Log da atribuição
     INSERT INTO public.distribuicao_log (nota_id, administrador_id, notas_abertas_no_momento, sync_id)
     VALUES (v_nota.id, v_admin.id, v_admin.open_count, p_sync_id);
 
@@ -88,10 +88,10 @@ BEGIN
       'administrador_id',
       NULL,
       v_admin.id::TEXT,
-      'Distribuicao automatica - sync_id: ' || COALESCE(p_sync_id::TEXT, 'manual')
+      'Distribuição automatica - sync_id: ' || COALESCE(p_sync_id::TEXT, 'manual')
     );
 
-    -- Retorna a atribuicao
+    -- Retorna a atribuição
     nota_id := v_nota.id;
     administrador_id := v_admin.id;
     notas_abertas := v_admin.open_count;
@@ -124,7 +124,7 @@ BEGIN
   FOR UPDATE;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Nota % nao encontrada', p_nota_id;
+    RAISE EXCEPTION 'Nota % não encontrada', p_nota_id;
   END IF;
 
   v_old_status := v_nota.status;
@@ -135,7 +135,7 @@ BEGIN
     OR (v_old_status = 'em_andamento' AND p_novo_status IN ('encaminhada_fornecedor', 'cancelada'))
     OR (v_old_status = 'encaminhada_fornecedor' AND p_novo_status IN ('concluida', 'em_andamento', 'cancelada'))
   ) THEN
-    RAISE EXCEPTION 'Transicao de status invalida: % -> %', v_old_status, p_novo_status;
+    RAISE EXCEPTION 'Transicao de status inválida: % -> %', v_old_status, p_novo_status;
   END IF;
 
   -- Atualiza a nota
@@ -178,7 +178,7 @@ BEGIN
   FOR UPDATE;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Nota % nao encontrada', p_nota_id;
+    RAISE EXCEPTION 'Nota % não encontrada', p_nota_id;
   END IF;
 
   v_old_admin_id := v_nota.administrador_id;
@@ -199,7 +199,7 @@ BEGIN
     COALESCE(v_old_admin_id::TEXT, 'NULL'),
     p_novo_admin_id::TEXT,
     p_gestor_id,
-    COALESCE(p_motivo, 'Reatribuicao manual pelo gestor')
+    COALESCE(p_motivo, 'Reatribuição manual pelo gestor')
   );
 
   RETURN v_nota;

@@ -69,7 +69,7 @@ export function AlertsPanel({ alerts, latestSync }: AlertsPanelProps) {
                 </span>
               </div>
             ) : (
-              <span className="text-xs text-muted-foreground">Nao encontrado</span>
+              <span className="text-xs text-muted-foreground">Não encontrado</span>
             )}
           </div>
         </div>

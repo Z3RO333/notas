@@ -1,7 +1,7 @@
 -- 00017_dashboard_views.sql
 -- Views de suporte ao dashboard hibrido (executivo + operacional)
 
--- Fluxo diario (entradas x concluidas) com janela rolante de 90 dias
+-- Fluxo diário (entradas x concluídas) com janela rolante de 90 dias
 CREATE OR REPLACE VIEW public.vw_dashboard_fluxo_diario_90d AS
 WITH dias AS (
   SELECT

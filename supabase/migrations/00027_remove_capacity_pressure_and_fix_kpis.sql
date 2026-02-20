@@ -88,7 +88,7 @@ BEGIN
       'administrador_id',
       NULL,
       v_admin.id::TEXT,
-      'Distribuicao automatica (' || v_especialidade || ') - sync_id: ' || COALESCE(p_sync_id::TEXT, 'manual')
+      'Distribuição automatica (' || v_especialidade || ') - sync_id: ' || COALESCE(p_sync_id::TEXT, 'manual')
     );
 
     nota_id := v_nota.id;

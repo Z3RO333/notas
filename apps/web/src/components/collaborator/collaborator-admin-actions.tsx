@@ -75,8 +75,8 @@ export function CollaboratorAdminActions({ admin, destinations }: CollaboratorAd
     await runToggle(pendingToggle.kind, pendingToggle.value, params.motivo)
 
     toast({
-      title: 'Reatribuicao concluida',
-      description: `${admin.qtd_abertas} nota(s) reatribuidas antes de atualizar ${pendingToggle.label.toLowerCase()}.`,
+      title: 'Reatribuição concluída',
+      description: `${admin.qtd_abertas} nota(s) reatribuídas antes de atualizar ${pendingToggle.label.toLowerCase()}.`,
       variant: 'success',
     })
 
@@ -101,17 +101,17 @@ export function CollaboratorAdminActions({ admin, destinations }: CollaboratorAd
             id={`distrib-${admin.id}`}
             checked={admin.recebe_distribuicao}
             disabled={!admin.ativo}
-            onCheckedChange={(v) => handleToggle('distribuicao', 'Distribuicao', v)}
+            onCheckedChange={(v) => handleToggle('distribuicao', 'Distribuição', v)}
           />
         </div>
 
         <div className="flex items-center gap-2">
-          <label htmlFor={`ferias-${admin.id}`}>Ferias</label>
+          <label htmlFor={`ferias-${admin.id}`}>Férias</label>
           <Switch
             id={`ferias-${admin.id}`}
             checked={admin.em_ferias}
             disabled={!admin.ativo}
-            onCheckedChange={(v) => handleToggle('ferias', 'Ferias', v)}
+            onCheckedChange={(v) => handleToggle('ferias', 'Férias', v)}
           />
         </div>
       </div>

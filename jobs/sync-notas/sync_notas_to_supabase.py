@@ -219,7 +219,7 @@ def _log_empty_result_diagnostics(spark: SparkSession, effective_start: str, dat
         ]
 
         logger.warning(
-            "Diagnostico source vazio: total_rows=%s, invalidas_data_criacao=%s, min_data=%s, max_data=%s, total_filtradas=%s, effective_start=%s",
+            "Diagnóstico source vazio: total_rows=%s, invalidas_data_criacao=%s, min_data=%s, max_data=%s, total_filtradas=%s, effective_start=%s",
             summary_row["total_rows"],
             summary_row["data_criacao_invalidas"],
             summary_row["min_data_criacao"],
@@ -229,7 +229,7 @@ def _log_empty_result_diagnostics(spark: SparkSession, effective_start: str, dat
         )
         logger.warning("Amostra DATA_CRIACAO (top 5): %s", sample_rows)
     except Exception as diag_error:
-        logger.warning("Falha ao gerar diagnostico de source vazio: %s", diag_error)
+        logger.warning("Falha ao gerar diagnóstico de source vazio: %s", diag_error)
 
 
 def get_sync_window_days(spark: SparkSession) -> int:
@@ -237,11 +237,11 @@ def get_sync_window_days(spark: SparkSession) -> int:
     try:
         parsed = int(raw)
     except ValueError:
-        logger.warning("Janela invalida em cockpit.sync.window_days=%s. Usando %s.", raw, DEFAULT_WINDOW_DAYS)
+        logger.warning("Janela inválida em cockpit.sync.window_days=%s. Usando %s.", raw, DEFAULT_WINDOW_DAYS)
         return DEFAULT_WINDOW_DAYS
 
     if parsed not in VALID_WINDOWS:
-        logger.warning("Janela %s nao suportada. Usando %s.", parsed, DEFAULT_WINDOW_DAYS)
+        logger.warning("Janela %s não suportada. Usando %s.", parsed, DEFAULT_WINDOW_DAYS)
         return DEFAULT_WINDOW_DAYS
 
     return parsed
@@ -262,7 +262,7 @@ def get_sync_start_date(spark: SparkSession) -> str:
     parsed = _normalize_iso_date(raw)
     if not parsed:
         logger.warning(
-            "Valor invalido em cockpit.sync.start_date=%s. Usando %s.",
+            "Valor inválido em cockpit.sync.start_date=%s. Usando %s.",
             raw,
             DEFAULT_SYNC_START_DATE,
         )
@@ -276,7 +276,7 @@ def get_pmpl_min_age_days(spark: SparkSession) -> int:
         parsed = int(raw)
     except ValueError:
         logger.warning(
-            "Valor invalido em cockpit.sync.pm_refresh_min_age_days=%s. Usando %s.",
+            "Valor inválido em cockpit.sync.pm_refresh_min_age_days=%s. Usando %s.",
             raw,
             PMPL_MIN_AGE_DAYS,
         )
@@ -317,7 +317,7 @@ def get_bootstrap_mode(spark: SparkSession) -> str:
     mode = (raw or DEFAULT_BOOTSTRAP_MODE).lower()
     if mode not in VALID_BOOTSTRAP_MODES:
         logger.warning(
-            "Modo invalido em cockpit.sync.bootstrap_mode=%s. Usando %s.",
+            "Modo inválido em cockpit.sync.bootstrap_mode=%s. Usando %s.",
             raw,
             DEFAULT_BOOTSTRAP_MODE,
         )
@@ -326,7 +326,7 @@ def get_bootstrap_mode(spark: SparkSession) -> str:
 
 
 def has_bootstrap_checkpoint(sync_start_date: str) -> bool:
-    """Verifica se ja houve bootstrap bem-sucedido para a origem e periodo configurados."""
+    """Verifica se já houve bootstrap bem-sucedido para a origem e período configurados."""
     result = (
         supabase.table("sync_log")
         .select("status, metadata")
@@ -362,7 +362,7 @@ def should_run_full_bootstrap(bootstrap_mode: str, sync_start_date: str) -> bool
 
     if has_bootstrap_checkpoint(sync_start_date):
         logger.info(
-            "Bootstrap auto nao necessario: checkpoint encontrado para tabela=%s e sync_start_date=%s.",
+            "Bootstrap auto não necessario: checkpoint encontrado para tabela=%s e sync_start_date=%s.",
             STREAMING_TABLE,
             sync_start_date,
         )
@@ -446,7 +446,7 @@ def read_new_notes(
             )
         else:
             effective_start = sync_start_date
-            logger.info("Sem watermark valido. Leitura iniciando em %s", effective_start)
+            logger.info("Sem watermark válido. Leitura iniciando em %s", effective_start)
 
     if not full_bootstrap:
         df = spark.sql(f"""
@@ -480,7 +480,7 @@ def read_new_notes(
         notes.append({
             "numero_nota": numero,
             "tipo_nota": row_dict.get("TIPO_NOTA"),
-            "descricao": row_dict.get("TEXTO_BREVE") or "Sem descricao",
+            "descricao": row_dict.get("TEXTO_BREVE") or "Sem descrição",
             "descricao_objeto": row_dict.get("TEXTO_DESC_OBJETO"),
             "prioridade": row_dict.get("PRIORIDADE"),
             "tipo_prioridade": row_dict.get("TIPO_PRIORIDADE"),
@@ -583,17 +583,17 @@ def upsert_notes(notes: list[dict], sync_id: str) -> tuple[int, int]:
 
 
 def run_register_orders(sync_id: str) -> tuple[int, int]:
-    """Registra ordens detectadas em notas e auto-conclui notas abertas quando aplicavel."""
+    """Registra ordens detectadas em notas e auto-conclui notas abertas quando aplicável."""
     result = supabase.rpc("registrar_ordens_por_notas", {"p_sync_id": sync_id}).execute()
     row = (result.data or [{}])[0]
     detectadas = int(row.get("ordens_detectadas") or 0)
     auto_concluidas = int(row.get("notas_auto_concluidas") or 0)
-    logger.info("Ordens detectadas: %s | Notas auto-concluidas: %s", detectadas, auto_concluidas)
+    logger.info("Ordens detectadas: %s | Notas auto-concluídas: %s", detectadas, auto_concluidas)
     return detectadas, auto_concluidas
 
 
 def run_distribution(sync_id: str) -> int:
-    """Chama a funcao de distribuicao no Supabase."""
+    """Chama a funcao de distribuição no Supabase."""
     result = supabase.rpc("distribuir_notas", {"p_sync_id": sync_id}).execute()
     distributed = len(result.data) if result.data else 0
     logger.info("Distribuidas: %s", distributed)
@@ -601,18 +601,19 @@ def run_distribution(sync_id: str) -> int:
 
 
 def get_orders_for_pmpl_refresh(min_age_days: int = PMPL_MIN_AGE_DAYS) -> list[str]:
-    """Lista ordens elegiveis para atualizacao de status via PMPL."""
+    """Lista ordens elegíveis para refresh PMPL (status abertos + ordens sem data_entrada)."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=min_age_days)
     ordem_codes: list[str] = []
     offset = 0
     page = 1000
+    open_status_csv = ",".join(sorted(OPEN_STATUS))
 
     while True:
         result = (
-            supabase.table("vw_ordens_notas_painel")
+            supabase.table("ordens_notas_acompanhamento")
             .select("ordem_codigo")
+            .or_(f"status_ordem.in.({open_status_csv}),data_entrada.is.null")
             .lte("ordem_detectada_em", cutoff.isoformat())
-            .in_("status_ordem", list(OPEN_STATUS))
             .range(offset, offset + page - 1)
             .execute()
         )
@@ -631,7 +632,7 @@ def get_orders_for_pmpl_refresh(min_age_days: int = PMPL_MIN_AGE_DAYS) -> list[s
             break
         offset += page
 
-    logger.info("Ordens elegiveis para refresh PMPL: %s", len(ordem_codes))
+    logger.info("Ordens elegíveis para refresh PMPL: %s", len(ordem_codes))
     return ordem_codes
 
 
@@ -656,7 +657,7 @@ def _extract_data_entrada(row_dict: dict) -> str | None:
 
 
 def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]) -> list[dict]:
-    """Consolida um unico status por ordem consultando manutencao.gold.pmpl_pmos."""
+    """Consolida um unico status por ordem consultando manutenção.gold.pmpl_pmos."""
     if not ordem_codes:
         return []
 
@@ -773,7 +774,7 @@ def finalize_sync_log(
     supabase.table("sync_log").update(data).eq("id", sync_id).execute()
 
 
-# ----- Execucao Principal -----
+# ----- Execução Principal -----
 def main():
     spark = SparkSession.builder.getOrCreate()
     window_days = get_sync_window_days(spark)
@@ -785,11 +786,11 @@ def main():
 
     try:
         supabase.table("sync_log").select("id").limit(1).execute()
-        logger.info("Conexao com Supabase OK. sync_log acessivel.")
+        logger.info("Conexão com Supabase OK. sync_log acessivel.")
     except Exception as e:
-        logger.error("FALHA na conexao com Supabase: %s", e)
+        logger.error("FALHA na conexão com Supabase: %s", e)
         logger.error("URL: %s", SUPABASE_URL)
-        logger.error("Verifique se esta usando a SERVICE_ROLE_KEY (nao a anon key)")
+        logger.error("Verifique se esta usando a SERVICE_ROLE_KEY (não a anon key)")
         raise
 
     sync_id = create_sync_log(spark)
@@ -865,7 +866,7 @@ def main():
                 error=str(e),
             )
         except Exception:
-            logger.error("Nao conseguiu gravar erro no sync_log")
+            logger.error("Não conseguiu gravar erro no sync_log")
         raise
 
 

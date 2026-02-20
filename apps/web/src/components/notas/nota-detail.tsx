@@ -33,8 +33,8 @@ export function NotaDetail({ nota }: NotaDetailProps) {
         <NotaStatusBadge status={nota.status} />
       </CardHeader>
       <CardContent className="space-y-1">
-        <InfoRow label="Descricao" value={nota.descricao} />
-        <InfoRow label="Descricao do Objeto" value={nota.descricao_objeto} />
+        <InfoRow label="Descrição" value={nota.descricao} />
+        <InfoRow label="Descrição do Objeto" value={nota.descricao_objeto} />
         <InfoRow label="Tipo de Nota" value={nota.tipo_nota} />
         <InfoRow
           label="Prioridade"
@@ -45,7 +45,7 @@ export function NotaDetail({ nota }: NotaDetailProps) {
         <InfoRow label="Criado por (SAP)" value={nota.criado_por_sap} />
         <InfoRow label="Autor da Nota" value={nota.autor_nota} />
         <InfoRow
-          label="Data de Criacao"
+          label="Data de Criação"
           value={nota.data_criacao_sap ? format(new Date(nota.data_criacao_sap), 'dd/MM/yyyy') : null}
         />
         <InfoRow label="Hora" value={nota.hora_nota} />
@@ -54,9 +54,9 @@ export function NotaDetail({ nota }: NotaDetailProps) {
         <InfoRow label="Conta Fornecedor" value={nota.conta_fornecedor} />
         {nota.ordem_gerada && <InfoRow label="Ordem Gerada" value={nota.ordem_gerada} />}
         {nota.fornecedor_encaminhado && <InfoRow label="Fornecedor Encaminhado" value={nota.fornecedor_encaminhado} />}
-        {nota.observacoes && <InfoRow label="Observacoes" value={nota.observacoes} />}
+        {nota.observacoes && <InfoRow label="Observações" value={nota.observacoes} />}
         <InfoRow
-          label="Distribuida em"
+          label="Distribuída em"
           value={nota.distribuida_em ? format(new Date(nota.distribuida_em), 'dd/MM/yyyy HH:mm') : null}
         />
       </CardContent>

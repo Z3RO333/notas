@@ -4,7 +4,7 @@
 -- Fila do admin: buscar notas por admin + status
 CREATE INDEX idx_notas_admin_status ON public.notas_manutencao(administrador_id, status);
 
--- Distribuicao: encontrar notas nao atribuidas rapidamente
+-- Distribuição: encontrar notas não atribuídas rapidamente
 CREATE INDEX idx_notas_nova_unassigned
   ON public.notas_manutencao(created_at ASC)
   WHERE status = 'nova' AND administrador_id IS NULL;
@@ -28,7 +28,7 @@ CREATE INDEX idx_historico_created ON public.notas_historico(created_at DESC);
 -- Sync logs
 CREATE INDEX idx_sync_log_started ON public.sync_log(started_at DESC);
 
--- Distribuicao log
+-- Distribuição log
 CREATE INDEX idx_distribuicao_admin ON public.distribuicao_log(administrador_id);
 
 -- Auth lookup

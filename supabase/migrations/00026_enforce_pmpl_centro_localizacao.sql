@@ -69,7 +69,7 @@ BEGIN
             'NULL',
             v_responsavel_atual_id::TEXT,
             NULL,
-            'Fallback automatico ao virar ordem sem responsavel'
+            'Fallback automático ao virar ordem sem responsável'
           );
         END IF;
       END IF;

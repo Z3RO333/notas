@@ -62,15 +62,15 @@ export function NotaCard({ nota }: NotaCardProps) {
       })
       toast({
         variant: 'success',
-        title: 'Nota concluida',
-        description: `Nota #${nota.numero_nota} foi marcada como concluida.`,
+        title: 'Nota concluída',
+        description: `Nota #${nota.numero_nota} foi marcada como concluída.`,
       })
       router.refresh()
     } catch {
       toast({
         variant: 'error',
         title: 'Erro ao concluir nota',
-        description: 'Nao foi possivel concluir a nota. Verifique sua conexao e tente novamente.',
+        description: 'Não foi possível concluir a nota. Verifique sua conexão e tente novamente.',
       })
     } finally {
       setLoading(false)
@@ -133,7 +133,7 @@ export function NotaCard({ nota }: NotaCardProps) {
           <DialogHeader>
             <DialogTitle>Concluir nota #{nota.numero_nota}?</DialogTitle>
             <DialogDescription>
-              Esta acao marcara a nota como concluida e sera registrada no historico. Tem certeza?
+              Esta ação marcará a nota como concluída e será registrada no histórico. Tem certeza?
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 mt-4">

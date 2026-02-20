@@ -19,7 +19,7 @@ export function OrdersRankingUnidade({ rows, periodLabel }: OrdersRankingUnidade
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Sem dados para o periodo selecionado.</p>
+          <p className="text-sm text-muted-foreground">Sem dados para o período selecionado.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

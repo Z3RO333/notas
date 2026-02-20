@@ -102,7 +102,7 @@ export function ProductivityTable({ data, notasConcluidas, totalAbertas, totalCo
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
             <SelectTrigger className="w-52 bg-slate-800 border-slate-600 text-white">
-              <SelectValue placeholder="Selecione o mes" />
+              <SelectValue placeholder="Selecione o mês" />
             </SelectTrigger>
             <SelectContent>
               {months.map((m) => (
@@ -130,10 +130,10 @@ export function ProductivityTable({ data, notasConcluidas, totalAbertas, totalCo
       {monthData.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
           <p className="text-lg font-medium text-muted-foreground">
-            Nenhuma nota concluida neste mes
+            Nenhuma nota concluída neste mês
           </p>
           <p className="text-sm text-muted-foreground">
-            Os dados aparecerao conforme notas forem concluidas
+            Os dados aparecerão conforme notas forem concluídas
           </p>
         </div>
       ) : (

@@ -65,7 +65,7 @@ export default async function NotaDetailPage({ params }: PageProps) {
           <h1 className="text-2xl font-bold">Nota {nota.numero_nota}</h1>
           {nota.administradores?.nome && (
             <p className="text-sm text-muted-foreground">
-              Responsavel: {nota.administradores.nome}
+              Responsável: {nota.administradores.nome}
             </p>
           )}
         </div>

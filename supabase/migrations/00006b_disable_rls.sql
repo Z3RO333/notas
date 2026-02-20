@@ -1,4 +1,4 @@
--- Desabilita RLS para permitir acesso sem autenticacao
+-- Desabilita RLS para permitir acesso sem autenticação
 -- O sistema agora funciona como painel aberto sem login
 
 ALTER TABLE notas_manutencao DISABLE ROW LEVEL SECURITY;

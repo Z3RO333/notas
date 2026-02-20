@@ -47,10 +47,10 @@ AS $$
   SELECT v.*
   FROM public.vw_ordens_notas_painel v
   WHERE
-    -- Escopo de visibilidade (admin restrito ao proprio responsavel atual)
+    -- Escopo de visibilidade (admin restrito ao proprio responsável atual)
     (p_admin_scope IS NULL OR v.responsavel_atual_id = p_admin_scope)
 
-    -- Periodo
+    -- Período
     AND (
       COALESCE(p_period_mode, 'all') = 'all'
       OR (
@@ -224,6 +224,20 @@ $$;
 -- ============================================================
 -- 4) RESUMO POR COLABORADOR (TOPO DO WORKSPACE)
 -- ============================================================
+DROP FUNCTION IF EXISTS public.calcular_resumo_colaboradores_ordens(
+  TEXT,
+  INTEGER,
+  INTEGER,
+  TIMESTAMPTZ,
+  TIMESTAMPTZ,
+  TEXT,
+  TEXT,
+  TEXT,
+  TEXT,
+  TEXT,
+  UUID
+);
+
 CREATE OR REPLACE FUNCTION public.calcular_resumo_colaboradores_ordens(
   p_period_mode TEXT DEFAULT 'all',
   p_year INTEGER DEFAULT NULL,
@@ -287,7 +301,7 @@ AS $$
   sem_responsavel AS (
     SELECT
       NULL::UUID AS administrador_id,
-      'Sem responsavel'::TEXT AS nome,
+      'Sem responsável'::TEXT AS nome,
       NULL::TEXT AS avatar_url,
       COUNT(*)::INTEGER AS total,
       COUNT(*) FILTER (WHERE status_ordem = 'aberta')::INTEGER AS abertas,

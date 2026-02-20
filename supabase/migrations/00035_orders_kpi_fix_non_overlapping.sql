@@ -1,7 +1,7 @@
 -- 00035_orders_kpi_fix_non_overlapping.sql
 -- Torna os buckets de KPI mutuamente exclusivos:
--- avaliadas (AVALIACAO_DA_EXECUCAO) sai de em_tratativa e fica apenas no proprio bucket.
--- Soma esperada: abertas + em_tratativa + avaliadas + concluidas + canceladas = total.
+-- avaliadas (AVALIACAO_DA_EXECUCAO) saem de em_tratativa e ficam apenas no próprio bucket.
+-- Soma esperada: abertas + em_tratativa + avaliadas + concluídas + canceladas = total.
 
 CREATE OR REPLACE FUNCTION public.calcular_kpis_ordens_operacional(
   p_period_mode TEXT DEFAULT 'all',

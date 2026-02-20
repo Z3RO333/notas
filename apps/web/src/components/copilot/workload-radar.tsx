@@ -53,7 +53,7 @@ function WorkloadRadarCard({ row }: { row: WorkloadRadarRow }) {
           <div className="flex items-center gap-1.5">
             <span className="text-sm font-medium truncate">{row.nome}</span>
             {row.em_ferias && (
-              <span className="text-[10px] bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-full">Ferias</span>
+              <span className="text-[10px] bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-full">Férias</span>
             )}
           </div>
 
@@ -85,7 +85,7 @@ function WorkloadRadarCard({ row }: { row: WorkloadRadarRow }) {
       {/* Metricas inline */}
       <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-foreground">
         {row.qtd_notas_criticas > 0 && (
-          <span className="text-red-600 font-medium">{row.qtd_notas_criticas} criticas</span>
+          <span className="text-red-600 font-medium">{row.qtd_notas_criticas} críticas</span>
         )}
         {row.qtd_ordens_vermelhas > 0 && (
           <span className="text-red-600 font-medium">{row.qtd_ordens_vermelhas} ordens atras.</span>

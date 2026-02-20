@@ -35,7 +35,7 @@ const FAIXA_CONFIG: Record<IsoFaixa, IsoFaixaConfig> = {
     pulse: false,
   },
   atencao: {
-    label: 'Atencao',
+    label: 'Atenção',
     color: 'text-amber-700',
     bg: 'bg-amber-50',
     border: 'border-amber-200',

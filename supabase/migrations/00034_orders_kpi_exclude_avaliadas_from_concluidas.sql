@@ -1,5 +1,5 @@
 -- 00034_orders_kpi_exclude_avaliadas_from_concluidas.sql
--- Garante que status raw AVALIACAO_DA_EXECUCAO nao conte em "Concluidas".
+-- Garante que status raw AVALIACAO_DA_EXECUCAO não conte em "Concluídas".
 
 CREATE OR REPLACE FUNCTION public.calcular_kpis_ordens_operacional(
   p_period_mode TEXT DEFAULT 'all',

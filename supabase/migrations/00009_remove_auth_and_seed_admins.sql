@@ -2,7 +2,7 @@
 -- Remove dependencia do Supabase Auth e insere os administradores reais
 
 -- ============================================================
--- 1. TORNAR auth_user_id OPCIONAL (sem login nao precisamos mais)
+-- 1. TORNAR auth_user_id OPCIONAL (sem login não precisamos mais)
 -- ============================================================
 ALTER TABLE public.administradores DROP CONSTRAINT IF EXISTS administradores_auth_user_id_fkey;
 ALTER TABLE public.administradores ALTER COLUMN auth_user_id DROP NOT NULL;

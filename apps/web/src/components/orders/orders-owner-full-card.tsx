@@ -98,7 +98,7 @@ export function OrdersOwnerFullCard({
                 <Link href={`/notas/${row.nota_id}`} className="font-mono text-sm font-semibold hover:underline">
                   {row.numero_nota} • Ordem {row.ordem_codigo}
                 </Link>
-                <p className="truncate text-xs text-muted-foreground">{row.descricao ?? 'Sem descricao'}</p>
+                <p className="truncate text-xs text-muted-foreground">{row.descricao ?? 'Sem descrição'}</p>
               </div>
 
               {canReassign && (
@@ -127,8 +127,8 @@ export function OrdersOwnerFullCard({
             </div>
 
             <div className="mt-1 space-y-0.5 text-xs">
-              <p><span className="text-muted-foreground">Atual:</span> {row.responsavel_atual_nome ?? 'Sem responsavel'}</p>
-              <p><span className="text-muted-foreground">Origem:</span> {row.administrador_nome ?? 'Nao identificado'}</p>
+              <p><span className="text-muted-foreground">Atual:</span> {row.responsavel_atual_nome ?? 'Sem responsável'}</p>
+              <p><span className="text-muted-foreground">Origem:</span> {row.administrador_nome ?? 'Não identificado'}</p>
             </div>
           </div>
         ))}

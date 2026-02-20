@@ -60,14 +60,14 @@ interface OrdersOwnerPanelProps {
   currentAdminId: string | null
 }
 
-type OrderStatusFilter = OrdemStatusAcomp | 'todas' | 'avaliadas'
+type OrderStatusFilter = OrdemStatusAcomp | 'todas' | 'em_avaliacao' | 'avaliadas' | 'nao_realizada'
 
 const OWNER_MODE_STORAGE_KEY = 'cockpit:ordens:owner-mode'
 const VIEW_MODE_STORAGE_KEY = 'cockpit:ordens:view-mode'
 
 const OWNER_MODE_OPTIONS: Array<{ value: OrderOwnerMode; label: string }> = [
-  { value: 'atual', label: 'Responsavel atual' },
-  { value: 'origem', label: 'Responsavel de origem' },
+  { value: 'atual', label: 'Responsável atual' },
+  { value: 'origem', label: 'Responsável de origem' },
 ]
 
 const VIEW_MODE_OPTIONS: Array<{ value: PanelViewMode; label: string; icon: typeof Rows3 }> = [
@@ -79,13 +79,13 @@ function resolveOwner(row: OrdemNotaAcompanhamento, mode: OrderOwnerMode): { id:
   if (mode === 'origem') {
     return {
       id: row.administrador_id ?? '__sem_origem__',
-      nome: row.administrador_nome ?? 'Sem responsavel de origem',
+      nome: row.administrador_nome ?? 'Sem responsável de origem',
     }
   }
 
   return {
     id: row.responsavel_atual_id ?? '__sem_atual__',
-    nome: row.responsavel_atual_nome ?? 'Sem responsavel atual',
+    nome: row.responsavel_atual_nome ?? 'Sem responsável atual',
   }
 }
 
@@ -310,7 +310,7 @@ export function OrdersOwnerPanel({
     } catch {
       toast({
         title: 'Erro ao buscar avaliadas',
-        description: 'Nao foi possivel buscar os codigos de ordens avaliadas.',
+        description: 'Não foi possível buscar os códigos de ordens avaliadas.',
         variant: 'error',
       })
     } finally {
@@ -336,7 +336,7 @@ export function OrdersOwnerPanel({
     if (!copied) {
       toast({
         title: 'Falha ao copiar ordens',
-        description: 'Nao foi possivel copiar para a area de transferencia.',
+        description: 'Não foi possível copiar para a área de transferência.',
         variant: 'error',
       })
       return
@@ -355,7 +355,7 @@ export function OrdersOwnerPanel({
     responsavel
       ? {
         key: 'responsavel',
-        label: responsavel === '__sem_atual__' ? 'Responsavel: sem responsavel' : 'Responsavel',
+        label: responsavel === '__sem_atual__' ? 'Responsável: sem responsável' : 'Responsável',
       }
       : null,
     unidade ? { key: 'unidade', label: `Unidade: ${unidade}` } : null,
@@ -370,7 +370,7 @@ export function OrdersOwnerPanel({
         <GridSearch
           value={searchInput}
           onChange={setSearchInput}
-          placeholder="Buscar por nota, ordem ou descricao..."
+          placeholder="Buscar por nota, ordem ou descrição..."
           inputRef={searchInputRef}
         />
 
@@ -382,8 +382,10 @@ export function OrdersOwnerPanel({
             { value: 'todas', label: 'Todos os status' },
             { value: 'aberta', label: 'Aberta' },
             { value: 'em_tratativa', label: 'Em tratativa' },
+            { value: 'em_avaliacao', label: 'Em avaliação' },
             { value: 'avaliadas', label: 'Avaliadas' },
-            { value: 'concluida', label: 'Concluida' },
+            { value: 'nao_realizada', label: 'Não realizada' },
+            { value: 'concluida', label: 'Concluída' },
             { value: 'cancelada', label: 'Cancelada' },
             { value: 'desconhecido', label: 'Desconhecido' },
           ]}
@@ -391,7 +393,7 @@ export function OrdersOwnerPanel({
 
         {canViewGlobal && (
           <GridFilters
-            label="Responsavel"
+            label="Responsável"
             value={responsavel || 'todos'}
             onChange={(value) => replaceQuery({ responsavel: value === 'todos' ? null : value, page: 1 })}
             options={responsavelOptions}
@@ -412,7 +414,7 @@ export function OrdersOwnerPanel({
           options={[
             { value: 'todas', label: 'Todas' },
             { value: 'verde', label: 'Recentes (0-2d)' },
-            { value: 'amarelo', label: 'Atencao (3-6d)' },
+            { value: 'amarelo', label: 'Atenção (3-6d)' },
             { value: 'vermelho', label: 'Atrasadas (7+d)' },
           ]}
         />
@@ -427,7 +429,7 @@ export function OrdersOwnerPanel({
             { value: 'idade:desc', label: 'Idade (maior primeiro)' },
             { value: 'ordem:asc', label: 'Ordem (A-Z)' },
             { value: 'status:asc', label: 'Status (A-Z)' },
-            { value: 'responsavel:asc', label: 'Responsavel (A-Z)' },
+            { value: 'responsavel:asc', label: 'Responsável (A-Z)' },
             { value: 'unidade:asc', label: 'Unidade (A-Z)' },
           ]}
           className="w-full xl:w-56"
@@ -533,7 +535,7 @@ export function OrdersOwnerPanel({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="inline-flex items-center gap-2 text-sm font-medium text-red-800">
               <AlertTriangle className="h-4 w-4" />
-              Ordens sem responsavel: {semResponsavelCount}
+              Ordens sem responsável: {semResponsavelCount}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -541,7 +543,7 @@ export function OrdersOwnerPanel({
                 className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
                 onClick={() => replaceQuery({ responsavel: '__sem_atual__', page: 1 })}
               >
-                Filtrar sem responsavel
+                Filtrar sem responsável
               </button>
               {canBulkReassign && semResponsavelVisibleIds.length > 0 && (
                 <button
@@ -549,7 +551,7 @@ export function OrdersOwnerPanel({
                   className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
                   onClick={() => setSelectedNotaIds(semResponsavelVisibleIds)}
                 >
-                  Selecionar sem responsavel
+                  Selecionar sem responsável
                 </button>
               )}
             </div>

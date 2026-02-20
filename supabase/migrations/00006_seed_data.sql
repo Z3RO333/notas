@@ -10,7 +10,7 @@
 --   ('uuid-do-auth-admin2', 'Admin Dois', 'admin2@empresa.com', 'admin'),
 --   ('uuid-do-auth-admin3', 'Admin Tres', 'admin3@empresa.com', 'admin');
 
--- Notas de teste (para validar distribuicao sem depender do Databricks):
+-- Notas de teste (para validar distribuição sem depender do Databricks):
 INSERT INTO public.notas_manutencao (numero_nota, tipo_nota, descricao, prioridade, centro, solicitante, data_criacao_sap, status) VALUES
   ('000100000001', 'M2', 'Vazamento na bomba de recalque - setor A', '1', 'SP01', 'USUARIO1', '2026-02-06', 'nova'),
   ('000100000002', 'M2', 'Troca de rolamento do motor principal', '2', 'SP01', 'USUARIO2', '2026-02-06', 'nova'),
@@ -23,7 +23,7 @@ INSERT INTO public.notas_manutencao (numero_nota, tipo_nota, descricao, priorida
   ('000100000009', 'M2', 'Reparo emergencial no compressor', '1', 'AM01', 'USUARIO3', '2026-02-06', 'nova'),
   ('000100000010', 'M2', 'Alinhamento do acoplamento da turbina', '2', 'SP01', 'USUARIO2', '2026-02-06', 'nova');
 
--- Para testar a distribuicao:
+-- Para testar a distribuição:
 -- 1. Crie usuarios no Supabase Auth
 -- 2. Insira os administradores com os auth_user_id corretos
 -- 3. Execute: SELECT * FROM distribuir_notas(NULL);

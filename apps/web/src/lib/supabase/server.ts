@@ -19,7 +19,7 @@ export async function createClient() {
             )
           } catch {
             // setAll pode falhar em Server Components (read-only)
-            // Isso e esperado — o middleware cuida do refresh de tokens
+            // Isso é esperado — o middleware cuida do refresh de tokens
           }
         },
       },
