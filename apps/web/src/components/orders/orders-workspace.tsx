@@ -671,7 +671,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                   </div>
 
                   <div className="mt-3 rounded bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                    <span className="font-semibold">{formatNumber(owner.abertas)}</span> ordem{owner.abertas !== 1 ? 's' : ''} aberta{owner.abertas !== 1 ? 's' : ''}
+                    <span className="font-semibold">{formatNumber(owner.abertas)}</span> ordem{owner.abertas !== 1 ? 'ns' : ''} aberta{owner.abertas !== 1 ? 's' : ''}
                   </div>
                 </Card>
               )
