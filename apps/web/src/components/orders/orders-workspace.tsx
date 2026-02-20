@@ -19,6 +19,7 @@ import * as XLSX from 'xlsx'
 import { OrderCompactCard } from '@/components/orders/order-compact-card'
 import { OrdersBulkReassignBar } from '@/components/orders/orders-bulk-reassign-bar'
 import { OrdersDetailDrawer } from '@/components/orders/orders-detail-drawer'
+import { OrdersOwnerFullCard } from '@/components/orders/orders-owner-full-card'
 import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,6 +36,7 @@ import {
   getSemaforoLabel,
 } from '@/lib/orders/metrics'
 import type {
+  OrderOwnerGroup,
   OrdersOwnerSummary,
   OrdersPeriodModeOperational,
   PanelViewMode,
@@ -301,6 +303,44 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     }
     return map
   }, [reassignTargets])
+
+  const avatarById = useMemo(() => {
+    const map: Record<string, string | null> = {}
+    for (const s of ownerSummary) {
+      if (s.administrador_id) map[s.administrador_id] = s.avatar_url
+    }
+    return map
+  }, [ownerSummary])
+
+  const selectedNotaIdsSet = useMemo(() => new Set(selectedNotaIds), [selectedNotaIds])
+
+  const ownerGroups = useMemo((): OrderOwnerGroup[] => {
+    if (ownerCardsViewMode !== 'cards') return []
+    const map = new Map<string, OrderOwnerGroup>()
+    for (const row of rows) {
+      const id = row.responsavel_atual_id ?? '__sem_atual__'
+      const nome = row.responsavel_atual_nome ?? 'Sem responsável'
+      const current = map.get(id) ?? {
+        id,
+        nome,
+        avatar_url: avatarById[id] ?? null,
+        rows: [],
+        recentes: 0,
+        atencao: 0,
+        atrasadas: 0,
+        abertas: 0,
+        total: 0,
+      }
+      current.rows.push(row)
+      current.total += 1
+      if (row.semaforo_atraso === 'verde') current.recentes += 1
+      if (row.semaforo_atraso === 'amarelo') current.atencao += 1
+      if (row.semaforo_atraso === 'vermelho') current.atrasadas += 1
+      if (row.status_ordem === 'aberta') current.abertas += 1
+      map.set(id, current)
+    }
+    return [...map.values()].sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, 'pt-BR'))
+  }, [rows, ownerCardsViewMode, avatarById])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -696,56 +736,20 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-            {visibleOwners.map((owner) => {
-              const ownerKey = owner.administrador_id ?? '__sem_atual__'
-              const active = filters.responsavel === ownerKey
-              const isSemResponsavel = owner.administrador_id === null
-              const ownerCargo = resolveOwnerCargo(owner)
-
-              return (
-                <Card
-                  key={ownerKey}
-                  onClick={() => toggleOwnerFilter(ownerKey)}
-                  className={`cursor-pointer p-4 transition-all hover:shadow-md ${
-                    active ? 'ring-2 ring-primary bg-primary/5' : ''
-                  } ${
-                    isSemResponsavel ? 'border-orange-200 bg-orange-50/30' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="relative shrink-0">
-                      <Avatar src={owner.avatar_url} nome={owner.nome} size="lg" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-base font-semibold">{owner.nome}</p>
-                      <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${CARGO_BADGE[ownerCargo]?.color ?? CARGO_BADGE['GERAL'].color}`}>
-                        {ownerCargo}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded bg-emerald-50 px-2 py-1">
-                      <p className="text-lg font-bold text-emerald-700">{formatNumber(owner.recentes)}</p>
-                      <p className="text-[11px] text-emerald-700">0-2d</p>
-                    </div>
-                    <div className="rounded bg-amber-50 px-2 py-1">
-                      <p className="text-lg font-bold text-amber-700">{formatNumber(owner.atencao)}</p>
-                      <p className="text-[11px] text-amber-700">3-6d</p>
-                    </div>
-                    <div className="rounded bg-red-50 px-2 py-1">
-                      <p className="text-lg font-bold text-red-700">{formatNumber(owner.atrasadas)}</p>
-                      <p className="text-[11px] text-red-700">7+d</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 rounded bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                    <span className="font-semibold">Total:</span> {formatNumber(owner.total)} ordens
-                  </div>
-                </Card>
-              )
-            })}
+            {ownerGroups.map((group) => (
+              <OrdersOwnerFullCard
+                key={group.id}
+                group={group}
+                canReassign={canReassign}
+                reassignTargets={reassignTargets}
+                selectedNotaIds={selectedNotaIdsSet}
+                onToggleRowSelection={(notaId) => {
+                  setSelectedNotaIds((prev) =>
+                    prev.includes(notaId) ? prev.filter((id) => id !== notaId) : [...prev, notaId]
+                  )
+                }}
+              />
+            ))}
           </div>
         )}
       </div>
