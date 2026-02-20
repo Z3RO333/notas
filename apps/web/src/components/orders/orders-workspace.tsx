@@ -466,7 +466,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       key: 'total',
       label: 'Total de ordens',
       value: kpis.total,
-      helper: 'Visão geral',
       icon: ListChecks,
       valueClass: 'text-foreground',
     },
@@ -474,7 +473,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       key: 'em_aberto',
       label: 'Em processamento',
       value: kpis.abertas,
-      helper: 'Status em processamento',
       icon: BarChart3,
       valueClass: 'text-sky-700',
     },
@@ -482,7 +480,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       key: 'em_execucao',
       label: 'Em execução',
       value: kpis.em_tratativa,
-      helper: 'EM_EXECUCAO + EQUIPAMENTO_EM_CONSERTO',
       icon: LoaderCircle,
       valueClass: 'text-indigo-700',
     },
@@ -490,7 +487,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       key: 'em_avaliacao',
       label: 'Em avaliação',
       value: kpis.em_avaliacao,
-      helper: 'Status AVALIACAO_DA_EXECUCAO',
       icon: ShieldCheck,
       valueClass: 'text-emerald-700',
     },
@@ -498,7 +494,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       key: 'avaliadas',
       label: 'Avaliadas',
       value: kpis.avaliadas,
-      helper: 'Status EXECUCAO_SATISFATORIO',
       icon: ClipboardCheck,
       valueClass: 'text-amber-700',
     },
@@ -506,7 +501,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       key: 'atrasadas',
       label: 'Atrasadas (7+)',
       value: kpis.atrasadas,
-      helper: 'Abertas/em execução (7+ dias)',
       icon: AlertTriangle,
       valueClass: 'text-red-700',
     },
@@ -563,16 +557,18 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           {kpiCards.map((item) => {
             const Icon = item.icon
             return (
-              <Card key={item.key} className="h-full">
+              <Card
+                key={item.key}
+                className={`h-full ${item.key === 'atrasadas' ? 'bg-red-50 border-red-200' : ''}`}
+              >
                 <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                   <CardTitle className="min-h-[2.5rem] flex-1 pr-2 text-sm font-medium leading-tight text-muted-foreground">
                     {item.label}
                   </CardTitle>
                   <Icon className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
-                <CardContent className="space-y-1">
+                <CardContent>
                   <p className={`text-3xl font-bold ${item.valueClass}`}>{formatNumber(item.value)}</p>
-                  <p className="min-h-[2rem] text-xs leading-4 text-muted-foreground">{item.helper}</p>
                 </CardContent>
               </Card>
             )
