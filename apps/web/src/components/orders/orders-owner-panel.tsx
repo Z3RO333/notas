@@ -344,7 +344,7 @@ export function OrdersOwnerPanel({
 
     toast({
       title: mode === 'avaliadas' ? 'Ordens avaliadas copiadas' : 'Ordens selecionadas copiadas',
-      description: `${payload.split('\n').length} ordem(ns) prontas para colar no SAP.`,
+      description: `${payload.split('\n').length} ordens prontas para colar no SAP.`,
       variant: 'success',
     })
   }

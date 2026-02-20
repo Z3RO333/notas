@@ -174,7 +174,7 @@ export function OrdersOwnerAccordion({
               <h3 className="font-semibold text-base">{group.nome}</h3>
             </div>
             <span className="text-sm text-muted-foreground">
-              {group.total} ordem{group.total !== 1 ? 'ns' : ''}
+              {group.total} ordens
               {group.atrasadas > 0 && (
                 <span className="ml-1 text-red-600">({group.atrasadas} atrasada{group.atrasadas !== 1 ? 's' : ''})</span>
               )}

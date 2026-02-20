@@ -189,7 +189,7 @@ export function OrdersAgingTable({
 
             {rows.length > maxRows && (
               <p className="text-center text-xs text-muted-foreground">
-                +{rows.length - maxRows} ordem(ns) fora da visualizacao atual
+                +{rows.length - maxRows} ordens fora da visualizacao atual
               </p>
             )}
           </div>

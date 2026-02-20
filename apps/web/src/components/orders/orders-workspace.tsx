@@ -592,7 +592,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                       <p className="truncate text-sm font-semibold">{owner.nome}</p>
                       <div className="flex items-center gap-1">
                         <span className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
-                          {formatNumber(owner.total)} ordem{owner.total !== 1 ? 'ns' : ''}
+                          {formatNumber(owner.total)} ordens
                         </span>
                       </div>
                     </div>
@@ -617,7 +617,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                   </div>
 
                   <div className="mt-2 rounded bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
-                    {formatNumber(owner.abertas)} ordem{owner.abertas !== 1 ? 'ns' : ''} aberta{owner.abertas !== 1 ? 's' : ''}
+                    {formatNumber(owner.abertas)} ordens abertas
                   </div>
                 </Card>
               )
@@ -649,7 +649,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                       <p className="truncate text-base font-semibold">{owner.nome}</p>
                       <div className="flex items-center gap-1">
                         <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                          {formatNumber(owner.total)} ordem{owner.total !== 1 ? 'ns' : ''}
+                          {formatNumber(owner.total)} ordens
                         </span>
                       </div>
                     </div>
@@ -671,7 +671,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                   </div>
 
                   <div className="mt-3 rounded bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                    <span className="font-semibold">{formatNumber(owner.abertas)}</span> ordem{owner.abertas !== 1 ? 'ns' : ''} aberta{owner.abertas !== 1 ? 's' : ''}
+                    <span className="font-semibold">{formatNumber(owner.abertas)}</span> ordens abertas
                   </div>
                 </Card>
               )
