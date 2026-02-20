@@ -29,6 +29,7 @@ SUPABASE_URL = dbutils.secrets.get(scope="cockpit", key="SUPABASE_URL")
 SUPABASE_SERVICE_KEY = dbutils.secrets.get(scope="cockpit", key="SUPABASE_SERVICE_ROLE_KEY")
 STREAMING_TABLE = "manutencao.streaming.qmel_clean"
 PMPL_TABLE = "manutencao.gold.pmpl_pmos"
+ORDERS_DOCUMENT_SOURCE_TABLE = "manutencao.silver.mestre_dados_ordem"
 
 VALID_WINDOWS = {30, 90, 180, 365}
 DEFAULT_WINDOW_DAYS = 30
@@ -41,6 +42,9 @@ BATCH_SIZE = 100
 PMPL_FETCH_BATCH_SIZE = 300
 PMPL_RPC_BATCH_SIZE = 200
 PMPL_MIN_AGE_DAYS = 0
+ORDERS_DOCUMENT_UPSERT_BATCH_SIZE = 500
+PMPL_STANDALONE_WINDOW_DAYS = 90   # janela padrão para importar PMPL standalone (dias)
+PMPL_STANDALONE_BATCH_SIZE = 500   # ordens por chamada de RPC
 
 OPEN_STATUS = {"aberta", "em_tratativa", "desconhecido"}
 
@@ -78,6 +82,8 @@ NOTA_CENTRO_COLUMNS_CANDIDATES = [
 
 PMPL_CENTRO_COLUMN = "CENTRO_LOCALIZACAO"
 PMPL_TIPO_ORDEM_COLUMN = "TIPO_ORDEM"
+ORDERS_DOCUMENT_ORDER_COLUMN = "ORDEM"
+ORDERS_DOCUMENT_TYPE_COLUMN = "TIPO_DOCUMENTO_VENDAS"
 PMPL_DATA_ENTRADA_COLUMNS_CANDIDATES = [
     "DATA_ENTRADA",
     "DATA_CRIACAO",
@@ -118,6 +124,31 @@ def _extract_centro_from_candidates(row_dict: dict, candidates: list[str]) -> st
         value = _normalize_centro(row_dict.get(col))
         if value:
             return value
+    return None
+
+
+def _normalize_ordem_codigo(value) -> str | None:
+    text = _as_clean_text(value)
+    if not text:
+        return None
+
+    if re.fullmatch(r"\d+(\.0+)?", text):
+        integer_part = text.split(".", maxsplit=1)[0]
+        normalized = integer_part.lstrip("0")
+        return normalized or "0"
+
+    return text
+
+
+def _normalize_tipo_documento_vendas(value) -> str | None:
+    text = _as_clean_text(value)
+    if not text:
+        return None
+
+    normalized = text.upper()
+    if normalized in {"PMOS", "PMPL"}:
+        return normalized
+
     return None
 
 
@@ -286,6 +317,24 @@ def get_pmpl_min_age_days(spark: SparkSession) -> int:
         return PMPL_MIN_AGE_DAYS
 
     return max(parsed, 0)
+
+
+def get_pmpl_standalone_window_days(spark: SparkSession) -> int:
+    """Janela em dias para importar ordens PMPL standalone da fonte.
+    Para backfill completo: cockpit.sync.pmpl_standalone_window_days=365
+    """
+    raw = spark.conf.get("cockpit.sync.pmpl_standalone_window_days", str(PMPL_STANDALONE_WINDOW_DAYS))
+    try:
+        parsed = int(raw)
+    except ValueError:
+        logger.warning(
+            "Valor inválido em cockpit.sync.pmpl_standalone_window_days=%s. Usando %s.",
+            raw,
+            PMPL_STANDALONE_WINDOW_DAYS,
+        )
+        return PMPL_STANDALONE_WINDOW_DAYS
+
+    return max(parsed, 1)
 
 
 def create_sync_log(spark: SparkSession) -> str:
@@ -766,6 +815,240 @@ def push_pmpl_updates(sync_id: str, updates: list[dict]) -> tuple[int, int, int]
     return total_recebidas, ordens_atualizadas, mudancas_status
 
 
+def _build_pmpl_data_entrada_date_expr() -> str:
+    """Expressão Spark SQL para extrair data de entrada das colunas candidatas da tabela PMPL."""
+    parts = [f"to_date({col})" for col in PMPL_DATA_ENTRADA_COLUMNS_CANDIDATES]
+    return "coalesce(" + ", ".join(parts) + ")"
+
+
+def read_standalone_pmpl_orders(
+    spark: SparkSession,
+    window_days: int,
+    sync_start_date: str,
+) -> list[dict]:
+    """Lê ordens PMPL da fonte para importação standalone (sem nota correspondente).
+
+    Usa window_days para definir a janela de leitura a partir de hoje,
+    limitada pelo sync_start_date configurado.
+    Para backfill completo configure cockpit.sync.pmpl_standalone_window_days=365.
+    """
+    window_start = (datetime.now(timezone.utc).date() - timedelta(days=window_days)).isoformat()
+    effective_start = max(window_start, sync_start_date)
+
+    data_expr = _build_pmpl_data_entrada_date_expr()
+    logger.info(
+        "Lendo ordens PMPL standalone: effective_start=%s, window_days=%s",
+        effective_start,
+        window_days,
+    )
+
+    df = spark.sql(f"""
+        SELECT *
+        FROM {PMPL_TABLE}
+        WHERE {PMPL_TIPO_ORDEM_COLUMN} = 'PMPL'
+          AND ORDEM IS NOT NULL
+          AND (
+            {data_expr} >= date('{effective_start}')
+            OR {data_expr} IS NULL
+          )
+    """)
+
+    best_by_order: dict[str, dict] = {}
+
+    for row in df.collect():
+        row_dict = row.asDict()
+        ordem_raw = _as_clean_text(row_dict.get("ORDEM"))
+        if not ordem_raw:
+            continue
+
+        ordem_codigo = _normalize_ordem_codigo(ordem_raw) or ordem_raw
+        status_raw = _extract_status_raw(row_dict)
+        if not status_raw:
+            continue
+
+        centro = _extract_centro(row_dict)
+        data_entrada = _extract_data_entrada(row_dict)
+        tipo_ordem = _as_clean_text(row_dict.get(PMPL_TIPO_ORDEM_COLUMN)) or "PMPL"
+        priority = STATUS_PRIORITY.get(status_raw, 0)
+
+        current = best_by_order.get(ordem_codigo)
+        if current is None or priority > current["priority"]:
+            best_by_order[ordem_codigo] = {
+                "ordem_codigo": ordem_codigo,
+                "status_raw": status_raw,
+                "centro": centro,
+                "data_entrada": data_entrada or (current.get("data_entrada") if current else None),
+                "tipo_ordem": tipo_ordem,
+                "priority": priority,
+            }
+        else:
+            if current.get("data_entrada") is None and data_entrada is not None:
+                current["data_entrada"] = data_entrada
+
+    orders = [
+        {
+            "ordem_codigo": v["ordem_codigo"],
+            "status_raw": v["status_raw"],
+            "centro": v["centro"],
+            "data_entrada": v.get("data_entrada"),
+            "tipo_ordem": v.get("tipo_ordem") or "PMPL",
+        }
+        for v in best_by_order.values()
+    ]
+
+    logger.info(
+        "Ordens PMPL standalone lidas: %s (effective_start=%s, window_days=%s)",
+        len(orders),
+        effective_start,
+        window_days,
+    )
+    return orders
+
+
+def push_standalone_pmpl_orders(sync_id: str, orders: list[dict]) -> tuple[int, int, int]:
+    """Importa ordens PMPL standalone no Supabase via RPC (upsert por ordem_codigo)."""
+    if not orders:
+        return 0, 0, 0
+
+    total_recebidas = 0
+    inseridas = 0
+    atualizadas = 0
+
+    for i in range(0, len(orders), PMPL_STANDALONE_BATCH_SIZE):
+        batch = orders[i:i + PMPL_STANDALONE_BATCH_SIZE]
+        result = supabase.rpc(
+            "importar_ordens_pmpl_standalone",
+            {
+                "p_orders": batch,
+                "p_sync_id": sync_id,
+            },
+        ).execute()
+
+        row = (result.data or [{}])[0]
+        total_recebidas += int(row.get("total_recebidas") or 0)
+        inseridas       += int(row.get("inseridas")       or 0)
+        atualizadas     += int(row.get("atualizadas")     or 0)
+
+    logger.info(
+        "PMPL standalone import -> recebidas=%s inseridas=%s atualizadas=%s",
+        total_recebidas,
+        inseridas,
+        atualizadas,
+    )
+    return total_recebidas, inseridas, atualizadas
+
+
+def read_orders_document_reference(spark: SparkSession) -> tuple[list[dict], dict]:
+    """Lê referência de ordens (ORDEM/TIPO_DOCUMENTO_VENDAS) da fonte silver."""
+    df = spark.sql(f"""
+        SELECT
+          {ORDERS_DOCUMENT_ORDER_COLUMN} AS ORDEM,
+          {ORDERS_DOCUMENT_TYPE_COLUMN} AS TIPO_DOCUMENTO_VENDAS
+        FROM {ORDERS_DOCUMENT_SOURCE_TABLE}
+        WHERE {ORDERS_DOCUMENT_ORDER_COLUMN} IS NOT NULL
+          AND {ORDERS_DOCUMENT_TYPE_COLUMN} IS NOT NULL
+    """)
+
+    rows = df.collect()
+    by_order: dict[str, dict] = {}
+    invalid_order = 0
+    invalid_type = 0
+    conflicts = 0
+
+    for row in rows:
+        row_dict = row.asDict()
+        ordem_original = _as_clean_text(row_dict.get("ORDEM"))
+        ordem_norm = _normalize_ordem_codigo(ordem_original)
+        tipo_documento = _normalize_tipo_documento_vendas(row_dict.get("TIPO_DOCUMENTO_VENDAS"))
+
+        if not ordem_norm:
+            invalid_order += 1
+            continue
+
+        if not tipo_documento:
+            invalid_type += 1
+            continue
+
+        current = by_order.get(ordem_norm)
+        if current and current["tipo_documento_vendas"] != tipo_documento:
+            conflicts += 1
+            continue
+
+        by_order[ordem_norm] = {
+            "ordem_codigo_norm": ordem_norm,
+            "ordem_codigo_original": ordem_original or ordem_norm,
+            "tipo_documento_vendas": tipo_documento,
+        }
+
+    references = list(by_order.values())
+    logger.info(
+        "Referência ORDEM/TIPO lida da silver: total_rows=%s, validas=%s, ordem_invalida=%s, tipo_invalido=%s, conflitos=%s",
+        len(rows),
+        len(references),
+        invalid_order,
+        invalid_type,
+        conflicts,
+    )
+
+    return references, {
+        "total_rows": len(rows),
+        "valid_rows": len(references),
+        "invalid_order": invalid_order,
+        "invalid_type": invalid_type,
+        "conflicts": conflicts,
+    }
+
+
+def upsert_orders_document_reference(sync_id: str, references: list[dict]) -> tuple[int, int]:
+    """Upsert da referência de tipo de documento por ordem normalizada."""
+    if not references:
+        return 0, 0
+
+    existing_orders: set[str] = set()
+    ordem_codes = [item["ordem_codigo_norm"] for item in references]
+
+    for i in range(0, len(ordem_codes), BATCH_SIZE):
+        batch = ordem_codes[i:i + BATCH_SIZE]
+        result = (
+            supabase.table("ordens_tipo_documento_referencia")
+            .select("ordem_codigo_norm")
+            .in_("ordem_codigo_norm", batch)
+            .execute()
+        )
+        existing_orders.update(r["ordem_codigo_norm"] for r in (result.data or []))
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    payload = [
+        {
+            "ordem_codigo_norm": item["ordem_codigo_norm"],
+            "ordem_codigo_original": item["ordem_codigo_original"],
+            "tipo_documento_vendas": item["tipo_documento_vendas"],
+            "fonte": ORDERS_DOCUMENT_SOURCE_TABLE,
+            "last_sync_id": sync_id,
+            "last_seen_at": now_iso,
+        }
+        for item in references
+    ]
+
+    for i in range(0, len(payload), ORDERS_DOCUMENT_UPSERT_BATCH_SIZE):
+        batch = payload[i:i + ORDERS_DOCUMENT_UPSERT_BATCH_SIZE]
+        (
+            supabase.table("ordens_tipo_documento_referencia")
+            .upsert(batch, on_conflict="ordem_codigo_norm")
+            .execute()
+        )
+
+    inserted_count = sum(1 for item in references if item["ordem_codigo_norm"] not in existing_orders)
+    updated_count = len(references) - inserted_count
+
+    logger.info(
+        "Referência ORDEM/TIPO upsert: inseridas=%s, atualizadas=%s",
+        inserted_count,
+        updated_count,
+    )
+    return inserted_count, updated_count
+
+
 def finalize_sync_log(
     sync_id: str,
     read_count: int,
@@ -803,6 +1086,7 @@ def main():
     sync_start_date = get_sync_start_date(spark)
     bootstrap_mode = get_bootstrap_mode(spark)
     pmpl_min_age_days = get_pmpl_min_age_days(spark)
+    pmpl_standalone_window_days = get_pmpl_standalone_window_days(spark)
 
     try:
         supabase.table("sync_log").select("id").limit(1).execute()
@@ -834,9 +1118,19 @@ def main():
 
         distributed = run_distribution(sync_id)
 
+        # Importa ordens PMPL standalone (sem nota correspondente) direto da fonte
+        standalone_orders = read_standalone_pmpl_orders(spark, pmpl_standalone_window_days, sync_start_date)
+        _, pmpl_standalone_inseridas, pmpl_standalone_atualizadas = push_standalone_pmpl_orders(sync_id, standalone_orders)
+
         eligible_orders = get_orders_for_pmpl_refresh(min_age_days=pmpl_min_age_days)
         pmpl_updates = consolidate_pmpl_status_by_order(spark, eligible_orders)
         _, ordens_status_atualizadas, mudancas_status = push_pmpl_updates(sync_id, pmpl_updates)
+
+        orders_document_reference, orders_document_metrics = read_orders_document_reference(spark)
+        ordens_tipo_ref_inseridas, ordens_tipo_ref_atualizadas = upsert_orders_document_reference(
+            sync_id,
+            orders_document_reference,
+        )
 
         metadata = {
             "window_days": window_days,
@@ -847,11 +1141,21 @@ def main():
             "bootstrap_mode": bootstrap_mode,
             "full_bootstrap": full_bootstrap,
             "pmpl_min_age_days": pmpl_min_age_days,
+            "pmpl_standalone_window_days": pmpl_standalone_window_days,
+            "pmpl_standalone_inseridas": pmpl_standalone_inseridas,
+            "pmpl_standalone_atualizadas": pmpl_standalone_atualizadas,
             "ordens_detectadas": ordens_detectadas,
             "ordens_status_atualizadas": ordens_status_atualizadas,
             "ordens_mudanca_status": mudancas_status,
             "notas_auto_concluidas": notas_auto_concluidas,
             "ordens_elegiveis_pmpl": len(eligible_orders),
+            "ordens_tipo_ref_total_rows": orders_document_metrics["total_rows"],
+            "ordens_tipo_ref_valid_rows": orders_document_metrics["valid_rows"],
+            "ordens_tipo_ref_invalid_order": orders_document_metrics["invalid_order"],
+            "ordens_tipo_ref_invalid_type": orders_document_metrics["invalid_type"],
+            "ordens_tipo_ref_conflicts": orders_document_metrics["conflicts"],
+            "ordens_tipo_ref_inseridas": ordens_tipo_ref_inseridas,
+            "ordens_tipo_ref_atualizadas": ordens_tipo_ref_atualizadas,
         }
 
         finalize_sync_log(
@@ -882,6 +1186,7 @@ def main():
                     "streaming_table": STREAMING_TABLE,
                     "bootstrap_mode": bootstrap_mode,
                     "pmpl_min_age_days": pmpl_min_age_days,
+                    "pmpl_standalone_window_days": pmpl_standalone_window_days,
                 },
                 error=str(e),
             )
