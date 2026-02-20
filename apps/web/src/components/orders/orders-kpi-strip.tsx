@@ -43,13 +43,15 @@ export function OrdersKpiStrip({
       ? 'border-amber-300 bg-amber-50/30'
       : 'border-border'
 
+  const concluidasVal = getOrdersKpiValue(kpis, 'concluidas')
+
   const cards = [
     {
       id: 'total',
       kpi: 'total' as const,
       label: 'Total de ordens',
       value: fmt(getOrdersKpiValue(kpis, 'total')),
-      helper: 'Visão geral',
+      helper: `${fmt(concluidasVal)} concluída${concluidasVal !== 1 ? 's' : ''}`,
       icon: ListChecks,
       valueClass: 'text-foreground',
     },
@@ -58,7 +60,7 @@ export function OrdersKpiStrip({
       kpi: 'em_aberto' as const,
       label: 'Em processamento',
       value: fmt(getOrdersKpiValue(kpis, 'em_aberto')),
-      helper: 'Status em processamento',
+      helper: '',
       icon: BarChart3,
       valueClass: 'text-sky-700',
     },
@@ -67,7 +69,7 @@ export function OrdersKpiStrip({
       kpi: 'em_execucao' as const,
       label: 'Em execução',
       value: fmt(getOrdersKpiValue(kpis, 'em_execucao')),
-      helper: 'EM_EXECUCAO + EQUIPAMENTO_EM_CONSERTO',
+      helper: '',
       icon: LoaderCircle,
       valueClass: 'text-indigo-700',
     },
@@ -76,7 +78,7 @@ export function OrdersKpiStrip({
       kpi: 'em_avaliacao' as const,
       label: 'Em avaliação',
       value: fmt(getOrdersKpiValue(kpis, 'em_avaliacao')),
-      helper: 'Status AVALIACAO_DA_EXECUCAO',
+      helper: '',
       icon: ShieldCheck,
       valueClass: 'text-emerald-700',
     },
@@ -85,7 +87,7 @@ export function OrdersKpiStrip({
       kpi: 'avaliadas' as const,
       label: 'Avaliadas',
       value: fmt(getOrdersKpiValue(kpis, 'avaliadas')),
-      helper: 'Status EXECUCAO_SATISFATORIO',
+      helper: '',
       icon: ClipboardCheck,
       valueClass: 'text-amber-700',
     },
@@ -94,7 +96,7 @@ export function OrdersKpiStrip({
       kpi: 'atrasadas' as const,
       label: 'Atrasadas (7+)',
       value: fmt(getOrdersKpiValue(kpis, 'atrasadas')),
-      helper: 'Abertas/em execução (7+ dias)',
+      helper: '',
       icon: AlertTriangle,
       valueClass: 'text-red-700',
     },
