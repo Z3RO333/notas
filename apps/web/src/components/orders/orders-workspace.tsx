@@ -55,6 +55,7 @@ interface OrdersWorkspaceProps {
     role: UserRole
     adminId: string
     canViewGlobal: boolean
+    userEmail: string
   }
 }
 
@@ -101,6 +102,10 @@ const PRIORIDADE_OPTIONS = [
 ]
 
 const OWNER_CARDS_VIEW_MODE_STORAGE_KEY = 'cockpit:ordens:owner-cards:view-mode'
+const FIXED_OWNER_CARD_ORDER = {
+  'Brenda (CD MANAUS)': 0,
+  'Adriano (CD TARUMÃ)': 1,
+} as const
 
 function sanitizeText(value: string): string {
   return value.trim()
@@ -188,6 +193,7 @@ function buildWorkspaceParams(filters: OrdersWorkspaceFilters, cursor: OrdersWor
   if (filters.responsavel && filters.responsavel !== 'todos') params.set('responsavel', filters.responsavel)
   if (filters.unidade) params.set('unidade', filters.unidade)
   if (filters.prioridade && filters.prioridade !== 'todas') params.set('prioridade', filters.prioridade)
+  if (filters.tipoOrdem && filters.tipoOrdem !== 'PMOS') params.set('tipoOrdem', filters.tipoOrdem)
 
   if (cursor) {
     params.set('cursorDetectada', cursor.ordem_detectada_em)
@@ -218,6 +224,7 @@ function syncFiltersToUrl(filters: OrdersWorkspaceFilters) {
   setOrDelete('responsavel', filters.responsavel && filters.responsavel !== 'todos' ? filters.responsavel : null)
   setOrDelete('unidade', filters.unidade || null)
   setOrDelete('prioridade', filters.prioridade && filters.prioridade !== 'todas' ? filters.prioridade : null)
+  setOrDelete('tipoOrdem', filters.tipoOrdem && filters.tipoOrdem !== 'PMOS' ? filters.tipoOrdem : null)
 
   const query = params.toString()
   window.history.replaceState({}, '', query ? `?${query}` : window.location.pathname)
@@ -321,7 +328,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       }
 
       const payload = (await response.json()) as OrdersWorkspaceResponse
-      setCurrentUser(payload.currentUser)
+      setCurrentUser((prev) => ({ ...payload.currentUser, userEmail: prev.userEmail }))
       setKpis(payload.kpis)
       setOwnerSummary(payload.ownerSummary)
       setReassignTargets(payload.reassignTargets)
@@ -350,7 +357,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     setNextCursor(null)
     fetchWorkspace(true)
     return () => fetchAbortRef.current?.abort()
-  }, [filters.periodMode, filters.year, filters.month, filters.startDate, filters.endDate, filters.q, filters.status, filters.responsavel, filters.unidade, filters.prioridade])
+  }, [filters.periodMode, filters.year, filters.month, filters.startDate, filters.endDate, filters.q, filters.status, filters.responsavel, filters.unidade, filters.prioridade, filters.tipoOrdem])
 
   const selectedSet = useMemo(() => new Set(selectedNotaIds), [selectedNotaIds])
   const allLoadedSelected = rows.length > 0 && rows.every((row) => selectedSet.has(row.nota_id))
@@ -411,10 +418,23 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     return options
   }, [ownerSummary])
 
-  const visibleOwners = useMemo(
-    () => ownerSummary.filter((owner) => owner.total > 0 || owner.administrador_id === null),
-    [ownerSummary]
-  )
+  const visibleOwners = useMemo(() => {
+    const items = ownerSummary.filter((owner) => (
+      owner.total > 0
+      || owner.administrador_id === null
+      || owner.nome in FIXED_OWNER_CARD_ORDER
+    ))
+
+    return items.sort((a, b) => {
+      const aRank = FIXED_OWNER_CARD_ORDER[a.nome as keyof typeof FIXED_OWNER_CARD_ORDER]
+      const bRank = FIXED_OWNER_CARD_ORDER[b.nome as keyof typeof FIXED_OWNER_CARD_ORDER]
+
+      if (aRank !== undefined && bRank !== undefined) return aRank - bRank
+      if (aRank !== undefined) return -1
+      if (bRank !== undefined) return 1
+      return 0
+    })
+  }, [ownerSummary])
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
@@ -485,6 +505,12 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     },
   ] as const
 
+  const isGustavo = currentUser.userEmail === 'gustavoandrade@bemol.com.br'
+
+  function handleTabChange(tipo: string) {
+    setFilters((prev) => ({ ...prev, tipoOrdem: tipo }))
+  }
+
   function handleOwnerCardsViewModeChange(value: string) {
     const next: PanelViewMode = value === 'cards' ? 'cards' : 'list'
     setOwnerCardsViewMode(next)
@@ -500,6 +526,33 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
   return (
     <div className="space-y-4">
+      {isGustavo && (
+        <div className="flex gap-1 rounded-lg border bg-muted/50 p-1 w-fit">
+          <button
+            type="button"
+            onClick={() => handleTabChange('PMOS')}
+            className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
+              filters.tipoOrdem === 'PMOS' || !filters.tipoOrdem
+                ? 'bg-background shadow text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            PMOS <span className="text-muted-foreground font-normal">(Padrão)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange('PMPL')}
+            className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
+              filters.tipoOrdem === 'PMPL'
+                ? 'bg-background shadow text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            PMPL
+          </button>
+        </div>
+      )}
+
       <div className={`rounded-lg border p-2 ${kpiFrameClass}`}>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
           {kpiCards.map((item) => {

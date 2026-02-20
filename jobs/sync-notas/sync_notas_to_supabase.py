@@ -77,6 +77,7 @@ NOTA_CENTRO_COLUMNS_CANDIDATES = [
 ]
 
 PMPL_CENTRO_COLUMN = "CENTRO_LOCALIZACAO"
+PMPL_TIPO_ORDEM_COLUMN = "TIPO_ORDEM"
 PMPL_DATA_ENTRADA_COLUMNS_CANDIDATES = [
     "DATA_ENTRADA",
     "DATA_CRIACAO",
@@ -687,6 +688,7 @@ def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]
 
             centro = _extract_centro(row_dict)
             data_entrada = _extract_data_entrada(row_dict)
+            tipo_ordem = _as_clean_text(row_dict.get(PMPL_TIPO_ORDEM_COLUMN))
             priority = STATUS_PRIORITY.get(status_raw, 0)
 
             current = best_by_order.get(ordem_codigo)
@@ -696,10 +698,14 @@ def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]
                     "status_raw": status_raw,
                     "centro": centro,
                     "data_entrada": data_entrada or (current.get("data_entrada") if current else None),
+                    "tipo_ordem": tipo_ordem or (current.get("tipo_ordem") if current else None),
                     "priority": priority,
                 }
-            elif current.get("data_entrada") is None and data_entrada is not None:
-                current["data_entrada"] = data_entrada
+            else:
+                if current.get("data_entrada") is None and data_entrada is not None:
+                    current["data_entrada"] = data_entrada
+                if current.get("tipo_ordem") is None and tipo_ordem is not None:
+                    current["tipo_ordem"] = tipo_ordem
 
     updates = [
         {
@@ -707,11 +713,23 @@ def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]
             "status_raw": v["status_raw"],
             "centro": v["centro"],
             "data_entrada": v.get("data_entrada"),
+            "tipo_ordem": v.get("tipo_ordem"),
         }
         for v in best_by_order.values()
     ]
 
     logger.info("Updates consolidados de status PMPL: %s", len(updates))
+
+    debug_tipo = spark.conf.get("cockpit.sync.debug_tipo_ordem", "0")
+    if str(debug_tipo).strip() == "1":
+        from collections import Counter
+        tipo_counts = Counter(v.get("tipo_ordem") or "NULL" for v in best_by_order.values())
+        logger.info("DEBUG tipo_ordem counts: %s", dict(tipo_counts))
+        pmpl_samples = [v["ordem_codigo"] for v in best_by_order.values() if v.get("tipo_ordem") == "PMPL"][:5]
+        pmos_samples = [v["ordem_codigo"] for v in best_by_order.values() if (v.get("tipo_ordem") or "") != "PMPL"][:5]
+        logger.info("DEBUG PMPL samples (first 5): %s", pmpl_samples)
+        logger.info("DEBUG PMOS/NULL samples (first 5): %s", pmos_samples)
+
     return updates
 
 
