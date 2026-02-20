@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user?.email) {
-    return new NextResponse('Nao autenticado', { status: 401 })
+    return new NextResponse('Não autenticado', { status: 401 })
   }
 
   const { data: admin } = await supabase
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
   }
 
   if (scope !== 'ordens') {
-    return new NextResponse('Escopo de exportacao invalido', { status: 400 })
+    return new NextResponse('Escopo de exportacao inválido', { status: 400 })
   }
 
   const cutoff = new Date()
@@ -64,7 +64,7 @@ export async function GET(request: Request) {
   }
 
   if (!data || data.length === 0) {
-    return new NextResponse('Nenhum dado encontrado para o periodo', { status: 404 })
+    return new NextResponse('Nenhum dado encontrado para o período', { status: 404 })
   }
 
   const headers = [

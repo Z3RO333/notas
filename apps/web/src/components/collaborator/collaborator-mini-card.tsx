@@ -17,7 +17,7 @@ const especialidadeConfig: Record<Especialidade, { label: string; color: string 
 
 function getUnavailableLabel(c: CollaboratorData): string | null {
   if (!c.ativo) return 'Inativo'
-  if (c.em_ferias) return 'Em ferias'
+  if (c.em_ferias) return 'Em férias'
   if (!c.recebe_distribuicao) return 'Pausado'
   return null
 }

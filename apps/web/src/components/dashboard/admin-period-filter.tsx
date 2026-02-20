@@ -16,7 +16,7 @@ const PRESETS: Array<{ value: AdminPeriodPreset; label: string }> = [
   { value: '30d', label: '30 dias' },
   { value: '90d', label: '90 dias' },
   { value: '180d', label: '180 dias' },
-  { value: 'custom', label: 'Periodo custom' },
+  { value: 'custom', label: 'Período custom' },
 ]
 
 function isValidDateInput(value: string): boolean {

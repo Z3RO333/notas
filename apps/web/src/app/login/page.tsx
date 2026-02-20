@@ -38,7 +38,7 @@ export default function LoginPage() {
 
       if (authError) {
         setError(authError.message === 'Email not confirmed'
-          ? 'Email nao confirmado. Tente cadastrar novamente.'
+          ? 'Email não confirmado. Tente cadastrar novamente.'
           : 'Email ou senha invalidos.')
         setLoading(false)
         return
@@ -63,7 +63,7 @@ export default function LoginPage() {
     }
 
     if (password !== confirmPassword) {
-      setError('As senhas nao coincidem.')
+      setError('As senhas não coincidem.')
       setLoading(false)
       return
     }
@@ -80,7 +80,7 @@ export default function LoginPage() {
         .single()
 
       if (adminError || !admin) {
-        setError('Email nao autorizado. Contate o gestor.')
+        setError('Email não autorizado. Contate o gestor.')
         return
       }
 
@@ -92,7 +92,7 @@ export default function LoginPage() {
 
       if (signUpError) {
         setError(signUpError.message === 'User already registered'
-          ? 'Este email ja possui conta. Use o login normal.'
+          ? 'Este email já possui conta. Use o login normal.'
           : signUpError.message)
         return
       }
@@ -105,7 +105,7 @@ export default function LoginPage() {
           .eq('id', admin.id)
       }
 
-      // Se signUp ja retornou sessao, redireciona direto
+      // Se signUp já retornou sessão, redireciona direto
       if (signUpData.session) {
         window.location.href = '/api/auth/landing'
         return
@@ -118,7 +118,7 @@ export default function LoginPage() {
       })
 
       if (loginError) {
-        setError('Conta criada, mas nao foi possivel entrar automaticamente. Tente fazer login.')
+        setError('Conta criada, mas não foi possível entrar automaticamente. Tente fazer login.')
         setMode('login')
         setLoading(false)
         return
@@ -213,7 +213,7 @@ export default function LoginPage() {
         >
           {isLogin
             ? 'Primeiro acesso? Cadastre-se aqui'
-            : 'Ja tem conta? Faca login'}
+            : 'Já tem conta? Faca login'}
         </button>
       </CardContent>
     </Card>

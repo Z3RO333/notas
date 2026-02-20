@@ -163,9 +163,9 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
   const aging = buildAgingCounts(baseOpenNotas)
 
   const responsavelOptions = [
-    { value: 'todos', label: 'Todos os responsaveis' },
+    { value: 'todos', label: 'Todos os responsáveis' },
     ...((adminsResult.data ?? []).map((admin) => ({ value: admin.id, label: admin.nome }))),
-    { value: 'sem_atribuir', label: 'Nao atribuidas' },
+    { value: 'sem_atribuir', label: 'Não atribuídas' },
   ]
 
   const unidadeOptions = [

@@ -82,7 +82,7 @@ AS $$
   sem_responsavel AS (
     SELECT
       NULL::UUID AS administrador_id,
-      'Sem responsavel'::TEXT AS nome,
+      'Sem responsável'::TEXT AS nome,
       NULL::TEXT AS avatar_url,
       COUNT(*)::INTEGER AS total,
       COUNT(*) FILTER (WHERE status_ordem = 'aberta')::INTEGER AS abertas,

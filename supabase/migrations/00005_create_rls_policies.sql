@@ -1,5 +1,5 @@
 -- 00005_create_rls_policies.sql
--- Row Level Security: admin ve so suas notas, gestor ve tudo
+-- Row Level Security: admin vê só suas notas, gestor vê tudo
 
 -- Habilita RLS em todas as tabelas
 ALTER TABLE public.administradores ENABLE ROW LEVEL SECURITY;
@@ -24,7 +24,7 @@ CREATE POLICY "Gestor atualiza admins"
 -- ============================================================
 -- NOTAS_MANUTENCAO
 -- ============================================================
--- Admin ve so suas notas; Gestor ve tudo
+-- Admin vê só suas notas; Gestor vê tudo
 CREATE POLICY "Admin ve suas notas, gestor ve tudo"
   ON public.notas_manutencao FOR SELECT
   TO authenticated
@@ -33,7 +33,7 @@ CREATE POLICY "Admin ve suas notas, gestor ve tudo"
     OR get_my_role() = 'gestor'
   );
 
--- Admin atualiza so suas notas; Gestor atualiza tudo
+-- Admin atualiza só suas notas; Gestor atualiza tudo
 CREATE POLICY "Admin atualiza suas notas, gestor atualiza tudo"
   ON public.notas_manutencao FOR UPDATE
   TO authenticated
@@ -62,7 +62,7 @@ CREATE POLICY "Auditoria visivel por dono da nota ou gestor"
     OR get_my_role() = 'gestor'
   );
 
--- Insert feito via funcoes SECURITY DEFINER, nao precisa de policy
+-- Insert feito via funcoes SECURITY DEFINER, não precisa de policy
 
 -- ============================================================
 -- SYNC_LOG
@@ -75,7 +75,7 @@ CREATE POLICY "Gestor ve sync logs"
 -- ============================================================
 -- DISTRIBUICAO_LOG
 -- ============================================================
-CREATE POLICY "Gestor ve distribuicao logs"
+CREATE POLICY "Gestor ve distribuição logs"
   ON public.distribuicao_log FOR SELECT
   TO authenticated
   USING (get_my_role() = 'gestor');

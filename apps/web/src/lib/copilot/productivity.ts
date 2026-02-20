@@ -48,7 +48,7 @@ export interface TendenciaConfig {
 
 const TENDENCIA_CONFIG: Record<TendenciaType, TendenciaConfig> = {
   subindo: { label: 'Subindo', icon: 'arrow-up', color: 'text-emerald-600' },
-  estavel: { label: 'Estavel', icon: 'minus', color: 'text-slate-500' },
+  estavel: { label: 'Estável', icon: 'minus', color: 'text-slate-500' },
   caindo: { label: 'Caindo', icon: 'arrow-down', color: 'text-red-600' },
 }
 

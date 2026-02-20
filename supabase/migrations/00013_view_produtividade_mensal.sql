@@ -1,6 +1,6 @@
 -- =============================================
 -- MIGRATION 00013: View de produtividade mensal
--- Agrega notas concluidas por admin por mes
+-- Agrega notas concluídas por admin por mês
 -- para medir produtividade individual
 -- =============================================
 

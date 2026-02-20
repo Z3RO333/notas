@@ -229,17 +229,17 @@ export function buildKpis(summary: DashboardSummaryMetrics): DashboardKpiItem[] 
   return [
     {
       id: 'abertas_agora',
-      label: 'Abertas no periodo',
+      label: 'Abertas no período',
       value: formatInteger(summary.abertas_agora),
       tone: 'neutral',
-      helper: 'Notas abertas criadas no periodo',
+      helper: 'Notas abertas criadas no período',
     },
     {
       id: 'sem_atribuir',
       label: 'Sem atribuir',
       value: formatInteger(summary.sem_atribuir),
       tone: summary.sem_atribuir > 0 ? 'danger' : 'success',
-      helper: 'Notas novas sem responsavel',
+      helper: 'Notas novas sem responsável',
     },
     {
       id: 'aging_48h',
@@ -278,8 +278,8 @@ export function buildAlerts(params: {
     alerts.push({
       id: 'sem-atribuir',
       level: 'critical',
-      title: 'Notas sem atribuicao',
-      description: `${formatInteger(params.summary.sem_atribuir)} nota(s) nova(s) sem atribuicao no periodo selecionado.`,
+      title: 'Notas sem atribuição',
+      description: `${formatInteger(params.summary.sem_atribuir)} nota(s) nova(s) sem atribuição no período selecionado.`,
     })
   }
 
@@ -287,7 +287,7 @@ export function buildAlerts(params: {
     alerts.push({
       id: 'sync-ausente',
       level: 'critical',
-      title: 'Sem historico de sync',
+      title: 'Sem histórico de sync',
       description: 'Nenhum sync encontrado no sistema.',
     })
   } else {
@@ -315,7 +315,7 @@ export function buildAlerts(params: {
       id: 'aging',
       level: 'warning',
       title: 'Backlog envelhecido',
-      description: `${formatInteger(params.summary.aging_48h)} nota(s) aberta(s) acima de 48h no periodo selecionado.`,
+      description: `${formatInteger(params.summary.aging_48h)} nota(s) aberta(s) acima de 48h no período selecionado.`,
     })
   }
 
@@ -323,8 +323,8 @@ export function buildAlerts(params: {
     alerts.push({
       id: 'saudavel',
       level: 'info',
-      title: 'Operacao estavel',
-      description: 'Nenhum alerta critico ou de aviso no momento.',
+      title: 'Operação estável',
+      description: 'Nenhum alerta crítico ou de aviso no momento.',
     })
   }
 

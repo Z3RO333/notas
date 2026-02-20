@@ -122,7 +122,7 @@ export function ThroughputTrend({ data, spanDays, periodLabel }: ThroughputTrend
               <Line
                 type="monotone"
                 dataKey="qtd_concluidas"
-                name="Concluidas"
+                name="Concluídas"
                 stroke="#16a34a"
                 strokeWidth={2}
                 dot={false}

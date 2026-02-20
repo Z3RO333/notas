@@ -1,7 +1,7 @@
 -- =============================================
 -- MIGRATION 00012: Permitir concluir nota direto de em_andamento
--- Antes: em_andamento -> encaminhada_fornecedor -> concluida
--- Depois: em_andamento -> concluida (direto) tambem e valido
+-- Antes: em_andamento -> encaminhada_fornecedor -> concluída
+-- Depois: em_andamento -> concluída (direto) também é válido
 -- =============================================
 
 CREATE OR REPLACE FUNCTION atualizar_status_nota(
@@ -24,7 +24,7 @@ BEGIN
   FOR UPDATE;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Nota % nao encontrada', p_nota_id;
+    RAISE EXCEPTION 'Nota % não encontrada', p_nota_id;
   END IF;
 
   v_old_status := v_nota.status;
@@ -35,7 +35,7 @@ BEGIN
     OR (v_old_status = 'em_andamento' AND p_novo_status IN ('encaminhada_fornecedor', 'concluida', 'cancelada'))
     OR (v_old_status = 'encaminhada_fornecedor' AND p_novo_status IN ('concluida', 'em_andamento', 'cancelada'))
   ) THEN
-    RAISE EXCEPTION 'Transicao de status invalida: % -> %', v_old_status, p_novo_status;
+    RAISE EXCEPTION 'Transicao de status inválida: % -> %', v_old_status, p_novo_status;
   END IF;
 
   -- Atualiza a nota

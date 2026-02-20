@@ -1,6 +1,6 @@
 -- =============================================
 -- MIGRATION 00016: Enforce Walter como gestor puro
--- Corrige cadastro e devolve notas abertas para fila sem atribuicao
+-- Corrige cadastro e devolve notas abertas para fila sem atribuição
 -- =============================================
 
 DO $$
@@ -18,7 +18,7 @@ BEGIN
   RETURNING id INTO v_walter_id;
 
   IF v_walter_id IS NULL THEN
-    RAISE EXCEPTION 'Administrador com email % nao encontrado', 'walterrodrigues@bemol.com.br';
+    RAISE EXCEPTION 'Administrador com email % não encontrado', 'walterrodrigues@bemol.com.br';
   END IF;
 
   WITH moved AS (
@@ -43,7 +43,7 @@ BEGIN
     'administrador_id',
     v_walter_id::TEXT,
     'NULL',
-    'Migracao 00016: Walter Rodrigues configurado como gestor puro; nota devolvida para fila sem atribuicao'
+    'Migracao 00016: Walter Rodrigues configurado como gestor puro; nota devolvida para fila sem atribuição'
   FROM moved;
 END;
 $$ LANGUAGE plpgsql;

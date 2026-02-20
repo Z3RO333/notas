@@ -45,7 +45,7 @@ export function CopilotAlertsPanel({ alerts }: CopilotAlertsPanelProps) {
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
           <AlertOctagon className="h-4 w-4" />
-          Alertas ({criticals.length > 0 ? `${criticals.length} critico(s)` : 'OK'})
+          Alertas ({criticals.length > 0 ? `${criticals.length} crítico(s)` : 'OK'})
         </CardTitle>
       </CardHeader>
       <CardContent>

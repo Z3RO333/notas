@@ -1,5 +1,5 @@
 -- 00002_create_tables.sql
--- Tabelas do cockpit de distribuicao de notas
+-- Tabelas do cockpit de distribuição de notas
 
 -- Trigger helper para updated_at
 CREATE OR REPLACE FUNCTION update_updated_at()
@@ -56,7 +56,7 @@ CREATE TABLE public.notas_manutencao (
   autor_nota            TEXT,                         -- AUTOR_NOTA_QM_PM
   streaming_timestamp   TIMESTAMPTZ,                  -- __timestamp (watermark)
 
-  -- Status e distribuicao do cockpit
+  -- Status e distribuição do cockpit
   status                nota_status NOT NULL DEFAULT 'nova',
   administrador_id      UUID REFERENCES public.administradores(id),
   distribuida_em        TIMESTAMPTZ,
@@ -81,7 +81,7 @@ CREATE TRIGGER trg_notas_updated
 
 -- ============================================================
 -- NOTAS_HISTORICO
--- Auditoria: toda mudanca de status ou reatribuicao
+-- Auditoria: toda mudanca de status ou reatribuição
 -- ============================================================
 CREATE TABLE public.notas_historico (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -114,7 +114,7 @@ CREATE TABLE public.sync_log (
 
 -- ============================================================
 -- DISTRIBUICAO_LOG
--- Registro de cada decisao de atribuicao
+-- Registro de cada decisao de atribuição
 -- ============================================================
 CREATE TABLE public.distribuicao_log (
   id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),

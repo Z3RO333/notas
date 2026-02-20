@@ -24,9 +24,9 @@ function getContext(isoScore: number): DynamicKpiContext {
 /**
  * Build dynamic KPI cards that change based on operational context.
  *
- * Saudavel: Produtividade, Eficiencia, Tendencia de melhoria
- * Atencao:  Notas envelhecendo, Backlog atual, Taxa de resolucao
- * Risco:    Notas criticas, Admins sobrecarregados, Ordens atrasadas
+ * Saudável: Produtividade, Eficiência, Tendência de melhoria
+ * Atenção:  Notas envelhecendo, Backlog atual, Taxa de resolução
+ * Risco:    Notas críticas, Admins sobrecarregados, Ordens atrasadas
  */
 export function buildDynamicKpis(params: {
   isoGlobal: IsoGlobal
@@ -52,7 +52,7 @@ export function buildDynamicKpis(params: {
       },
       {
         id: 'notas_criticas',
-        label: 'Notas criticas',
+        label: 'Notas críticas',
         value: formatInt(totalCriticas),
         tone: 'danger',
         pulse: totalCriticas > 0,
@@ -102,7 +102,7 @@ export function buildDynamicKpis(params: {
       },
       {
         id: 'taxa_resolucao',
-        label: 'Taxa de resolucao',
+        label: 'Taxa de resolução',
         value: formatPct(summary.taxa_fechamento_30d),
         tone: summary.taxa_fechamento_30d >= 1 ? 'success' : 'warning',
       },
@@ -126,13 +126,13 @@ export function buildDynamicKpis(params: {
     },
     {
       id: 'concluidas_7d',
-      label: 'Concluidas (7d)',
+      label: 'Concluídas (7d)',
       value: formatInt(totalConcluidas7d),
       tone: 'success',
     },
     {
       id: 'taxa_resolucao',
-      label: 'Taxa de resolucao',
+      label: 'Taxa de resolução',
       value: formatPct(summary.taxa_fechamento_30d),
       tone: summary.taxa_fechamento_30d >= 1 ? 'success' : 'neutral',
     },

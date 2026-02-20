@@ -1,5 +1,5 @@
 -- 00014_admin_panel_setup.sql
--- Painel administrativo restrito: novos campos, Walter, audit log, distribuicao atualizada
+-- Painel administrativo restrito: novos campos, Walter, audit log, distribuição atualizada
 
 -- ============================================================
 -- 1. NOVOS CAMPOS NA TABELA DE ADMINISTRADORES
@@ -74,10 +74,10 @@ DECLARE
   v_admin RECORD;
   v_especialidade TEXT;
 BEGIN
-  -- Advisory lock: previne distribuicao concorrente
+  -- Advisory lock: previne distribuição concorrente
   PERFORM pg_advisory_xact_lock(hashtext('distribuir_notas'));
 
-  -- Loop pelas notas nao atribuidas (mais antiga primeiro)
+  -- Loop pelas notas não atribuídas (mais antiga primeiro)
   FOR v_nota IN
     SELECT nm.id, nm.descricao
     FROM public.notas_manutencao nm
@@ -86,19 +86,19 @@ BEGIN
     ORDER BY nm.data_criacao_sap ASC NULLS LAST, nm.created_at ASC
     FOR UPDATE SKIP LOCKED
   LOOP
-    -- Determina a especialidade baseado na descricao da nota
+    -- Determina a especialidade baseado na descrição da nota
     SELECT r.especialidade INTO v_especialidade
     FROM public.regras_distribuicao r
     WHERE UPPER(v_nota.descricao) LIKE '%' || UPPER(r.palavra_chave) || '%'
     LIMIT 1;
 
-    -- Se nao encontrou nenhuma regra, vai para 'geral'
+    -- Se não encontrou nenhuma regra, vai para 'geral'
     IF v_especialidade IS NULL THEN
       v_especialidade := 'geral';
     END IF;
 
     -- Busca admin com menor carga DENTRO da especialidade
-    -- FILTROS: ativo, recebe_distribuicao, nao em ferias
+    -- FILTROS: ativo, recebe_distribuicao, não em férias
     SELECT
       a.id,
       COUNT(n.id) FILTER (
@@ -155,7 +155,7 @@ BEGIN
       updated_at = now()
     WHERE id = v_nota.id;
 
-    -- Log da atribuicao
+    -- Log da atribuição
     INSERT INTO public.distribuicao_log (nota_id, administrador_id, notas_abertas_no_momento, sync_id)
     VALUES (v_nota.id, v_admin.id, v_admin.open_count, p_sync_id);
 
@@ -166,10 +166,10 @@ BEGIN
       'administrador_id',
       NULL,
       v_admin.id::TEXT,
-      'Distribuicao automatica (' || v_especialidade || ') - sync_id: ' || COALESCE(p_sync_id::TEXT, 'manual')
+      'Distribuição automatica (' || v_especialidade || ') - sync_id: ' || COALESCE(p_sync_id::TEXT, 'manual')
     );
 
-    -- Retorna a atribuicao
+    -- Retorna a atribuição
     nota_id := v_nota.id;
     administrador_id := v_admin.id;
     notas_abertas := v_admin.open_count;

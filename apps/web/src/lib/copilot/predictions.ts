@@ -73,7 +73,7 @@ export function buildPredictions(params: {
         adminNome: row.nome,
         diasParaEvento: 0,
         severidade: 'alta',
-        mensagem: `${row.nome} tem ${criticas} de ${total} notas com aging critico (3+ dias). Risco de SLA massivo.`,
+        mensagem: `${row.nome} tem ${criticas} de ${total} notas com aging crítico (3+ dias). Risco de SLA massivo.`,
       })
     } else if (ratioCriticas >= 0.3 && criticas >= 2) {
       predictions.push({
@@ -82,7 +82,7 @@ export function buildPredictions(params: {
         adminNome: row.nome,
         diasParaEvento: 2,
         severidade: 'media',
-        mensagem: `${row.nome} tem ${criticas} notas criticas. Sem acao, ${total - criticas} notas restantes podem estourar SLA em ~2 dias.`,
+        mensagem: `${row.nome} tem ${criticas} notas críticas. Sem ação, ${total - criticas} notas restantes podem estourar SLA em ~2 dias.`,
       })
     }
   }

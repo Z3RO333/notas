@@ -13,7 +13,7 @@ interface ReassignOrderRow {
 async function getGestorContext() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user?.email) throw new Error('Nao autenticado')
+  if (!user?.email) throw new Error('Não autenticado')
 
   const { data: admin } = await supabase
     .from('administradores')
@@ -48,7 +48,7 @@ async function logAudit(
     detalhes: detalhes ?? null,
   })
 
-  // Auditoria nao deve interromper o fluxo principal da operacao.
+  // Auditoria não deve interromper o fluxo principal da operação.
   if (error) {
     console.error('Falha ao gravar admin_audit_log:', error.message)
   }

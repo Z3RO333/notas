@@ -80,7 +80,7 @@ export function CollaboratorFullCard({
               const aging = isOpenStatus(nota.status)
                 ? getAgingBadge(getAgingBucket(nota))
                 : {
-                    label: nota.status === 'concluida' ? 'Concluida' : 'Cancelada',
+                    label: nota.status === 'concluida' ? 'Concluída' : 'Cancelada',
                     chip: 'bg-slate-100 text-slate-600',
                   }
               return (

@@ -26,20 +26,20 @@ export function buildCopilotAlerts(params: {
   const nowMs = now.getTime()
   const alerts: CopilotAlert[] = []
 
-  // 1. ISO global critico
+  // 1. ISO global crítico
   if (isoGlobal.iso_faixa === 'critico') {
     alerts.push({
       id: 'iso-critico',
       level: 'critical',
-      title: 'ISO critico',
-      description: `Indice de severidade operacional em ${isoGlobal.iso_score.toFixed(0)} — operacao em estado critico.`,
+      title: 'ISO crítico',
+      description: `Índice de severidade operacional em ${isoGlobal.iso_score.toFixed(0)} — operação em estado crítico.`,
     })
   } else if (isoGlobal.iso_faixa === 'risco_alto') {
     alerts.push({
       id: 'iso-risco',
       level: 'warning',
       title: 'ISO em risco',
-      description: `Indice de severidade operacional em ${isoGlobal.iso_score.toFixed(0)} — requer atencao.`,
+      description: `Índice de severidade operacional em ${isoGlobal.iso_score.toFixed(0)} — requer atenção.`,
     })
   }
 
@@ -51,7 +51,7 @@ export function buildCopilotAlerts(params: {
         id: `admin-sobrecarregado-${admin.administrador_id}`,
         level: 'critical',
         title: `${admin.nome} sobrecarregado`,
-        description: `ISO ${admin.iso_score.toFixed(0)} — ${admin.qtd_abertas} notas abertas, ${admin.qtd_notas_criticas} criticas.`,
+        description: `ISO ${admin.iso_score.toFixed(0)} — ${admin.qtd_abertas} notas abertas, ${admin.qtd_notas_criticas} críticas.`,
         adminId: admin.administrador_id,
         adminNome: admin.nome,
         actionLabel: 'Redistribuir notas',
@@ -65,18 +65,18 @@ export function buildCopilotAlerts(params: {
     alerts.push({
       id: 'notas-estourado-sla',
       level: 'critical',
-      title: 'Notas em SLA critico',
-      description: `${formatInteger(notasCriticas5d)} nota(s) aberta(s) ha 5+ dias sem resolucao.`,
+      title: 'Notas em SLA crítico',
+      description: `${formatInteger(notasCriticas5d)} nota(s) aberta(s) há 5+ dias sem resolução.`,
     })
   }
 
-  // 4. Notas sem atribuicao
+  // 4. Notas sem atribuição
   if (summary.sem_atribuir > 0) {
     alerts.push({
       id: 'sem-atribuir',
       level: 'critical',
-      title: 'Notas sem atribuicao',
-      description: `${formatInteger(summary.sem_atribuir)} nota(s) nova(s) aguardando distribuicao.`,
+      title: 'Notas sem atribuição',
+      description: `${formatInteger(summary.sem_atribuir)} nota(s) nova(s) aguardando distribuição.`,
     })
   }
 
@@ -85,7 +85,7 @@ export function buildCopilotAlerts(params: {
     alerts.push({
       id: 'sync-ausente',
       level: 'critical',
-      title: 'Sem historico de sync',
+      title: 'Sem histórico de sync',
       description: 'Nenhum sync encontrado no sistema.',
     })
   } else {
@@ -134,8 +134,8 @@ export function buildCopilotAlerts(params: {
     alerts.push({
       id: 'saudavel',
       level: 'info',
-      title: 'Operacao estavel',
-      description: 'Nenhum alerta critico ou de aviso no momento.',
+      title: 'Operação estável',
+      description: 'Nenhum alerta crítico ou de aviso no momento.',
     })
   }
 

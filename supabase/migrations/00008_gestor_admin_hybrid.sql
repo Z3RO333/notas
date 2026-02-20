@@ -1,6 +1,6 @@
 -- 00008_gestor_admin_hybrid.sql
--- Permite que gestor tambem receba notas (ex: gustavoandrade que eh desenvolvedor e gestor)
--- Remove filtro role='admin' da distribuicao - agora qualquer usuario ativo com especialidade recebe
+-- Permite que gestor também receba notas (ex: gustavoandrade que eh desenvolvedor e gestor)
+-- Remove filtro role='admin' da distribuição - agora qualquer usuario ativo com especialidade recebe
 
 -- ============================================================
 -- ATUALIZAR ROLE DO GUSTAVO PARA GESTOR
@@ -18,10 +18,10 @@ DECLARE
   v_admin RECORD;
   v_especialidade TEXT;
 BEGIN
-  -- Advisory lock: previne distribuicao concorrente
+  -- Advisory lock: previne distribuição concorrente
   PERFORM pg_advisory_xact_lock(hashtext('distribuir_notas'));
 
-  -- Loop pelas notas nao atribuidas (mais antiga primeiro)
+  -- Loop pelas notas não atribuídas (mais antiga primeiro)
   FOR v_nota IN
     SELECT nm.id, nm.descricao
     FROM public.notas_manutencao nm
@@ -30,19 +30,19 @@ BEGIN
     ORDER BY nm.data_criacao_sap ASC NULLS LAST, nm.created_at ASC
     FOR UPDATE SKIP LOCKED
   LOOP
-    -- Determina a especialidade baseado na descricao da nota
+    -- Determina a especialidade baseado na descrição da nota
     SELECT r.especialidade INTO v_especialidade
     FROM public.regras_distribuicao r
     WHERE UPPER(v_nota.descricao) LIKE '%' || UPPER(r.palavra_chave) || '%'
     LIMIT 1;
 
-    -- Se nao encontrou nenhuma regra, vai para 'geral'
+    -- Se não encontrou nenhuma regra, vai para 'geral'
     IF v_especialidade IS NULL THEN
       v_especialidade := 'geral';
     END IF;
 
     -- Busca admin com menor carga DENTRO da especialidade
-    -- REMOVIDO: filtro a.role = 'admin' (gestor tambem pode receber notas)
+    -- REMOVIDO: filtro a.role = 'admin' (gestor também pode receber notas)
     SELECT
       a.id,
       COUNT(n.id) FILTER (
@@ -95,7 +95,7 @@ BEGIN
       updated_at = now()
     WHERE id = v_nota.id;
 
-    -- Log da atribuicao
+    -- Log da atribuição
     INSERT INTO public.distribuicao_log (nota_id, administrador_id, notas_abertas_no_momento, sync_id)
     VALUES (v_nota.id, v_admin.id, v_admin.open_count, p_sync_id);
 
@@ -106,10 +106,10 @@ BEGIN
       'administrador_id',
       NULL,
       v_admin.id::TEXT,
-      'Distribuicao automatica (' || v_especialidade || ') - sync_id: ' || COALESCE(p_sync_id::TEXT, 'manual')
+      'Distribuição automatica (' || v_especialidade || ') - sync_id: ' || COALESCE(p_sync_id::TEXT, 'manual')
     );
 
-    -- Retorna a atribuicao
+    -- Retorna a atribuição
     nota_id := v_nota.id;
     administrador_id := v_admin.id;
     notas_abertas := v_admin.open_count;
@@ -119,11 +119,11 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================
--- PERMITIR GESTOR VER SYNC_LOG E DISTRIBUICAO_LOG (ja existe, mas garantir)
+-- PERMITIR GESTOR VER SYNC_LOG E DISTRIBUICAO_LOG (já existe, mas garantir)
 -- ============================================================
--- Ja criado em 00005, nenhuma alteracao necessaria.
+-- Já criado em 00005, nenhuma alteracao necessaria.
 
 -- ============================================================
 -- PERMITIR ADMIN VER SYNC_LOG (para gestor-admin ver saude do sistema na aba admin)
 -- ============================================================
--- Nao necessario: gestor ja ve sync_log pela policy existente.
+-- Não necessario: gestor já ve sync_log pela policy existente.

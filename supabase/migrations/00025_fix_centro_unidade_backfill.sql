@@ -23,7 +23,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
--- 1) Normaliza centro ja existente nas notas
+-- 1) Normaliza centro já existente nas notas
 UPDATE public.notas_manutencao n
 SET
   centro = public.normalizar_centro_codigo(n.centro),
@@ -31,7 +31,7 @@ SET
 WHERE n.centro IS NOT NULL
   AND n.centro IS DISTINCT FROM public.normalizar_centro_codigo(n.centro);
 
--- 2) Normaliza centro ja existente no acompanhamento da ordem
+-- 2) Normaliza centro já existente no acompanhamento da ordem
 WITH resolved AS (
   SELECT
     o.id,

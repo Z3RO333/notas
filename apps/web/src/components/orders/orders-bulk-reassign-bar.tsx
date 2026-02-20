@@ -89,7 +89,7 @@ export function OrdersBulkReassignBar({
       if (mode === 'destino_unico') setDestinationAdminId('')
       onClearSelection()
       toast({
-        title: 'Reatribuicao concluida',
+        title: 'Reatribuição concluída',
         description: `Movidas: ${result.movedCount} | Puladas: ${result.skippedCount}`,
         variant: 'success',
       })
@@ -123,7 +123,7 @@ export function OrdersBulkReassignBar({
             <DialogHeader>
               <DialogTitle>Reatribuir ordens selecionadas</DialogTitle>
               <DialogDescription>
-                Selecione o modo de reatribuicao e confirme a movimentacao das ordens selecionadas.
+                Selecione o modo de reatribuição e confirme a movimentação das ordens selecionadas.
               </DialogDescription>
             </DialogHeader>
 
@@ -149,7 +149,7 @@ export function OrdersBulkReassignBar({
                     options={admins.map((admin) => ({ value: admin.id, label: admin.nome }))}
                     value={destinationAdminId}
                     onValueChange={setDestinationAdminId}
-                    placeholder="Selecione o novo responsavel..."
+                    placeholder="Selecione o novo responsável..."
                   />
                 </div>
               )}
@@ -158,7 +158,7 @@ export function OrdersBulkReassignBar({
                 <label htmlFor="bulk-motivo" className="text-sm font-medium">Motivo (opcional)</label>
                 <Textarea
                   id="bulk-motivo"
-                  placeholder="Ex: cobertura de ferias"
+                  placeholder="Ex: cobertura de férias"
                   value={motivo}
                   onChange={(event) => setMotivo(event.target.value)}
                   rows={2}
@@ -176,7 +176,7 @@ export function OrdersBulkReassignBar({
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={!canSubmit} isLoading={loading}>
-                  Confirmar reatribuicao
+                  Confirmar reatribuição
                 </Button>
               </div>
             </form>

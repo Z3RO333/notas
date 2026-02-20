@@ -74,7 +74,7 @@ export default async function PessoasPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Gestao de Pessoas</h1>
         <p className="text-sm text-muted-foreground">
-          Controle de disponibilidade, ferias e carga operacional dos colaboradores.
+          Controle de disponibilidade, férias e carga operacional dos colaboradores.
         </p>
       </div>
 
@@ -88,7 +88,7 @@ export default async function PessoasPage() {
           <span className="font-semibold">{recebendo}</span>
         </div>
         <div className="rounded-lg border px-4 py-2">
-          <span className="text-muted-foreground">Em ferias: </span>
+          <span className="text-muted-foreground">Em férias: </span>
           <span className="font-semibold">{emFerias}</span>
         </div>
         {inativos > 0 && (

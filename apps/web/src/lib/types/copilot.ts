@@ -2,7 +2,7 @@
 // Copilot Inteligente — Types
 // ==============================
 
-// --- ISO (Indice de Severidade Operacional) ---
+// --- ISO (Índice de Severidade Operacional) ---
 
 export type IsoFaixa = 'saudavel' | 'atencao' | 'risco_alto' | 'critico'
 
@@ -135,13 +135,17 @@ export type CopilotActionType =
   | 'pausar_distribuicao'
   | 'investigar_unidade'
   | 'redistribuir_ferias'
+  | 'investigar_colaborador_ordens'
 
 export type SuggestionPriority = 'alta' | 'media' | 'baixa'
+export type CopilotSuggestionDomain = 'notas' | 'ordens'
 
 export interface CopilotSuggestion {
   id: string
   prioridade: SuggestionPriority
   acao: CopilotActionType
+  dominio: CopilotSuggestionDomain
+  viewHref: string
   titulo: string
   descricao: string
   impacto: string

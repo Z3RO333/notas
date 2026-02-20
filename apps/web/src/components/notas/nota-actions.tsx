@@ -56,11 +56,11 @@ export function NotaActions({ notaId, currentStatus, hasAdmin }: NotaActionsProp
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Acao</CardTitle>
+          <CardTitle className="text-lg">Ação</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Esta nota ja foi {currentStatus === 'concluida' ? 'concluida' : 'cancelada'}.
+            Esta nota já foi {currentStatus === 'concluida' ? 'concluída' : 'cancelada'}.
           </p>
         </CardContent>
       </Card>
@@ -71,11 +71,11 @@ export function NotaActions({ notaId, currentStatus, hasAdmin }: NotaActionsProp
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Acao</CardTitle>
+          <CardTitle className="text-lg">Ação</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Esta nota ainda nao foi atribuida a um tecnico.
+            Esta nota ainda não foi atribuída a um técnico.
           </p>
         </CardContent>
       </Card>
@@ -120,7 +120,7 @@ export function NotaActions({ notaId, currentStatus, hasAdmin }: NotaActionsProp
             <label htmlFor="novo-status" className="text-sm font-medium">Novo Status</label>
             <Select value={novoStatus} onValueChange={(v) => setNovoStatus(v as NotaStatus)}>
               <SelectTrigger id="novo-status">
-                <SelectValue placeholder="Selecione a acao..." />
+                <SelectValue placeholder="Selecione a ação..." />
               </SelectTrigger>
               <SelectContent>
                 {availableTransitions.map((t) => (
@@ -135,7 +135,7 @@ export function NotaActions({ notaId, currentStatus, hasAdmin }: NotaActionsProp
           {(novoStatus === 'encaminhada_fornecedor' || novoStatus === 'concluida') && (
             <>
               <div className="space-y-2">
-                <label htmlFor="ordem-gerada" className="text-sm font-medium">Numero da Ordem Gerada</label>
+                <label htmlFor="ordem-gerada" className="text-sm font-medium">Número da Ordem Gerada</label>
                 <Input
                   id="ordem-gerada"
                   placeholder="Ex: 000400012345"
@@ -156,10 +156,10 @@ export function NotaActions({ notaId, currentStatus, hasAdmin }: NotaActionsProp
           )}
 
           <div className="space-y-2">
-            <label htmlFor="observacoes" className="text-sm font-medium">Observacoes</label>
+            <label htmlFor="observacoes" className="text-sm font-medium">Observações</label>
             <Textarea
               id="observacoes"
-              placeholder="Observacoes sobre a tratativa..."
+              placeholder="Observações sobre a tratativa..."
               value={observacoes}
               onChange={(e) => setObservacoes(e.target.value)}
               rows={3}

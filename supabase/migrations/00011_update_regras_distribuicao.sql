@@ -1,5 +1,5 @@
 -- =============================================
--- MIGRATION 00011: Atualizar regras de distribuicao
+-- MIGRATION 00011: Atualizar regras de distribuição
 -- com categorias exatas do TEXTO_BREVE (SAP)
 -- =============================================
 

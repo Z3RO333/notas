@@ -68,7 +68,7 @@ export async function GET(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user?.email) {
-    return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
+    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
   }
 
   const { data: loggedAdmin, error: loggedAdminError } = await supabase
@@ -78,7 +78,7 @@ export async function GET(request: Request) {
     .single()
 
   if (loggedAdminError || !loggedAdmin) {
-    return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
+    return NextResponse.json({ error: 'Administrador não encontrado' }, { status: 403 })
   }
 
   const role = loggedAdmin.role as UserRole
@@ -86,7 +86,7 @@ export async function GET(request: Request) {
   const notaId = asUuid(searchParams.get('notaId'))
 
   if (!notaId) {
-    return NextResponse.json({ error: 'notaId invalido' }, { status: 400 })
+    return NextResponse.json({ error: 'notaId inválido' }, { status: 400 })
   }
 
   const ordemResult = await supabase
@@ -101,7 +101,7 @@ export async function GET(request: Request) {
   }
 
   if (!ordemResult.data) {
-    return NextResponse.json({ error: 'Ordem nao encontrada para esta nota' }, { status: 404 })
+    return NextResponse.json({ error: 'Ordem não encontrada para esta nota' }, { status: 404 })
   }
 
   const ordem = ordemResult.data as OrdemNotaAcompanhamento

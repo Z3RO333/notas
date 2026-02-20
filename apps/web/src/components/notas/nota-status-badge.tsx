@@ -5,7 +5,7 @@ const statusConfig: Record<NotaStatus, { label: string; variant: 'nova' | 'em_an
   nova: { label: 'Nova', variant: 'nova' },
   em_andamento: { label: 'Em Andamento', variant: 'em_andamento' },
   encaminhada_fornecedor: { label: 'Encaminhada', variant: 'encaminhada' },
-  concluida: { label: 'Concluida', variant: 'concluida' },
+  concluida: { label: 'Concluída', variant: 'concluida' },
   cancelada: { label: 'Cancelada', variant: 'cancelada' },
 }
 

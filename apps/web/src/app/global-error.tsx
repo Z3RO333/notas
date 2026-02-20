@@ -24,12 +24,12 @@ export default function GlobalError({
       <body className="min-h-screen bg-background p-6">
         <div className="mx-auto mt-16 flex w-full max-w-xl flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
           <AlertTriangle className="mb-4 h-10 w-10 text-destructive" />
-          <h2 className="mb-2 text-lg font-semibold">Algo deu errado na aplicacao</h2>
+          <h2 className="mb-2 text-lg font-semibold">Algo deu errado na aplicação</h2>
           <p className="mb-6 max-w-md text-sm text-muted-foreground">
-            Nao foi possivel renderizar a pagina. Tente novamente.
+            Não foi possível renderizar a página. Tente novamente.
           </p>
           {error.digest ? (
-            <p className="mb-4 text-xs text-muted-foreground">Codigo do erro: {error.digest}</p>
+            <p className="mb-4 text-xs text-muted-foreground">Código do erro: {error.digest}</p>
           ) : null}
           <Button onClick={reset}>Tentar novamente</Button>
         </div>

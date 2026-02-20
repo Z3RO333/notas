@@ -1,5 +1,5 @@
 -- 00022_fix_orders_fallback_and_pmpl_d0.sql
--- PMPL D0 + fallback automatico de responsavel para ordens sem dono
+-- PMPL D0 + fallback automático de responsável para ordens sem dono
 
 -- ============================================================
 -- 1) HELPERS DE FALLBACK
@@ -102,7 +102,7 @@ BEGIN
             'NULL',
             v_responsavel_atual_id::TEXT,
             NULL,
-            'Fallback automatico ao virar ordem sem responsavel'
+            'Fallback automático ao virar ordem sem responsável'
           );
         END IF;
       END IF;
@@ -271,7 +271,7 @@ BEGIN
         'NULL',
         v_destino::TEXT,
         NULL,
-        'Backfill fallback automatico para ordem sem responsavel'
+        'Backfill fallback automático para ordem sem responsável'
       );
       v_notas_backfill := v_notas_backfill + 1;
     END IF;
@@ -307,7 +307,7 @@ BEGIN
         jsonb_build_object(
           'notas_backfill', v_notas_backfill,
           'origens_backfill', v_origens_backfill,
-          'motivo', 'Fallback automatico para eliminar ordens sem responsavel'
+          'motivo', 'Fallback automático para eliminar ordens sem responsável'
         )
       );
     END IF;

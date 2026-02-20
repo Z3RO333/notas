@@ -1,8 +1,8 @@
 -- =============================================
 -- MIGRATION 00015: Walter Rodrigues - gestor puro
--- Permanece no sistema como gestor mas nao recebe ordens
--- e nao aparece nos paineis de distribuicao
--- Corrige tambem o nome (Rodriguez -> Rodrigues)
+-- Permanece no sistema como gestor mas não recebe ordens
+-- e não aparece nos paineis de distribuição
+-- Corrige também o nome (Rodriguez -> Rodrigues)
 -- =============================================
 
 UPDATE public.administradores

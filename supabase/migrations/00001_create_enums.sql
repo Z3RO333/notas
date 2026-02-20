@@ -1,7 +1,7 @@
 -- 00001_create_enums.sql
--- Enums para o cockpit de distribuicao de notas
+-- Enums para o cockpit de distribuição de notas
 
--- Status do ciclo de vida das notas de manutencao
+-- Status do ciclo de vida das notas de manutenção
 CREATE TYPE nota_status AS ENUM (
   'nova',                      -- Nota recebida, aguardando tratativa
   'em_andamento',              -- Admin esta trabalhando na nota

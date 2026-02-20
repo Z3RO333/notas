@@ -4,7 +4,7 @@
 -- =============================================
 
 -- View: Radar de carga do colaborador
--- Junta ISO, carga, notas criticas, ordens vermelhas, produtividade recente
+-- Junta ISO, carga, notas críticas, ordens vermelhas, produtividade recente
 CREATE OR REPLACE VIEW public.vw_radar_colaborador AS
 WITH concluidas_recentes AS (
   SELECT

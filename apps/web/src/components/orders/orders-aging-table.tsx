@@ -115,7 +115,7 @@ export function OrdersAgingTable({
 
       <CardContent className="space-y-2">
         {sorted.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhuma ordem encontrada para o periodo selecionado.</p>
+          <p className="text-sm text-muted-foreground">Nenhuma ordem encontrada para o período selecionado.</p>
         ) : (
           <div className="space-y-2">
             {sorted.map((row) => {
@@ -140,7 +140,7 @@ export function OrdersAgingTable({
 
                       <Link href={`/notas/${row.nota_id}`} className="min-w-0 flex-1 rounded-sm transition-colors hover:bg-muted/30">
                         <p className="font-mono text-sm font-semibold">{row.numero_nota} • Ordem {row.ordem_codigo}</p>
-                        <p className="truncate text-xs text-muted-foreground">{row.descricao ?? 'Sem descricao'}</p>
+                        <p className="truncate text-xs text-muted-foreground">{row.descricao ?? 'Sem descrição'}</p>
                       </Link>
                     </div>
 
@@ -168,16 +168,16 @@ export function OrdersAgingTable({
                     <span>{row.unidade ?? 'Sem unidade'}</span>
                     {showAdminColumns && (
                       <span>
-                        Atual: {row.responsavel_atual_nome ?? 'Sem responsavel'}
+                        Atual: {row.responsavel_atual_nome ?? 'Sem responsável'}
                       </span>
                     )}
                     {showAdminColumns && (
                       <span>
-                        Origem: {row.administrador_nome ?? 'Nao identificado'}
+                        Origem: {row.administrador_nome ?? 'Não identificado'}
                       </span>
                     )}
                     <span>
-                      Historico: {row.tem_historico ? `${row.qtd_historico} registro(s)` : 'Sem historico'}
+                      Histórico: {row.tem_historico ? `${row.qtd_historico} registro(s)` : 'Sem histórico'}
                     </span>
                     <span>
                       Detectada em {formatIsoDate(row.ordem_detectada_em)}

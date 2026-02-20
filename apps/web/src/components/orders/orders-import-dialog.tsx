@@ -43,18 +43,18 @@ const FIELD_ALIASES: Record<ImportSystemField, string[]> = {
 }
 
 const FIELD_LABELS: Record<ImportSystemField, { label: string; required: boolean; hint: string }> = {
-  ordem_codigo: { label: 'Codigo da Ordem', required: true, hint: 'Chave unica — ex: ORDEM, ORDER, CODIGO_ORDEM' },
-  numero_nota: { label: 'Numero da Nota', required: false, hint: 'Necessario para criar novas ordens — ex: NOTA' },
+  ordem_codigo: { label: 'Código da Ordem', required: true, hint: 'Chave unica — ex: ORDEM, ORDER, CODIGO_ORDEM' },
+  numero_nota: { label: 'Número da Nota', required: false, hint: 'Necessario para criar novas ordens — ex: NOTA' },
   status_ordem_raw: { label: 'Status', required: false, hint: 'ex: STATUS, STATUS_ORDEM' },
   centro: { label: 'Centro', required: false, hint: 'ex: CENTRO, CENTER' },
-  ordem_detectada_em: { label: 'Data de Criacao', required: false, hint: 'ex: DATA_CRIACAO, DATA_ENTRADA' },
+  ordem_detectada_em: { label: 'Data de Criação', required: false, hint: 'ex: DATA_CRIACAO, DATA_ENTRADA' },
 }
 
 const IMPORT_MODE_OPTIONS: Array<{ value: ImportMode; label: string; gestorOnly?: boolean }> = [
   { value: 'create_and_update', label: 'Criar novas e atualizar existentes', gestorOnly: true },
   { value: 'create_only', label: 'Apenas criar novas (pular existentes)', gestorOnly: true },
   { value: 'update_only', label: 'Apenas atualizar existentes' },
-  { value: 'skip_existing', label: 'Somente novas (pular se ja existir)', gestorOnly: true },
+  { value: 'skip_existing', label: 'Somente novas (pular se já existir)', gestorOnly: true },
 ]
 
 const BATCH_SIZE = 100
@@ -103,7 +103,7 @@ function applyMapping(
     const ordem_codigo = extractCell(row, columnMap.ordem_codigo) ?? ''
 
     if (!ordem_codigo) {
-      errors.set(idx, 'Codigo da ordem obrigatorio')
+      errors.set(idx, 'Código da ordem obrigatorio')
     }
 
     mapped.push({
@@ -238,7 +238,7 @@ export function OrdersImportDialog({ open, onOpenChange, userRole }: OrdersImpor
       setColumnMap(autoDetectMapping(headerRow))
       setStep(2)
     } catch {
-      toast({ title: 'Erro ao ler arquivo', description: 'Verifique se o arquivo e valido (.xlsx ou .csv)', variant: 'error' })
+      toast({ title: 'Erro ao ler arquivo', description: 'Verifique se o arquivo e válido (.xlsx ou .csv)', variant: 'error' })
     }
     // Reset input so the same file can be re-selected
     e.target.value = ''
@@ -294,7 +294,7 @@ export function OrdersImportDialog({ open, onOpenChange, userRole }: OrdersImpor
 
         if (!response.ok) {
           const payload = await response.json().catch(() => ({})) as { error?: string }
-          toast({ title: 'Erro na importacao', description: payload.error ?? 'Erro desconhecido', variant: 'error' })
+          toast({ title: 'Erro na importação', description: payload.error ?? 'Erro desconhecido', variant: 'error' })
           setIsImporting(false)
           return
         }
@@ -307,7 +307,7 @@ export function OrdersImportDialog({ open, onOpenChange, userRole }: OrdersImpor
         cumulative.errors.push(...result.errors)
         setProgress({ ...cumulative })
       } catch {
-        toast({ title: 'Falha de conexao durante importacao', variant: 'error' })
+        toast({ title: 'Falha de conexão durante importação', variant: 'error' })
         setIsImporting(false)
         return
       }
@@ -403,10 +403,10 @@ export function OrdersImportDialog({ open, onOpenChange, userRole }: OrdersImpor
                     onValueChange={(v) => setColumnMap((prev) => ({ ...prev, [field]: v === '__none__' ? null : v }))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="(nao mapear)" />
+                      <SelectValue placeholder="(não mapear)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">(nao mapear)</SelectItem>
+                      <SelectItem value="__none__">(não mapear)</SelectItem>
                       {headers.map((h) => (
                         <SelectItem key={h} value={h}>{h}</SelectItem>
                       ))}
@@ -419,7 +419,7 @@ export function OrdersImportDialog({ open, onOpenChange, userRole }: OrdersImpor
             {!columnMap.ordem_codigo && (
               <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 <AlertCircle className="h-4 w-4 shrink-0" />
-                O campo "Codigo da Ordem" e obrigatorio para continuar.
+                O campo "Código da Ordem" e obrigatorio para continuar.
               </div>
             )}
 
@@ -437,7 +437,7 @@ export function OrdersImportDialog({ open, onOpenChange, userRole }: OrdersImpor
           <div className="space-y-4 py-2">
             {/* Import mode select */}
             <div className="space-y-1">
-              <p className="text-sm font-medium">Modo de importacao</p>
+              <p className="text-sm font-medium">Modo de importação</p>
               <Select value={importMode} onValueChange={(v) => setImportMode(v as ImportMode)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -450,7 +450,7 @@ export function OrdersImportDialog({ open, onOpenChange, userRole }: OrdersImpor
               </Select>
               {userRole === 'admin' && (
                 <p className="text-[11px] text-muted-foreground">
-                  Administradores so podem atualizar ordens ja atribuidas a eles.
+                  Administradores só podem atualizar ordens já atribuídas a eles.
                 </p>
               )}
             </div>
@@ -553,7 +553,7 @@ export function OrdersImportDialog({ open, onOpenChange, userRole }: OrdersImpor
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-green-700">
                   <CheckCircle2 className="h-5 w-5" />
-                  <span className="font-semibold">Importacao concluida</span>
+                  <span className="font-semibold">Importação concluída</span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

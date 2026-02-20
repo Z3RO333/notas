@@ -87,9 +87,9 @@ export function NotasKpiStrip({
                 </CardHeader>
                 <CardContent className="space-y-1">
                   <p className={`text-3xl font-bold ${item.valueClass}`}>{fmt(item.value)}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {active ? 'KPI ativo. Clique para limpar.' : 'Aplicar filtro'}
-                  </p>
+                  {active && (
+                    <p className="text-xs text-muted-foreground">KPI ativo. Clique para limpar.</p>
+                  )}
                 </CardContent>
               </Card>
             </button>
