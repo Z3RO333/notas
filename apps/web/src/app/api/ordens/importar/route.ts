@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user?.email) {
-    return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
+    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
   }
 
   const { data: loggedAdmin, error: adminError } = await supabase
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     .single()
 
   if (adminError || !loggedAdmin) {
-    return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
+    return NextResponse.json({ error: 'Administrador não encontrado' }, { status: 403 })
   }
 
   const role = loggedAdmin.role as UserRole
@@ -87,13 +87,13 @@ export async function POST(request: Request) {
   try {
     body = await request.json() as { rows: MappedImportRow[]; mode: ImportMode }
   } catch {
-    return NextResponse.json({ error: 'Body invalido' }, { status: 400 })
+    return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
   }
 
   const { rows, mode } = body
 
   if (!Array.isArray(rows) || rows.length === 0) {
-    return NextResponse.json({ error: 'rows deve ser um array nao vazio' }, { status: 400 })
+    return NextResponse.json({ error: 'rows deve ser um array não vazio' }, { status: 400 })
   }
 
   if (rows.length > 100) {
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
   // 3. Enforce admin restrictions: admins can only update, not create
   const modeAllowsCreate = mode === 'create_and_update' || mode === 'create_only' || mode === 'skip_existing'
   if (role === 'admin' && modeAllowsCreate) {
-    return NextResponse.json({ error: 'Administradores so podem usar o modo de atualizacao' }, { status: 403 })
+    return NextResponse.json({ error: 'Administradores só podem usar o modo de atualização' }, { status: 403 })
   }
 
   // 4. Pre-fetch existing orders for this batch (one query instead of N)
@@ -150,7 +150,7 @@ export async function POST(request: Request) {
     const ordemCodigo = row.ordem_codigo?.trim()
 
     if (!ordemCodigo) {
-      errors.push({ linha: row.rowIndex, ordem_codigo: '', motivo: 'ordem_codigo obrigatoria' })
+      errors.push({ linha: row.rowIndex, ordem_codigo: '', motivo: 'ordem_codigo obrigatória' })
       continue
     }
 
@@ -185,7 +185,7 @@ export async function POST(request: Request) {
         errors.push({
           linha: row.rowIndex,
           ordem_codigo: ordemCodigo,
-          motivo: `Nota nao encontrada para numero_nota="${row.numero_nota ?? '(nao mapeado)'}" — necessario para criar novas ordens`,
+          motivo: `Nota não encontrada para numero_nota="${row.numero_nota ?? '(não mapeado)'}" — necessario para criar novas ordens`,
         })
         continue
       }

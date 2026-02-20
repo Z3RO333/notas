@@ -61,7 +61,7 @@ interface OrdersWorkspaceProps {
 const MONTH_LABELS = [
   { value: 1, label: 'Janeiro' },
   { value: 2, label: 'Fevereiro' },
-  { value: 3, label: 'Marco' },
+  { value: 3, label: 'Março' },
   { value: 4, label: 'Abril' },
   { value: 5, label: 'Maio' },
   { value: 6, label: 'Junho' },
@@ -74,19 +74,21 @@ const MONTH_LABELS = [
 ]
 
 const PERIOD_MODE_LABELS: Array<{ value: OrdersPeriodModeOperational; label: string }> = [
-  { value: 'all', label: 'Todo historico' },
+  { value: 'all', label: 'Todo histórico' },
   { value: 'year', label: 'Ano' },
-  { value: 'year_month', label: 'Ano + mes' },
-  { value: 'month', label: 'Mes (todos os anos)' },
-  { value: 'range', label: 'Intervalo especifico' },
+  { value: 'year_month', label: 'Ano + mês' },
+  { value: 'month', label: 'Mês (todos os anos)' },
+  { value: 'range', label: 'Intervalo específico' },
 ]
 
 const STATUS_OPTIONS = [
   { value: 'todas', label: 'Todos os status' },
   { value: 'aberta', label: 'Aberta' },
   { value: 'em_tratativa', label: 'Em tratativa' },
+  { value: 'em_avaliacao', label: 'Em avaliação' },
   { value: 'avaliadas', label: 'Avaliadas' },
-  { value: 'concluida', label: 'Concluida' },
+  { value: 'nao_realizada', label: 'Não realizada' },
+  { value: 'concluida', label: 'Concluída' },
   { value: 'cancelada', label: 'Cancelada' },
   { value: 'desconhecido', label: 'Desconhecido' },
 ]
@@ -94,7 +96,7 @@ const STATUS_OPTIONS = [
 const PRIORIDADE_OPTIONS = [
   { value: 'todas', label: 'Todas prioridades' },
   { value: 'verde', label: 'Recente (0-2d)' },
-  { value: 'amarelo', label: 'Atencao (3-6d)' },
+  { value: 'amarelo', label: 'Atenção (3-6d)' },
   { value: 'vermelho', label: 'Atrasada (7+d)' },
 ]
 
@@ -112,7 +114,7 @@ function formatIsoDate(value: string): string {
 
 function formatDelayText(row: Pick<OrdemNotaAcompanhamento, 'semaforo_atraso' | 'dias_em_aberto'>): string {
   if (row.semaforo_atraso !== 'vermelho') return `${row.dias_em_aberto} dia(s) em aberto`
-  // Semaforo vermelho comeca em 7 dias; atraso real e o excedente ao prazo.
+  // Semáforo vermelho começa em 7 dias; atraso real é o excedente ao prazo.
   const delayDays = Math.max(1, row.dias_em_aberto - 6)
   return `${delayDays} dia(s) de atraso`
 }
@@ -129,11 +131,11 @@ function exportOrdersToXlsx(rows: OrdemNotaAcompanhamento[]) {
     'Status RAW': row.status_ordem_raw ?? '',
     'Centro': row.centro ?? '',
     'Unidade': row.unidade ?? '',
-    'Responsavel': row.administrador_nome ?? 'Sem responsavel',
-    'Semaforo': getSemaforoLabel(row.semaforo_atraso),
+    'Responsável': row.administrador_nome ?? 'Sem responsável',
+    'Semáforo': getSemaforoLabel(row.semaforo_atraso),
     'Dias em aberto': row.dias_em_aberto,
     'Detectada em': formatIsoDate(row.ordem_detectada_em),
-    'Descricao': row.descricao ?? '',
+    'Descrição': row.descricao ?? '',
   }))
 
   const ws = XLSX.utils.json_to_sheet(data)
@@ -243,6 +245,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     total: 0,
     abertas: 0,
     em_tratativa: 0,
+    em_avaliacao: 0,
     concluidas: 0,
     canceladas: 0,
     avaliadas: 0,
@@ -436,7 +439,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       key: 'total',
       label: 'Total de ordens',
       value: kpis.total,
-      helper: 'Visao geral',
+      helper: 'Visão geral',
       icon: ListChecks,
       valueClass: 'text-foreground',
     },
@@ -450,33 +453,33 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     },
     {
       key: 'em_execucao',
-      label: 'Em execucao',
+      label: 'Em execução',
       value: kpis.em_tratativa,
-      helper: 'Tratativa, avaliacao e desconhecido',
+      helper: 'EM_EXECUCAO + EQUIPAMENTO_EM_CONSERTO',
       icon: LoaderCircle,
       valueClass: 'text-indigo-700',
+    },
+    {
+      key: 'em_avaliacao',
+      label: 'Em avaliação',
+      value: kpis.em_avaliacao,
+      helper: 'Status AVALIACAO_DA_EXECUCAO',
+      icon: ShieldCheck,
+      valueClass: 'text-emerald-700',
     },
     {
       key: 'avaliadas',
       label: 'Avaliadas',
       value: kpis.avaliadas,
-      helper: 'Com avaliacao da execucao',
+      helper: 'Status EXECUCAO_SATISFATORIO',
       icon: ClipboardCheck,
       valueClass: 'text-amber-700',
-    },
-    {
-      key: 'concluidas',
-      label: 'Concluidas',
-      value: kpis.concluidas + kpis.canceladas,
-      helper: 'Concluidas + canceladas',
-      icon: ShieldCheck,
-      valueClass: 'text-emerald-700',
     },
     {
       key: 'atrasadas',
       label: 'Atrasadas (7+)',
       value: kpis.atrasadas,
-      helper: 'Abertas/em execucao (7+ dias)',
+      helper: 'Abertas/em execução (7+ dias)',
       icon: AlertTriangle,
       valueClass: 'text-red-700',
     },
@@ -549,7 +552,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                 className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
                 onClick={() => setFilters((prev) => ({ ...prev, responsavel: '__sem_atual__' }))}
               >
-                Sem responsavel: {formatNumber(kpis.sem_responsavel)}
+                Sem responsável: {formatNumber(kpis.sem_responsavel)}
               </button>
             )}
             <Button
@@ -681,7 +684,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         <Input
           value={searchInput}
           onChange={(event) => setSearchInput(event.target.value)}
-          placeholder="Buscar por nota, ordem ou descricao"
+          placeholder="Buscar por nota, ordem ou descrição"
           className="lg:col-span-2"
         />
 
@@ -690,7 +693,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           onValueChange={(value) => setFilters((prev) => ({ ...prev, periodMode: value as OrdersPeriodModeOperational }))}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Periodo" />
+            <SelectValue placeholder="Período" />
           </SelectTrigger>
           <SelectContent>
             {PERIOD_MODE_LABELS.map((mode) => (
@@ -730,7 +733,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
               value={String(filters.month ?? 1)}
               onValueChange={(value) => setFilters((prev) => ({ ...prev, month: Number(value) }))}
             >
-              <SelectTrigger><SelectValue placeholder="Mes" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Mês" /></SelectTrigger>
               <SelectContent>
                 {MONTH_LABELS.map((month) => (
                   <SelectItem key={month.value} value={String(month.value)}>{month.label}</SelectItem>
@@ -745,7 +748,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             value={String(filters.month ?? 1)}
             onValueChange={(value) => setFilters((prev) => ({ ...prev, month: Number(value) }))}
           >
-            <SelectTrigger><SelectValue placeholder="Mes" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Mês" /></SelectTrigger>
             <SelectContent>
               {MONTH_LABELS.map((month) => (
                 <SelectItem key={month.value} value={String(month.value)}>{month.label}</SelectItem>
@@ -798,9 +801,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             value={filters.responsavel || 'todos'}
             onValueChange={(value) => setFilters((prev) => ({ ...prev, responsavel: value }))}
           >
-            <SelectTrigger><SelectValue placeholder="Responsavel" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Responsável" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos os responsaveis</SelectItem>
+              <SelectItem value="todos">Todos os responsáveis</SelectItem>
               {responsavelOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
               ))}
@@ -900,7 +903,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                         <p className="truncate font-mono text-sm font-semibold">
                           {row.numero_nota} • Ordem {row.ordem_codigo}
                         </p>
-                        <p className="truncate text-xs text-muted-foreground">{row.descricao ?? 'Sem descricao'}</p>
+                        <p className="truncate text-xs text-muted-foreground">{row.descricao ?? 'Sem descrição'}</p>
                         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
                           <span className={`inline-flex rounded-full px-2 py-0.5 font-semibold ${getSemaforoClass(row.semaforo_atraso)}`}>
                             {getSemaforoLabel(row.semaforo_atraso)}

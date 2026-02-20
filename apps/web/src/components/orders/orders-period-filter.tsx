@@ -23,7 +23,7 @@ interface OrdersPeriodFilterProps {
 const MONTH_OPTIONS = [
   { value: '1', label: 'Janeiro' },
   { value: '2', label: 'Fevereiro' },
-  { value: '3', label: 'Marco' },
+  { value: '3', label: 'Março' },
   { value: '4', label: 'Abril' },
   { value: '5', label: 'Maio' },
   { value: '6', label: 'Junho' },
@@ -87,11 +87,11 @@ export function OrdersPeriodFilter({
     <div className="flex flex-wrap items-center gap-2">
       <Select value={periodMode} onValueChange={handlePeriodModeChange}>
         <SelectTrigger className="w-44">
-          <SelectValue placeholder="Periodo" />
+          <SelectValue placeholder="Período" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="month">Ano e mes</SelectItem>
-          <SelectItem value="custom">Periodo personalizado</SelectItem>
+          <SelectItem value="month">Ano e mês</SelectItem>
+          <SelectItem value="custom">Período personalizado</SelectItem>
         </SelectContent>
       </Select>
 
@@ -112,7 +112,7 @@ export function OrdersPeriodFilter({
 
           <Select value={String(month)} onValueChange={(value) => replaceQuery({ month: value })}>
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="Mes" />
+              <SelectValue placeholder="Mês" />
             </SelectTrigger>
             <SelectContent>
               {MONTH_OPTIONS.map((option) => (
