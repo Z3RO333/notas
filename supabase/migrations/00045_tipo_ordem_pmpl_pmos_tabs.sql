@@ -1,4 +1,4 @@
--- 00041_tipo_ordem_pmpl_pmos_tabs.sql
+-- 00045_tipo_ordem_pmpl_pmos_tabs.sql
 -- Adiciona suporte a abas PMOS / PMPL no Painel de Ordens.
 --
 -- Mudanças:

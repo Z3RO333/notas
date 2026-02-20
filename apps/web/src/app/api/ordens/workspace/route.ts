@@ -33,6 +33,7 @@ const VALID_PRIORIDADE = new Set(['todas', 'verde', 'amarelo', 'vermelho'])
 const VALID_TIPO_ORDEM = new Set(['PMOS', 'PMPL', 'todas'])
 const DEFAULT_LIMIT = 100
 const MAX_LIMIT = 200
+const MIGRATION_HINT_TIPO_ORDEM = 'Aplique a migration 00045_tipo_ordem_pmpl_pmos_tabs.sql para habilitar o filtro PMPL/PMOS.'
 
 function asText(value: string | null): string | null {
   if (!value) return null
@@ -91,6 +92,48 @@ function resolveLimit(value: string | null): number {
   return Math.min(Math.max(parsed, 1), MAX_LIMIT)
 }
 
+function includesToken(haystack: string | null | undefined, token: string): boolean {
+  return (haystack ?? '').toLowerCase().includes(token.toLowerCase())
+}
+
+function isRpcWithoutTipoOrdemSupport(
+  error: { code?: string; message?: string; details?: string | null; hint?: string | null } | null
+): boolean {
+  if (!error) return false
+  if (error.code === 'PGRST202') return true
+
+  return (
+    includesToken(error.message, 'p_tipo_ordem')
+    || includesToken(error.details, 'p_tipo_ordem')
+    || includesToken(error.hint, 'p_tipo_ordem')
+  )
+}
+
+async function callRpcWithOptionalTipoOrdem<T>(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  rpcName: string,
+  params: Record<string, unknown>
+): Promise<{ data: T | null; error: { code?: string; message: string } | null; supportsTipoOrdem: boolean }> {
+  const withTipo = await supabase.rpc(rpcName, params)
+  if (withTipo.error && isRpcWithoutTipoOrdemSupport(withTipo.error)) {
+    const withoutTipoParams = { ...params }
+    delete withoutTipoParams.p_tipo_ordem
+
+    const fallback = await supabase.rpc(rpcName, withoutTipoParams)
+    return {
+      data: (fallback.data ?? null) as T | null,
+      error: fallback.error ? { code: fallback.error.code, message: fallback.error.message } : null,
+      supportsTipoOrdem: false,
+    }
+  }
+
+  return {
+    data: (withTipo.data ?? null) as T | null,
+    error: withTipo.error ? { code: withTipo.error.code, message: withTipo.error.message } : null,
+    supportsTipoOrdem: true,
+  }
+}
+
 function emptyKpis(): OrdersWorkspaceKpis {
   return {
     total: 0,
@@ -131,7 +174,7 @@ export async function GET(request: Request) {
   try {
     fixedOwnerLabelByAdminId = await getFixedOwnerLabelByAdminId(supabase)
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Falha ao carregar responsáveis fixos' }, { status: 500 })
+    console.warn('[orders/workspace] não foi possível carregar labels fixos de CD:', error)
   }
 
   if (canViewGlobal) {
@@ -158,7 +201,8 @@ export async function GET(request: Request) {
         pmplResolution,
       })
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : 'Falha ao validar acesso PMPL' }, { status: 500 })
+      canAccessPmpl = false
+      console.warn('[orders/workspace] fallback canAccessPmpl=false por falha ao resolver configuração PMPL:', error)
     }
   }
 
@@ -189,52 +233,58 @@ export async function GET(request: Request) {
   const adminScope = canViewGlobal ? null : loggedAdmin.id
   const responsavelFilter = canViewGlobal ? responsavel : null
 
+  const rowsRpcParams = {
+    p_period_mode: periodMode,
+    p_year: year,
+    p_month: month,
+    p_start_iso: startIso,
+    p_end_exclusive_iso: endExclusiveIso,
+    p_status: status,
+    p_unidade: unidade,
+    p_responsavel: responsavelFilter,
+    p_prioridade: prioridade,
+    p_q: q,
+    p_admin_scope: adminScope,
+    p_tipo_ordem: tipoOrdem,
+    p_cursor_detectada: cursorDetectada,
+    p_cursor_ordem_id: cursorOrdemId,
+    p_limit: limit,
+  } satisfies Record<string, unknown>
+
+  const kpisRpcParams = {
+    p_period_mode: periodMode,
+    p_year: year,
+    p_month: month,
+    p_start_iso: startIso,
+    p_end_exclusive_iso: endExclusiveIso,
+    p_status: status,
+    p_unidade: unidade,
+    p_responsavel: responsavelFilter,
+    p_prioridade: prioridade,
+    p_q: q,
+    p_admin_scope: adminScope,
+    p_tipo_ordem: tipoOrdem,
+  } satisfies Record<string, unknown>
+
+  const summaryRpcParams = {
+    p_period_mode: periodMode,
+    p_year: year,
+    p_month: month,
+    p_start_iso: startIso,
+    p_end_exclusive_iso: endExclusiveIso,
+    p_status: status,
+    p_unidade: unidade,
+    p_responsavel: responsavelFilter,
+    p_prioridade: prioridade,
+    p_q: q,
+    p_admin_scope: adminScope,
+    p_tipo_ordem: tipoOrdem,
+  } satisfies Record<string, unknown>
+
   const [rowsResult, kpisResult, summaryResult, targetsResult] = await Promise.all([
-    supabase.rpc('buscar_ordens_workspace', {
-      p_period_mode: periodMode,
-      p_year: year,
-      p_month: month,
-      p_start_iso: startIso,
-      p_end_exclusive_iso: endExclusiveIso,
-      p_status: status,
-      p_unidade: unidade,
-      p_responsavel: responsavelFilter,
-      p_prioridade: prioridade,
-      p_q: q,
-      p_admin_scope: adminScope,
-      p_tipo_ordem: tipoOrdem,
-      p_cursor_detectada: cursorDetectada,
-      p_cursor_ordem_id: cursorOrdemId,
-      p_limit: limit,
-    }),
-    supabase.rpc('calcular_kpis_ordens_operacional', {
-      p_period_mode: periodMode,
-      p_year: year,
-      p_month: month,
-      p_start_iso: startIso,
-      p_end_exclusive_iso: endExclusiveIso,
-      p_status: status,
-      p_unidade: unidade,
-      p_responsavel: responsavelFilter,
-      p_prioridade: prioridade,
-      p_q: q,
-      p_admin_scope: adminScope,
-      p_tipo_ordem: tipoOrdem,
-    }),
-    supabase.rpc('calcular_resumo_colaboradores_ordens', {
-      p_period_mode: periodMode,
-      p_year: year,
-      p_month: month,
-      p_start_iso: startIso,
-      p_end_exclusive_iso: endExclusiveIso,
-      p_status: status,
-      p_unidade: unidade,
-      p_responsavel: responsavelFilter,
-      p_prioridade: prioridade,
-      p_q: q,
-      p_admin_scope: adminScope,
-      p_tipo_ordem: tipoOrdem,
-    }),
+    callRpcWithOptionalTipoOrdem<OrdemNotaAcompanhamento[]>(supabase, 'buscar_ordens_workspace', rowsRpcParams),
+    callRpcWithOptionalTipoOrdem<OrdersWorkspaceKpis>(supabase, 'calcular_kpis_ordens_operacional', kpisRpcParams),
+    callRpcWithOptionalTipoOrdem<Array<Partial<OrdersOwnerSummary>>>(supabase, 'calcular_resumo_colaboradores_ordens', summaryRpcParams),
     canViewGlobal
       ? supabase
         .from('administradores')
@@ -260,6 +310,15 @@ export async function GET(request: Request) {
 
   if (targetsResult.error) {
     return NextResponse.json({ error: targetsResult.error.message }, { status: 500 })
+  }
+
+  const tipoOrdemSupportedByDb = rowsResult.supportsTipoOrdem && kpisResult.supportsTipoOrdem && summaryResult.supportsTipoOrdem
+  if (tipoOrdem === 'PMPL' && !tipoOrdemSupportedByDb) {
+    return NextResponse.json({ error: MIGRATION_HINT_TIPO_ORDEM }, { status: 412 })
+  }
+
+  if (process.env.DEBUG_ORDERS_ROUTING === '1' && !tipoOrdemSupportedByDb) {
+    console.warn('[orders/workspace] fallback sem p_tipo_ordem ativo. Resultado pode não refletir separação PMPL/PMOS.')
   }
 
   const rows = (rowsResult.data ?? []) as OrdemNotaAcompanhamento[]
