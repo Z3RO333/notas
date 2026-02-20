@@ -15,7 +15,7 @@ export type PanelViewMode = 'list' | 'cards'
 export type OrdersPeriodMode = 'month' | 'custom'
 export type OrdersPeriodModeOperational = 'all' | 'year' | 'year_month' | 'month' | 'range'
 export type NotesKpiFilter = 'notas' | 'novas' | 'um_dia' | 'dois_mais'
-export type OrdersKpiFilter = 'total' | 'em_execucao' | 'em_aberto' | 'atrasadas' | 'concluidas' | 'avaliadas'
+export type OrdersKpiFilter = 'total' | 'em_execucao' | 'em_aberto' | 'atrasadas' | 'em_avaliacao' | 'avaliadas' | 'concluidas'
 export type CriticalityLevel = 'saudavel' | 'atencao' | 'critico'
 export interface OrderReassignTarget {
   id: string
@@ -232,6 +232,7 @@ export interface OrdemKpisRpc {
   total: number
   abertas: number
   em_tratativa: number
+  em_avaliacao: number
   concluidas: number
   canceladas: number
   avaliadas: number
@@ -272,6 +273,7 @@ export interface OrdersWorkspaceKpis {
   total: number
   abertas: number
   em_tratativa: number
+  em_avaliacao: number
   concluidas: number
   canceladas: number
   avaliadas: number
@@ -348,6 +350,7 @@ export interface OrdemNotaKpis {
   total_ordens_30d: number
   qtd_abertas_30d: number
   qtd_em_tratativa_30d: number
+  qtd_em_avaliacao_30d: number
   qtd_concluidas_30d: number
   qtd_canceladas_30d: number
   qtd_avaliadas_30d: number

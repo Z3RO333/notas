@@ -12,7 +12,17 @@ import type {
 } from '@/lib/types/database'
 
 const VALID_PERIOD_MODES: OrdersPeriodModeOperational[] = ['all', 'year', 'year_month', 'month', 'range']
-const VALID_STATUS = new Set(['todas', 'aberta', 'em_tratativa', 'concluida', 'cancelada', 'desconhecido', 'avaliadas'])
+const VALID_STATUS = new Set([
+  'todas',
+  'aberta',
+  'em_tratativa',
+  'em_avaliacao',
+  'avaliadas',
+  'nao_realizada',
+  'concluida',
+  'cancelada',
+  'desconhecido',
+])
 const VALID_PRIORIDADE = new Set(['todas', 'verde', 'amarelo', 'vermelho'])
 const DEFAULT_LIMIT = 100
 const MAX_LIMIT = 200
@@ -73,6 +83,7 @@ function emptyKpis(): OrdersWorkspaceKpis {
     total: 0,
     abertas: 0,
     em_tratativa: 0,
+    em_avaliacao: 0,
     concluidas: 0,
     canceladas: 0,
     avaliadas: 0,
@@ -86,7 +97,7 @@ export async function GET(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user?.email) {
-    return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
+    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
   }
 
   const { data: loggedAdmin, error: loggedAdminError } = await supabase
@@ -96,7 +107,7 @@ export async function GET(request: Request) {
     .single()
 
   if (loggedAdminError || !loggedAdmin) {
-    return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
+    return NextResponse.json({ error: 'Administrador não encontrado' }, { status: 403 })
   }
 
   const role = loggedAdmin.role as UserRole
@@ -207,6 +218,7 @@ export async function GET(request: Request) {
     total: Number(rawKpis.total ?? 0),
     abertas: Number(rawKpis.abertas ?? 0),
     em_tratativa: Number(rawKpis.em_tratativa ?? 0),
+    em_avaliacao: Number(rawKpis.em_avaliacao ?? 0),
     concluidas: Number(rawKpis.concluidas ?? 0),
     canceladas: Number(rawKpis.canceladas ?? 0),
     avaliadas: Number(rawKpis.avaliadas ?? 0),

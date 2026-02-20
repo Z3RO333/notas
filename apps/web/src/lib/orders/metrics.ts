@@ -11,8 +11,11 @@ import type {
 } from '@/lib/types/database'
 
 const FINAL_STATUS = new Set<OrdemStatusAcomp>(['concluida', 'cancelada'])
-const OPEN_STATUS = new Set<OrdemStatusAcomp>(['aberta', 'em_tratativa', 'desconhecido'])
-const AVALIADA_RAW = 'AVALIACAO_DA_EXECUCAO'
+const RAW_STATUS = {
+  emAvaliacao: 'AVALIACAO_DA_EXECUCAO',
+  avaliada: 'EXECUCAO_SATISFATORIO',
+  naoRealizada: 'EXECUCAO_NAO_REALIZADA',
+} as const
 
 function toWindow(value: unknown): number {
   const parsed = Number(value)
@@ -28,15 +31,14 @@ export function parseOrderWindow(value: unknown): OrderWindowFilter {
 export function buildOrderKpis(rows: OrdemNotaAcompanhamento[]): OrdemNotaKpis {
   const total = rows.length
   const abertas = rows.filter((row) => row.status_ordem === 'aberta').length
-  const emTratativa = rows.filter((row) =>
-    row.status_ordem === 'em_tratativa' || row.status_ordem === 'desconhecido'
-  ).length
+  const emTratativa = rows.filter((row) => isEmExecucao(row)).length
+  const emAvaliacao = rows.filter((row) => isEmAvaliacao(row)).length
   const concluidas = rows.filter((row) => row.status_ordem === 'concluida' && !isAvaliada(row)).length
   const canceladas = rows.filter((row) => row.status_ordem === 'cancelada').length
   const avaliadas = rows.filter((row) => isAvaliada(row)).length
   const antigas = rows.filter((row) => (
     row.semaforo_atraso === 'vermelho'
-    && (OPEN_STATUS.has(row.status_ordem) || isAvaliada(row))
+    && (row.status_ordem === 'aberta' || isEmExecucao(row) || isEmAvaliacao(row))
   )).length
 
   const tempos = rows
@@ -51,6 +53,7 @@ export function buildOrderKpis(rows: OrdemNotaAcompanhamento[]): OrdemNotaKpis {
     total_ordens_30d: total,
     qtd_abertas_30d: abertas,
     qtd_em_tratativa_30d: emTratativa,
+    qtd_em_avaliacao_30d: emAvaliacao,
     qtd_concluidas_30d: concluidas,
     qtd_canceladas_30d: canceladas,
     qtd_avaliadas_30d: avaliadas,
@@ -64,6 +67,7 @@ export function buildOrderKpisFromRpc(rpc: OrdemKpisRpc): OrdemNotaKpis {
     total_ordens_30d: rpc.total,
     qtd_abertas_30d: rpc.abertas,
     qtd_em_tratativa_30d: rpc.em_tratativa,
+    qtd_em_avaliacao_30d: rpc.em_avaliacao,
     qtd_concluidas_30d: rpc.concluidas,
     qtd_canceladas_30d: rpc.canceladas,
     qtd_avaliadas_30d: rpc.avaliadas,
@@ -72,8 +76,26 @@ export function buildOrderKpisFromRpc(rpc: OrdemKpisRpc): OrdemNotaKpis {
   }
 }
 
+function normalizeRawStatus(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): string {
+  return (row.status_ordem_raw ?? '').trim().toUpperCase()
+}
+
+export function isEmAvaliacao(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
+  return normalizeRawStatus(row) === RAW_STATUS.emAvaliacao
+}
+
 export function isAvaliada(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
-  return (row.status_ordem_raw ?? '').trim().toUpperCase() === AVALIADA_RAW
+  return normalizeRawStatus(row) === RAW_STATUS.avaliada
+}
+
+export function isNaoRealizada(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
+  return normalizeRawStatus(row) === RAW_STATUS.naoRealizada
+}
+
+function isEmExecucao(row: Pick<OrdemNotaAcompanhamento, 'status_ordem' | 'status_ordem_raw'>): boolean {
+  const inExecutionStatus = row.status_ordem === 'em_tratativa' || row.status_ordem === 'desconhecido'
+  if (!inExecutionStatus) return false
+  return !isEmAvaliacao(row) && !isNaoRealizada(row)
 }
 
 export function getOrdersCriticalityLevel(total: number, criticalCount: number): CriticalityLevel {
@@ -89,6 +111,7 @@ export function getOrdersCriticalityLevel(total: number, criticalCount: number):
 export function getOrdersKpiValue(kpis: OrdemNotaKpis, key: OrdersKpiFilter): number {
   if (key === 'em_execucao') return kpis.qtd_em_tratativa_30d
   if (key === 'em_aberto') return kpis.qtd_abertas_30d
+  if (key === 'em_avaliacao') return kpis.qtd_em_avaliacao_30d
   if (key === 'avaliadas') return kpis.qtd_avaliadas_30d
   if (key === 'atrasadas') return kpis.qtd_antigas_7d_30d
   if (key === 'concluidas') return kpis.qtd_concluidas_30d + kpis.qtd_canceladas_30d
@@ -96,11 +119,13 @@ export function getOrdersKpiValue(kpis: OrdemNotaKpis, key: OrdersKpiFilter): nu
 }
 
 export function matchOrdersKpi(row: OrdemNotaAcompanhamento, key: OrdersKpiFilter): boolean {
-  if (key === 'em_execucao') return row.status_ordem === 'em_tratativa' || row.status_ordem === 'desconhecido'
+  if (key === 'em_execucao') return isEmExecucao(row)
   if (key === 'em_aberto') return row.status_ordem === 'aberta'
+  if (key === 'em_avaliacao') return isEmAvaliacao(row)
   if (key === 'avaliadas') return isAvaliada(row)
   if (key === 'atrasadas') {
-    return row.semaforo_atraso === 'vermelho' && (OPEN_STATUS.has(row.status_ordem) || isAvaliada(row))
+    return row.semaforo_atraso === 'vermelho'
+      && (row.status_ordem === 'aberta' || isEmExecucao(row) || isEmAvaliacao(row))
   }
   if (key === 'concluidas') {
     return (row.status_ordem === 'concluida' && !isAvaliada(row)) || row.status_ordem === 'cancelada'
@@ -228,7 +253,7 @@ export function sortOrdersByPriority(rows: OrdemNotaAcompanhamento[]): OrdemNota
 export function getOrderStatusLabel(status: OrdemStatusAcomp): string {
   if (status === 'aberta') return 'Aberta'
   if (status === 'em_tratativa') return 'Em tratativa'
-  if (status === 'concluida') return 'Concluida'
+  if (status === 'concluida') return 'Concluída'
   if (status === 'cancelada') return 'Cancelada'
   return 'Desconhecido'
 }
@@ -250,7 +275,7 @@ export function getSemaforoClass(semaforo: OrdemNotaAcompanhamento['semaforo_atr
 
 export function getSemaforoLabel(semaforo: OrdemNotaAcompanhamento['semaforo_atraso']): string {
   if (semaforo === 'vermelho') return 'Atrasada'
-  if (semaforo === 'amarelo') return 'Atencao'
+  if (semaforo === 'amarelo') return 'Atenção'
   if (semaforo === 'verde') return 'Recente'
   return 'Neutro'
 }
