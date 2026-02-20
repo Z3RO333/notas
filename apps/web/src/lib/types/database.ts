@@ -47,6 +47,8 @@ export interface Administrador {
   especialidade: string | null
   recebe_distribuicao: boolean
   em_ferias: boolean
+  data_inicio_ferias?: string | null
+  data_fim_ferias?: string | null
   motivo_bloqueio: string | null
   created_at: string
   updated_at: string
@@ -293,7 +295,26 @@ export interface OrdersWorkspaceResponse {
     role: UserRole
     adminId: string
     canViewGlobal: boolean
+    canAccessPmpl: boolean
   }
+}
+
+export interface ResponsavelTipoOrdem {
+  tipo_ordem: 'PMPL' | 'PMOS'
+  responsavel_id: string
+  substituto_id: string | null
+  atualizado_por: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AuditoriaConfig {
+  id: string
+  tipo: string
+  antes: Record<string, unknown> | null
+  depois: Record<string, unknown> | null
+  atualizado_por: string | null
+  updated_at: string
 }
 
 export interface OrderTimelineEvent {

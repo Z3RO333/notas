@@ -55,6 +55,7 @@ interface OrdersWorkspaceProps {
     role: UserRole
     adminId: string
     canViewGlobal: boolean
+    canAccessPmpl: boolean
     userEmail: string
   }
 }
@@ -303,6 +304,12 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     syncFiltersToUrl(filters)
   }, [filters])
 
+  useEffect(() => {
+    if (currentUser.canAccessPmpl) return
+    if (filters.tipoOrdem !== 'PMPL') return
+    setFilters((prev) => ({ ...prev, tipoOrdem: 'PMOS' }))
+  }, [currentUser.canAccessPmpl, filters.tipoOrdem])
+
   const fetchWorkspace = useCallback(async (reset: boolean) => {
     fetchAbortRef.current?.abort()
     const controller = new AbortController()
@@ -505,8 +512,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     },
   ] as const
 
-  const isGustavo = currentUser.userEmail === 'gustavoandrade@bemol.com.br'
-
   function handleTabChange(tipo: string) {
     setFilters((prev) => ({ ...prev, tipoOrdem: tipo }))
   }
@@ -526,7 +531,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
   return (
     <div className="space-y-4">
-      {isGustavo && (
+      {currentUser.canAccessPmpl && (
         <div className="flex gap-1 rounded-lg border bg-muted/50 p-1 w-fit">
           <button
             type="button"

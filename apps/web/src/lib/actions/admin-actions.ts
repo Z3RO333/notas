@@ -2,12 +2,29 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { applyAutomaticOrdersRouting } from '@/lib/orders/pmpl-routing'
 
 type BulkReassignMode = 'destino_unico' | 'round_robin'
 
 interface ReassignOrderRow {
   nota_id: string
   administrador_destino_id: string
+}
+
+interface SalvarPessoaAdminParams {
+  id?: string
+  nome: string
+  email: string
+  role: 'admin' | 'gestor'
+  ativo: boolean
+  emFerias: boolean
+  dataInicioFerias?: string | null
+  dataFimFerias?: string | null
+}
+
+interface SalvarConfigResponsavelPmplParams {
+  responsavelId: string
+  substitutoId?: string | null
 }
 
 async function getGestorContext() {
@@ -29,9 +46,17 @@ function revalidateCockpitPaths() {
   revalidatePath('/')
   revalidatePath('/ordens')
   revalidatePath('/admin')
+  revalidatePath('/admin/administracao')
   revalidatePath('/admin/distribuicao')
   revalidatePath('/admin/pessoas')
   revalidatePath('/admin/auditoria')
+}
+
+function normalizeDateInput(value: string | null | undefined): string | null {
+  if (!value) return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null
 }
 
 async function logAudit(
@@ -87,6 +112,17 @@ export async function toggleFerias(adminId: string, valor: boolean, motivo?: str
   if (error) throw new Error(error.message)
 
   await logAudit(supabase, gestorId, valor ? 'marcar_ferias' : 'retornar_ferias', adminId, { motivo })
+
+  try {
+    await applyAutomaticOrdersRouting({
+      supabase,
+      gestorId,
+      debug: process.env.DEBUG_ORDERS_ROUTING === '1' || process.env.DEBUG_ORDERS_CD_ROUTING === '1',
+      motivo: 'Auto realocação PMPL/CD após alteração de férias',
+    })
+  } catch (routingError) {
+    console.error('Falha ao aplicar auto realocação após férias:', routingError)
+  }
 
   revalidateCockpitPaths()
 }
@@ -190,4 +226,169 @@ export async function reatribuirOrdensSelecionadas(params: {
     movedCount,
     skippedCount,
   }
+}
+
+export async function salvarPessoaAdmin(params: SalvarPessoaAdminParams) {
+  const { supabase, gestorId } = await getGestorContext()
+  const nome = params.nome.trim()
+  const email = params.email.trim().toLowerCase()
+  const role = params.role
+
+  if (!nome) throw new Error('Nome é obrigatório')
+  if (!email) throw new Error('Email é obrigatório')
+  if (role !== 'admin' && role !== 'gestor') throw new Error('Cargo inválido')
+
+  const dataInicioFerias = normalizeDateInput(params.dataInicioFerias)
+  const dataFimFerias = normalizeDateInput(params.dataFimFerias)
+  if (dataInicioFerias && dataFimFerias && dataFimFerias < dataInicioFerias) {
+    throw new Error('Data fim de férias não pode ser menor que a data início')
+  }
+
+  const payload = {
+    nome,
+    email,
+    role,
+    ativo: params.ativo,
+    em_ferias: params.emFerias,
+    data_inicio_ferias: dataInicioFerias,
+    data_fim_ferias: dataFimFerias,
+    updated_at: new Date().toISOString(),
+  }
+
+  let targetId = params.id ?? null
+  if (targetId) {
+    const { data, error } = await supabase
+      .from('administradores')
+      .update(payload)
+      .eq('id', targetId)
+      .select('id')
+      .single()
+
+    if (error) throw new Error(error.message)
+    targetId = data.id
+  } else {
+    const { data, error } = await supabase
+      .from('administradores')
+      .insert({
+        ...payload,
+        max_notas: 50,
+        especialidade: 'geral',
+        recebe_distribuicao: false,
+      })
+      .select('id')
+      .single()
+
+    if (error) throw new Error(error.message)
+    targetId = data.id
+  }
+
+  await logAudit(supabase, gestorId, 'salvar_pessoa_admin', targetId, {
+    nome,
+    email,
+    role,
+    ativo: params.ativo,
+    em_ferias: params.emFerias,
+    data_inicio_ferias: dataInicioFerias,
+    data_fim_ferias: dataFimFerias,
+  })
+
+  try {
+    await applyAutomaticOrdersRouting({
+      supabase,
+      gestorId,
+      debug: process.env.DEBUG_ORDERS_ROUTING === '1' || process.env.DEBUG_ORDERS_CD_ROUTING === '1',
+      motivo: 'Auto realocação PMPL/CD após atualização de pessoa',
+    })
+  } catch (routingError) {
+    console.error('Falha ao aplicar auto realocação após salvar pessoa:', routingError)
+  }
+
+  revalidateCockpitPaths()
+  return { id: targetId }
+}
+
+export async function salvarConfigResponsavelPmpl(params: SalvarConfigResponsavelPmplParams) {
+  const { supabase, gestorId } = await getGestorContext()
+  const responsavelId = params.responsavelId?.trim()
+  const substitutoId = params.substitutoId?.trim() || null
+
+  if (!responsavelId) throw new Error('Responsável PMPL é obrigatório')
+  if (substitutoId && substitutoId === responsavelId) {
+    throw new Error('Substituto deve ser diferente do responsável')
+  }
+
+  const ids = [responsavelId, substitutoId].filter((item): item is string => Boolean(item))
+  const { data: admins, error: adminsError } = await supabase
+    .from('administradores')
+    .select('id, nome, ativo')
+    .in('id', ids)
+
+  if (adminsError) throw new Error(adminsError.message)
+
+  const adminById = new Map((admins ?? []).map((item) => [item.id, item]))
+  const responsavel = adminById.get(responsavelId)
+  if (!responsavel) throw new Error('Responsável PMPL não encontrado')
+  if (!responsavel.ativo) throw new Error('Responsável PMPL precisa estar ativo')
+
+  if (substitutoId) {
+    const substituto = adminById.get(substitutoId)
+    if (!substituto) throw new Error('Substituto PMPL não encontrado')
+    if (!substituto.ativo) throw new Error('Substituto PMPL precisa estar ativo')
+  }
+
+  const { data: beforeData, error: beforeError } = await supabase
+    .from('responsaveis_tipo_ordem')
+    .select('tipo_ordem, responsavel_id, substituto_id')
+    .eq('tipo_ordem', 'PMPL')
+    .maybeSingle()
+
+  if (beforeError && beforeError.code !== 'PGRST116') {
+    throw new Error(beforeError.message)
+  }
+
+  const { data: afterData, error: upsertError } = await supabase
+    .from('responsaveis_tipo_ordem')
+    .upsert({
+      tipo_ordem: 'PMPL',
+      responsavel_id: responsavelId,
+      substituto_id: substitutoId,
+      atualizado_por: gestorId,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'tipo_ordem' })
+    .select('tipo_ordem, responsavel_id, substituto_id')
+    .single()
+
+  if (upsertError) throw new Error(upsertError.message)
+
+  const { error: auditConfigError } = await supabase
+    .from('auditoria_config')
+    .insert({
+      tipo: 'responsaveis_tipo_ordem_pmpl',
+      antes: beforeData ?? null,
+      depois: afterData ?? null,
+      atualizado_por: gestorId,
+    })
+
+  if (auditConfigError) {
+    console.error('Falha ao gravar auditoria_config:', auditConfigError.message)
+  }
+
+  await logAudit(supabase, gestorId, 'salvar_responsavel_pmpl', responsavelId, {
+    antes: beforeData ?? null,
+    depois: afterData ?? null,
+  })
+
+  try {
+    await applyAutomaticOrdersRouting({
+      supabase,
+      gestorId,
+      debug: process.env.DEBUG_ORDERS_ROUTING === '1' || process.env.DEBUG_ORDERS_CD_ROUTING === '1',
+      motivo: 'Auto realocação PMPL/CD após atualização da configuração PMPL',
+    })
+  } catch (routingError) {
+    console.error('Falha ao aplicar auto realocação após salvar configuração PMPL:', routingError)
+  }
+
+  revalidateCockpitPaths()
+  return afterData
 }
