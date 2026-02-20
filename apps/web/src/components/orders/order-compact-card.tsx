@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
+import { format } from 'date-fns'
 import { OrderReassignDialog } from '@/components/orders/order-reassign-dialog'
 import { getSemaforoClass, getSemaforoLabel } from '@/lib/orders/metrics'
 import type { OrdemNotaAcompanhamento, OrderReassignTarget } from '@/lib/types/database'
@@ -44,7 +45,12 @@ export function OrderCompactCard({
   const isClickable = typeof onOpenDetails === 'function'
   const ordemText = row.ordem_codigo?.trim() ? row.ordem_codigo : 'Sem ordem'
   const unidadeText = row.unidade?.trim() ? row.unidade : 'Sem unidade'
+  const responsavelText = row.responsavel_atual_nome?.trim() ? row.responsavel_atual_nome : 'Sem responsável'
   const diasText = `Há ${row.dias_em_aberto} dia(s)`
+  const dataText = row.ordem_detectada_em
+    ? format(new Date(row.ordem_detectada_em), 'dd/MM/yyyy')
+    : null
+  const descricao = row.descricao?.trim() || null
   const semaforoBorder = SEMAFORO_BORDER_LEFT_CLASS[row.semaforo_atraso] ?? SEMAFORO_BORDER_LEFT_CLASS.neutro
 
   function handleToggleSelection(event: React.MouseEvent | React.ChangeEvent) {
@@ -67,7 +73,7 @@ export function OrderCompactCard({
 
   return (
     <div
-      className={`group rounded-lg border border-l-4 bg-card p-3 transition-all ${semaforoBorder} ${
+      className={`group rounded-lg border border-l-4 bg-card px-3 py-2.5 transition-all ${semaforoBorder} ${
         selected ? 'ring-2 ring-primary/60' : ''
       } ${
         isClickable ? 'cursor-pointer hover:shadow-md' : 'hover:bg-muted/30'
@@ -77,23 +83,31 @@ export function OrderCompactCard({
       role={isClickable ? 'button' : undefined}
       tabIndex={isClickable ? 0 : undefined}
     >
-      <div className="mb-2 flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {showCheckbox && (
-            <input
-              type="checkbox"
-              checked={selected}
-              onClick={handleToggleSelection}
-              onChange={handleToggleSelection}
-              aria-label={`Selecionar nota ${row.numero_nota}`}
-            />
+      {/* Linha 1: identificação + semáforo + ações */}
+      <div className="flex items-center gap-2">
+        {showCheckbox && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onClick={handleToggleSelection}
+            onChange={handleToggleSelection}
+            aria-label={`Selecionar nota ${row.numero_nota}`}
+            className="shrink-0"
+          />
+        )}
+
+        <span className="min-w-0 flex-1 font-mono text-sm font-medium leading-5 truncate">
+          <span className="text-foreground">#{row.numero_nota}</span>
+          {row.ordem_codigo?.trim() && (
+            <span className="text-muted-foreground"> · {ordemText}</span>
           )}
+        </span>
+
+        <div className="flex shrink-0 items-center gap-1" onClick={(event) => event.stopPropagation()}>
           <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${getSemaforoClass(row.semaforo_atraso)}`}>
             {getSemaforoLabel(row.semaforo_atraso)}
           </span>
-        </div>
 
-        <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
           {showReassign && reassignProps && reassignProps.admins.length > 0 && (
             <OrderReassignDialog
               notaId={row.nota_id}
@@ -119,22 +133,27 @@ export function OrderCompactCard({
         </div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-3">
-        <div className="rounded-md bg-muted/45 px-2 py-1.5">
-          <p className="text-[11px] text-muted-foreground">Ordem</p>
-          <p className="text-sm font-semibold leading-5">{ordemText}</p>
-        </div>
+      {/* Linha 2: texto breve (condicional) */}
+      {descricao && (
+        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground leading-5">
+          {descricao}
+        </p>
+      )}
 
-        <div className="rounded-md bg-muted/45 px-2 py-1.5">
-          <p className="text-[11px] text-muted-foreground">Unidade</p>
-          <p className="text-sm font-semibold leading-5">{unidadeText}</p>
-        </div>
-
-        <div className="rounded-md bg-muted/45 px-2 py-1.5">
-          <p className="text-[11px] text-muted-foreground">Tempo</p>
-          <p className="text-sm font-semibold leading-5">{diasText}</p>
-        </div>
-      </div>
+      {/* Linha 3: metadados */}
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        {unidadeText}
+        <span className="mx-1 opacity-40">·</span>
+        {responsavelText}
+        <span className="mx-1 opacity-40">·</span>
+        {diasText}
+        {dataText && (
+          <>
+            <span className="mx-1 opacity-40">·</span>
+            {dataText}
+          </>
+        )}
+      </p>
     </div>
   )
 }

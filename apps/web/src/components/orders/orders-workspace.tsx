@@ -437,7 +437,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 150,
+    estimateSize: () => 110,
     overscan: 8,
   })
   const virtualRows = rowVirtualizer.getVirtualItems()
