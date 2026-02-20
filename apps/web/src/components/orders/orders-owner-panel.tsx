@@ -603,6 +603,7 @@ export function OrdersOwnerPanel({
                 key={group.id}
                 group={group}
                 canReassign={canBulkReassign}
+                reassignTargets={reassignTargets}
                 selectedNotaIds={selectedNotaIdsSet}
                 onToggleRowSelection={handleToggleRowSelection}
               />

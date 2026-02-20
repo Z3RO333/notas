@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isVacationActive, resolveCurrentPmplOwner } from '@/lib/orders/pmpl-routing'
 import { AdminPeopleManager } from '@/components/admin/admin-people-manager'
 import { AdminOrderTypeOwnerManager } from '@/components/admin/admin-order-type-owner-manager'
+import type { PmplOwnerResolution } from '@/lib/orders/pmpl-routing'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,17 +22,41 @@ interface PmplConfigRow {
   substituto_id: string | null
 }
 
+function isMissingVacationColumnsError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false
+  if (error.code === '42703' || error.code === 'PGRST204') return true
+  return (error.message ?? '').toLowerCase().includes('data_inicio_ferias')
+    || (error.message ?? '').toLowerCase().includes('data_fim_ferias')
+}
+
 export default async function AdministracaoPage() {
   const supabase = await createClient()
 
-  const { data: peopleData, error: peopleError } = await supabase
-    .from('administradores')
-    .select('id, nome, email, role, ativo, em_ferias, data_inicio_ferias, data_fim_ferias')
-    .order('nome', { ascending: true })
+  let people: AdminPersonRow[] = []
+  {
+    const fullPeopleResult = await supabase
+      .from('administradores')
+      .select('id, nome, email, role, ativo, em_ferias, data_inicio_ferias, data_fim_ferias')
+      .order('nome', { ascending: true })
 
-  if (peopleError) throw peopleError
+    if (fullPeopleResult.error && isMissingVacationColumnsError(fullPeopleResult.error)) {
+      const legacyPeopleResult = await supabase
+        .from('administradores')
+        .select('id, nome, email, role, ativo, em_ferias')
+        .order('nome', { ascending: true })
 
-  const people = (peopleData ?? []) as AdminPersonRow[]
+      if (legacyPeopleResult.error) throw legacyPeopleResult.error
+
+      people = (legacyPeopleResult.data ?? []).map((item) => ({
+        ...(item as Omit<AdminPersonRow, 'data_inicio_ferias' | 'data_fim_ferias'>),
+        data_inicio_ferias: null,
+        data_fim_ferias: null,
+      }))
+    } else {
+      if (fullPeopleResult.error) throw fullPeopleResult.error
+      people = (fullPeopleResult.data ?? []) as AdminPersonRow[]
+    }
+  }
 
   let configLoadError: string | null = null
   let pmplConfig: PmplConfigRow | null = null
@@ -42,7 +67,7 @@ export default async function AdministracaoPage() {
     .maybeSingle()
 
   if (configError && configError.code !== 'PGRST116') {
-    configLoadError = configError.code === '42P01'
+    configLoadError = (configError.code === '42P01' || configError.code === 'PGRST205')
       ? 'Tabela de configuração PMPL ainda não existe. Aplique as migrations 00043/00044.'
       : configError.message
   }
@@ -56,7 +81,18 @@ export default async function AdministracaoPage() {
 
   const personById = new Map(people.map((person) => [person.id, person]))
 
-  const pmplResolution = await resolveCurrentPmplOwner(supabase)
+  let pmplResolution: PmplOwnerResolution = {
+    currentOwner: null,
+    configuredResponsavel: null,
+    configuredSubstituto: null,
+    fallbackGestor: null,
+    viewerAdminIds: [],
+  }
+  try {
+    pmplResolution = await resolveCurrentPmplOwner(supabase)
+  } catch (error) {
+    configLoadError = configLoadError ?? (error instanceof Error ? error.message : 'Falha ao resolver responsável PMPL')
+  }
   const configuredResponsavel = pmplConfig?.responsavel_id ? personById.get(pmplConfig.responsavel_id) ?? null : null
   const configuredSubstituto = pmplConfig?.substituto_id ? personById.get(pmplConfig.substituto_id) ?? null : null
   const currentOwner = pmplResolution.currentOwner

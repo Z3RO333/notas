@@ -47,7 +47,7 @@ interface RoutingCandidateRow {
   ordem_id: string
   nota_id: string
   ordem_codigo: string | null
-  tipo_ordem: string | null
+  tipo_ordem?: string | null
   unidade: string | null
   responsavel_atual_id: string | null
   responsavel_atual_nome: string | null
@@ -154,39 +154,80 @@ function resolveFixedOwnerKeyByUnit(value: string | null | undefined): FixedOwne
   return UNIT_TO_FIXED_OWNER_KEY[normalized as keyof typeof UNIT_TO_FIXED_OWNER_KEY] ?? null
 }
 
-function isMissingRelation(error: { code?: string } | null): boolean {
-  return error?.code === '42P01'
+function hasMessage(error: { message?: string; details?: string | null; hint?: string | null } | null, token: string): boolean {
+  if (!error) return false
+  const haystack = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase()
+  return haystack.includes(token.toLowerCase())
+}
+
+function isMissingRelation(error: { code?: string; message?: string; details?: string | null; hint?: string | null } | null): boolean {
+  return error?.code === '42P01' || error?.code === 'PGRST205' || hasMessage(error, 'does not exist')
+}
+
+function isMissingVacationColumns(
+  error: { code?: string; message?: string; details?: string | null; hint?: string | null } | null
+): boolean {
+  if (!error) return false
+  if (error.code === '42703' || error.code === 'PGRST204') return true
+  return (
+    hasMessage(error, 'data_inicio_ferias')
+    || hasMessage(error, 'data_fim_ferias')
+    || hasMessage(error, 'column')
+  )
+}
+
+function isMissingTipoOrdemColumn(
+  error: { code?: string; message?: string; details?: string | null; hint?: string | null } | null
+): boolean {
+  if (!error) return false
+  if (error.code === '42703' || error.code === 'PGRST204') return true
+  return hasMessage(error, 'tipo_ordem')
+}
+
+async function fetchAdministradoresWithVacationFallback(
+  supabase: RoutingSupabase,
+  buildQuery: (columns: string) => any
+): Promise<AdminRoutingRecord[]> {
+  const fullColumns = 'id, nome, email, role, ativo, em_ferias, data_inicio_ferias, data_fim_ferias'
+  const legacyColumns = 'id, nome, email, role, ativo, em_ferias'
+
+  const fullResult = await buildQuery(fullColumns)
+  if (fullResult.error && isMissingVacationColumns(fullResult.error)) {
+    const legacyResult = await buildQuery(legacyColumns)
+    if (legacyResult.error) throw legacyResult.error
+    return ((legacyResult.data ?? []) as Array<Partial<AdminRoutingRecord>>)
+      .map(asAdminRoutingRecord)
+      .filter((item): item is AdminRoutingRecord => Boolean(item))
+  }
+
+  if (fullResult.error) throw fullResult.error
+
+  return ((fullResult.data ?? []) as Array<Partial<AdminRoutingRecord>>)
+    .map(asAdminRoutingRecord)
+    .filter((item): item is AdminRoutingRecord => Boolean(item))
 }
 
 async function fetchAdminsByIds(supabase: RoutingSupabase, ids: string[]): Promise<AdminRoutingRecord[]> {
   if (ids.length === 0) return []
 
-  const { data, error } = await supabase
-    .from('administradores')
-    .select('id, nome, email, role, ativo, em_ferias, data_inicio_ferias, data_fim_ferias')
-    .in('id', ids)
-
-  if (error) throw error
-
-  return ((data ?? []) as Array<Partial<AdminRoutingRecord>>)
-    .map(asAdminRoutingRecord)
-    .filter((item): item is AdminRoutingRecord => Boolean(item))
+  return fetchAdministradoresWithVacationFallback(supabase, (columns) => (
+    supabase
+      .from('administradores')
+      .select(columns)
+      .in('id', ids)
+  ))
 }
 
 async function fetchFirstEligibleGestor(supabase: RoutingSupabase): Promise<AdminRoutingRecord | null> {
-  const { data, error } = await supabase
-    .from('administradores')
-    .select('id, nome, email, role, ativo, em_ferias, data_inicio_ferias, data_fim_ferias')
-    .eq('role', 'gestor')
-    .eq('ativo', true)
-    .order('nome', { ascending: true })
-    .limit(50)
-
-  if (error) throw error
-
-  const gestores = ((data ?? []) as Array<Partial<AdminRoutingRecord>>)
-    .map(asAdminRoutingRecord)
-    .filter((item): item is AdminRoutingRecord => Boolean(item))
+  const gestores = await fetchAdministradoresWithVacationFallback(supabase, (columns) => (
+    supabase
+      .from('administradores')
+      .select(columns)
+      .eq('role', 'gestor')
+      .eq('ativo', true)
+      .order('nome', { ascending: true })
+      .limit(50)
+  ))
 
   for (const gestor of gestores) {
     if (!isVacationActive(gestor)) return gestor
@@ -247,18 +288,16 @@ async function resolveFixedCdOwnersByKey(supabase: RoutingSupabase): Promise<Par
     [normalizeEmail(FIXED_OWNER_EMAIL_BY_KEY.adriano)]: 'adriano',
   }
 
-  const { data, error } = await supabase
-    .from('administradores')
-    .select('id, nome, email, role, ativo, em_ferias, data_inicio_ferias, data_fim_ferias')
-    .in('email', Object.values(FIXED_OWNER_EMAIL_BY_KEY))
-
-  if (error) throw error
+  const data = await fetchAdministradoresWithVacationFallback(supabase, (columns) => (
+    supabase
+      .from('administradores')
+      .select(columns)
+      .in('email', Object.values(FIXED_OWNER_EMAIL_BY_KEY))
+  ))
 
   const byKey: Partial<Record<FixedOwnerKey, AdminRoutingRecord>> = {}
 
-  for (const item of ((data ?? []) as Array<Partial<AdminRoutingRecord>>)) {
-    const record = asAdminRoutingRecord(item)
-    if (!record) continue
+  for (const record of data) {
 
     const key = fixedOwnerKeyByEmail[normalizeEmail(record.email)]
     if (!key) continue
@@ -366,17 +405,29 @@ export async function applyAutomaticOrdersRouting({
   const pmplResolution = await resolveCurrentPmplOwner(supabase)
 
   const [pmplRows, cdRows] = await Promise.all([
+    (async () => {
+      try {
+        return await fetchAllRoutingRows(supabase, () => (
+          supabase
+            .from('vw_ordens_notas_painel')
+            .select('ordem_id, nota_id, ordem_codigo, tipo_ordem, unidade, responsavel_atual_id, responsavel_atual_nome')
+            .eq('tipo_ordem', PMPL_CONFIG_TYPE)
+            .not('nota_id', 'is', null)
+        ))
+      } catch (error) {
+        if (isMissingTipoOrdemColumn(error as { code?: string; message?: string; details?: string | null; hint?: string | null })) {
+          if (debug) {
+            console.log('[DEBUG orders/routing] coluna tipo_ordem ausente no banco. Roteamento PMPL desativado.')
+          }
+          return [] as RoutingCandidateRow[]
+        }
+        throw error
+      }
+    })(),
     fetchAllRoutingRows(supabase, () => (
       supabase
         .from('vw_ordens_notas_painel')
-        .select('ordem_id, nota_id, ordem_codigo, tipo_ordem, unidade, responsavel_atual_id, responsavel_atual_nome')
-        .eq('tipo_ordem', PMPL_CONFIG_TYPE)
-        .not('nota_id', 'is', null)
-    )),
-    fetchAllRoutingRows(supabase, () => (
-      supabase
-        .from('vw_ordens_notas_painel')
-        .select('ordem_id, nota_id, ordem_codigo, tipo_ordem, unidade, responsavel_atual_id, responsavel_atual_nome')
+        .select('ordem_id, nota_id, ordem_codigo, unidade, responsavel_atual_id, responsavel_atual_nome')
         .in('unidade', ROUTING_UNITS)
         .not('nota_id', 'is', null)
     )),
@@ -401,7 +452,7 @@ export async function applyAutomaticOrdersRouting({
       notaId: row.nota_id,
       administradorDestinoId: pmplOwner.id,
       ordemCodigo: row.ordem_codigo,
-      tipoOrdem: row.tipo_ordem,
+      tipoOrdem: row.tipo_ordem ?? null,
       unidade: row.unidade,
       responsavelAnteriorId: row.responsavel_atual_id,
       responsavelAnteriorNome: row.responsavel_atual_nome,
@@ -445,7 +496,7 @@ export async function applyAutomaticOrdersRouting({
       notaId: row.nota_id,
       administradorDestinoId: fixedOwner.id,
       ordemCodigo: row.ordem_codigo,
-      tipoOrdem: row.tipo_ordem,
+      tipoOrdem: row.tipo_ordem ?? null,
       unidade: row.unidade,
       responsavelAnteriorId: row.responsavel_atual_id,
       responsavelAnteriorNome: row.responsavel_atual_nome,
