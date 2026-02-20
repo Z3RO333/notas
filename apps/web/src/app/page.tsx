@@ -20,6 +20,7 @@ export const dynamic = 'force-dynamic'
 const NOTA_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, data_criacao_sap, created_at' as const
 const EMPTY_UUID = '00000000-0000-0000-0000-000000000000'
 const VALID_NOTES_KPI: NotesKpiFilter[] = ['notas', 'novas', 'um_dia', 'dois_mais']
+const GUSTAVO_EMAIL = 'gustavoandrade@bemol.com.br'
 
 interface NotesPageProps {
   searchParams?: Promise<{
@@ -147,7 +148,7 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
   const notaAdminIds = new Set(notasAtribuidas.map((n) => n.administrador_id).filter(Boolean) as string[])
   const carga = allCarga.filter(
     (admin) => admin.recebe_distribuicao || !admin.ativo || admin.em_ferias || admin.qtd_abertas > 0 || notaAdminIds.has(admin.id)
-  )
+  ).filter((admin) => admin.email !== GUSTAVO_EMAIL)
 
   const collaborators = [...carga]
     .sort((a, b) => {
