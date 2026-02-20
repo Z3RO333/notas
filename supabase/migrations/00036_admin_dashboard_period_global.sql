@@ -15,6 +15,12 @@ CREATE INDEX IF NOT EXISTS idx_ordens_acomp_nota_detectada_dashboard
 ALTER TABLE public.ordens_notas_acompanhamento
   ADD COLUMN IF NOT EXISTS data_entrada TIMESTAMPTZ;
 
+-- tipo_ordem adicionado aqui para que a view abaixo seja compatível com a migration
+-- 00045 (que também faz ADD COLUMN IF NOT EXISTS tipo_ordem). Idempotente em qualquer
+-- ordem de aplicação.
+ALTER TABLE public.ordens_notas_acompanhamento
+  ADD COLUMN IF NOT EXISTS tipo_ordem TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_ordens_notas_acompanhamento_data_entrada_dashboard
   ON public.ordens_notas_acompanhamento (data_entrada DESC)
   WHERE data_entrada IS NOT NULL;
@@ -50,7 +56,8 @@ base AS (
     o.dias_para_gerar_ordem,
     COALESCE(h.qtd_historico, 0)::BIGINT AS qtd_historico,
     COALESCE(h.historico_admin_ids, ARRAY[]::UUID[]) AS historico_admin_ids,
-    n.descricao
+    n.descricao,
+    o.tipo_ordem
   FROM public.ordens_notas_acompanhamento o
   LEFT JOIN public.notas_manutencao n ON n.id = o.nota_id
   LEFT JOIN public.administradores origem ON origem.id = o.administrador_id
@@ -94,7 +101,8 @@ SELECT
     ) AS x
     WHERE x IS NOT NULL
   ) AS envolvidos_admin_ids,
-  b.descricao
+  b.descricao,
+  b.tipo_ordem
 FROM base b;
 
 CREATE OR REPLACE FUNCTION public.atualizar_status_ordens_pmpl_lote(
