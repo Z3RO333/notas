@@ -4,6 +4,7 @@ import { OrdersWorkspace } from '@/components/orders/orders-workspace'
 import { LastSyncBadge } from '@/components/shared/last-sync-badge'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { RealtimeListener } from '@/components/notas/realtime-listener'
+import { canAccessPmplTab, resolveCurrentPmplOwner } from '@/lib/orders/pmpl-routing'
 import type {
   OrdersPeriodModeOperational,
   OrdersWorkspaceFilters,
@@ -94,6 +95,27 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     redirect('/login')
   }
 
+  const role = loggedAdmin.role as UserRole
+  const canViewGlobal = role === 'gestor'
+
+  let canAccessPmpl = canViewGlobal
+  if (!canViewGlobal) {
+    try {
+      const pmplResolution = await resolveCurrentPmplOwner(supabase)
+      canAccessPmpl = canAccessPmplTab({
+        role,
+        loggedAdminId: loggedAdmin.id,
+        pmplResolution,
+      })
+    } catch {
+      canAccessPmpl = false
+    }
+  }
+
+  if (initialFilters.tipoOrdem === 'PMPL' && !canAccessPmpl) {
+    initialFilters.tipoOrdem = 'PMOS'
+  }
+
   const latestSyncResult = await supabase
     .from('sync_log')
     .select('finished_at, status')
@@ -101,15 +123,11 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     .limit(1)
     .single()
 
-  const GUSTAVO_EMAIL = 'gustavoandrade@bemol.com.br'
-  if (initialFilters.tipoOrdem === 'PMPL' && user.email !== GUSTAVO_EMAIL) {
-    initialFilters.tipoOrdem = 'PMOS'
-  }
-
   const initialUser = {
-    role: loggedAdmin.role as UserRole,
+    role,
     adminId: loggedAdmin.id,
-    canViewGlobal: loggedAdmin.role === 'gestor',
+    canViewGlobal,
+    canAccessPmpl,
     userEmail: user.email,
   }
 
