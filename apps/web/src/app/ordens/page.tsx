@@ -24,6 +24,7 @@ interface OrdersPageProps {
     responsavel?: string | string[]
     unidade?: string | string[]
     prioridade?: string | string[]
+    tipoOrdem?: string | string[]
   }>
 }
 
@@ -69,6 +70,7 @@ function parseInitialFilters(raw: Awaited<OrdersPageProps['searchParams']>): Ord
     responsavel: (firstParam(raw?.responsavel) ?? 'todos').trim() || 'todos',
     unidade: (firstParam(raw?.unidade) ?? '').trim(),
     prioridade: (firstParam(raw?.prioridade) ?? 'todas').trim() || 'todas',
+    tipoOrdem: (firstParam(raw?.tipoOrdem) ?? 'PMOS').trim() || 'PMOS',
   }
 }
 
@@ -99,10 +101,16 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     .limit(1)
     .single()
 
+  const GUSTAVO_EMAIL = 'gustavoandrade@bemol.com.br'
+  if (initialFilters.tipoOrdem === 'PMPL' && user.email !== GUSTAVO_EMAIL) {
+    initialFilters.tipoOrdem = 'PMOS'
+  }
+
   const initialUser = {
     role: loggedAdmin.role as UserRole,
     adminId: loggedAdmin.id,
     canViewGlobal: loggedAdmin.role === 'gestor',
+    userEmail: user.email,
   }
 
   return (

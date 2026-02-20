@@ -112,7 +112,7 @@ export interface SyncLog {
   metadata: Record<string, unknown> | null
 }
 
-export type Especialidade = 'refrigeracao' | 'elevadores' | 'geral'
+export type Especialidade = 'refrigeracao' | 'elevadores' | 'geral' | 'cd_manaus' | 'cd_taruma'
 
 export interface CargaAdministrador {
   id: string
@@ -214,6 +214,7 @@ export interface OrdemNotaAcompanhamento {
   semaforo_atraso: 'verde' | 'amarelo' | 'vermelho' | 'neutro'
   envolvidos_admin_ids: string[] | null
   descricao: string | null
+  tipo_ordem: string | null
 }
 
 export interface OrderOwnerGroup {
@@ -251,6 +252,7 @@ export interface OrdersWorkspaceFilters {
   responsavel: string
   unidade: string
   prioridade: string
+  tipoOrdem: string
 }
 
 export interface OrdersWorkspaceCursor {
