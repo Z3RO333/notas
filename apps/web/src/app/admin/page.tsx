@@ -165,6 +165,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
     total_ordens_30d: Number(rawOrderKpis.total ?? 0),
     qtd_abertas_30d: Number(rawOrderKpis.abertas ?? 0),
     qtd_em_tratativa_30d: Number(rawOrderKpis.em_tratativa ?? 0),
+    qtd_em_avaliacao_30d: Number(rawOrderKpis.em_avaliacao ?? 0),
     qtd_concluidas_30d: Number(rawOrderKpis.concluidas ?? 0),
     qtd_canceladas_30d: Number(rawOrderKpis.canceladas ?? 0),
     qtd_avaliadas_30d: Number(rawOrderKpis.avaliadas ?? 0),
@@ -213,7 +214,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
           <div>
             <h2 className="text-xl font-semibold tracking-tight">Notas</h2>
             <p className="text-sm text-muted-foreground">
-              Entrada, conversao e fechamento no periodo selecionado.
+              Entrada, conversão e fechamento no período selecionado.
             </p>
           </div>
           <AdminPeriodFilter
@@ -245,11 +246,11 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
           <div>
             <h2 className="text-xl font-semibold tracking-tight">Acompanhamento de Ordens</h2>
             <p className="text-sm text-muted-foreground">
-              Semaforo de envelhecimento, responsavel atual e historico no mesmo periodo selecionado.
+              Semáforo de envelhecimento, responsável atual e histórico no mesmo período selecionado.
             </p>
           </div>
           <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">
-            Periodo: {period.periodLabel}
+            Período: {period.periodLabel}
           </span>
         </div>
 
