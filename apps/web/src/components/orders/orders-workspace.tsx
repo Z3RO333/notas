@@ -3,26 +3,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
-  AlertTriangle,
-  BarChart3,
-  ClipboardCheck,
   Download,
   LayoutGrid,
-  ListChecks,
   Loader2,
-  LoaderCircle,
   RefreshCcw,
   Rows3,
-  ShieldCheck,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { OrderCompactCard } from '@/components/orders/order-compact-card'
 import { OrdersBulkReassignBar } from '@/components/orders/orders-bulk-reassign-bar'
 import { OrdersDetailDrawer } from '@/components/orders/orders-detail-drawer'
+import { OrdersKpiStrip } from '@/components/orders/orders-kpi-strip'
 import { OrdersOwnerFullCard } from '@/components/orders/orders-owner-full-card'
 import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -32,8 +27,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  getOrdersCriticalityLevel,
   getOrderStatusLabel,
   getSemaforoLabel,
+  workspaceKpisToOrdemNotaKpis,
 } from '@/lib/orders/metrics'
 import type {
   OrderOwnerGroup,
@@ -107,6 +104,7 @@ const FIXED_OWNER_CARD_ORDER = {
   'Brenda': 0,
   'Adriano': 1,
 } as const
+const GUSTAVO_OWNER_NAME = 'gustavo andrade'
 
 function normalizePersonName(value: string): string {
   return value
@@ -114,6 +112,10 @@ function normalizePersonName(value: string): string {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim()
+}
+
+function isGustavoOwner(ownerName: string): boolean {
+  return normalizePersonName(ownerName) === GUSTAVO_OWNER_NAME
 }
 
 const CARGO_BADGE: Record<string, { color: string }> = {
@@ -171,14 +173,6 @@ function exportOrdersToXlsx(rows: OrdemNotaAcompanhamento[]) {
   XLSX.writeFile(wb, filename)
 }
 
-function resolveKpiFrameClass(total: number, overdue: number): string {
-  if (total <= 0 || overdue <= 0) return 'border-border'
-
-  const ratio = overdue / Math.max(total, 1)
-  if (overdue >= 20 || ratio >= 0.35) return 'border-red-300 bg-red-50/30'
-  if (overdue >= 6 || ratio >= 0.15) return 'border-amber-300 bg-amber-50/30'
-  return 'border-border'
-}
 
 function toIsoStart(dateInput: string | null): string | null {
   if (!dateInput) return null
@@ -304,43 +298,36 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     return map
   }, [reassignTargets])
 
-  const avatarById = useMemo(() => {
-    const map: Record<string, string | null> = {}
-    for (const s of ownerSummary) {
-      if (s.administrador_id) map[s.administrador_id] = s.avatar_url
-    }
-    return map
-  }, [ownerSummary])
-
   const selectedNotaIdsSet = useMemo(() => new Set(selectedNotaIds), [selectedNotaIds])
 
   const ownerGroups = useMemo((): OrderOwnerGroup[] => {
     if (ownerCardsViewMode !== 'cards') return []
-    const map = new Map<string, OrderOwnerGroup>()
+
+    // Agrupar rows carregados por responsável (para a lista de itens)
+    const rowsByOwner = new Map<string, OrdemNotaAcompanhamento[]>()
     for (const row of rows) {
       const id = row.responsavel_atual_id ?? '__sem_atual__'
-      const nome = row.responsavel_atual_nome ?? 'Sem responsável'
-      const current = map.get(id) ?? {
-        id,
-        nome,
-        avatar_url: avatarById[id] ?? null,
-        rows: [],
-        recentes: 0,
-        atencao: 0,
-        atrasadas: 0,
-        abertas: 0,
-        total: 0,
-      }
-      current.rows.push(row)
-      current.total += 1
-      if (row.semaforo_atraso === 'verde') current.recentes += 1
-      if (row.semaforo_atraso === 'amarelo') current.atencao += 1
-      if (row.semaforo_atraso === 'vermelho') current.atrasadas += 1
-      if (row.status_ordem === 'aberta') current.abertas += 1
-      map.set(id, current)
+      const bucket = rowsByOwner.get(id) ?? []
+      bucket.push(row)
+      rowsByOwner.set(id, bucket)
     }
-    return [...map.values()].sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, 'pt-BR'))
-  }, [rows, ownerCardsViewMode, avatarById])
+
+    // Usar ownerSummary para os totais corretos (dados completos da API)
+    return ownerSummary
+      .filter((s) => s.total > 0 && !isGustavoOwner(s.nome))
+      .map((s) => ({
+        id: s.administrador_id ?? '__sem_atual__',
+        nome: s.nome,
+        avatar_url: s.avatar_url,
+        rows: rowsByOwner.get(s.administrador_id ?? '__sem_atual__') ?? [],
+        recentes: s.recentes,
+        atencao: s.atencao,
+        atrasadas: s.atrasadas,
+        abertas: s.abertas,
+        total: s.total,
+      }))
+      .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, 'pt-BR'))
+  }, [rows, ownerCardsViewMode, ownerSummary])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -518,51 +505,14 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     fetchWorkspace(false)
   }, [virtualRows, loadingInitial, loadingMore, nextCursor, rows.length, fetchWorkspace])
 
-  const kpiFrameClass = resolveKpiFrameClass(kpis.total, kpis.atrasadas)
-  const kpiCards = [
-    {
-      key: 'total',
-      label: 'Total de ordens',
-      value: kpis.total,
-      icon: ListChecks,
-      valueClass: 'text-foreground',
-    },
-    {
-      key: 'em_aberto',
-      label: 'Em processamento',
-      value: kpis.abertas,
-      icon: BarChart3,
-      valueClass: 'text-sky-700',
-    },
-    {
-      key: 'em_execucao',
-      label: 'Em execução',
-      value: kpis.em_tratativa,
-      icon: LoaderCircle,
-      valueClass: 'text-indigo-700',
-    },
-    {
-      key: 'em_avaliacao',
-      label: 'Em avaliação',
-      value: kpis.em_avaliacao,
-      icon: ShieldCheck,
-      valueClass: 'text-emerald-700',
-    },
-    {
-      key: 'avaliadas',
-      label: 'Avaliadas',
-      value: kpis.avaliadas,
-      icon: ClipboardCheck,
-      valueClass: 'text-amber-700',
-    },
-    {
-      key: 'atrasadas',
-      label: 'Atrasadas (7+)',
-      value: kpis.atrasadas,
-      icon: AlertTriangle,
-      valueClass: 'text-red-700',
-    },
-  ] as const
+  // Em modo "cards completos", não há scroll da lista para disparar o load-more.
+  // Carrega automaticamente todas as páginas restantes.
+  useEffect(() => {
+    if (ownerCardsViewMode !== 'cards') return
+    if (!nextCursor) return
+    if (loadingInitial || loadingMore) return
+    fetchWorkspace(false)
+  }, [ownerCardsViewMode, nextCursor, loadingInitial, loadingMore, fetchWorkspace])
 
   function handleTabChange(tipo: string) {
     setFilters((prev) => ({ ...prev, tipoOrdem: tipo }))
@@ -610,29 +560,12 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         </div>
       )}
 
-      <div className={`rounded-lg border p-2 ${kpiFrameClass}`}>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-          {kpiCards.map((item) => {
-            const Icon = item.icon
-            return (
-              <Card
-                key={item.key}
-                className={`h-full ${item.key === 'atrasadas' ? 'bg-red-50 border-red-200' : ''}`}
-              >
-                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                  <CardTitle className="min-h-[2.5rem] flex-1 pr-2 text-sm font-medium leading-tight text-muted-foreground">
-                    {item.label}
-                  </CardTitle>
-                  <Icon className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <p className={`text-3xl font-bold ${item.valueClass}`}>{formatNumber(item.value)}</p>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      </div>
+      <OrdersKpiStrip
+        kpis={workspaceKpisToOrdemNotaKpis(kpis)}
+        activeKpi={null}
+        criticality={getOrdersCriticalityLevel(kpis.total, kpis.atrasadas)}
+        interactive={false}
+      />
 
       <div className="rounded-lg border p-3">
         <div className="mb-3 flex items-center justify-between gap-2">
