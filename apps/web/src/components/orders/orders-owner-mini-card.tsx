@@ -29,7 +29,7 @@ export function OrdersOwnerMiniCard({
           <p className="truncate text-sm font-semibold">{group.nome}</p>
           <div className="flex items-center gap-1">
             <span className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
-              {group.total} ordem{group.total !== 1 ? 'ns' : ''}
+              {group.total} ordens
             </span>
           </div>
         </div>
@@ -54,7 +54,7 @@ export function OrdersOwnerMiniCard({
       </div>
 
       <div className="mt-2 rounded bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
-        {group.abertas} ordem{group.abertas !== 1 ? 'ns' : ''} aberta{group.abertas !== 1 ? 's' : ''}
+        {group.abertas} ordens abertas
       </div>
     </Card>
   )
