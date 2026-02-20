@@ -11,11 +11,10 @@ import type {
 } from '@/lib/types/database'
 
 const FINAL_STATUS = new Set<OrdemStatusAcomp>(['concluida', 'cancelada'])
-const RAW_STATUS = {
-  emAvaliacao: 'AVALIACAO_DA_EXECUCAO',
-  avaliada: 'EXECUCAO_SATISFATORIO',
-  naoRealizada: 'EXECUCAO_NAO_REALIZADA',
-} as const
+// Valores canônicos + variantes que a fonte SAP/PMPL pode gravar
+const RAW_EM_AVALIACAO = new Set(['AVALIACAO_DA_EXECUCAO', 'AVALIACAO_DE_EXECUCAO'])
+const RAW_AVALIADA = new Set(['EXECUCAO_SATISFATORIO', 'EXECUCAO_SATISFATORIA'])
+const RAW_NAO_REALIZADA = 'EXECUCAO_NAO_REALIZADA'
 
 function toWindow(value: unknown): number {
   const parsed = Number(value)
@@ -81,15 +80,15 @@ function normalizeRawStatus(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw
 }
 
 export function isEmAvaliacao(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
-  return normalizeRawStatus(row) === RAW_STATUS.emAvaliacao
+  return RAW_EM_AVALIACAO.has(normalizeRawStatus(row))
 }
 
 export function isAvaliada(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
-  return normalizeRawStatus(row) === RAW_STATUS.avaliada
+  return RAW_AVALIADA.has(normalizeRawStatus(row))
 }
 
 export function isNaoRealizada(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
-  return normalizeRawStatus(row) === RAW_STATUS.naoRealizada
+  return normalizeRawStatus(row) === RAW_NAO_REALIZADA
 }
 
 function isEmExecucao(row: Pick<OrdemNotaAcompanhamento, 'status_ordem' | 'status_ordem_raw'>): boolean {
