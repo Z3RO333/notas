@@ -1348,6 +1348,44 @@ def run_orders_maintenance_reference_enrichment() -> dict:
     return metrics
 
 
+def run_standalone_owner_assignment() -> dict:
+    """Atribui responsável para ordens standalone sem dono."""
+    result = supabase.rpc("atribuir_responsavel_ordens_standalone", {}).execute()
+    row = (result.data or [{}])[0]
+    metrics = {
+        "total_candidatas": int(row.get("total_candidatas") or 0),
+        "responsaveis_preenchidos": int(row.get("responsaveis_preenchidos") or 0),
+        "atribuicoes_refrigeracao": int(row.get("atribuicoes_refrigeracao") or 0),
+        "atribuicoes_pmpl_config": int(row.get("atribuicoes_pmpl_config") or 0),
+        "atribuicoes_fallback": int(row.get("atribuicoes_fallback") or 0),
+        "sem_destino": int(row.get("sem_destino") or 0),
+        "regras_refrigeracao_encontradas": int(row.get("regras_refrigeracao_encontradas") or 0),
+        "admins_refrigeracao_elegiveis": int(row.get("admins_refrigeracao_elegiveis") or 0),
+    }
+
+    logger.info(
+        "Standalone owner assignment -> candidatas=%s preenchidas=%s refrig=%s pmpl_cfg=%s fallback=%s sem_destino=%s",
+        metrics["total_candidatas"],
+        metrics["responsaveis_preenchidos"],
+        metrics["atribuicoes_refrigeracao"],
+        metrics["atribuicoes_pmpl_config"],
+        metrics["atribuicoes_fallback"],
+        metrics["sem_destino"],
+    )
+
+    if metrics["sem_destino"] > 0:
+        logger.warning(
+            "Ordens standalone sem destino após atribuição automática: %s",
+            metrics["sem_destino"],
+        )
+    if metrics["regras_refrigeracao_encontradas"] == 0:
+        logger.warning("Nenhuma regra de refrigeração encontrada em regras_distribuicao.")
+    if metrics["admins_refrigeracao_elegiveis"] == 0:
+        logger.warning("Nenhum admin elegível com especialidade refrigeração para atribuição standalone.")
+
+    return metrics
+
+
 def finalize_sync_log(
     sync_id: str,
     read_count: int,
@@ -1417,6 +1455,16 @@ def main():
         "tipo_ordem_atualizadas": 0,
         "centro_preenchidos": 0,
         "numero_nota_preenchidas": 0,
+    }
+    standalone_owner_metrics = {
+        "total_candidatas": 0,
+        "responsaveis_preenchidos": 0,
+        "atribuicoes_refrigeracao": 0,
+        "atribuicoes_pmpl_config": 0,
+        "atribuicoes_fallback": 0,
+        "sem_destino": 0,
+        "regras_refrigeracao_encontradas": 0,
+        "admins_refrigeracao_elegiveis": 0,
     }
 
     try:
@@ -1493,6 +1541,8 @@ def main():
                     f"por {orders_ref_v2_failure_streak} ciclos consecutivos."
                 ) from ref_v2_exc
 
+        standalone_owner_metrics = run_standalone_owner_assignment()
+
         metadata = {
             "window_days": window_days,
             "force_window": force_window,
@@ -1533,6 +1583,14 @@ def main():
             "orders_ref_v2_tipo_ordem_atualizadas": orders_ref_v2_enrichment_metrics["tipo_ordem_atualizadas"],
             "orders_ref_v2_centro_preenchidos": orders_ref_v2_enrichment_metrics["centro_preenchidos"],
             "orders_ref_v2_numero_nota_preenchidas": orders_ref_v2_enrichment_metrics["numero_nota_preenchidas"],
+            "standalone_owner_total_candidatas": standalone_owner_metrics["total_candidatas"],
+            "standalone_owner_preenchidos": standalone_owner_metrics["responsaveis_preenchidos"],
+            "standalone_owner_atribuicoes_refrigeracao": standalone_owner_metrics["atribuicoes_refrigeracao"],
+            "standalone_owner_atribuicoes_pmpl_config": standalone_owner_metrics["atribuicoes_pmpl_config"],
+            "standalone_owner_atribuicoes_fallback": standalone_owner_metrics["atribuicoes_fallback"],
+            "standalone_owner_sem_destino": standalone_owner_metrics["sem_destino"],
+            "standalone_owner_regras_refrigeracao_encontradas": standalone_owner_metrics["regras_refrigeracao_encontradas"],
+            "standalone_owner_admins_refrigeracao_elegiveis": standalone_owner_metrics["admins_refrigeracao_elegiveis"],
         }
 
         finalize_sync_log(
@@ -1579,6 +1637,14 @@ def main():
                     "orders_ref_v2_tipo_ordem_atualizadas": orders_ref_v2_enrichment_metrics["tipo_ordem_atualizadas"],
                     "orders_ref_v2_centro_preenchidos": orders_ref_v2_enrichment_metrics["centro_preenchidos"],
                     "orders_ref_v2_numero_nota_preenchidas": orders_ref_v2_enrichment_metrics["numero_nota_preenchidas"],
+                    "standalone_owner_total_candidatas": standalone_owner_metrics["total_candidatas"],
+                    "standalone_owner_preenchidos": standalone_owner_metrics["responsaveis_preenchidos"],
+                    "standalone_owner_atribuicoes_refrigeracao": standalone_owner_metrics["atribuicoes_refrigeracao"],
+                    "standalone_owner_atribuicoes_pmpl_config": standalone_owner_metrics["atribuicoes_pmpl_config"],
+                    "standalone_owner_atribuicoes_fallback": standalone_owner_metrics["atribuicoes_fallback"],
+                    "standalone_owner_sem_destino": standalone_owner_metrics["sem_destino"],
+                    "standalone_owner_regras_refrigeracao_encontradas": standalone_owner_metrics["regras_refrigeracao_encontradas"],
+                    "standalone_owner_admins_refrigeracao_elegiveis": standalone_owner_metrics["admins_refrigeracao_elegiveis"],
                 },
                 error=str(e),
             )
