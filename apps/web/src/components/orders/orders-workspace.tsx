@@ -194,6 +194,16 @@ function makeYearOptions(): number[] {
   return Array.from({ length: 12 }, (_, idx) => current - idx)
 }
 
+function normalizeNotaId(value: string | null | undefined): string | null {
+  if (!value) return null
+  const text = value.trim()
+  return text.length > 0 ? text : null
+}
+
+function getRowNotaId(row: OrdemNotaAcompanhamento): string | null {
+  return normalizeNotaId(row.nota_id)
+}
+
 function buildWorkspaceParams(filters: OrdersWorkspaceFilters, cursor: OrdersWorkspaceCursor | null, limit: number): URLSearchParams {
   const params = new URLSearchParams()
   params.set('periodMode', filters.periodMode)
@@ -314,7 +324,12 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
     // Usar ownerSummary para os totais corretos (dados completos da API)
     return ownerSummary
-      .filter((s) => s.total > 0 && !isGustavoOwner(s.nome))
+      .filter((s) => {
+        if (s.total <= 0) return false
+        // Gustavo deve aparecer na aba PMPL; em PMOS mantém regra legada de ocultar.
+        if (filters.tipoOrdem === 'PMPL') return true
+        return !isGustavoOwner(s.nome)
+      })
       .map((s) => ({
         id: s.administrador_id ?? '__sem_atual__',
         nome: s.nome,
@@ -327,7 +342,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         total: s.total,
       }))
       .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, 'pt-BR'))
-  }, [rows, ownerCardsViewMode, ownerSummary])
+  }, [rows, ownerCardsViewMode, ownerSummary, filters.tipoOrdem])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -412,29 +427,48 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   }, [filters.periodMode, filters.year, filters.month, filters.startDate, filters.endDate, filters.q, filters.status, filters.responsavel, filters.unidade, filters.prioridade, filters.tipoOrdem])
 
   const selectedSet = useMemo(() => new Set(selectedNotaIds), [selectedNotaIds])
-  const allLoadedSelected = rows.length > 0 && rows.every((row) => selectedSet.has(row.nota_id))
+  const rowsWithLinkedNote = useMemo(
+    () => rows.filter((row) => Boolean(getRowNotaId(row))),
+    [rows]
+  )
+  const allLoadedSelected = rowsWithLinkedNote.length > 0 && rowsWithLinkedNote.every((row) => {
+    const notaId = getRowNotaId(row)
+    return notaId ? selectedSet.has(notaId) : false
+  })
 
   function toggleSelection(notaId: string) {
+    const normalizedNotaId = normalizeNotaId(notaId)
+    if (!normalizedNotaId) return
     setSelectedNotaIds((prev) => {
-      if (prev.includes(notaId)) return prev.filter((id) => id !== notaId)
-      return [...prev, notaId]
+      if (prev.includes(normalizedNotaId)) return prev.filter((id) => id !== normalizedNotaId)
+      return [...prev, normalizedNotaId]
     })
   }
 
   function toggleSelectAllLoaded() {
     setSelectedNotaIds(() => {
       if (allLoadedSelected) return []
-      return Array.from(new Set(rows.map((row) => row.nota_id)))
+      return Array.from(new Set(rowsWithLinkedNote.map((row) => getRowNotaId(row)).filter(Boolean) as string[]))
     })
   }
 
   function applyReassignResult(assignments: Array<{ nota_id: string; administrador_destino_id: string }>) {
     if (assignments.length === 0) return
-    const assignByNota = new Map(assignments.map((item) => [item.nota_id, item.administrador_destino_id]))
+    const assignByNota = new Map(
+      assignments
+        .map((item) => {
+          const notaId = normalizeNotaId(item.nota_id)
+          return notaId ? [notaId, item.administrador_destino_id] as const : null
+        })
+        .filter(Boolean) as Array<readonly [string, string]>
+    )
+    if (assignByNota.size === 0) return
 
     setRows((prev) => {
       const updated = prev.map((row) => {
-        const destino = assignByNota.get(row.nota_id)
+        const notaId = getRowNotaId(row)
+        if (!notaId) return row
+        const destino = assignByNota.get(notaId)
         if (!destino) return row
 
         return {
@@ -445,7 +479,13 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       })
 
       if (!filters.responsavel || filters.responsavel === 'todos') return updated
-      if (filters.responsavel === '__sem_atual__') return updated.filter((row) => !assignByNota.has(row.nota_id))
+      if (filters.responsavel === '__sem_atual__') {
+        return updated.filter((row) => {
+          const notaId = getRowNotaId(row)
+          if (!notaId) return true
+          return !assignByNota.has(notaId)
+        })
+      }
       return updated.filter((row) => row.responsavel_atual_id === filters.responsavel)
     })
 
@@ -558,6 +598,11 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             PMPL
           </button>
         </div>
+      )}
+      {filters.tipoOrdem === 'PMPL' && (
+        <p className="text-xs text-muted-foreground">
+          Ordens sem nota não permitem reatribuição por nota.
+        </p>
       )}
 
       <OrdersKpiStrip
@@ -884,7 +929,8 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           >
             {virtualRows.map((virtualRow) => {
               const row = rows[virtualRow.index]
-              const selected = selectedSet.has(row.nota_id)
+              const notaId = getRowNotaId(row)
+              const selected = notaId ? selectedSet.has(notaId) : false
 
               return (
                 <div
@@ -925,7 +971,8 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       <OrdersDetailDrawer
         open={Boolean(detailRow)}
         onOpenChange={(next) => !next && setDetailRow(null)}
-        notaId={detailRow?.nota_id ?? null}
+        ordemId={detailRow?.ordem_id ?? null}
+        notaId={detailRow ? getRowNotaId(detailRow) : null}
         row={detailRow}
         canReassign={canReassign}
         reassignTargets={reassignTargets}
