@@ -21,6 +21,7 @@ import type {
 interface OrdersDetailDrawerProps {
   open: boolean
   onOpenChange: (next: boolean) => void
+  ordemId: string | null
   notaId: string | null
   row: OrdemNotaAcompanhamento | null
   canReassign: boolean
@@ -35,9 +36,16 @@ function formatIsoDate(value: string | null | undefined): string {
   return parsed.toLocaleString('pt-BR')
 }
 
+function normalizeNoteId(value: string | null | undefined): string | null {
+  if (!value) return null
+  const text = value.trim()
+  return text.length > 0 ? text : null
+}
+
 export function OrdersDetailDrawer({
   open,
   onOpenChange,
+  ordemId,
   notaId,
   row,
   canReassign,
@@ -49,8 +57,10 @@ export function OrdersDetailDrawer({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!open || !notaId) return
-    const safeNotaId = notaId
+    if (!open) return
+    const safeOrdemId = ordemId?.trim() || null
+    const safeNotaId = normalizeNoteId(notaId)
+    if (!safeOrdemId && !safeNotaId) return
 
     const controller = new AbortController()
     async function run() {
@@ -58,7 +68,14 @@ export function OrdersDetailDrawer({
       setError(null)
 
       try {
-        const response = await fetch(`/api/ordens/detalhe?notaId=${encodeURIComponent(safeNotaId)}`, {
+        const params = new URLSearchParams()
+        if (safeOrdemId) {
+          params.set('ordemId', safeOrdemId)
+        } else if (safeNotaId) {
+          params.set('notaId', safeNotaId)
+        }
+
+        const response = await fetch(`/api/ordens/detalhe?${params.toString()}`, {
           signal: controller.signal,
           cache: 'no-store',
         })
@@ -79,11 +96,19 @@ export function OrdersDetailDrawer({
 
     run()
     return () => controller.abort()
-  }, [open, notaId])
+  }, [open, ordemId, notaId])
 
   const current = useMemo(() => data?.ordem ?? row, [data, row])
-  const title = current ? `Nota ${current.numero_nota} • Ordem ${current.ordem_codigo}` : 'Detalhes da ordem'
-  const subtitle = current?.descricao ?? data?.descricao_nota ?? undefined
+  const ordemCodigo = current?.ordem_codigo?.trim() ? current.ordem_codigo : 'Sem ordem'
+  const notaNumero = current?.numero_nota?.trim() ? current.numero_nota : 'Sem número'
+  const linkedNotaId = normalizeNoteId(current?.nota_id ?? notaId)
+  const title = current
+    ? (linkedNotaId
+      ? `Nota ${notaNumero} • Ordem ${ordemCodigo}`
+      : `Ordem ${ordemCodigo} • Sem nota vinculada`)
+    : 'Detalhes da ordem'
+  const subtitle = current?.descricao ?? data?.descricao_nota ?? (!linkedNotaId ? 'Ordem PMPL sem nota vinculada.' : undefined)
+  const canReassignByNote = canReassign && Boolean(linkedNotaId) && reassignTargets.length > 0
 
   return (
     <DrawerDetalhes
@@ -122,12 +147,12 @@ export function OrdersDetailDrawer({
             <p><span className="text-muted-foreground">Detectada em:</span> {formatIsoDate(current.ordem_detectada_em)}</p>
           </div>
 
-          {canReassign && reassignTargets.length > 0 && (
+          {canReassignByNote && linkedNotaId && (
             <div className="rounded-lg border bg-muted/20 p-3">
-              <p className="mb-2 text-xs font-medium text-muted-foreground">Acoes rapidas</p>
+              <p className="mb-2 text-xs font-medium text-muted-foreground">Ações rápidas</p>
               <OrderReassignDialog
-                notaId={current.nota_id}
-                notaNumero={current.numero_nota}
+                notaId={linkedNotaId}
+                notaNumero={notaNumero}
                 ordemCodigo={current.ordem_codigo}
                 currentAdminId={current.responsavel_atual_id}
                 admins={reassignTargets}
@@ -174,12 +199,24 @@ export function OrdersDetailDrawer({
             )}
           </div>
 
-          <Button asChild variant="outline" className="w-full">
-            <Link href={`/notas/${current.nota_id}`}>
-              <ArrowRightLeft className="mr-2 h-4 w-4" />
-              Abrir detalhe completo
-            </Link>
-          </Button>
+          {linkedNotaId ? (
+            <Button asChild variant="outline" className="w-full">
+              <Link href={`/notas/${linkedNotaId}`}>
+                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                Abrir detalhe completo
+              </Link>
+            </Button>
+          ) : (
+            <div className="space-y-2">
+              <Button type="button" variant="outline" className="w-full" disabled>
+                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                Nota não vinculada
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Esta ordem não possui nota vinculada para abertura do detalhe completo.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </DrawerDetalhes>

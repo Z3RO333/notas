@@ -22,10 +22,14 @@ export function OrdersOwnerFullCard({
   onToggleRowSelection,
 }: OrdersOwnerFullCardProps) {
   const rows = useMemo(() => sortOrdersByPriority(group.rows), [group.rows])
-  const allSelected = rows.length > 0 && rows.every((row) => selectedNotaIds.has(row.nota_id))
+  const rowsWithLinkedNote = rows.filter((row) => {
+    const notaId = (row.nota_id ?? '').trim()
+    return notaId.length > 0
+  })
+  const allSelected = rowsWithLinkedNote.length > 0 && rowsWithLinkedNote.every((row) => selectedNotaIds.has(row.nota_id))
 
   function handleToggleGroupSelection(nextSelected: boolean) {
-    for (const row of rows) {
+    for (const row of rowsWithLinkedNote) {
       const isSelected = selectedNotaIds.has(row.nota_id)
       if (nextSelected && !isSelected) onToggleRowSelection(row.nota_id)
       if (!nextSelected && isSelected) onToggleRowSelection(row.nota_id)
@@ -84,22 +88,43 @@ export function OrdersOwnerFullCard({
           <div className="max-h-[24rem] space-y-1.5 overflow-y-auto pr-1">
             {rows.map((row) => {
               const label = row.ordem_codigo?.trim() ? row.ordem_codigo : `#${row.numero_nota}`
+              const notaId = (row.nota_id ?? '').trim() || null
               return (
-                <Link
-                  key={row.ordem_id}
-                  href={`/notas/${row.nota_id}`}
-                  className="flex items-center justify-between gap-2 rounded px-1 py-1 text-sm hover:bg-muted/50"
-                >
-                  <span className="min-w-0 truncate font-mono font-medium">
-                    {label}
-                    {row.unidade?.trim() && (
-                      <span className="ml-1.5 font-normal text-muted-foreground">· {row.unidade}</span>
-                    )}
-                  </span>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${getSemaforoClass(row.semaforo_atraso)}`}>
-                    {row.dias_em_aberto}d
-                  </span>
-                </Link>
+                notaId ? (
+                  <Link
+                    key={row.ordem_id}
+                    href={`/notas/${notaId}`}
+                    className="flex items-center justify-between gap-2 rounded px-1 py-1 text-sm hover:bg-muted/50"
+                  >
+                    <span className="min-w-0 truncate font-mono font-medium">
+                      {label}
+                      {row.unidade?.trim() && (
+                        <span className="ml-1.5 font-normal text-muted-foreground">· {row.unidade}</span>
+                      )}
+                    </span>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${getSemaforoClass(row.semaforo_atraso)}`}>
+                      {row.dias_em_aberto}d
+                    </span>
+                  </Link>
+                ) : (
+                  <div
+                    key={row.ordem_id}
+                    className="flex items-center justify-between gap-2 rounded border border-dashed border-amber-300 bg-amber-50/40 px-2 py-1.5 text-sm"
+                  >
+                    <span className="min-w-0 truncate font-mono font-medium">
+                      {label}
+                      <span className="ml-1.5 inline-flex rounded-full border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                        Sem nota
+                      </span>
+                      {row.unidade?.trim() && (
+                        <span className="ml-1.5 font-normal text-muted-foreground">· {row.unidade}</span>
+                      )}
+                    </span>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${getSemaforoClass(row.semaforo_atraso)}`}>
+                      {row.dias_em_aberto}d
+                    </span>
+                  </div>
+                )
               )
             })}
           </div>

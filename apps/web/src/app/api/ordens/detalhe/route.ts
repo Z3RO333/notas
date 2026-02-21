@@ -15,6 +15,11 @@ function asUuid(value: string | null): string | null {
   return text
 }
 
+function normalizeRowUuid(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  return asUuid(value)
+}
+
 function buildOrderEvent(row: {
   id: string
   status_anterior: string | null
@@ -83,16 +88,19 @@ export async function GET(request: Request) {
 
   const role = loggedAdmin.role as UserRole
   const { searchParams } = new URL(request.url)
+  const ordemId = asUuid(searchParams.get('ordemId'))
   const notaId = asUuid(searchParams.get('notaId'))
 
-  if (!notaId) {
-    return NextResponse.json({ error: 'notaId inválido' }, { status: 400 })
+  if (!ordemId && !notaId) {
+    return NextResponse.json({ error: 'ordemId ou notaId inválido' }, { status: 400 })
   }
 
+  const lookupField = ordemId ? 'ordem_id' : 'nota_id'
+  const lookupValue = ordemId ?? notaId!
   const ordemResult = await supabase
     .from('vw_ordens_notas_painel')
     .select('*')
-    .eq('nota_id', notaId)
+    .eq(lookupField, lookupValue)
     .limit(1)
     .maybeSingle()
 
@@ -101,45 +109,64 @@ export async function GET(request: Request) {
   }
 
   if (!ordemResult.data) {
-    return NextResponse.json({ error: 'Ordem não encontrada para esta nota' }, { status: 404 })
+    return NextResponse.json(
+      { error: ordemId ? 'Ordem não encontrada' : 'Ordem não encontrada para esta nota' },
+      { status: 404 }
+    )
   }
 
   const ordem = ordemResult.data as OrdemNotaAcompanhamento
   if (role !== 'gestor' && ordem.responsavel_atual_id !== loggedAdmin.id) {
     return NextResponse.json({ error: 'Sem permissao para visualizar esta ordem' }, { status: 403 })
   }
+  const linkedNotaId = normalizeRowUuid((ordem as { nota_id?: unknown }).nota_id)
 
-  const [notaResult, ordemHistoricoResult, notasHistoricoResult] = await Promise.all([
-    supabase
-      .from('notas_manutencao')
-      .select('descricao')
-      .eq('id', notaId)
-      .maybeSingle(),
-    supabase
-      .from('ordens_notas_historico')
-      .select('id, status_anterior, status_novo, status_raw, origem, created_at')
-      .eq('ordem_id', ordem.ordem_id)
-      .order('created_at', { ascending: false })
-      .limit(10),
-    supabase
-      .from('notas_historico')
-      .select('id, campo_alterado, valor_anterior, valor_novo, motivo, created_at')
-      .eq('nota_id', notaId)
-      .in('campo_alterado', ['administrador_id', 'status'])
-      .order('created_at', { ascending: false })
-      .limit(10),
-  ])
-
-  if (notaResult.error) {
-    return NextResponse.json({ error: notaResult.error.message }, { status: 500 })
-  }
-
+  const ordemHistoricoResult = await supabase
+    .from('ordens_notas_historico')
+    .select('id, status_anterior, status_novo, status_raw, origem, created_at')
+    .eq('ordem_id', ordem.ordem_id)
+    .order('created_at', { ascending: false })
+    .limit(10)
   if (ordemHistoricoResult.error) {
     return NextResponse.json({ error: ordemHistoricoResult.error.message }, { status: 500 })
   }
 
-  if (notasHistoricoResult.error) {
-    return NextResponse.json({ error: notasHistoricoResult.error.message }, { status: 500 })
+  let descricaoNota: string | null = null
+  let notaEvents: OrderTimelineEvent[] = []
+
+  if (linkedNotaId) {
+    const [notaResult, notasHistoricoResult] = await Promise.all([
+      supabase
+        .from('notas_manutencao')
+        .select('descricao')
+        .eq('id', linkedNotaId)
+        .maybeSingle(),
+      supabase
+        .from('notas_historico')
+        .select('id, campo_alterado, valor_anterior, valor_novo, motivo, created_at')
+        .eq('nota_id', linkedNotaId)
+        .in('campo_alterado', ['administrador_id', 'status'])
+        .order('created_at', { ascending: false })
+        .limit(10),
+    ])
+
+    if (notaResult.error) {
+      return NextResponse.json({ error: notaResult.error.message }, { status: 500 })
+    }
+
+    if (notasHistoricoResult.error) {
+      return NextResponse.json({ error: notasHistoricoResult.error.message }, { status: 500 })
+    }
+
+    descricaoNota = notaResult.data?.descricao ?? null
+    notaEvents = ((notasHistoricoResult.data ?? []) as Array<{
+      id: string
+      campo_alterado: string
+      valor_anterior: string | null
+      valor_novo: string | null
+      motivo: string | null
+      created_at: string
+    }>).map(buildNotaEvent)
   }
 
   const envolvidosIds = Array.from(
@@ -166,22 +193,13 @@ export async function GET(request: Request) {
     created_at: string
   }>).map(buildOrderEvent)
 
-  const notaEvents = ((notasHistoricoResult.data ?? []) as Array<{
-    id: string
-    campo_alterado: string
-    valor_anterior: string | null
-    valor_novo: string | null
-    motivo: string | null
-    created_at: string
-  }>).map(buildNotaEvent)
-
   const timeline = [...ordemEvents, ...notaEvents]
     .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
     .slice(0, 10)
 
   const payload: OrderDetailDrawerData = {
     ordem,
-    descricao_nota: notaResult.data?.descricao ?? null,
+    descricao_nota: descricaoNota,
     envolvidos: ((envolvidosResult.data ?? []) as Array<{ id: string; nome: string }>),
     timeline,
   }

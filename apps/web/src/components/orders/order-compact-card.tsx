@@ -43,6 +43,9 @@ export function OrderCompactCard({
   notaLinkHref,
 }: OrderCompactCardProps) {
   const isClickable = typeof onOpenDetails === 'function'
+  const linkedNotaId = (row.nota_id ?? '').trim() || null
+  const hasLinkedNote = Boolean(linkedNotaId)
+  const notaNumero = (row.numero_nota ?? '').trim() || 'Sem nota'
   const ordemText = row.ordem_codigo?.trim() ? row.ordem_codigo : 'Sem ordem'
   const unidadeText = row.unidade?.trim() ? row.unidade : 'Sem unidade'
   const responsavelText = row.responsavel_atual_nome?.trim() ? row.responsavel_atual_nome : 'Sem responsável'
@@ -51,12 +54,13 @@ export function OrderCompactCard({
     ? format(new Date(row.ordem_detectada_em), 'dd/MM/yyyy')
     : null
   const descricao = row.descricao?.trim() || null
+  const descricaoCard = descricao ?? (!hasLinkedNote ? 'Ordem PMPL sem nota vinculada' : null)
   const semaforoBorder = SEMAFORO_BORDER_LEFT_CLASS[row.semaforo_atraso] ?? SEMAFORO_BORDER_LEFT_CLASS.neutro
 
   function handleToggleSelection(event: React.MouseEvent | React.ChangeEvent) {
     event.stopPropagation()
-    if (!onToggleSelection) return
-    onToggleSelection(row.nota_id)
+    if (!onToggleSelection || !linkedNotaId) return
+    onToggleSelection(linkedNotaId)
   }
 
   function handleOpenDetails() {
@@ -85,21 +89,32 @@ export function OrderCompactCard({
     >
       {/* Linha 1: identificação + semáforo + ações */}
       <div className="flex items-center gap-2">
-        {showCheckbox && (
+        {showCheckbox && hasLinkedNote && (
           <input
             type="checkbox"
             checked={selected}
             onClick={handleToggleSelection}
             onChange={handleToggleSelection}
-            aria-label={`Selecionar nota ${row.numero_nota}`}
+            aria-label={`Selecionar nota ${notaNumero}`}
             className="shrink-0"
           />
         )}
 
         <span className="min-w-0 flex-1 font-mono text-sm font-medium leading-5 truncate">
-          <span className="text-foreground">#{row.numero_nota}</span>
-          {row.ordem_codigo?.trim() && (
-            <span className="text-muted-foreground"> · {ordemText}</span>
+          {hasLinkedNote ? (
+            <>
+              <span className="text-foreground">#{notaNumero}</span>
+              {row.ordem_codigo?.trim() && (
+                <span className="text-muted-foreground"> · {ordemText}</span>
+              )}
+            </>
+          ) : (
+            <>
+              <span className="text-foreground">{ordemText}</span>
+              <span className="ml-2 inline-flex rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                Sem nota
+              </span>
+            </>
           )}
         </span>
 
@@ -108,10 +123,10 @@ export function OrderCompactCard({
             {getSemaforoLabel(row.semaforo_atraso)}
           </span>
 
-          {showReassign && reassignProps && reassignProps.admins.length > 0 && (
+          {showReassign && hasLinkedNote && linkedNotaId && reassignProps && reassignProps.admins.length > 0 && (
             <OrderReassignDialog
-              notaId={row.nota_id}
-              notaNumero={row.numero_nota}
+              notaId={linkedNotaId}
+              notaNumero={notaNumero}
               ordemCodigo={row.ordem_codigo}
               currentAdminId={reassignProps.currentAdminId}
               admins={reassignProps.admins}
@@ -120,11 +135,11 @@ export function OrderCompactCard({
             />
           )}
 
-          {notaLinkHref && (
+          {hasLinkedNote && notaLinkHref && (
             <Link
               href={notaLinkHref}
               className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              title={`Abrir nota ${row.numero_nota}`}
+              title={`Abrir nota ${notaNumero}`}
               onClick={(event) => event.stopPropagation()}
             >
               <ExternalLink className="h-3.5 w-3.5" />
@@ -134,9 +149,9 @@ export function OrderCompactCard({
       </div>
 
       {/* Linha 2: texto breve (condicional) */}
-      {descricao && (
+      {descricaoCard && (
         <p className="mt-1 line-clamp-2 text-sm text-muted-foreground leading-5">
-          {descricao}
+          {descricaoCard}
         </p>
       )}
 

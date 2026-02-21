@@ -30,6 +30,7 @@ SUPABASE_SERVICE_KEY = dbutils.secrets.get(scope="cockpit", key="SUPABASE_SERVIC
 STREAMING_TABLE = "manutencao.streaming.qmel_clean"
 PMPL_TABLE = "manutencao.gold.pmpl_pmos"
 ORDERS_DOCUMENT_SOURCE_TABLE = "manutencao.silver.mestre_dados_ordem"
+ORDERS_MAINTENANCE_SOURCE_TABLE = "manutencao.silver.selecao_ordens_manutencao"
 
 VALID_WINDOWS = {30, 90, 180, 365}
 DEFAULT_WINDOW_DAYS = 30
@@ -43,9 +44,13 @@ PMPL_FETCH_BATCH_SIZE = 300
 PMPL_RPC_BATCH_SIZE = 200
 PMPL_MIN_AGE_DAYS = 0
 ORDERS_DOCUMENT_UPSERT_BATCH_SIZE = 500
+ORDERS_MAINTENANCE_UPSERT_BATCH_SIZE = 500
 PMPL_STANDALONE_WINDOW_DAYS = 90   # janela padrão para importar standalone (dias)
 PMPL_STANDALONE_BATCH_SIZE = 500   # ordens por chamada de RPC
 PMPL_STANDALONE_TIPO_ORDENS = ("PMPL", "PMOS")  # tipos importados standalone da pmpl_pmos
+ORDERS_REF_V2_TOLERATED_FAILURES = 3
+ORDERS_REF_V2_RUNTIME_JOB_NAME = "sync_notas_to_supabase"
+ORDERS_REF_V2_RUNTIME_STATE_TABLE = "sync_job_runtime_state"
 
 OPEN_STATUS = {"aberta", "em_tratativa", "desconhecido"}
 
@@ -85,6 +90,12 @@ PMPL_CENTRO_COLUMN = "CENTRO_LOCALIZACAO"
 PMPL_TIPO_ORDEM_COLUMN = "TIPO_ORDEM"
 ORDERS_DOCUMENT_ORDER_COLUMN = "ORDEM"
 ORDERS_DOCUMENT_TYPE_COLUMN = "TIPO_DOCUMENTO_VENDAS"
+ORDERS_MAINTENANCE_ORDER_COLUMN = "ORDEM"
+ORDERS_MAINTENANCE_NOTE_COLUMN = "NOTA"
+ORDERS_MAINTENANCE_TYPE_COLUMN = "TIPO_ORDEM"
+ORDERS_MAINTENANCE_TEXT_COLUMN = "TEXTO_BREVE"
+ORDERS_MAINTENANCE_CENTER_COLUMN = "CENTRO_LIBERACAO"
+ORDERS_MAINTENANCE_EXTRACTION_COLUMN = "DATA_EXTRACAO"
 PMPL_DATA_ENTRADA_COLUMNS_CANDIDATES = [
     "DATA_ENTRADA",
     "DATA_CRIACAO",
@@ -141,6 +152,11 @@ def _normalize_ordem_codigo(value) -> str | None:
     return text
 
 
+def _normalize_numero_nota(value) -> str | None:
+    # Regra idêntica à ORDEM: remove zeros à esquerda quando numérico.
+    return _normalize_ordem_codigo(value)
+
+
 def _normalize_tipo_documento_vendas(value) -> str | None:
     text = _as_clean_text(value)
     if not text:
@@ -151,6 +167,10 @@ def _normalize_tipo_documento_vendas(value) -> str | None:
         return normalized
 
     return None
+
+
+def _normalize_tipo_ordem(value) -> str | None:
+    return _normalize_tipo_documento_vendas(value)
 
 
 def _normalize_iso_date(value) -> str | None:
@@ -202,6 +222,35 @@ def _normalize_iso_datetime(value) -> str | None:
         parsed = parsed.astimezone(timezone.utc)
 
     return parsed.isoformat()
+
+
+def _calculate_maintenance_reference_completeness(candidate: dict) -> int:
+    score = 0
+    if candidate.get("tipo_ordem"):
+        score += 1
+    if candidate.get("texto_breve"):
+        score += 1
+    if candidate.get("centro_liberacao"):
+        score += 1
+    if candidate.get("numero_nota_norm"):
+        score += 1
+    return score
+
+
+def _is_better_maintenance_reference(current: dict, candidate: dict) -> bool:
+    current_score = int(current.get("completeness_score") or 0)
+    candidate_score = int(candidate.get("completeness_score") or 0)
+    if candidate_score != current_score:
+        return candidate_score > current_score
+
+    current_extraction = _as_clean_text(current.get("data_extracao"))
+    candidate_extraction = _as_clean_text(candidate.get("data_extracao"))
+    if candidate_extraction and current_extraction:
+        return candidate_extraction > current_extraction
+    if candidate_extraction and not current_extraction:
+        return True
+
+    return False
 
 
 def _watermark_is_too_future(iso_date: str, max_future_days: int = MAX_WATERMARK_FUTURE_DAYS) -> bool:
@@ -321,7 +370,8 @@ def should_force_window(spark: SparkSession) -> bool:
 
 
 def should_ignore_watermark(spark: SparkSession) -> bool:
-    raw = spark.conf.get("cockpit.sync.ignore_watermark", "false")
+    # Default TRUE: lê desde sync_start_date quando não houver force_window.
+    raw = spark.conf.get("cockpit.sync.ignore_watermark", "true")
     return str(raw).strip().lower() in {"1", "true", "yes", "y", "on"}
 
 
@@ -460,6 +510,38 @@ def should_run_full_bootstrap(bootstrap_mode: str, sync_start_date: str) -> bool
         sync_start_date,
     )
     return True
+
+
+def get_orders_ref_v2_failure_streak() -> int:
+    result = (
+        supabase.table(ORDERS_REF_V2_RUNTIME_STATE_TABLE)
+        .select("orders_ref_v2_failure_streak")
+        .eq("job_name", ORDERS_REF_V2_RUNTIME_JOB_NAME)
+        .limit(1)
+        .execute()
+    )
+
+    rows = result.data or []
+    if not rows:
+        return 0
+
+    try:
+        return max(int(rows[0].get("orders_ref_v2_failure_streak") or 0), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def set_orders_ref_v2_failure_streak(streak: int, error_message: str | None):
+    payload = {
+        "job_name": ORDERS_REF_V2_RUNTIME_JOB_NAME,
+        "orders_ref_v2_failure_streak": max(int(streak), 0),
+        "last_error": (error_message or "")[:2000] or None,
+    }
+    (
+        supabase.table(ORDERS_REF_V2_RUNTIME_STATE_TABLE)
+        .upsert(payload, on_conflict="job_name")
+        .execute()
+    )
 
 
 def read_new_notes(
@@ -865,6 +947,7 @@ def read_standalone_pmpl_orders(
     spark: SparkSession,
     window_days: int,
     sync_start_date: str,
+    ignore_watermark: bool,
 ) -> list[dict]:
     """Lê ordens PMPL e PMOS da fonte para importação standalone (sem nota correspondente).
 
@@ -872,16 +955,20 @@ def read_standalone_pmpl_orders(
     limitada pelo sync_start_date configurado.
     Para backfill completo configure cockpit.sync.pmpl_standalone_window_days=365.
     """
-    window_start = (datetime.now(timezone.utc).date() - timedelta(days=window_days)).isoformat()
-    effective_start = max(window_start, sync_start_date)
+    if ignore_watermark:
+        effective_start = sync_start_date
+    else:
+        window_start = (datetime.now(timezone.utc).date() - timedelta(days=window_days)).isoformat()
+        effective_start = max(window_start, sync_start_date)
 
     data_expr = _build_pmpl_data_entrada_date_expr(spark)
     tipos_escaped = ", ".join(f"'{t}'" for t in PMPL_STANDALONE_TIPO_ORDENS)
     logger.info(
-        "Lendo ordens standalone (%s): effective_start=%s, window_days=%s",
+        "Lendo ordens standalone (%s): effective_start=%s, window_days=%s, ignore_watermark=%s",
         tipos_escaped,
         effective_start,
         window_days,
+        ignore_watermark,
     )
 
     df = spark.sql(f"""
@@ -1091,6 +1178,176 @@ def upsert_orders_document_reference(sync_id: str, references: list[dict]) -> tu
     return inserted_count, updated_count
 
 
+def read_orders_maintenance_reference(spark: SparkSession) -> tuple[list[dict], dict]:
+    """Lê referência de ordens/notas/tipo/texto/centro da fonte silver."""
+    df = spark.sql(f"""
+        SELECT
+          {ORDERS_MAINTENANCE_ORDER_COLUMN} AS ORDEM,
+          {ORDERS_MAINTENANCE_NOTE_COLUMN} AS NOTA,
+          {ORDERS_MAINTENANCE_TYPE_COLUMN} AS TIPO_ORDEM,
+          {ORDERS_MAINTENANCE_TEXT_COLUMN} AS TEXTO_BREVE,
+          {ORDERS_MAINTENANCE_CENTER_COLUMN} AS CENTRO_LIBERACAO,
+          {ORDERS_MAINTENANCE_EXTRACTION_COLUMN} AS DATA_EXTRACAO
+        FROM {ORDERS_MAINTENANCE_SOURCE_TABLE}
+        WHERE {ORDERS_MAINTENANCE_ORDER_COLUMN} IS NOT NULL
+    """)
+
+    rows = df.collect()
+    by_order: dict[str, dict] = {}
+    invalid_order = 0
+    invalid_type = 0
+    dedupe_replaced = 0
+    dedupe_discarded = 0
+
+    for row in rows:
+        row_dict = row.asDict()
+
+        ordem_original = _as_clean_text(row_dict.get("ORDEM"))
+        ordem_norm = _normalize_ordem_codigo(ordem_original)
+        if not ordem_norm:
+            invalid_order += 1
+            continue
+
+        tipo_raw = _as_clean_text(row_dict.get("TIPO_ORDEM"))
+        tipo_ordem = _normalize_tipo_ordem(tipo_raw)
+        if tipo_raw and not tipo_ordem:
+            invalid_type += 1
+
+        nota_original = _as_clean_text(row_dict.get("NOTA"))
+        nota_norm = _normalize_numero_nota(nota_original)
+
+        candidate = {
+            "ordem_codigo_norm": ordem_norm,
+            "ordem_codigo_original": ordem_original or ordem_norm,
+            "numero_nota_norm": nota_norm,
+            "numero_nota_original": nota_original,
+            "tipo_ordem": tipo_ordem,
+            "texto_breve": _as_clean_text(row_dict.get("TEXTO_BREVE")),
+            "centro_liberacao": _normalize_centro(row_dict.get("CENTRO_LIBERACAO")),
+            "data_extracao": _normalize_iso_datetime(row_dict.get("DATA_EXTRACAO")),
+        }
+        candidate["completeness_score"] = _calculate_maintenance_reference_completeness(candidate)
+
+        current = by_order.get(ordem_norm)
+        if current is None:
+            by_order[ordem_norm] = candidate
+            continue
+
+        if _is_better_maintenance_reference(current, candidate):
+            by_order[ordem_norm] = candidate
+            dedupe_replaced += 1
+        else:
+            dedupe_discarded += 1
+
+    references = [
+        {
+            "ordem_codigo_norm": item["ordem_codigo_norm"],
+            "ordem_codigo_original": item["ordem_codigo_original"],
+            "numero_nota_norm": item.get("numero_nota_norm"),
+            "numero_nota_original": item.get("numero_nota_original"),
+            "tipo_ordem": item.get("tipo_ordem"),
+            "texto_breve": item.get("texto_breve"),
+            "centro_liberacao": item.get("centro_liberacao"),
+            "data_extracao": item.get("data_extracao"),
+        }
+        for item in by_order.values()
+    ]
+
+    logger.info(
+        "Referência manutenção lida da silver: total_rows=%s, validas=%s, ordem_invalida=%s, tipo_invalido=%s, dedupe_replaced=%s, dedupe_discarded=%s",
+        len(rows),
+        len(references),
+        invalid_order,
+        invalid_type,
+        dedupe_replaced,
+        dedupe_discarded,
+    )
+
+    return references, {
+        "total_rows": len(rows),
+        "valid_rows": len(references),
+        "invalid_order": invalid_order,
+        "invalid_type": invalid_type,
+        "dedupe_replaced": dedupe_replaced,
+        "dedupe_discarded": dedupe_discarded,
+    }
+
+
+def upsert_orders_maintenance_reference(sync_id: str, references: list[dict]) -> tuple[int, int]:
+    """Upsert da referência de manutenção por ordem normalizada."""
+    if not references:
+        return 0, 0
+
+    existing_orders: set[str] = set()
+    ordem_codes = [item["ordem_codigo_norm"] for item in references]
+
+    for i in range(0, len(ordem_codes), BATCH_SIZE):
+        batch = ordem_codes[i:i + BATCH_SIZE]
+        result = (
+            supabase.table("ordens_manutencao_referencia")
+            .select("ordem_codigo_norm")
+            .in_("ordem_codigo_norm", batch)
+            .execute()
+        )
+        existing_orders.update(r["ordem_codigo_norm"] for r in (result.data or []))
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    payload = [
+        {
+            "ordem_codigo_norm": item["ordem_codigo_norm"],
+            "ordem_codigo_original": item["ordem_codigo_original"],
+            "numero_nota_norm": item.get("numero_nota_norm"),
+            "numero_nota_original": item.get("numero_nota_original"),
+            "tipo_ordem": item.get("tipo_ordem"),
+            "texto_breve": item.get("texto_breve"),
+            "centro_liberacao": item.get("centro_liberacao"),
+            "data_extracao": item.get("data_extracao"),
+            "fonte": ORDERS_MAINTENANCE_SOURCE_TABLE,
+            "last_sync_id": sync_id,
+            "last_seen_at": now_iso,
+        }
+        for item in references
+    ]
+
+    for i in range(0, len(payload), ORDERS_MAINTENANCE_UPSERT_BATCH_SIZE):
+        batch = payload[i:i + ORDERS_MAINTENANCE_UPSERT_BATCH_SIZE]
+        (
+            supabase.table("ordens_manutencao_referencia")
+            .upsert(batch, on_conflict="ordem_codigo_norm")
+            .execute()
+        )
+
+    inserted_count = sum(1 for item in references if item["ordem_codigo_norm"] not in existing_orders)
+    updated_count = len(references) - inserted_count
+
+    logger.info(
+        "Referência manutenção upsert: inseridas=%s, atualizadas=%s",
+        inserted_count,
+        updated_count,
+    )
+    return inserted_count, updated_count
+
+
+def run_orders_maintenance_reference_enrichment() -> dict:
+    """Enriquece ordens_notas_acompanhamento via referência de manutenção."""
+    result = supabase.rpc("enriquecer_ordens_por_referencia_manutencao", {}).execute()
+    row = (result.data or [{}])[0]
+    metrics = {
+        "ordens_atualizadas_total": int(row.get("ordens_atualizadas_total") or 0),
+        "tipo_ordem_atualizadas": int(row.get("tipo_ordem_atualizadas") or 0),
+        "centro_preenchidos": int(row.get("centro_preenchidos") or 0),
+        "numero_nota_preenchidas": int(row.get("numero_nota_preenchidas") or 0),
+    }
+    logger.info(
+        "Enriquecimento manutenção -> total=%s tipo=%s centro=%s numero_nota=%s",
+        metrics["ordens_atualizadas_total"],
+        metrics["tipo_ordem_atualizadas"],
+        metrics["centro_preenchidos"],
+        metrics["numero_nota_preenchidas"],
+    )
+    return metrics
+
+
 def finalize_sync_log(
     sync_id: str,
     read_count: int,
@@ -1142,6 +1399,26 @@ def main():
     sync_id = create_sync_log(spark)
     logger.info("Sync iniciado: %s", sync_id)
 
+    orders_ref_v2_status = "not_run"
+    orders_ref_v2_failure_streak = 0
+    orders_ref_v2_error: str | None = None
+    orders_ref_v2_metrics = {
+        "total_rows": 0,
+        "valid_rows": 0,
+        "invalid_order": 0,
+        "invalid_type": 0,
+        "dedupe_replaced": 0,
+        "dedupe_discarded": 0,
+    }
+    ordens_ref_v2_inseridas = 0
+    ordens_ref_v2_atualizadas = 0
+    orders_ref_v2_enrichment_metrics = {
+        "ordens_atualizadas_total": 0,
+        "tipo_ordem_atualizadas": 0,
+        "centro_preenchidos": 0,
+        "numero_nota_preenchidas": 0,
+    }
+
     try:
         full_bootstrap = should_run_full_bootstrap(bootstrap_mode, sync_start_date)
         notes = read_new_notes(
@@ -1161,7 +1438,12 @@ def main():
         distributed = run_distribution(sync_id)
 
         # Importa ordens PMPL standalone (sem nota correspondente) direto da fonte
-        standalone_orders = read_standalone_pmpl_orders(spark, pmpl_standalone_window_days, sync_start_date)
+        standalone_orders = read_standalone_pmpl_orders(
+            spark,
+            pmpl_standalone_window_days,
+            sync_start_date,
+            ignore_watermark=ignore_watermark,
+        )
         _, pmpl_standalone_inseridas, pmpl_standalone_atualizadas = push_standalone_pmpl_orders(sync_id, standalone_orders)
 
         eligible_orders = get_orders_for_pmpl_refresh(min_age_days=pmpl_min_age_days)
@@ -1178,6 +1460,38 @@ def main():
         result_enrich = supabase.rpc("enriquecer_tipo_ordem_por_referencia", {}).execute()
         tipo_enriquecidas = int(result_enrich.data or 0)
         logger.info("tipo_ordem enriquecidas: %s", tipo_enriquecidas)
+
+        # Fonte v2 (manutencao.silver.selecao_ordens_manutencao):
+        # dedupe por completude + data_extracao e enriquecimento direto da tabela operacional.
+        try:
+            orders_ref_v2_reference, orders_ref_v2_metrics = read_orders_maintenance_reference(spark)
+            ordens_ref_v2_inseridas, ordens_ref_v2_atualizadas = upsert_orders_maintenance_reference(
+                sync_id,
+                orders_ref_v2_reference,
+            )
+            orders_ref_v2_enrichment_metrics = run_orders_maintenance_reference_enrichment()
+            orders_ref_v2_status = "success"
+            orders_ref_v2_failure_streak = 0
+            orders_ref_v2_error = None
+            set_orders_ref_v2_failure_streak(0, None)
+        except Exception as ref_v2_exc:
+            previous_streak = get_orders_ref_v2_failure_streak()
+            orders_ref_v2_failure_streak = previous_streak + 1
+            orders_ref_v2_error = f"{type(ref_v2_exc).__name__}: {ref_v2_exc}"
+            orders_ref_v2_status = "error_tolerated"
+            set_orders_ref_v2_failure_streak(orders_ref_v2_failure_streak, orders_ref_v2_error)
+
+            logger.error(
+                "Falha na referência v2 de manutenção (tolerância ativa): streak=%s limite=%s erro=%s",
+                orders_ref_v2_failure_streak,
+                ORDERS_REF_V2_TOLERATED_FAILURES,
+                orders_ref_v2_error,
+            )
+            if orders_ref_v2_failure_streak > ORDERS_REF_V2_TOLERATED_FAILURES:
+                raise RuntimeError(
+                    "Falha recorrente na referência v2 de manutenção "
+                    f"por {orders_ref_v2_failure_streak} ciclos consecutivos."
+                ) from ref_v2_exc
 
         metadata = {
             "window_days": window_days,
@@ -1204,6 +1518,21 @@ def main():
             "ordens_tipo_ref_inseridas": ordens_tipo_ref_inseridas,
             "ordens_tipo_ref_atualizadas": ordens_tipo_ref_atualizadas,
             "tipo_ordem_enriquecidas": tipo_enriquecidas,
+            "orders_ref_v2_status": orders_ref_v2_status,
+            "orders_ref_v2_failure_streak": orders_ref_v2_failure_streak,
+            "orders_ref_v2_error": orders_ref_v2_error,
+            "orders_ref_v2_total_rows": orders_ref_v2_metrics["total_rows"],
+            "orders_ref_v2_valid_rows": orders_ref_v2_metrics["valid_rows"],
+            "orders_ref_v2_invalid_order": orders_ref_v2_metrics["invalid_order"],
+            "orders_ref_v2_invalid_type": orders_ref_v2_metrics["invalid_type"],
+            "orders_ref_v2_dedupe_replaced": orders_ref_v2_metrics["dedupe_replaced"],
+            "orders_ref_v2_dedupe_discarded": orders_ref_v2_metrics["dedupe_discarded"],
+            "orders_ref_v2_inseridas": ordens_ref_v2_inseridas,
+            "orders_ref_v2_atualizadas": ordens_ref_v2_atualizadas,
+            "orders_ref_v2_ordens_atualizadas_total": orders_ref_v2_enrichment_metrics["ordens_atualizadas_total"],
+            "orders_ref_v2_tipo_ordem_atualizadas": orders_ref_v2_enrichment_metrics["tipo_ordem_atualizadas"],
+            "orders_ref_v2_centro_preenchidos": orders_ref_v2_enrichment_metrics["centro_preenchidos"],
+            "orders_ref_v2_numero_nota_preenchidas": orders_ref_v2_enrichment_metrics["numero_nota_preenchidas"],
         }
 
         finalize_sync_log(
@@ -1235,6 +1564,21 @@ def main():
                     "bootstrap_mode": bootstrap_mode,
                     "pmpl_min_age_days": pmpl_min_age_days,
                     "pmpl_standalone_window_days": pmpl_standalone_window_days,
+                    "orders_ref_v2_status": orders_ref_v2_status,
+                    "orders_ref_v2_failure_streak": orders_ref_v2_failure_streak,
+                    "orders_ref_v2_error": orders_ref_v2_error,
+                    "orders_ref_v2_total_rows": orders_ref_v2_metrics["total_rows"],
+                    "orders_ref_v2_valid_rows": orders_ref_v2_metrics["valid_rows"],
+                    "orders_ref_v2_invalid_order": orders_ref_v2_metrics["invalid_order"],
+                    "orders_ref_v2_invalid_type": orders_ref_v2_metrics["invalid_type"],
+                    "orders_ref_v2_dedupe_replaced": orders_ref_v2_metrics["dedupe_replaced"],
+                    "orders_ref_v2_dedupe_discarded": orders_ref_v2_metrics["dedupe_discarded"],
+                    "orders_ref_v2_inseridas": ordens_ref_v2_inseridas,
+                    "orders_ref_v2_atualizadas": ordens_ref_v2_atualizadas,
+                    "orders_ref_v2_ordens_atualizadas_total": orders_ref_v2_enrichment_metrics["ordens_atualizadas_total"],
+                    "orders_ref_v2_tipo_ordem_atualizadas": orders_ref_v2_enrichment_metrics["tipo_ordem_atualizadas"],
+                    "orders_ref_v2_centro_preenchidos": orders_ref_v2_enrichment_metrics["centro_preenchidos"],
+                    "orders_ref_v2_numero_nota_preenchidas": orders_ref_v2_enrichment_metrics["numero_nota_preenchidas"],
                 },
                 error=str(e),
             )
