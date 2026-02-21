@@ -43,8 +43,9 @@ PMPL_FETCH_BATCH_SIZE = 300
 PMPL_RPC_BATCH_SIZE = 200
 PMPL_MIN_AGE_DAYS = 0
 ORDERS_DOCUMENT_UPSERT_BATCH_SIZE = 500
-PMPL_STANDALONE_WINDOW_DAYS = 90   # janela padrão para importar PMPL standalone (dias)
+PMPL_STANDALONE_WINDOW_DAYS = 90   # janela padrão para importar standalone (dias)
 PMPL_STANDALONE_BATCH_SIZE = 500   # ordens por chamada de RPC
+PMPL_STANDALONE_TIPO_ORDENS = ("PMPL", "PMOS")  # tipos importados standalone da pmpl_pmos
 
 OPEN_STATUS = {"aberta", "em_tratativa", "desconhecido"}
 
@@ -865,7 +866,7 @@ def read_standalone_pmpl_orders(
     window_days: int,
     sync_start_date: str,
 ) -> list[dict]:
-    """Lê ordens PMPL da fonte para importação standalone (sem nota correspondente).
+    """Lê ordens PMPL e PMOS da fonte para importação standalone (sem nota correspondente).
 
     Usa window_days para definir a janela de leitura a partir de hoje,
     limitada pelo sync_start_date configurado.
@@ -875,8 +876,10 @@ def read_standalone_pmpl_orders(
     effective_start = max(window_start, sync_start_date)
 
     data_expr = _build_pmpl_data_entrada_date_expr(spark)
+    tipos_escaped = ", ".join(f"'{t}'" for t in PMPL_STANDALONE_TIPO_ORDENS)
     logger.info(
-        "Lendo ordens PMPL standalone: effective_start=%s, window_days=%s",
+        "Lendo ordens standalone (%s): effective_start=%s, window_days=%s",
+        tipos_escaped,
         effective_start,
         window_days,
     )
@@ -884,7 +887,7 @@ def read_standalone_pmpl_orders(
     df = spark.sql(f"""
         SELECT *
         FROM {PMPL_TABLE}
-        WHERE {PMPL_TIPO_ORDEM_COLUMN} = 'PMPL'
+        WHERE {PMPL_TIPO_ORDEM_COLUMN} IN ({tipos_escaped})
           AND ORDEM IS NOT NULL
           AND (
             {data_expr} >= date('{effective_start}')
@@ -1171,6 +1174,11 @@ def main():
             orders_document_reference,
         )
 
+        # Enriquece tipo_ordem para ordens sem tipo (vinculadas a notas via qmel_clean)
+        result_enrich = supabase.rpc("enriquecer_tipo_ordem_por_referencia", {}).execute()
+        tipo_enriquecidas = int(result_enrich.data or 0)
+        logger.info("tipo_ordem enriquecidas: %s", tipo_enriquecidas)
+
         metadata = {
             "window_days": window_days,
             "force_window": force_window,
@@ -1195,6 +1203,7 @@ def main():
             "ordens_tipo_ref_conflicts": orders_document_metrics["conflicts"],
             "ordens_tipo_ref_inseridas": ordens_tipo_ref_inseridas,
             "ordens_tipo_ref_atualizadas": ordens_tipo_ref_atualizadas,
+            "tipo_ordem_enriquecidas": tipo_enriquecidas,
         }
 
         finalize_sync_log(
