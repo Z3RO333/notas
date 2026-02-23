@@ -3,19 +3,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
+  AlertTriangle,
   Download,
+  FolderKanban,
   LayoutGrid,
   Loader2,
+  Clock3,
   RefreshCcw,
   Rows3,
+  TimerReset,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
+import { CollaboratorCardShell } from '@/components/collaborator/collaborator-card-shell'
 import { OrderCompactCard } from '@/components/orders/order-compact-card'
 import { OrdersBulkReassignBar } from '@/components/orders/orders-bulk-reassign-bar'
 import { OrdersDetailDrawer } from '@/components/orders/orders-detail-drawer'
 import { OrdersKpiStrip } from '@/components/orders/orders-kpi-strip'
 import { OrdersOwnerFullCard } from '@/components/orders/orders-owner-full-card'
-import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -32,6 +36,11 @@ import {
   getSemaforoLabel,
   workspaceKpisToOrdemNotaKpis,
 } from '@/lib/orders/metrics'
+import {
+  isGustavoOwnerName,
+  normalizePersonName,
+  resolveCargoPresentationFromOwner,
+} from '@/lib/collaborator/cargo-presentation'
 import type {
   OrderOwnerGroup,
   OrdersOwnerSummary,
@@ -106,43 +115,9 @@ const FIXED_OWNER_CARD_ORDER_BY_NORMALIZED_NAME: Record<string, number> = {
   'adriano': 1,
   'adriano bezerra': 1,
 }
-const GUSTAVO_OWNER_NAME = 'gustavo andrade'
-
-function normalizePersonName(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim()
-}
-
-function isGustavoOwner(ownerName: string): boolean {
-  return normalizePersonName(ownerName) === GUSTAVO_OWNER_NAME
-}
 
 function getFixedOwnerCardRank(ownerName: string): number | undefined {
   return FIXED_OWNER_CARD_ORDER_BY_NORMALIZED_NAME[normalizePersonName(ownerName)]
-}
-
-const CARGO_BADGE: Record<string, { color: string }> = {
-  'CD TURISMO':      { color: 'bg-teal-100 text-teal-800' },
-  'CD MANAUS':       { color: 'bg-blue-100 text-blue-800' },
-  'REFRIGERAÇÃO':    { color: 'bg-cyan-100 text-cyan-800' },
-  'PREVENTIVAS':     { color: 'bg-lime-100 text-lime-800' },
-  'GERAL':           { color: 'bg-gray-100 text-gray-800' },
-  'SEM RESPONSÁVEL': { color: 'bg-orange-100 text-orange-800' },
-}
-
-function resolveOwnerCargo(owner: OrdersOwnerSummary): string {
-  if (owner.administrador_id === null) return 'SEM RESPONSÁVEL'
-
-  const normalizedName = normalizePersonName(owner.nome)
-  if (isGustavoOwner(owner.nome) || normalizedName.includes('gustavo')) return 'PREVENTIVAS'
-  if (normalizedName.includes('adriano')) return 'CD TURISMO'
-  if (normalizedName.includes('brenda')) return 'CD MANAUS'
-  if (normalizedName.includes('suelem')) return 'REFRIGERAÇÃO'
-  if (normalizedName.includes('paula')) return 'GERAL'
-  return 'GERAL'
 }
 
 function sanitizeText(value: string): string {
@@ -336,7 +311,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         if (s.total <= 0) return false
         // Gustavo deve aparecer na aba PMPL; em PMOS mantém regra legada de ocultar.
         if (filters.tipoOrdem === 'PMPL') return true
-        return !isGustavoOwner(s.nome)
+        return !isGustavoOwnerName(s.nome)
       })
       .map((s) => ({
         id: s.administrador_id ?? '__sem_atual__',
@@ -520,10 +495,17 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
   const visibleOwners = useMemo(() => {
     const shouldPinFixedOwners = filters.tipoOrdem !== 'PMPL'
+    const shouldHideGustavo = filters.tipoOrdem !== 'PMPL'
     const items = ownerSummary.filter((owner) => (
-      owner.total > 0
-      || owner.administrador_id === null
-      || (shouldPinFixedOwners && getFixedOwnerCardRank(owner.nome) !== undefined)
+      !(
+        shouldHideGustavo
+        && isGustavoOwnerName(owner.nome)
+      )
+      && (
+        owner.total > 0
+        || owner.administrador_id === null
+        || (shouldPinFixedOwners && getFixedOwnerCardRank(owner.nome) !== undefined)
+      )
     ))
 
     if (!shouldPinFixedOwners) {
@@ -674,54 +656,56 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             {visibleOwners.map((owner) => {
               const ownerKey = owner.administrador_id ?? '__sem_atual__'
               const active = filters.responsavel === ownerKey
-              const isSemResponsavel = owner.administrador_id === null
-              const ownerCargo = resolveOwnerCargo(owner)
+              const ownerCargo = resolveCargoPresentationFromOwner({
+                administrador_id: owner.administrador_id,
+                nome: owner.nome,
+              })
 
               return (
-                <Card
+                <CollaboratorCardShell
                   key={ownerKey}
+                  variant="operational"
+                  name={owner.nome}
+                  avatarUrl={owner.avatar_url}
+                  cargo={ownerCargo}
+                  active={active}
                   onClick={() => toggleOwnerFilter(ownerKey)}
-                  className={`cursor-pointer p-3 transition-all hover:shadow-md ${
-                    active ? 'ring-2 ring-primary bg-primary/5' : ''
-                  } ${
-                    isSemResponsavel ? 'border-orange-200 bg-orange-50/30' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="relative shrink-0">
-                      <Avatar src={owner.avatar_url} nome={owner.nome} size="md" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{owner.nome}</p>
-                      <span className={`mt-0.5 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium ${CARGO_BADGE[ownerCargo]?.color ?? CARGO_BADGE['GERAL'].color}`}>
-                        {ownerCargo}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-2 flex gap-1.5">
-                    <span className="flex-1 rounded bg-emerald-50 py-0.5 text-center text-xs font-bold text-emerald-700">
-                      {formatNumber(owner.recentes)}
-                    </span>
-                    <span className="flex-1 rounded bg-amber-50 py-0.5 text-center text-xs font-bold text-amber-700">
-                      {formatNumber(owner.atencao)}
-                    </span>
-                    <span className="flex-1 rounded bg-red-50 py-0.5 text-center text-xs font-bold text-red-700">
-                      {formatNumber(owner.atrasadas)}
-                    </span>
-                  </div>
-
-                  <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-                    <span>Rec.</span>
-                    <span>Atenc.</span>
-                    <span>Atras.</span>
-                  </div>
-
-                  <div className="mt-2 rounded bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
-                    Total: {formatNumber(owner.total)} ordens
-                  </div>
-                </Card>
+                  primaryMetric={{
+                    id: 'total',
+                    label: 'Total de ordens',
+                    value: formatNumber(owner.total),
+                    tone: 'info',
+                    icon: FolderKanban,
+                  }}
+                  secondaryMetrics={[
+                    {
+                      id: 'recentes',
+                      label: '0-2d',
+                      value: formatNumber(owner.recentes),
+                      tone: 'success',
+                      icon: TimerReset,
+                    },
+                    {
+                      id: 'atencao',
+                      label: '3-6d',
+                      value: formatNumber(owner.atencao),
+                      tone: 'warning',
+                      icon: Clock3,
+                    },
+                    {
+                      id: 'atrasadas',
+                      label: '7+d',
+                      value: formatNumber(owner.atrasadas),
+                      tone: 'danger',
+                      icon: AlertTriangle,
+                    },
+                  ]}
+                  summary={(
+                    <>
+                      <span className="font-semibold">{formatNumber(owner.abertas)}</span> ordens abertas
+                    </>
+                  )}
+                />
               )
             })}
           </div>

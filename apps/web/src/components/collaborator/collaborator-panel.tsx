@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { AlertCircle, LayoutGrid, Rows3, Search } from 'lucide-react'
+import { LayoutGrid, Rows3, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Card } from '@/components/ui/card'
 import {
   Select,
   SelectContent,
@@ -451,24 +450,12 @@ export function CollaboratorPanel({
               ))}
 
               {mode === 'viewer' && semAtribuirCollaborator && filteredNotasSemAtribuir.length > 0 && (
-                <Card
+                <CollaboratorMiniCard
+                  collaborator={semAtribuirCollaborator}
+                  isExpanded={expandedId === 'sem-atribuir'}
                   onClick={() => handleCardClick('sem-atribuir')}
-                  className={`cursor-pointer border-orange-200 p-3 transition-all hover:shadow-md ${
-                    expandedId === 'sem-atribuir' ? 'bg-orange-50 ring-2 ring-orange-500' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
-                      <AlertCircle className="h-5 w-5 text-orange-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-orange-700">Não atribuídas</p>
-                      <span className="inline-flex items-center rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-700">
-                        {filteredNotasSemAtribuir.length} nota{filteredNotasSemAtribuir.length !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                  </div>
-                </Card>
+                  forceCargoLabel="SEM RESPONSÁVEL"
+                />
               )}
             </div>
           </div>
@@ -528,6 +515,7 @@ export function CollaboratorPanel({
             <CollaboratorFullCard
               collaborator={semAtribuirCollaborator}
               notas={filteredNotasSemAtribuir}
+              forceCargoLabel="SEM RESPONSÁVEL"
             />
           )}
         </div>

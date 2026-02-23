@@ -1,12 +1,15 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Trophy } from 'lucide-react'
+import { CheckCircle2, Gauge, ListChecks, Trophy } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Card } from '@/components/ui/card'
-import { Avatar } from '@/components/ui/avatar'
+import { CollaboratorCardShell } from '@/components/collaborator/collaborator-card-shell'
+import {
+  resolveCargoLabelFromEspecialidade,
+  resolveCargoPresentationFromEspecialidade,
+} from '@/lib/collaborator/cargo-presentation'
 import {
   Select,
   SelectContent,
@@ -14,21 +17,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { ProdutividadeMensal, NotaResumo, Especialidade } from '@/lib/types/database'
+import type { NotaResumo, ProdutividadeMensal } from '@/lib/types/database'
 
 interface ProductivityTableProps {
   data: ProdutividadeMensal[]
   notasConcluidas: NotaResumo[]
   totalAbertas: number
   totalConcluidas: number
-}
-
-const especialidadeConfig: Record<Especialidade, { label: string; color: string }> = {
-  refrigeracao: { label: 'Refrigeracao', color: 'bg-cyan-100 text-cyan-800' },
-  elevadores: { label: 'Elevadores/Geradores', color: 'bg-orange-100 text-orange-800' },
-  geral: { label: 'Geral', color: 'bg-gray-100 text-gray-800' },
-  cd_manaus: { label: 'CD MANAUS', color: 'bg-blue-100 text-blue-800' },
-  cd_taruma: { label: 'CD TARUMÃ', color: 'bg-teal-100 text-teal-800' },
 }
 
 export function ProductivityTable({ data, notasConcluidas, totalAbertas, totalConcluidas }: ProductivityTableProps) {
@@ -82,13 +77,21 @@ export function ProductivityTable({ data, notasConcluidas, totalAbertas, totalCo
   const totalGeral = totalAbertas + totalConcluidas
   const percentualProgresso = totalGeral > 0 ? Math.round((totalConcluidas / totalGeral) * 100) : 0
 
+  const filterLabelByEspecialidade = {
+    refrigeracao: resolveCargoLabelFromEspecialidade('refrigeracao'),
+    elevadores: resolveCargoLabelFromEspecialidade('elevadores'),
+    geral: resolveCargoLabelFromEspecialidade('geral'),
+    cd_manaus: resolveCargoLabelFromEspecialidade('cd_manaus'),
+    cd_taruma: resolveCargoLabelFromEspecialidade('cd_taruma'),
+  }
+
   return (
     <div className="space-y-4">
-      <div className="rounded-xl bg-slate-900 text-white p-6 space-y-4">
+      <div className="space-y-4 rounded-xl bg-slate-900 p-6 text-white">
         <div className="space-y-1">
-          <div className="h-6 w-full rounded-full bg-slate-700 overflow-hidden">
+          <div className="h-6 w-full overflow-hidden rounded-full bg-slate-700">
             <div
-              className="h-6 rounded-full bg-blue-500 transition-all flex items-center justify-center text-xs font-bold"
+              className="flex h-6 items-center justify-center rounded-full bg-blue-500 text-xs font-bold transition-all"
               style={{ width: `${Math.max(percentualProgresso, 5)}%` }}
             >
               {percentualProgresso}%
@@ -101,9 +104,9 @@ export function ProductivityTable({ data, notasConcluidas, totalAbertas, totalCo
           <p className="text-lg text-slate-300">Chamados Fechados</p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+        <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-52 bg-slate-800 border-slate-600 text-white">
+            <SelectTrigger className="w-52 border-slate-600 bg-slate-800 text-white">
               <SelectValue placeholder="Selecione o mês" />
             </SelectTrigger>
             <SelectContent>
@@ -116,16 +119,16 @@ export function ProductivityTable({ data, notasConcluidas, totalAbertas, totalCo
           </Select>
 
           <Select value={espFilter} onValueChange={setEspFilter}>
-            <SelectTrigger className="w-52 bg-slate-800 border-slate-600 text-white">
+            <SelectTrigger className="w-52 border-slate-600 bg-slate-800 text-white">
               <SelectValue placeholder="Filtrar por time" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todas">Todas as equipes</SelectItem>
-              <SelectItem value="refrigeracao">Refrigeracao</SelectItem>
-              <SelectItem value="elevadores">Elevadores/Geradores</SelectItem>
-              <SelectItem value="geral">Geral</SelectItem>
-              <SelectItem value="cd_manaus">CD MANAUS</SelectItem>
-              <SelectItem value="cd_taruma">CD TARUMÃ</SelectItem>
+              <SelectItem value="refrigeracao">{filterLabelByEspecialidade.refrigeracao}</SelectItem>
+              <SelectItem value="elevadores">{filterLabelByEspecialidade.elevadores}</SelectItem>
+              <SelectItem value="geral">{filterLabelByEspecialidade.geral}</SelectItem>
+              <SelectItem value="cd_manaus">{filterLabelByEspecialidade.cd_manaus}</SelectItem>
+              <SelectItem value="cd_taruma">{filterLabelByEspecialidade.cd_taruma}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -141,75 +144,94 @@ export function ProductivityTable({ data, notasConcluidas, totalAbertas, totalCo
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {monthData.map((admin, index) => {
-            const esp = especialidadeConfig[(admin.especialidade as Especialidade)] || especialidadeConfig.geral
+            const cargo = resolveCargoPresentationFromEspecialidade(admin.especialidade)
             const isTop = index === 0 && admin.qtd_concluidas > 0
             const adminNotas = notasByAdmin.get(admin.administrador_id) ?? []
+            const percentualVsTop = maxConcluidas > 0
+              ? Math.round((admin.qtd_concluidas / maxConcluidas) * 100)
+              : 0
 
             return (
-              <Card
+              <CollaboratorCardShell
                 key={admin.administrador_id}
-                className={`p-5 flex flex-col items-center gap-3 ${isTop ? 'ring-2 ring-yellow-400 bg-yellow-50/30' : ''}`}
-              >
-                <div className="relative">
-                  <Avatar src={admin.avatar_url} nome={admin.nome} size="xl" />
-                  {isTop && (
-                    <div className="absolute -top-2 -right-2 rounded-full bg-yellow-400 p-1">
-                      <Trophy className="h-4 w-4 text-yellow-900" />
-                    </div>
-                  )}
-                </div>
-
-                <div className="text-center">
-                  <p className="font-semibold text-base">{admin.nome}</p>
-                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${esp.color}`}>
-                    {esp.label}
+                variant="compact"
+                name={admin.nome}
+                avatarUrl={admin.avatar_url}
+                avatarSize="lg"
+                cargo={cargo}
+                className={isTop ? 'ring-2 ring-yellow-400 bg-yellow-50/30' : ''}
+                statusBadges={isTop ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-800">
+                    <Trophy className="h-3 w-3" />
+                    Top 1
                   </span>
-                </div>
+                ) : null}
+                primaryMetric={{
+                  id: 'concluidas',
+                  label: 'Concluídas no mês',
+                  value: admin.qtd_concluidas,
+                  tone: 'success',
+                  icon: CheckCircle2,
+                }}
+                secondaryMetrics={[
+                  {
+                    id: 'vs-lider',
+                    label: '% do líder',
+                    value: `${percentualVsTop}%`,
+                    tone: 'info',
+                    icon: Gauge,
+                  },
+                  {
+                    id: 'notas',
+                    label: 'Notas no mês',
+                    value: adminNotas.length,
+                    tone: 'neutral',
+                    icon: ListChecks,
+                  },
+                ]}
+                details={(
+                  <div className="space-y-2">
+                    {maxConcluidas > 0 && (
+                      <div className="w-full">
+                        <div className="h-2.5 w-full rounded-full bg-muted">
+                          <div
+                            className="h-2.5 rounded-full bg-green-500 transition-all"
+                            style={{ width: `${percentualVsTop}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
 
-                <div className="text-center">
-                  <p className="text-3xl font-bold text-green-600">{admin.qtd_concluidas}</p>
-                </div>
-
-                {maxConcluidas > 0 && (
-                  <div className="w-full">
-                    <div className="h-2.5 w-full rounded-full bg-muted">
-                      <div
-                        className="h-2.5 rounded-full bg-green-500 transition-all"
-                        style={{ width: `${Math.round((admin.qtd_concluidas / maxConcluidas) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {adminNotas.length > 0 && (
-                  <div className="w-full border-t pt-3 space-y-1.5">
-                    {adminNotas.slice(0, 5).map((nota) => (
-                      <Link
-                        key={nota.id}
-                        href={`/notas/${nota.id}`}
-                        className="flex items-center justify-between text-xs hover:bg-muted/50 rounded px-1.5 py-1 transition-colors"
-                      >
-                        <span className="font-mono font-medium text-foreground">#{nota.numero_nota}</span>
-                        <span className="text-muted-foreground">
-                          {format(new Date(nota.updated_at), 'dd/MM')}
-                        </span>
-                      </Link>
-                    ))}
-                    {adminNotas.length > 5 && (
-                      <p className="text-xs text-center text-muted-foreground">
-                        +{adminNotas.length - 5} mais
-                      </p>
+                    {adminNotas.length > 0 && (
+                      <div className="w-full space-y-1.5 border-t pt-2">
+                        {adminNotas.slice(0, 5).map((nota) => (
+                          <Link
+                            key={nota.id}
+                            href={`/notas/${nota.id}`}
+                            className="flex items-center justify-between rounded px-1.5 py-1 text-xs transition-colors hover:bg-muted/50"
+                          >
+                            <span className="font-mono font-medium text-foreground">#{nota.numero_nota}</span>
+                            <span className="text-muted-foreground">
+                              {format(new Date(nota.updated_at), 'dd/MM')}
+                            </span>
+                          </Link>
+                        ))}
+                        {adminNotas.length > 5 && (
+                          <p className="text-center text-xs text-muted-foreground">
+                            +{adminNotas.length - 5} mais
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
-              </Card>
+              />
             )
           })}
         </div>
       )}
-
     </div>
   )
 }

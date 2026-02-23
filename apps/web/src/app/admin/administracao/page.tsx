@@ -11,6 +11,7 @@ interface AdminPersonRow {
   nome: string
   email: string
   role: 'admin' | 'gestor'
+  especialidade: string
   ativo: boolean
   em_ferias: boolean
   data_inicio_ferias: string | null
@@ -36,7 +37,7 @@ export default async function AdministracaoPage() {
   {
     const fullPeopleResult = await supabase
       .from('administradores')
-      .select('id, nome, email, role, ativo, em_ferias, data_inicio_ferias, data_fim_ferias')
+      .select('id, nome, email, role, especialidade, ativo, em_ferias, data_inicio_ferias, data_fim_ferias')
       .order('nome', { ascending: true })
 
     if (fullPeopleResult.error && isMissingVacationColumnsError(fullPeopleResult.error)) {
@@ -48,7 +49,8 @@ export default async function AdministracaoPage() {
       if (legacyPeopleResult.error) throw legacyPeopleResult.error
 
       people = (legacyPeopleResult.data ?? []).map((item) => ({
-        ...(item as Omit<AdminPersonRow, 'data_inicio_ferias' | 'data_fim_ferias'>),
+        ...(item as Omit<AdminPersonRow, 'especialidade' | 'data_inicio_ferias' | 'data_fim_ferias'>),
+        especialidade: 'geral',
         data_inicio_ferias: null,
         data_fim_ferias: null,
       }))
