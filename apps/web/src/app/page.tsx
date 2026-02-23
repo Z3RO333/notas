@@ -20,6 +20,7 @@ export const dynamic = 'force-dynamic'
 const NOTA_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, data_criacao_sap, created_at' as const
 const EMPTY_UUID = '00000000-0000-0000-0000-000000000000'
 const VALID_NOTES_KPI: NotesKpiFilter[] = ['notas', 'novas', 'um_dia', 'dois_mais']
+const OPEN_NOTES_STATUS_FILTERS = new Set(['abertas', 'nova', 'em_andamento', 'encaminhada_fornecedor'])
 const GUSTAVO_EMAIL = 'gustavoandrade@bemol.com.br'
 
 interface NotesPageProps {
@@ -35,6 +36,13 @@ interface NotesPageProps {
 function toUserRole(value: string | null | undefined): UserRole | null {
   if (value === 'admin' || value === 'gestor') return value
   return null
+}
+
+function normalizeNotesPanelStatusFilter(value: string): 'abertas' | 'nova' | 'em_andamento' | 'encaminhada_fornecedor' {
+  if (OPEN_NOTES_STATUS_FILTERS.has(value)) {
+    return value as 'abertas' | 'nova' | 'em_andamento' | 'encaminhada_fornecedor'
+  }
+  return 'abertas'
 }
 
 function toCargaCollaboratorData(c: CargaAdministrador, notas: NotaPanelData[]): CollaboratorData {
@@ -81,7 +89,7 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
   const canViewGlobal = currentAdminRole === 'gestor'
 
   const q = normalizeTextParam(readFirstParam(resolvedSearchParams?.q))
-  const status = normalizeTextParam(readFirstParam(resolvedSearchParams?.status))
+  const status = normalizeNotesPanelStatusFilter(normalizeTextParam(readFirstParam(resolvedSearchParams?.status)))
   const responsavel = normalizeTextParam(readFirstParam(resolvedSearchParams?.responsavel))
   const unidade = normalizeTextParam(readFirstParam(resolvedSearchParams?.unidade))
   const kpiRaw = normalizeTextParam(readFirstParam(resolvedSearchParams?.kpi))
@@ -121,12 +129,10 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
     }
   }
 
-  if (status && status !== 'todas') {
-    if (status === 'abertas') {
-      notesQuery = notesQuery.in('status', ['nova', 'em_andamento', 'encaminhada_fornecedor'])
-    } else {
-      notesQuery = notesQuery.eq('status', status)
-    }
+  if (status === 'abertas') {
+    notesQuery = notesQuery.in('status', ['nova', 'em_andamento', 'encaminhada_fornecedor'])
+  } else {
+    notesQuery = notesQuery.eq('status', status)
   }
 
   if (unidade && unidade !== 'todas') {
@@ -146,9 +152,13 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
   const notasSemAtribuir = notasFiltradas.filter((nota) => !nota.administrador_id)
 
   const notaAdminIds = new Set(notasAtribuidas.map((n) => n.administrador_id).filter(Boolean) as string[])
-  const carga = allCarga.filter(
-    (admin) => admin.recebe_distribuicao || !admin.ativo || admin.em_ferias || admin.qtd_abertas > 0 || notaAdminIds.has(admin.id)
-  ).filter((admin) => admin.email !== GUSTAVO_EMAIL)
+  const carga = allCarga.filter((admin) => {
+    // Admin não-gestor vê somente o próprio card
+    if (!canViewGlobal) return currentAdminId ? admin.id === currentAdminId : false
+    // Gestor vê todos os ativos com distribuição, inativos com notas, e admins com notas no período
+    return (admin.recebe_distribuicao || !admin.ativo || admin.em_ferias || admin.qtd_abertas > 0 || notaAdminIds.has(admin.id))
+      && admin.email !== GUSTAVO_EMAIL
+  })
 
   const collaborators = [...carga]
     .sort((a, b) => {
@@ -209,6 +219,7 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
         unidadeOptions={unidadeOptions}
         showResponsavelFilter={canViewGlobal}
         showUnidadeFilter
+        statusScope="open_only"
         activeNotesKpi={activeNotesKpi || null}
       />
 

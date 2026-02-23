@@ -781,13 +781,26 @@ def upsert_notes(notes: list[dict], sync_id: str) -> tuple[int, int]:
         "raw_data", "sync_id",
     ]
 
-    upsert_payload = [
-        {
-            "numero_nota": note["numero_nota"],
-            **{k: note[k] for k in sap_fields if k in note},
-        }
-        for note in deduped_notes
-    ]
+    ordem_sap_preservada_count = 0
+    upsert_payload = []
+    for note in deduped_notes:
+        payload = {"numero_nota": note["numero_nota"]}
+
+        for field in sap_fields:
+            if field not in note:
+                continue
+
+            if field == "ordem_sap":
+                ordem_sap_value = _as_clean_text(note.get("ordem_sap"))
+                if ordem_sap_value:
+                    payload["ordem_sap"] = ordem_sap_value
+                else:
+                    ordem_sap_preservada_count += 1
+                continue
+
+            payload[field] = note[field]
+
+        upsert_payload.append(payload)
 
     for i in range(0, len(upsert_payload), 500):
         batch = upsert_payload[i:i + 500]
@@ -804,6 +817,11 @@ def upsert_notes(notes: list[dict], sync_id: str) -> tuple[int, int]:
         logger.info("Inseridas: %s", inserted_count)
     if updated_count:
         logger.info("Atualizadas: %s", updated_count)
+    if ordem_sap_preservada_count:
+        logger.info(
+            "ordem_sap preservada por regra anti-null em %s nota(s).",
+            ordem_sap_preservada_count,
+        )
 
     return inserted_count, updated_count
 

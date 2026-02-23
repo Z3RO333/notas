@@ -42,6 +42,7 @@ interface CollaboratorPanelProps {
   unidadeOptions?: Array<{ value: string; label: string }>
   showResponsavelFilter?: boolean
   showUnidadeFilter?: boolean
+  statusScope?: 'default' | 'open_only'
   activeNotesKpi?: NotesKpiFilter | null
 }
 
@@ -65,6 +66,7 @@ export function CollaboratorPanel({
   unidadeOptions = [],
   showResponsavelFilter = false,
   showUnidadeFilter = false,
+  statusScope = 'default',
   activeNotesKpi = null,
 }: CollaboratorPanelProps) {
   const router = useRouter()
@@ -138,9 +140,15 @@ export function CollaboratorPanel({
   }
 
   function handleStatusChange(value: string) {
-    setStatusFilter(value)
+    const nextStatus = statusScope === 'open_only'
+      ? (value === 'nova' || value === 'em_andamento' || value === 'encaminhada_fornecedor' || value === 'abertas'
+          ? value
+          : 'abertas')
+      : value
+
+    setStatusFilter(nextStatus)
     if (syncWithUrl) {
-      replaceQuery({ status: value === 'abertas' ? null : value })
+      replaceQuery({ status: nextStatus === 'abertas' ? null : nextStatus })
     }
   }
 
@@ -188,6 +196,12 @@ export function CollaboratorPanel({
 
     if (statusFilter === 'abertas') {
       filtered = filtered.filter((n) => n.status !== 'concluida' && n.status !== 'cancelada')
+    } else if (statusScope === 'open_only') {
+      filtered = filtered.filter((n) => (
+        n.status === 'nova'
+        || n.status === 'em_andamento'
+        || n.status === 'encaminhada_fornecedor'
+      ))
     } else if (statusFilter !== 'todas') {
       filtered = filtered.filter((n) => n.status === statusFilter)
     }
@@ -348,12 +362,18 @@ export function CollaboratorPanel({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="abertas">Abertas</SelectItem>
-            <SelectItem value="todas">Todas</SelectItem>
             <SelectItem value="nova">Novas</SelectItem>
             <SelectItem value="em_andamento">Em andamento</SelectItem>
             <SelectItem value="encaminhada_fornecedor">Encaminhadas</SelectItem>
-            <SelectItem value="concluida">Concluídas</SelectItem>
-            <SelectItem value="cancelada">Canceladas</SelectItem>
+            {statusScope === 'default' && (
+              <SelectItem value="todas">Todas</SelectItem>
+            )}
+            {statusScope === 'default' && (
+              <SelectItem value="concluida">Concluídas</SelectItem>
+            )}
+            {statusScope === 'default' && (
+              <SelectItem value="cancelada">Canceladas</SelectItem>
+            )}
           </SelectContent>
         </Select>
 
