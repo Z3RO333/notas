@@ -1,6 +1,6 @@
 import { readFirstParam } from '@/lib/grid/query'
 
-export type AdminPeriodPreset = '30d' | '90d' | '180d' | 'custom'
+export type AdminPeriodPreset = 'year' | 'month' | '30d' | '90d' | '180d' | 'custom'
 
 export interface AdminDashboardSearchParams {
   periodPreset?: string | string[]
@@ -21,6 +21,8 @@ export interface AdminDashboardPeriod {
 }
 
 const PRESET_DAYS: Record<Exclude<AdminPeriodPreset, 'custom'>, number> = {
+  year: 365,
+  month: 30,
   '30d': 30,
   '90d': 90,
   '180d': 180,
@@ -87,11 +89,18 @@ function resolvePreset(
   rawPreset: string | undefined,
   rawLegacyWindow: string | undefined
 ): AdminPeriodPreset {
-  if (rawPreset === '30d' || rawPreset === '90d' || rawPreset === '180d' || rawPreset === 'custom') {
+  if (
+    rawPreset === 'year'
+    || rawPreset === 'month'
+    || rawPreset === '30d'
+    || rawPreset === '90d'
+    || rawPreset === '180d'
+    || rawPreset === 'custom'
+  ) {
     return rawPreset
   }
   const fromLegacy = toPresetFromLegacyWindow(rawLegacyWindow)
-  return fromLegacy ?? '30d'
+  return fromLegacy ?? 'year'
 }
 
 function buildFromPreset(
@@ -99,17 +108,29 @@ function buildFromPreset(
   now: Date
 ): AdminDashboardPeriod {
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-  const start = addUtcDays(end, -(PRESET_DAYS[preset] - 1))
+  const start = preset === 'year'
+    ? new Date(Date.UTC(now.getUTCFullYear(), 0, 1))
+    : preset === 'month'
+      ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+      : addUtcDays(end, -(PRESET_DAYS[preset] - 1))
   const endExclusive = addUtcDays(end, 1)
+  const startDate = formatYmd(start)
+  const endDate = formatYmd(end)
+  const spanDays = diffDaysInclusive(startDate, endDate)
+  const periodLabel = preset === 'year'
+    ? 'Ano atual'
+    : preset === 'month'
+      ? 'Mês atual'
+      : `Ultimos ${PRESET_DAYS[preset]} dias`
 
   return {
     preset,
-    startDate: formatYmd(start),
-    endDate: formatYmd(end),
+    startDate,
+    endDate,
     startIso: start.toISOString(),
     endExclusiveIso: endExclusive.toISOString(),
-    spanDays: PRESET_DAYS[preset],
-    periodLabel: `Ultimos ${PRESET_DAYS[preset]} dias`,
+    spanDays,
+    periodLabel,
     isCustom: false,
   }
 }
@@ -151,6 +172,6 @@ export function resolveAdminDashboardPeriod(
   }
 
   const fallbackPreset = resolvePreset(undefined, rawLegacyWindow)
-  const safePreset = fallbackPreset === 'custom' ? '30d' : fallbackPreset
+  const safePreset = fallbackPreset === 'custom' ? 'year' : fallbackPreset
   return buildFromPreset(safePreset, now)
 }

@@ -13,6 +13,8 @@ interface AdminPeriodFilterProps {
 }
 
 const PRESETS: Array<{ value: AdminPeriodPreset; label: string }> = [
+  { value: 'year', label: 'Ano atual' },
+  { value: 'month', label: 'Mês atual' },
   { value: '30d', label: '30 dias' },
   { value: '90d', label: '90 dias' },
   { value: '180d', label: '180 dias' },

@@ -48,6 +48,46 @@ interface AdminDashboardPageProps {
   searchParams?: Promise<AdminDashboardSearchParams>
 }
 
+function includesToken(haystack: string | null | undefined, token: string): boolean {
+  return (haystack ?? '').toLowerCase().includes(token.toLowerCase())
+}
+
+function isRpcWithoutTipoOrdemSupport(
+  error: { code?: string; message?: string; details?: string | null; hint?: string | null } | null
+): boolean {
+  if (!error) return false
+  if (error.code === 'PGRST202') return true
+
+  return (
+    includesToken(error.message, 'p_tipo_ordem')
+    || includesToken(error.details, 'p_tipo_ordem')
+    || includesToken(error.hint, 'p_tipo_ordem')
+  )
+}
+
+async function callRpcWithOptionalTipoOrdem<T>(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  rpcName: string,
+  params: Record<string, unknown>
+): Promise<{ data: T | null; error: { code?: string; message: string } | null }> {
+  const withTipo = await supabase.rpc(rpcName, params)
+  if (withTipo.error && isRpcWithoutTipoOrdemSupport(withTipo.error)) {
+    const withoutTipoParams = { ...params }
+    delete withoutTipoParams.p_tipo_ordem
+
+    const fallback = await supabase.rpc(rpcName, withoutTipoParams)
+    return {
+      data: (fallback.data ?? null) as T | null,
+      error: fallback.error ? { code: fallback.error.code, message: fallback.error.message } : null,
+    }
+  }
+
+  return {
+    data: (withTipo.data ?? null) as T | null,
+    error: withTipo.error ? { code: withTipo.error.code, message: withTipo.error.message } : null,
+  }
+}
+
 export default async function AdminDashboardPage({ searchParams }: AdminDashboardPageProps) {
   const supabase = await createClient()
   const resolvedSearchParams = searchParams ? await searchParams : undefined
@@ -122,14 +162,24 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
       p_limit: DASHBOARD_ORDERS_LIMIT,
       p_tipo_ordem: 'PMPL',
     }),
-    supabase.rpc('calcular_ranking_ordens_admin', {
-      p_start_iso: period.startIso,
-      p_end_exclusive_iso: period.endExclusiveIso,
-    }),
-    supabase.rpc('calcular_ranking_ordens_unidade', {
-      p_start_iso: period.startIso,
-      p_end_exclusive_iso: period.endExclusiveIso,
-    }),
+    callRpcWithOptionalTipoOrdem<OrdemNotaRankingAdmin[]>(
+      supabase,
+      'calcular_ranking_ordens_admin',
+      {
+        p_start_iso: period.startIso,
+        p_end_exclusive_iso: period.endExclusiveIso,
+        p_tipo_ordem: 'PMOS',
+      }
+    ),
+    callRpcWithOptionalTipoOrdem<OrdemNotaRankingUnidade[]>(
+      supabase,
+      'calcular_ranking_ordens_unidade',
+      {
+        p_start_iso: period.startIso,
+        p_end_exclusive_iso: period.endExclusiveIso,
+        p_tipo_ordem: 'PMOS',
+      }
+    ),
     supabase
       .from('administradores')
       .select('id, nome')

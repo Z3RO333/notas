@@ -128,6 +128,7 @@ const CARGO_BADGE: Record<string, { color: string }> = {
   'CD TURISMO':      { color: 'bg-teal-100 text-teal-800' },
   'CD MANAUS':       { color: 'bg-blue-100 text-blue-800' },
   'REFRIGERAÇÃO':    { color: 'bg-cyan-100 text-cyan-800' },
+  'PREVENTIVAS':     { color: 'bg-lime-100 text-lime-800' },
   'GERAL':           { color: 'bg-gray-100 text-gray-800' },
   'SEM RESPONSÁVEL': { color: 'bg-orange-100 text-orange-800' },
 }
@@ -136,6 +137,7 @@ function resolveOwnerCargo(owner: OrdersOwnerSummary): string {
   if (owner.administrador_id === null) return 'SEM RESPONSÁVEL'
 
   const normalizedName = normalizePersonName(owner.nome)
+  if (isGustavoOwner(owner.nome) || normalizedName.includes('gustavo')) return 'PREVENTIVAS'
   if (normalizedName.includes('adriano')) return 'CD TURISMO'
   if (normalizedName.includes('brenda')) return 'CD MANAUS'
   if (normalizedName.includes('suelem')) return 'REFRIGERAÇÃO'
@@ -517,11 +519,16 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   }, [ownerSummary])
 
   const visibleOwners = useMemo(() => {
+    const shouldPinFixedOwners = filters.tipoOrdem !== 'PMPL'
     const items = ownerSummary.filter((owner) => (
       owner.total > 0
       || owner.administrador_id === null
-      || getFixedOwnerCardRank(owner.nome) !== undefined
+      || (shouldPinFixedOwners && getFixedOwnerCardRank(owner.nome) !== undefined)
     ))
+
+    if (!shouldPinFixedOwners) {
+      return items.sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, 'pt-BR'))
+    }
 
     return items.sort((a, b) => {
       const aRank = getFixedOwnerCardRank(a.nome)
@@ -532,7 +539,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       if (bRank !== undefined) return 1
       return 0
     })
-  }, [ownerSummary])
+  }, [ownerSummary, filters.tipoOrdem])
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
