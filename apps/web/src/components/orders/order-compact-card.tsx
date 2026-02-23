@@ -1,9 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { ExternalLink } from 'lucide-react'
+import { Copy, ExternalLink } from 'lucide-react'
 import { format } from 'date-fns'
 import { OrderReassignDialog } from '@/components/orders/order-reassign-dialog'
+import { useToast } from '@/components/ui/toast'
+import { copyToClipboard } from '@/lib/orders/copy'
 import { getSemaforoClass, getSemaforoLabel } from '@/lib/orders/metrics'
 import type { OrdemNotaAcompanhamento, OrderReassignTarget } from '@/lib/types/database'
 
@@ -23,6 +25,7 @@ interface OrderCompactCardProps {
   reassignProps?: OrderCompactCardReassignProps
   onOpenDetails?: () => void
   notaLinkHref?: string
+  highlightQuery?: string
 }
 
 const SEMAFORO_BORDER_LEFT_CLASS = {
@@ -31,6 +34,36 @@ const SEMAFORO_BORDER_LEFT_CLASS = {
   vermelho: 'border-l-red-500',
   neutro: 'border-l-slate-300',
 } as const
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function normalizeHighlightQuery(value: string | null | undefined): string {
+  const query = (value ?? '').trim()
+  return query.length >= 2 ? query : ''
+}
+
+function renderHighlightedText(value: string, query: string) {
+  if (!query) return value
+  const pattern = new RegExp(`(${escapeRegExp(query)})`, 'ig')
+  const parts = value.split(pattern)
+  if (parts.length <= 1) return value
+
+  return (
+    <>
+      {parts.map((part, index) => (
+        part.toLowerCase() === query.toLowerCase()
+          ? (
+            <mark key={`${part}-${index}`} className="rounded bg-yellow-100 px-0.5 text-foreground">
+              {part}
+            </mark>
+            )
+          : <span key={`${part}-${index}`}>{part}</span>
+      ))}
+    </>
+  )
+}
 
 export function OrderCompactCard({
   row,
@@ -41,12 +74,16 @@ export function OrderCompactCard({
   reassignProps,
   onOpenDetails,
   notaLinkHref,
+  highlightQuery,
 }: OrderCompactCardProps) {
+  const { toast } = useToast()
   const isClickable = typeof onOpenDetails === 'function'
   const linkedNotaId = (row.nota_id ?? '').trim() || null
   const hasLinkedNote = Boolean(linkedNotaId)
   const notaNumero = (row.numero_nota ?? '').trim() || 'Sem nota'
-  const ordemText = row.ordem_codigo?.trim() ? row.ordem_codigo : 'Sem ordem'
+  const ordemCodigo = row.ordem_codigo?.trim() ?? ''
+  const hasOrderCode = Boolean(ordemCodigo)
+  const ordemText = hasOrderCode ? ordemCodigo : 'Sem ordem'
   const unidadeText = row.unidade?.trim() ? row.unidade : 'Sem unidade'
   const responsavelText = row.responsavel_atual_nome?.trim() ? row.responsavel_atual_nome : 'Sem responsável'
   const diasText = `Há ${row.dias_em_aberto} dia(s)`
@@ -56,6 +93,7 @@ export function OrderCompactCard({
   const descricao = row.descricao?.trim() || null
   const descricaoCard = descricao ?? (!hasLinkedNote ? 'Ordem PMPL sem nota vinculada' : null)
   const semaforoBorder = SEMAFORO_BORDER_LEFT_CLASS[row.semaforo_atraso] ?? SEMAFORO_BORDER_LEFT_CLASS.neutro
+  const highlightedQuery = normalizeHighlightQuery(highlightQuery)
 
   function handleToggleSelection(event: React.MouseEvent | React.ChangeEvent) {
     event.stopPropagation()
@@ -73,6 +111,49 @@ export function OrderCompactCard({
     if (event.key !== 'Enter' && event.key !== ' ') return
     event.preventDefault()
     onOpenDetails?.()
+  }
+
+  async function handleCopyValue(value: string, label: 'ORDEM' | 'NOTA') {
+    const copied = await copyToClipboard(value)
+    if (!copied) {
+      toast({
+        title: `Falha ao copiar ${label}`,
+        description: 'Não foi possível copiar para a área de transferência.',
+        variant: 'error',
+      })
+      return
+    }
+
+    toast({
+      title: `${label} ${value} copiada ✅`,
+      variant: 'success',
+    })
+  }
+
+  function handleCopyNote(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!hasLinkedNote) return
+    void handleCopyValue(notaNumero, 'NOTA')
+  }
+
+  function handleCopyOrder(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    event.stopPropagation()
+
+    if (event.altKey && hasLinkedNote) {
+      void handleCopyValue(notaNumero, 'NOTA')
+      return
+    }
+
+    if (hasOrderCode) {
+      void handleCopyValue(ordemCodigo, 'ORDEM')
+      return
+    }
+
+    if (hasLinkedNote) {
+      void handleCopyValue(notaNumero, 'NOTA')
+    }
   }
 
   return (
@@ -101,21 +182,57 @@ export function OrderCompactCard({
         )}
 
         <span className="min-w-0 flex-1 font-mono text-sm font-medium leading-5 truncate">
-          {hasLinkedNote ? (
-            <>
-              <span className="text-foreground">#{notaNumero}</span>
-              {row.ordem_codigo?.trim() && (
-                <span className="text-muted-foreground"> · {ordemText}</span>
-              )}
-            </>
-          ) : (
-            <>
-              <span className="text-foreground">{ordemText}</span>
-              <span className="ml-2 inline-flex rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+          <span className="flex min-w-0 items-center gap-1.5">
+            {hasLinkedNote && (
+              <button
+                type="button"
+                onClick={handleCopyNote}
+                className="inline-flex shrink-0 items-center rounded-md px-1 text-foreground transition-colors hover:bg-muted"
+                title={`Copiar NOTA ${notaNumero}`}
+              >
+                #{renderHighlightedText(notaNumero, highlightedQuery)}
+              </button>
+            )}
+
+            {hasOrderCode ? (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <button
+                  type="button"
+                  onClick={handleCopyOrder}
+                  className="inline-flex min-w-0 items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-blue-900 transition-colors hover:bg-blue-100"
+                  title={hasLinkedNote
+                    ? `Clique para copiar ORDEM ${ordemCodigo}. Alt+Clique copia NOTA ${notaNumero}.`
+                    : `Copiar ORDEM ${ordemCodigo}`
+                  }
+                >
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-700">Ordem</span>
+                  <span className="text-sm font-semibold">
+                    {renderHighlightedText(ordemCodigo, highlightedQuery)}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyOrder}
+                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-blue-700 transition-colors hover:bg-blue-100"
+                  title={`Copiar ORDEM ${ordemCodigo}`}
+                  aria-label={`Copiar ordem ${ordemCodigo}`}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              </>
+            ) : (
+              <span className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                Sem ordem
+              </span>
+            )}
+
+            {!hasLinkedNote && (
+              <span className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
                 Sem nota
               </span>
-            </>
-          )}
+            )}
+          </span>
         </span>
 
         <div className="flex shrink-0 items-center gap-1" onClick={(event) => event.stopPropagation()}>
@@ -151,15 +268,15 @@ export function OrderCompactCard({
       {/* Linha 2: texto breve (condicional) */}
       {descricaoCard && (
         <p className="mt-1 line-clamp-2 text-sm text-muted-foreground leading-5">
-          {descricaoCard}
+          {renderHighlightedText(descricaoCard, highlightedQuery)}
         </p>
       )}
 
       {/* Linha 3: metadados */}
       <p className="mt-1.5 text-xs text-muted-foreground">
-        {unidadeText}
+        {renderHighlightedText(unidadeText, highlightedQuery)}
         <span className="mx-1 opacity-40">·</span>
-        {responsavelText}
+        {renderHighlightedText(responsavelText, highlightedQuery)}
         <span className="mx-1 opacity-40">·</span>
         {diasText}
         {dataText && (
