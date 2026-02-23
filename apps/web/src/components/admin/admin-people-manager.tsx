@@ -22,12 +22,26 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/components/ui/toast'
+import type { Especialidade } from '@/lib/types/database'
+
+const ESPECIALIDADE_OPTIONS: { value: Especialidade; label: string }[] = [
+  { value: 'geral', label: 'Geral' },
+  { value: 'refrigeracao', label: 'Refrigeração' },
+  { value: 'elevadores', label: 'Elevadores' },
+  { value: 'cd_manaus', label: 'CD Manaus' },
+  { value: 'cd_taruma', label: 'CD Tarumã' },
+]
+
+function especialidadeLabel(value: string): string {
+  return ESPECIALIDADE_OPTIONS.find((o) => o.value === value)?.label ?? value
+}
 
 interface AdminPerson {
   id: string
   nome: string
   email: string
   role: 'admin' | 'gestor'
+  especialidade: string
   ativo: boolean
   em_ferias: boolean
   data_inicio_ferias: string | null
@@ -39,6 +53,7 @@ interface PersonFormState {
   nome: string
   email: string
   role: 'admin' | 'gestor'
+  especialidade: Especialidade
   ativo: boolean
   emFerias: boolean
   dataInicioFerias: string
@@ -53,6 +68,7 @@ const EMPTY_FORM: PersonFormState = {
   nome: '',
   email: '',
   role: 'admin',
+  especialidade: 'geral',
   ativo: true,
   emFerias: false,
   dataInicioFerias: '',
@@ -65,6 +81,7 @@ function toForm(person: AdminPerson): PersonFormState {
     nome: person.nome,
     email: person.email,
     role: person.role,
+    especialidade: (person.especialidade as Especialidade) ?? 'geral',
     ativo: person.ativo,
     emFerias: person.em_ferias,
     dataInicioFerias: person.data_inicio_ferias ?? '',
@@ -102,6 +119,7 @@ export function AdminPeopleManager({ people }: AdminPeopleManagerProps) {
           nome: patch.nome ?? person.nome,
           email: patch.email ?? person.email,
           role: patch.role ?? person.role,
+          especialidade: patch.especialidade ?? (person.especialidade as Especialidade) ?? 'geral',
           ativo: patch.ativo ?? person.ativo,
           emFerias: patch.emFerias ?? person.em_ferias,
           dataInicioFerias: patch.dataInicioFerias ?? person.data_inicio_ferias,
@@ -128,6 +146,7 @@ export function AdminPeopleManager({ people }: AdminPeopleManagerProps) {
           nome: form.nome,
           email: form.email,
           role: form.role,
+          especialidade: form.especialidade,
           ativo: form.ativo,
           emFerias: form.emFerias,
           dataInicioFerias: form.dataInicioFerias || null,
@@ -172,6 +191,7 @@ export function AdminPeopleManager({ people }: AdminPeopleManagerProps) {
               <th className="px-3 py-2 text-left font-medium">Nome</th>
               <th className="px-3 py-2 text-left font-medium">Email</th>
               <th className="px-3 py-2 text-left font-medium">Cargo</th>
+              <th className="px-3 py-2 text-left font-medium">Função</th>
               <th className="px-3 py-2 text-left font-medium">Ativo</th>
               <th className="px-3 py-2 text-left font-medium">Em férias</th>
               <th className="px-3 py-2 text-left font-medium">Período</th>
@@ -184,6 +204,7 @@ export function AdminPeopleManager({ people }: AdminPeopleManagerProps) {
                 <td className="px-3 py-2 font-medium">{person.nome}</td>
                 <td className="px-3 py-2 text-muted-foreground">{person.email}</td>
                 <td className="px-3 py-2 uppercase">{person.role}</td>
+                <td className="px-3 py-2">{especialidadeLabel(person.especialidade)}</td>
                 <td className="px-3 py-2">
                   <Switch
                     checked={person.ativo}
@@ -246,17 +267,38 @@ export function AdminPeopleManager({ people }: AdminPeopleManagerProps) {
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Cargo</label>
-              <Select value={form.role} onValueChange={(value) => setForm((prev) => ({ ...prev, role: value as 'admin' | 'gestor' }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o cargo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="gestor">Gestor</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Cargo</label>
+                <Select value={form.role} onValueChange={(value) => setForm((prev) => ({ ...prev, role: value as 'admin' | 'gestor' }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o cargo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="gestor">Gestor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Especialidade / Função</label>
+                <Select
+                  value={form.especialidade}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, especialidade: value as Especialidade }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a função" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ESPECIALIDADE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { applyAutomaticOrdersRouting } from '@/lib/orders/pmpl-routing'
+import type { Especialidade } from '@/lib/types/database'
 
 type BulkReassignMode = 'destino_unico' | 'round_robin'
 
@@ -16,6 +17,7 @@ interface SalvarPessoaAdminParams {
   nome: string
   email: string
   role: 'admin' | 'gestor'
+  especialidade: Especialidade
   ativo: boolean
   emFerias: boolean
   dataInicioFerias?: string | null
@@ -258,6 +260,7 @@ export async function salvarPessoaAdmin(params: SalvarPessoaAdminParams) {
     nome,
     email,
     role,
+    especialidade: params.especialidade,
     ativo: params.ativo,
     em_ferias: params.emFerias,
     data_inicio_ferias: dataInicioFerias,
@@ -282,7 +285,6 @@ export async function salvarPessoaAdmin(params: SalvarPessoaAdminParams) {
       .insert({
         ...payload,
         max_notas: 50,
-        especialidade: 'geral',
         recebe_distribuicao: false,
       })
       .select('id')
@@ -296,6 +298,7 @@ export async function salvarPessoaAdmin(params: SalvarPessoaAdminParams) {
     nome,
     email,
     role,
+    especialidade: params.especialidade,
     ativo: params.ativo,
     em_ferias: params.emFerias,
     data_inicio_ferias: dataInicioFerias,

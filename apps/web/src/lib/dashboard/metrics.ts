@@ -34,11 +34,11 @@ const OPEN_STATUS_SET = new Set<NotaStatus>([
 ])
 
 const ESPECIALIDADE_LABEL: Record<Especialidade, string> = {
-  refrigeracao: 'Refrigeracao',
-  elevadores: 'Elevadores',
-  geral: 'Geral',
+  refrigeracao: 'REFRIGERAÇÃO',
+  elevadores: 'PREVENTIVAS',
+  geral: 'GERAL',
   cd_manaus: 'CD MANAUS',
-  cd_taruma: 'CD TARUMÃ',
+  cd_taruma: 'CD TURISMO',
 }
 
 function toNumber(value: unknown): number {

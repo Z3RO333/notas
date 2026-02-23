@@ -1,9 +1,12 @@
 'use client'
 
-import { Avatar } from '@/components/ui/avatar'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { ArrowDown, ArrowUp, CheckCircle2, Clock3, Gauge, Minus } from 'lucide-react'
+import { CollaboratorCardShell } from '@/components/collaborator/collaborator-card-shell'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  resolveCargoPresentationFromEspecialidade,
+} from '@/lib/collaborator/cargo-presentation'
 import { getMedalConfig, getTendenciaConfig } from '@/lib/copilot/productivity'
-import { ArrowUp, ArrowDown, Minus } from 'lucide-react'
 import type { ProductivityDetailRow } from '@/lib/types/copilot'
 
 interface ProductivityMedalsProps {
@@ -30,44 +33,58 @@ export function ProductivityMedals({ rows }: ProductivityMedalsProps) {
 }
 
 function ProductivityRow({ row, rank }: { row: ProductivityDetailRow; rank: number }) {
+  const cargo = resolveCargoPresentationFromEspecialidade(row.especialidade)
   const medalConfig = getMedalConfig(row.medal)
   const tendenciaConfig = getTendenciaConfig(row.tendencia)
   const TendenciaIcon = row.tendencia === 'subindo' ? ArrowUp : row.tendencia === 'caindo' ? ArrowDown : Minus
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border p-2.5">
-      {/* Rank / Medal */}
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold">
-        {medalConfig ? (
-          <span className={`flex h-8 w-8 items-center justify-center rounded-full ${medalConfig.bg} ${medalConfig.color}`}>
-            {medalConfig.emoji}
+    <CollaboratorCardShell
+      variant="compact"
+      name={row.nome}
+      avatarUrl={row.avatar_url}
+      cargo={cargo}
+      statusBadges={(
+        <>
+          <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+            #{rank}
           </span>
-        ) : (
-          <span className="text-muted-foreground">{rank}</span>
-        )}
-      </div>
-
-      <Avatar nome={row.nome} src={row.avatar_url} size="sm" />
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium truncate">{row.nome}</span>
-          <span className={`flex items-center gap-0.5 text-xs ${tendenciaConfig.color}`}>
-            <TendenciaIcon className="h-3 w-3" />
-            {row.variacao_pct > 0 ? '+' : ''}{row.variacao_pct.toFixed(0)}%
-          </span>
-        </div>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-          <span>{row.concluidas_30d} conc./30d</span>
-          <span>{row.concluidas_7d} conc./7d</span>
-          <span>Efic. {(row.eficiencia * 100).toFixed(0)}%</span>
-        </div>
-      </div>
-
-      <div className="text-right shrink-0">
-        <span className="text-lg font-bold">{row.concluidas_30d}</span>
-        <p className="text-[10px] text-muted-foreground">30 dias</p>
-      </div>
-    </div>
+          {medalConfig && (
+            <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${medalConfig.bg} ${medalConfig.color}`}>
+              {medalConfig.label}
+            </span>
+          )}
+        </>
+      )}
+      headerRight={(
+        <span className={`inline-flex items-center gap-0.5 text-xs ${tendenciaConfig.color}`}>
+          <TendenciaIcon className="h-3 w-3" />
+          {row.variacao_pct > 0 ? '+' : ''}{row.variacao_pct.toFixed(0)}%
+        </span>
+      )}
+      primaryMetric={{
+        id: 'concluidas-30d',
+        label: 'Concluídas / 30d',
+        value: row.concluidas_30d,
+        tone: 'success',
+        icon: CheckCircle2,
+      }}
+      secondaryMetrics={[
+        {
+          id: 'concluidas-7d',
+          label: 'Concl./7d',
+          value: row.concluidas_7d,
+          tone: 'info',
+          icon: Clock3,
+        },
+        {
+          id: 'eficiencia',
+          label: 'Eficiência',
+          value: `${(row.eficiencia * 100).toFixed(0)}%`,
+          tone: 'neutral',
+          icon: Gauge,
+        },
+      ]}
+    />
   )
 }

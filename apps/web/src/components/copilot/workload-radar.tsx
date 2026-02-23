@@ -1,8 +1,12 @@
 'use client'
 
-import { Avatar } from '@/components/ui/avatar'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { AlertTriangle, Clock3, FolderKanban, Siren } from 'lucide-react'
+import { CollaboratorCardShell } from '@/components/collaborator/collaborator-card-shell'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { IsoMiniBadge } from '@/components/copilot/iso-gauge'
+import {
+  resolveCargoPresentationFromEspecialidade,
+} from '@/lib/collaborator/cargo-presentation'
 import { getWorkloadStatusConfig } from '@/lib/copilot/workload'
 import type { WorkloadRadarRow } from '@/lib/types/copilot'
 
@@ -41,57 +45,80 @@ export function WorkloadRadar({ rows }: WorkloadRadarProps) {
 }
 
 function WorkloadRadarCard({ row }: { row: WorkloadRadarRow }) {
+  const cargo = resolveCargoPresentationFromEspecialidade(row.especialidade)
   const statusConfig = getWorkloadStatusConfig(row.workload_status)
   const pctCarga = Math.round(row.pct_carga)
   const barWidth = Math.min(pctCarga, 100)
 
   return (
-    <div className={`rounded-lg border p-3 ${statusConfig.bg} ${statusConfig.border}`}>
-      <div className="flex items-start gap-2.5">
-        <Avatar nome={row.nome} src={row.avatar_url} size="sm" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm font-medium truncate">{row.nome}</span>
-            {row.em_ferias && (
-              <span className="text-[10px] bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-full">Férias</span>
-            )}
+    <CollaboratorCardShell
+      variant="compact"
+      name={row.nome}
+      avatarUrl={row.avatar_url}
+      cargo={cargo}
+      className={`${statusConfig.bg} ${statusConfig.border}`}
+      statusBadges={row.em_ferias ? (
+        <span className="inline-flex items-center rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">
+          Férias
+        </span>
+      ) : null}
+      headerRight={(
+        <span className={`text-xs font-semibold ${statusConfig.color}`}>
+          {statusConfig.label}
+        </span>
+      )}
+      topSlot={(
+        <div className="flex items-center gap-2">
+          <IsoMiniBadge score={row.iso_score} faixa={row.iso_faixa} />
+          <span className="text-[11px] text-muted-foreground">ISO operacional</span>
+        </div>
+      )}
+      primaryMetric={{
+        id: 'abertas',
+        label: 'Notas abertas',
+        value: row.qtd_abertas,
+        tone: 'info',
+        icon: FolderKanban,
+      }}
+      secondaryMetrics={[
+        {
+          id: 'criticas',
+          label: 'Críticas',
+          value: row.qtd_notas_criticas,
+          tone: row.qtd_notas_criticas > 0 ? 'danger' : 'neutral',
+          icon: AlertTriangle,
+        },
+        {
+          id: 'ordens-atrasadas',
+          label: 'Ordens atras.',
+          value: row.qtd_ordens_vermelhas,
+          tone: row.qtd_ordens_vermelhas > 0 ? 'danger' : 'neutral',
+          icon: Siren,
+        },
+        {
+          id: 'concluidas-7d',
+          label: 'Conc./7d',
+          value: row.concluidas_7d,
+          tone: 'success',
+          icon: Clock3,
+        },
+      ]}
+      details={(
+        <div className="space-y-1.5">
+          <div className="mb-0.5 flex items-center justify-between text-[10px] text-muted-foreground">
+            <span>Carga</span>
+            <span className="font-medium">{pctCarga}%</span>
           </div>
-
-          <div className="flex items-center gap-2 mt-1">
-            <IsoMiniBadge score={row.iso_score} faixa={row.iso_faixa} />
-            <span className={`text-xs font-medium ${statusConfig.color}`}>
-              {statusConfig.label}
-            </span>
+          <div className="h-1.5 w-full rounded-full bg-background/60">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                pctCarga >= 90 ? 'bg-red-500' : pctCarga >= 70 ? 'bg-amber-500' : 'bg-emerald-500'
+              }`}
+              style={{ width: `${barWidth}%` }}
+            />
           </div>
         </div>
-      </div>
-
-      {/* Barra de carga */}
-      <div className="mt-2.5">
-        <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-0.5">
-          <span>Carga</span>
-          <span className="font-medium">{row.qtd_abertas} abertas ({pctCarga}%)</span>
-        </div>
-        <div className="h-1.5 w-full rounded-full bg-background/60">
-          <div
-            className={`h-full rounded-full transition-all duration-500 ${
-              pctCarga >= 90 ? 'bg-red-500' : pctCarga >= 70 ? 'bg-amber-500' : 'bg-emerald-500'
-            }`}
-            style={{ width: `${barWidth}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Metricas inline */}
-      <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-foreground">
-        {row.qtd_notas_criticas > 0 && (
-          <span className="text-red-600 font-medium">{row.qtd_notas_criticas} críticas</span>
-        )}
-        {row.qtd_ordens_vermelhas > 0 && (
-          <span className="text-red-600 font-medium">{row.qtd_ordens_vermelhas} ordens atras.</span>
-        )}
-        <span>{row.concluidas_7d} conc./7d</span>
-      </div>
-    </div>
+      )}
+    />
   )
 }
