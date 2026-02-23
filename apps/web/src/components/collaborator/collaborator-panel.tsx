@@ -327,7 +327,7 @@ export function CollaboratorPanel({
       {showTopTracking && (
         <TrackingOrdersBlock
           orders={ordensAcompanhamento}
-          title={currentAdminRole === 'gestor' ? 'Ordens em acompanhamento (gestao)' : 'Minhas ordens em acompanhamento'}
+          title={currentAdminRole === 'gestor' ? 'Ordens em acompanhamento (gestão)' : 'Minhas ordens em acompanhamento'}
         />
       )}
 
@@ -389,7 +389,7 @@ export function CollaboratorPanel({
 
         <Select value={viewMode} onValueChange={handleViewModeChange}>
           <SelectTrigger className="w-full xl:w-48">
-            <SelectValue placeholder="Visualizacao" />
+            <SelectValue placeholder="Visualização" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="list">

@@ -453,7 +453,7 @@ export function OrdersOwnerPanel({
 
         <Select value={viewMode} onValueChange={(value) => setViewMode(value as PanelViewMode)}>
           <SelectTrigger className="w-44">
-            <SelectValue placeholder="Visualizacao" />
+            <SelectValue placeholder="Visualização" />
           </SelectTrigger>
           <SelectContent>
             {VIEW_MODE_OPTIONS.map((option) => {
@@ -480,7 +480,7 @@ export function OrdersOwnerPanel({
               checked={allVisibleSelected}
               onChange={handleToggleSelectAll}
             />
-            Selecionar visiveis
+            Selecionar visíveis
           </label>
         )}
       </div>

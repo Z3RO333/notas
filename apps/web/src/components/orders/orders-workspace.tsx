@@ -5,7 +5,6 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   AlertTriangle,
   Download,
-  FolderKanban,
   LayoutGrid,
   Loader2,
   Clock3,
@@ -374,6 +373,12 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       setLoadingMore(true)
     }
 
+    const reqId = Math.random().toString(36).slice(2, 8)
+    console.debug(`[ordens:fetch:start] reqId=${reqId} reset=${reset}`, {
+      filtros: { ...filters, q: filters.q ? '***' : '' },
+      cursor: reset ? null : nextCursor,
+    })
+
     try {
       const params = buildWorkspaceParams(filters, reset ? null : nextCursor, batchSize)
       const response = await fetch(`/api/ordens/workspace?${params.toString()}`, {
@@ -387,6 +392,31 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       }
 
       const payload = (await response.json()) as OrdersWorkspaceResponse
+
+      console.debug(`[ordens:fetch:done] reqId=${reqId}`, {
+        rows: payload.rows.length,
+        total: payload.kpis.total,
+        cursor: payload.nextCursor ?? 'fim',
+      })
+
+      if (process.env.NODE_ENV === 'development') {
+        const k = payload.kpis
+        const soma = k.abertas + k.em_tratativa + k.concluidas + k.canceladas
+        if (soma !== k.total) {
+          console.warn('[ordens:consistencia] total !== soma de status principais', {
+            total: k.total, soma, diff: k.total - soma,
+            nota: 'atrasadas e avaliadas são dimensões ortogonais — não entram na soma',
+          })
+        }
+        const ids = payload.rows.map((r) => r.ordem_id)
+        const uniq = new Set(ids)
+        if (uniq.size !== ids.length) {
+          console.warn('[ordens:consistencia] linhas duplicadas detectadas na página', {
+            total: ids.length, unique: uniq.size, duplicatas: ids.length - uniq.size,
+          })
+        }
+      }
+
       setCurrentUser((prev) => ({ ...payload.currentUser, userEmail: prev.userEmail }))
       setKpis(payload.kpis)
       setOwnerSummary(payload.ownerSummary)
@@ -407,6 +437,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         setNextCursor(null)
       }
     } finally {
+      // Se o fetch foi abortado (ex: novo filtro aplicado enquanto este estava em voo),
+      // não alterar o estado de loading — o fetch substituto já assumiu o controle.
+      if (controller.signal.aborted) return
       if (reset) setLoadingInitial(false)
       setLoadingMore(false)
     }
@@ -414,19 +447,22 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
   useEffect(() => {
     setNextCursor(null)
+    parentRef.current?.scrollTo({ top: 0 })
     fetchWorkspace(true)
     return () => fetchAbortRef.current?.abort()
   }, [filters.periodMode, filters.year, filters.month, filters.startDate, filters.endDate, filters.q, filters.status, filters.responsavel, filters.unidade, filters.prioridade, filters.tipoOrdem])
 
-  const selectedSet = useMemo(() => new Set(selectedNotaIds), [selectedNotaIds])
   const rowsWithLinkedNote = useMemo(
     () => rows.filter((row) => Boolean(getRowNotaId(row))),
     [rows]
   )
-  const allLoadedSelected = rowsWithLinkedNote.length > 0 && rowsWithLinkedNote.every((row) => {
-    const notaId = getRowNotaId(row)
-    return notaId ? selectedSet.has(notaId) : false
-  })
+  const allLoadedSelected = useMemo(
+    () => rowsWithLinkedNote.length > 0 && rowsWithLinkedNote.every((row) => {
+      const notaId = getRowNotaId(row)
+      return notaId ? selectedNotaIdsSet.has(notaId) : false
+    }),
+    [rowsWithLinkedNote, selectedNotaIdsSet]
+  )
 
   function toggleSelection(notaId: string) {
     const normalizedNotaId = normalizeNotaId(notaId)
@@ -680,13 +716,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                   cargo={ownerCargo}
                   active={active}
                   onClick={() => toggleOwnerFilter(ownerKey)}
-                  primaryMetric={{
-                    id: 'total',
-                    label: 'Total de ordens',
-                    value: formatNumber(owner.total),
-                    tone: 'info',
-                    icon: FolderKanban,
-                  }}
                   secondaryMetrics={[
                     {
                       id: 'recentes',
@@ -712,7 +741,8 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                   ]}
                   summary={(
                     <>
-                      <span className="font-semibold">{formatNumber(owner.total)}</span> de ordens
+                      <span className="text-base font-bold text-foreground">{formatNumber(owner.total)}</span>
+                      <span> de ordens</span>
                     </>
                   )}
                 />
@@ -937,7 +967,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             {virtualRows.map((virtualRow) => {
               const row = rows[virtualRow.index]
               const notaId = getRowNotaId(row)
-              const selected = notaId ? selectedSet.has(notaId) : false
+              const selected = notaId ? selectedNotaIdsSet.has(notaId) : false
 
               return (
                 <div

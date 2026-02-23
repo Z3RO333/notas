@@ -92,10 +92,14 @@ export function isNaoRealizada(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_
   return normalizeRawStatus(row) === RAW_NAO_REALIZADA
 }
 
+export function isEmProcessamento(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
+  return normalizeRawStatus(row) === 'EM_PROCESSAMENTO'
+}
+
 function isEmExecucao(row: Pick<OrdemNotaAcompanhamento, 'status_ordem' | 'status_ordem_raw'>): boolean {
   const inExecutionStatus = row.status_ordem === 'em_tratativa' || row.status_ordem === 'desconhecido'
   if (!inExecutionStatus) return false
-  return !isEmAvaliacao(row) && !isNaoRealizada(row)
+  return !isEmAvaliacao(row) && !isNaoRealizada(row) && !isEmProcessamento(row)
 }
 
 export function getOrdersCriticalityLevel(total: number, criticalCount: number): CriticalityLevel {
@@ -110,7 +114,7 @@ export function getOrdersCriticalityLevel(total: number, criticalCount: number):
 
 export function getOrdersKpiValue(kpis: OrdemNotaKpis, key: OrdersKpiFilter): number {
   if (key === 'em_execucao') return kpis.qtd_em_tratativa_30d
-  if (key === 'em_aberto') return kpis.qtd_abertas_30d + kpis.qtd_em_tratativa_30d
+  if (key === 'em_aberto') return kpis.qtd_abertas_30d
   if (key === 'em_avaliacao') return kpis.qtd_em_avaliacao_30d
   if (key === 'avaliadas') return kpis.qtd_avaliadas_30d
   if (key === 'atrasadas') return kpis.qtd_antigas_7d_30d
@@ -120,7 +124,7 @@ export function getOrdersKpiValue(kpis: OrdemNotaKpis, key: OrdersKpiFilter): nu
 
 export function matchOrdersKpi(row: OrdemNotaAcompanhamento, key: OrdersKpiFilter): boolean {
   if (key === 'em_execucao') return isEmExecucao(row)
-  if (key === 'em_aberto') return row.status_ordem === 'aberta' || isEmExecucao(row)
+  if (key === 'em_aberto') return row.status_ordem === 'aberta' || isEmProcessamento(row)
   if (key === 'em_avaliacao') return isEmAvaliacao(row)
   if (key === 'avaliadas') return isAvaliada(row)
   if (key === 'atrasadas') {

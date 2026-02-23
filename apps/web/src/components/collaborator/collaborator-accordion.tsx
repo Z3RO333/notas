@@ -85,7 +85,7 @@ export function CollaboratorAccordion({
                 <div className="space-y-2">
                   <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                     <LayoutGrid className="h-3.5 w-3.5" />
-                    Visualizacao em cards
+                    Visualização em cards
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {sortedNotas.map((nota) => (

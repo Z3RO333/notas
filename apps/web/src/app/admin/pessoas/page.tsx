@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { CollaboratorPanel } from '@/components/collaborator/collaborator-panel'
 import { buildAgingCounts } from '@/lib/collaborator/metrics'
+import { resolveAvatarUrl } from '@/lib/collaborator/avatar-presentation'
 import type { CargaAdministrador, NotaPanelData } from '@/lib/types/database'
 import type { CollaboratorData } from '@/lib/types/collaborator'
 
@@ -17,7 +18,7 @@ function toCargaCollaboratorData(c: CargaAdministrador, notas: NotaPanelData[]):
     nome: c.nome,
     ativo: c.ativo,
     max_notas: c.max_notas,
-    avatar_url: c.avatar_url,
+    avatar_url: resolveAvatarUrl({ name: c.nome, avatarUrl: c.avatar_url }),
     especialidade: c.especialidade,
     recebe_distribuicao: c.recebe_distribuicao,
     em_ferias: c.em_ferias,
@@ -49,10 +50,7 @@ export default async function PessoasPage() {
   const allCarga = (cargaResult.data ?? []) as CargaAdministrador[]
   const notas = (notasResult.data ?? []) as NotaPanelData[]
 
-  const notaAdminIds = new Set(notas.map((n) => n.administrador_id).filter(Boolean))
-  const carga = allCarga.filter(
-    (admin) => admin.recebe_distribuicao || !admin.ativo || admin.em_ferias || admin.qtd_abertas > 0 || notaAdminIds.has(admin.id)
-  )
+  const carga = allCarga
 
   const sorted = [...carga].sort((a, b) => {
     const aOk = a.ativo && a.recebe_distribuicao && !a.em_ferias
@@ -72,7 +70,7 @@ export default async function PessoasPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Gestao de Pessoas</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Gestão de Pessoas</h1>
         <p className="text-sm text-muted-foreground">
           Controle de disponibilidade, férias e carga operacional dos colaboradores.
         </p>

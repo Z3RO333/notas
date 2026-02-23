@@ -1,4 +1,4 @@
-import { AlertTriangle, Clock3, FolderKanban, TimerReset } from 'lucide-react'
+import { AlertTriangle, Clock3, TimerReset } from 'lucide-react'
 import { CollaboratorCardShell } from '@/components/collaborator/collaborator-card-shell'
 import { resolveCargoPresentationFromOwner } from '@/lib/collaborator/cargo-presentation'
 import type { OrderOwnerGroup } from '@/lib/types/database'
@@ -28,13 +28,6 @@ export function OrdersOwnerMiniCard({
       cargo={cargo}
       active={isExpanded}
       onClick={onClick}
-      primaryMetric={{
-        id: 'total',
-        label: 'Total de ordens',
-        value: group.total,
-        tone: 'info',
-        icon: FolderKanban,
-      }}
       secondaryMetrics={[
         {
           id: 'recentes',
@@ -60,7 +53,8 @@ export function OrdersOwnerMiniCard({
       ]}
       summary={(
         <>
-          <span className="font-semibold">{group.total}</span> de ordens
+          <span className="text-base font-bold text-foreground">{group.total}</span>
+          <span> de ordens</span>
         </>
       )}
     />
