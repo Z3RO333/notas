@@ -127,12 +127,16 @@ export function resolveCargoPresentationFromEspecialidade(
 export interface OwnerCargoInput {
   administrador_id: string | null | undefined
   nome: string | null | undefined
+  especialidade?: string | null
 }
 
 export function resolveCargoLabelFromOwner(owner: OwnerCargoInput): CollaboratorCargoLabel {
   if (isSyntheticUnassignedOwnerId(owner.administrador_id) || isUnassignedOwnerName(owner.nome)) {
     return 'SEM RESPONSÁVEL'
   }
+
+  const fromEspecialidade = resolveCargoLabelFromEspecialidade(owner.especialidade)
+  if (fromEspecialidade !== 'GERAL') return fromEspecialidade
 
   const normalizedName = normalizePersonName(owner.nome)
   if (isGustavoOwnerName(normalizedName)) return 'PREVENTIVAS'

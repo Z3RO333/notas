@@ -327,7 +327,7 @@ export async function GET(request: Request) {
     canViewGlobal
       ? supabase
         .from('administradores')
-        .select('id, nome, avatar_url')
+        .select('id, nome, avatar_url, especialidade')
         .eq('role', 'admin')
         .eq('ativo', true)
         .eq('em_ferias', false)

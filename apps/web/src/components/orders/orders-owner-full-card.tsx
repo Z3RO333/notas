@@ -24,6 +24,7 @@ export function OrdersOwnerFullCard({
   const cargo = resolveCargoPresentationFromOwner({
     administrador_id: group.id,
     nome: group.nome,
+    especialidade: group.especialidade ?? null,
   })
   const rows = useMemo(() => sortOrdersByPriority(group.rows), [group.rows])
   const rowsWithLinkedNote = rows.filter((row) => {
@@ -142,7 +143,7 @@ export function OrdersOwnerFullCard({
       ]}
       summary={(
         <>
-          <span className="font-semibold">{group.abertas}</span> ordens abertas
+          <span className="font-semibold">{group.total}</span> de ordens
         </>
       )}
       details={details}

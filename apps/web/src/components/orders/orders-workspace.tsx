@@ -42,6 +42,7 @@ import {
   resolveCargoPresentationFromOwner,
 } from '@/lib/collaborator/cargo-presentation'
 import type {
+  Especialidade,
   OrderOwnerGroup,
   OrdersOwnerSummary,
   OrdersPeriodModeOperational,
@@ -290,6 +291,13 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     }
     return map
   }, [reassignTargets])
+  const ownerEspecialidadeById = useMemo(() => {
+    const map = new Map<string, Especialidade | null>()
+    for (const target of reassignTargets) {
+      map.set(target.id, target.especialidade ?? null)
+    }
+    return map
+  }, [reassignTargets])
 
   const selectedNotaIdsSet = useMemo(() => new Set(selectedNotaIds), [selectedNotaIds])
 
@@ -317,6 +325,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         id: s.administrador_id ?? '__sem_atual__',
         nome: s.nome,
         avatar_url: s.avatar_url,
+        especialidade: s.administrador_id ? (ownerEspecialidadeById.get(s.administrador_id) ?? null) : null,
         rows: rowsByOwner.get(s.administrador_id ?? '__sem_atual__') ?? [],
         recentes: s.recentes,
         atencao: s.atencao,
@@ -325,7 +334,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         total: s.total,
       }))
       .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, 'pt-BR'))
-  }, [rows, ownerCardsViewMode, ownerSummary, filters.tipoOrdem])
+  }, [rows, ownerCardsViewMode, ownerSummary, filters.tipoOrdem, ownerEspecialidadeById])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -659,6 +668,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
               const ownerCargo = resolveCargoPresentationFromOwner({
                 administrador_id: owner.administrador_id,
                 nome: owner.nome,
+                especialidade: owner.administrador_id ? (ownerEspecialidadeById.get(owner.administrador_id) ?? null) : null,
               })
 
               return (
@@ -702,7 +712,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                   ]}
                   summary={(
                     <>
-                      <span className="font-semibold">{formatNumber(owner.abertas)}</span> ordens abertas
+                      <span className="font-semibold">{formatNumber(owner.total)}</span> de ordens
                     </>
                   )}
                 />

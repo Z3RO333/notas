@@ -110,7 +110,7 @@ export function getOrdersCriticalityLevel(total: number, criticalCount: number):
 
 export function getOrdersKpiValue(kpis: OrdemNotaKpis, key: OrdersKpiFilter): number {
   if (key === 'em_execucao') return kpis.qtd_em_tratativa_30d
-  if (key === 'em_aberto') return kpis.qtd_abertas_30d
+  if (key === 'em_aberto') return kpis.qtd_abertas_30d + kpis.qtd_em_tratativa_30d
   if (key === 'em_avaliacao') return kpis.qtd_em_avaliacao_30d
   if (key === 'avaliadas') return kpis.qtd_avaliadas_30d
   if (key === 'atrasadas') return kpis.qtd_antigas_7d_30d
@@ -120,7 +120,7 @@ export function getOrdersKpiValue(kpis: OrdemNotaKpis, key: OrdersKpiFilter): nu
 
 export function matchOrdersKpi(row: OrdemNotaAcompanhamento, key: OrdersKpiFilter): boolean {
   if (key === 'em_execucao') return isEmExecucao(row)
-  if (key === 'em_aberto') return row.status_ordem === 'aberta'
+  if (key === 'em_aberto') return row.status_ordem === 'aberta' || isEmExecucao(row)
   if (key === 'em_avaliacao') return isEmAvaliacao(row)
   if (key === 'avaliadas') return isAvaliada(row)
   if (key === 'atrasadas') {

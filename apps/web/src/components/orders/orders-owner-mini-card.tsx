@@ -17,6 +17,7 @@ export function OrdersOwnerMiniCard({
   const cargo = resolveCargoPresentationFromOwner({
     administrador_id: group.id,
     nome: group.nome,
+    especialidade: group.especialidade ?? null,
   })
 
   return (
@@ -59,7 +60,7 @@ export function OrdersOwnerMiniCard({
       ]}
       summary={(
         <>
-          <span className="font-semibold">{group.abertas}</span> ordens abertas
+          <span className="font-semibold">{group.total}</span> de ordens
         </>
       )}
     />
