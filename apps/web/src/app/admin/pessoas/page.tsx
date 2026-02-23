@@ -37,7 +37,7 @@ function toCargaCollaboratorData(c: CargaAdministrador, notas: NotaPanelData[]):
 export default async function PessoasPage() {
   const supabase = await createClient()
 
-  const [cargaResult, notasResult] = await Promise.all([
+  const [cargaResult, notasResult, adminsResult] = await Promise.all([
     supabase.from('vw_carga_administradores').select('*').order('nome'),
     supabase
       .from('notas_manutencao')
@@ -45,12 +45,22 @@ export default async function PessoasPage() {
       .not('administrador_id', 'is', null)
       .in('status', ['nova', 'em_andamento', 'encaminhada_fornecedor'])
       .order('data_criacao_sap', { ascending: true }),
+    supabase
+      .from('administradores')
+      .select('id')
+      .eq('role', 'admin'),
   ])
 
+  const firstError = [cargaResult.error, notasResult.error, adminsResult.error].find(Boolean)
+  if (firstError) throw firstError
+
   const allCarga = (cargaResult.data ?? []) as CargaAdministrador[]
+  const operationalAdminIds = new Set(
+    ((adminsResult.data ?? []) as Array<{ id: string }>).map((admin) => admin.id)
+  )
   const notas = (notasResult.data ?? []) as NotaPanelData[]
 
-  const carga = allCarga
+  const carga = allCarga.filter((admin) => operationalAdminIds.has(admin.id))
 
   const sorted = [...carga].sort((a, b) => {
     const aOk = a.ativo && a.recebe_distribuicao && !a.em_ferias

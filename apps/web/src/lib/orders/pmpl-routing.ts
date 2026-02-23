@@ -6,6 +6,11 @@ const REASSIGN_CHUNK_SIZE = 200
 const PMPL_CONFIG_TYPE = 'PMPL'
 const REFRIGERACAO_ESPECIALIDADE = 'refrigeracao'
 const SUELEM_EMAIL = 'suelemsilva@bemol.com.br'
+const GUSTAVO_EMAIL = 'gustavoandrade@bemol.com.br'
+const REFRIGERACAO_FALLBACK_GESTOR_EMAILS = [
+  'walterrodrigues@bemol.com.br',
+  'danieldamasceno@bemol.com.br',
+] as const
 
 const FIXED_OWNER_EMAIL_BY_KEY = {
   brenda: 'brendafonseca@bemol.com.br',
@@ -144,8 +149,27 @@ function isRoleEligible(role: string | null | undefined): role is UserRole {
 function isAssignable(admin: AdminRoutingRecord | null): admin is AdminRoutingRecord {
   if (!admin) return false
   if (!admin.ativo) return false
-  if (!isRoleEligible(admin.role)) return false
+  if (admin.role !== 'admin') return false
   return !isVacationActive(admin)
+}
+
+function isPmplOwnerAssignable(admin: AdminRoutingRecord | null): admin is AdminRoutingRecord {
+  if (!admin) return false
+  if (!admin.ativo) return false
+  if (isVacationActive(admin)) return false
+
+  const email = normalizeEmail(admin.email)
+  return admin.role === 'admin' || email === GUSTAVO_EMAIL
+}
+
+function isRefrigeracaoFallbackGestor(admin: AdminRoutingRecord | null): admin is AdminRoutingRecord {
+  if (!admin) return false
+  if (!admin.ativo) return false
+  if (admin.role !== 'gestor') return false
+  if (isVacationActive(admin)) return false
+
+  const email = normalizeEmail(admin.email)
+  return REFRIGERACAO_FALLBACK_GESTOR_EMAILS.some((candidate) => candidate === email)
 }
 
 function asAdminRoutingRecord(row: Partial<AdminRoutingRecord>): AdminRoutingRecord | null {
@@ -306,19 +330,13 @@ async function fetchAdminByEmail(supabase: RoutingSupabase, email: string): Prom
   return rows[0] ?? null
 }
 
-async function fetchFirstEligibleGestor(supabase: RoutingSupabase): Promise<AdminRoutingRecord | null> {
-  const gestores = await fetchAdministradoresWithVacationFallback(supabase, (columns) => (
-    supabase
-      .from('administradores')
-      .select(columns)
-      .eq('role', 'gestor')
-      .eq('ativo', true)
-      .order('nome', { ascending: true })
-      .limit(50)
-  ))
-
-  for (const gestor of gestores) {
-    if (!isVacationActive(gestor)) return gestor
+async function fetchFirstEligibleGestorByEmailPriority(
+  supabase: RoutingSupabase,
+  emails: readonly string[]
+): Promise<AdminRoutingRecord | null> {
+  for (const email of emails) {
+    const admin = await fetchAdminByEmail(supabase, email)
+    if (isRefrigeracaoFallbackGestor(admin)) return admin
   }
 
   return null
@@ -460,14 +478,15 @@ export async function resolveCurrentPmplOwner(supabase: RoutingSupabase): Promis
   let currentOwner: AdminRoutingRecord | null = null
   let fallbackGestor: AdminRoutingRecord | null = null
 
-  if (isAssignable(configuredResponsavel)) {
+  if (isPmplOwnerAssignable(configuredResponsavel)) {
     currentOwner = configuredResponsavel
-  } else if (isAssignable(configuredSubstituto)) {
+  } else if (isPmplOwnerAssignable(configuredSubstituto)) {
     currentOwner = configuredSubstituto
   } else {
-    fallbackGestor = await fetchFirstEligibleGestor(supabase)
-    if (fallbackGestor) {
-      currentOwner = fallbackGestor
+    const gustavo = await fetchAdminByEmail(supabase, GUSTAVO_EMAIL)
+    if (isPmplOwnerAssignable(gustavo)) {
+      currentOwner = gustavo
+      fallbackGestor = gustavo
     }
   }
 
@@ -509,9 +528,12 @@ export async function applyAutomaticOrdersRouting({
   }
 
   const pmplResolution = await resolveCurrentPmplOwner(supabase)
-  const fallbackGestor = pmplResolution.fallbackGestor ?? await fetchFirstEligibleGestor(supabase)
   const suelemAdmin = await fetchAdminByEmail(supabase, SUELEM_EMAIL)
-  const refrigeracaoOwner = isAssignable(suelemAdmin) ? suelemAdmin : fallbackGestor
+  const refrigeracaoFallbackGestor = await fetchFirstEligibleGestorByEmailPriority(
+    supabase,
+    REFRIGERACAO_FALLBACK_GESTOR_EMAILS
+  )
+  const refrigeracaoOwner = isAssignable(suelemAdmin) ? suelemAdmin : refrigeracaoFallbackGestor
   const refrigeracaoKeywords = await fetchRefrigeracaoKeywords(supabase)
 
   let routingRows: RoutingCandidateRow[] = []
