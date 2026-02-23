@@ -222,6 +222,31 @@ export async function reatribuirOrdensSelecionadas(params: {
   const movedCount = movedRows.length
   const skippedCount = Math.max(uniqueNotaIds.length - movedCount, 0)
 
+  try {
+    await applyAutomaticOrdersRouting({
+      supabase,
+      gestorId,
+      debug: process.env.DEBUG_ORDERS_ROUTING === '1' || process.env.DEBUG_ORDERS_CD_ROUTING === '1',
+      motivo: params.motivo ?? 'Realinhamento automático pós-redistribuição manual de ordens',
+    })
+  } catch (routingError) {
+    console.error('Falha ao aplicar auto realocação após redistribuição manual de ordens:', routingError)
+  }
+
+  const { data: finalAssignmentsData, error: finalAssignmentsError } = await supabase
+    .from('notas_manutencao')
+    .select('id, administrador_id')
+    .in('id', uniqueNotaIds)
+
+  if (finalAssignmentsError) throw new Error(finalAssignmentsError.message)
+
+  const finalRows = ((finalAssignmentsData ?? []) as Array<{ id: string; administrador_id: string | null }>)
+    .filter((row) => Boolean(row.administrador_id))
+    .map((row) => ({
+      nota_id: row.id,
+      administrador_destino_id: row.administrador_id as string,
+    }))
+
   await logAudit(supabase, gestorId, 'reatribuir_ordens_lote_checkbox', null, {
     modo: params.modo,
     motivo: params.motivo ?? null,
@@ -234,7 +259,7 @@ export async function reatribuirOrdensSelecionadas(params: {
 
   revalidateCockpitPaths()
   return {
-    rows: movedRows,
+    rows: finalRows,
     movedCount,
     skippedCount,
   }

@@ -34,6 +34,24 @@ describe('cargo-presentation', () => {
     expect(resolveCargoLabelFromOwner({ administrador_id: '6', nome: 'Fulano' })).toBe('GERAL')
   })
 
+  it('prioritizes owner especialidade when available', () => {
+    expect(resolveCargoLabelFromOwner({
+      administrador_id: '1',
+      nome: 'Fulano',
+      especialidade: 'refrigeracao',
+    })).toBe('REFRIGERAÇÃO')
+    expect(resolveCargoLabelFromOwner({
+      administrador_id: '2',
+      nome: 'Fulano',
+      especialidade: 'elevadores',
+    })).toBe('PREVENTIVAS')
+    expect(resolveCargoLabelFromOwner({
+      administrador_id: '3',
+      nome: 'Fulano',
+      especialidade: 'cd_taruma',
+    })).toBe('CD TURISMO')
+  })
+
   it('exposes cargo presentation metadata with icon and badge class', () => {
     const presentation = getCargoPresentationByLabel('PREVENTIVAS')
     expect(presentation.label).toBe('PREVENTIVAS')

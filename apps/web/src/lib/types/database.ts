@@ -21,6 +21,7 @@ export interface OrderReassignTarget {
   id: string
   nome: string
   avatar_url?: string | null
+  especialidade?: Especialidade | null
 }
 
 export interface OrderBulkReassignResult {
@@ -223,6 +224,7 @@ export interface OrderOwnerGroup {
   id: string
   nome: string
   avatar_url: string | null
+  especialidade?: Especialidade | null
   rows: OrdemNotaAcompanhamento[]
   recentes: number
   atencao: number
