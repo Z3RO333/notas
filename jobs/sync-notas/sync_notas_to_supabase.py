@@ -51,6 +51,7 @@ PMPL_STANDALONE_TIPO_ORDENS = ("PMPL", "PMOS")  # tipos importados standalone da
 ORDERS_REF_V2_TOLERATED_FAILURES = 3
 ORDERS_REF_V2_RUNTIME_JOB_NAME = "sync_notas_to_supabase"
 ORDERS_REF_V2_RUNTIME_STATE_TABLE = "sync_job_runtime_state"
+ORDERS_REF_V2_LOOKBACK_DAYS = 2
 
 OPEN_STATUS = {"aberta", "em_tratativa", "desconhecido"}
 
@@ -222,6 +223,23 @@ def _normalize_iso_datetime(value) -> str | None:
         parsed = parsed.astimezone(timezone.utc)
 
     return parsed.isoformat()
+
+
+def _is_statement_timeout_error(error: Exception) -> bool:
+    text = str(error).lower()
+    return "statement timeout" in text and ("57014" in text or "canceling statement due to statement timeout" in text)
+
+
+def _is_missing_rpc_error(exc: Exception, rpc_name: str) -> bool:
+    text = str(exc).lower()
+    return (
+        "pgrst202" in text
+        or "42883" in text
+        or (
+            rpc_name.lower() in text
+            and ("not found" in text or "does not exist" in text)
+        )
+    )
 
 
 def _calculate_maintenance_reference_completeness(candidate: dict) -> int:
@@ -421,6 +439,20 @@ def get_pmpl_standalone_window_days(spark: SparkSession) -> int:
     return max(parsed, 1)
 
 
+def get_orders_ref_v2_lookback_days(spark: SparkSession) -> int:
+    raw = spark.conf.get("cockpit.sync.orders_ref_v2_lookback_days", str(ORDERS_REF_V2_LOOKBACK_DAYS))
+    try:
+        parsed = int(raw)
+    except ValueError:
+        logger.warning(
+            "Valor inválido em cockpit.sync.orders_ref_v2_lookback_days=%s. Usando %s.",
+            raw,
+            ORDERS_REF_V2_LOOKBACK_DAYS,
+        )
+        return ORDERS_REF_V2_LOOKBACK_DAYS
+    return max(parsed, 0)
+
+
 def create_sync_log(spark: SparkSession) -> str:
     """Cria entrada no sync_log e retorna o ID."""
     sync_id = str(uuid4())
@@ -459,6 +491,21 @@ def get_bootstrap_mode(spark: SparkSession) -> str:
         )
         return DEFAULT_BOOTSTRAP_MODE
     return mode
+
+
+def get_orders_ref_v2_watermark() -> str | None:
+    """Busca o ultimo last_seen_at da referência v2 no Supabase."""
+    result = (
+        supabase.table("ordens_manutencao_referencia")
+        .select("last_seen_at")
+        .not_.is_("last_seen_at", "null")
+        .order("last_seen_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if result.data and result.data[0].get("last_seen_at"):
+        return result.data[0]["last_seen_at"]
+    return None
 
 
 def has_bootstrap_checkpoint(sync_start_date: str) -> bool:
@@ -510,6 +557,17 @@ def should_run_full_bootstrap(bootstrap_mode: str, sync_start_date: str) -> bool
         sync_start_date,
     )
     return True
+
+
+def _build_orders_maintenance_data_extracao_expr(spark: SparkSession) -> str:
+    existing = _resolve_existing_columns(spark, ORDERS_MAINTENANCE_SOURCE_TABLE, [ORDERS_MAINTENANCE_EXTRACTION_COLUMN])
+    if not existing:
+        logger.warning(
+            "Nenhuma coluna de data extração encontrada na tabela %s. Coluna esperada=%s",
+            ORDERS_MAINTENANCE_SOURCE_TABLE,
+            ORDERS_MAINTENANCE_EXTRACTION_COLUMN,
+        )
+    return _build_date_expr_from_columns(existing)
 
 
 def get_orders_ref_v2_failure_streak() -> int:
@@ -1178,8 +1236,30 @@ def upsert_orders_document_reference(sync_id: str, references: list[dict]) -> tu
     return inserted_count, updated_count
 
 
-def read_orders_maintenance_reference(spark: SparkSession) -> tuple[list[dict], dict]:
+def read_orders_maintenance_reference(
+    spark: SparkSession,
+    sync_start_date: str,
+    lookback_days: int,
+) -> tuple[list[dict], dict]:
     """Lê referência de ordens/notas/tipo/texto/centro da fonte silver."""
+    watermark_raw = get_orders_ref_v2_watermark()
+    watermark_date = _normalize_iso_date(watermark_raw)
+
+    if watermark_date:
+        effective_start_date = (date.fromisoformat(watermark_date) - timedelta(days=lookback_days)).isoformat()
+        effective_start = max(effective_start_date, sync_start_date)
+    else:
+        effective_start = sync_start_date
+
+    data_extracao_expr = _build_orders_maintenance_data_extracao_expr(spark)
+    logger.info(
+        "Leitura referência manutenção v2: sync_start_date=%s, watermark=%s, lookback_days=%s, effective_start=%s",
+        sync_start_date,
+        watermark_date,
+        lookback_days,
+        effective_start,
+    )
+
     df = spark.sql(f"""
         SELECT
           {ORDERS_MAINTENANCE_ORDER_COLUMN} AS ORDEM,
@@ -1190,6 +1270,10 @@ def read_orders_maintenance_reference(spark: SparkSession) -> tuple[list[dict], 
           {ORDERS_MAINTENANCE_EXTRACTION_COLUMN} AS DATA_EXTRACAO
         FROM {ORDERS_MAINTENANCE_SOURCE_TABLE}
         WHERE {ORDERS_MAINTENANCE_ORDER_COLUMN} IS NOT NULL
+          AND (
+            {data_extracao_expr} >= date('{effective_start}')
+            OR {data_extracao_expr} IS NULL
+          )
     """)
 
     rows = df.collect()
@@ -1270,6 +1354,8 @@ def read_orders_maintenance_reference(spark: SparkSession) -> tuple[list[dict], 
         "invalid_type": invalid_type,
         "dedupe_replaced": dedupe_replaced,
         "dedupe_discarded": dedupe_discarded,
+        "effective_start": effective_start,
+        "watermark": watermark_date,
     }
 
 
@@ -1386,6 +1472,42 @@ def run_standalone_owner_assignment() -> dict:
     return metrics
 
 
+def run_standalone_pmpl_owner_realign() -> dict:
+    """Realinha ordens standalone PMPL para o responsável PMPL configurado."""
+    rpc_name = "realinhar_responsavel_pmpl_standalone"
+    try:
+        result = supabase.rpc(rpc_name, {}).execute()
+    except Exception as exc:
+        if _is_missing_rpc_error(exc, rpc_name):
+            logger.warning(
+                "RPC %s não encontrada no banco. Pulando realinhamento PMPL standalone.",
+                rpc_name,
+            )
+            return {
+                "rpc_disponivel": False,
+                "total_candidatas": 0,
+                "reatribuicoes": 0,
+                "destino_id": None,
+            }
+        raise
+
+    row = (result.data or [{}])[0]
+    metrics = {
+        "rpc_disponivel": True,
+        "total_candidatas": int(row.get("total_candidatas") or 0),
+        "reatribuicoes": int(row.get("reatribuicoes") or 0),
+        "destino_id": row.get("destino_id"),
+    }
+
+    logger.info(
+        "Standalone PMPL realign -> candidatas=%s reatribuicoes=%s destino=%s",
+        metrics["total_candidatas"],
+        metrics["reatribuicoes"],
+        metrics["destino_id"],
+    )
+    return metrics
+
+
 def finalize_sync_log(
     sync_id: str,
     read_count: int,
@@ -1424,6 +1546,7 @@ def main():
     bootstrap_mode = get_bootstrap_mode(spark)
     pmpl_min_age_days = get_pmpl_min_age_days(spark)
     pmpl_standalone_window_days = get_pmpl_standalone_window_days(spark)
+    orders_ref_v2_lookback_days = get_orders_ref_v2_lookback_days(spark)
 
     try:
         supabase.table("sync_log").select("id").limit(1).execute()
@@ -1447,6 +1570,8 @@ def main():
         "invalid_type": 0,
         "dedupe_replaced": 0,
         "dedupe_discarded": 0,
+        "effective_start": None,
+        "watermark": None,
     }
     ordens_ref_v2_inseridas = 0
     ordens_ref_v2_atualizadas = 0
@@ -1465,6 +1590,12 @@ def main():
         "sem_destino": 0,
         "regras_refrigeracao_encontradas": 0,
         "admins_refrigeracao_elegiveis": 0,
+    }
+    standalone_pmpl_realign_metrics = {
+        "rpc_disponivel": False,
+        "total_candidatas": 0,
+        "reatribuicoes": 0,
+        "destino_id": None,
     }
 
     try:
@@ -1512,16 +1643,33 @@ def main():
         # Fonte v2 (manutencao.silver.selecao_ordens_manutencao):
         # dedupe por completude + data_extracao e enriquecimento direto da tabela operacional.
         try:
-            orders_ref_v2_reference, orders_ref_v2_metrics = read_orders_maintenance_reference(spark)
+            orders_ref_v2_reference, orders_ref_v2_metrics = read_orders_maintenance_reference(
+                spark,
+                sync_start_date=sync_start_date,
+                lookback_days=orders_ref_v2_lookback_days,
+            )
             ordens_ref_v2_inseridas, ordens_ref_v2_atualizadas = upsert_orders_maintenance_reference(
                 sync_id,
                 orders_ref_v2_reference,
             )
-            orders_ref_v2_enrichment_metrics = run_orders_maintenance_reference_enrichment()
-            orders_ref_v2_status = "success"
-            orders_ref_v2_failure_streak = 0
-            orders_ref_v2_error = None
-            set_orders_ref_v2_failure_streak(0, None)
+            try:
+                orders_ref_v2_enrichment_metrics = run_orders_maintenance_reference_enrichment()
+                orders_ref_v2_status = "success"
+                orders_ref_v2_failure_streak = 0
+                orders_ref_v2_error = None
+                set_orders_ref_v2_failure_streak(0, None)
+            except Exception as enrich_exc:
+                if _is_statement_timeout_error(enrich_exc):
+                    orders_ref_v2_status = "error_tolerated"
+                    orders_ref_v2_failure_streak = 0
+                    orders_ref_v2_error = f"{type(enrich_exc).__name__}: {enrich_exc}"
+                    set_orders_ref_v2_failure_streak(0, orders_ref_v2_error)
+                    logger.warning(
+                        "Timeout no enriquecimento v2 (57014). Mantendo sync ativo e zerando streak. erro=%s",
+                        orders_ref_v2_error,
+                    )
+                else:
+                    raise
         except Exception as ref_v2_exc:
             previous_streak = get_orders_ref_v2_failure_streak()
             orders_ref_v2_failure_streak = previous_streak + 1
@@ -1542,6 +1690,7 @@ def main():
                 ) from ref_v2_exc
 
         standalone_owner_metrics = run_standalone_owner_assignment()
+        standalone_pmpl_realign_metrics = run_standalone_pmpl_owner_realign()
 
         metadata = {
             "window_days": window_days,
@@ -1577,6 +1726,9 @@ def main():
             "orders_ref_v2_invalid_type": orders_ref_v2_metrics["invalid_type"],
             "orders_ref_v2_dedupe_replaced": orders_ref_v2_metrics["dedupe_replaced"],
             "orders_ref_v2_dedupe_discarded": orders_ref_v2_metrics["dedupe_discarded"],
+            "orders_ref_v2_effective_start": orders_ref_v2_metrics["effective_start"],
+            "orders_ref_v2_watermark": orders_ref_v2_metrics["watermark"],
+            "orders_ref_v2_lookback_days": orders_ref_v2_lookback_days,
             "orders_ref_v2_inseridas": ordens_ref_v2_inseridas,
             "orders_ref_v2_atualizadas": ordens_ref_v2_atualizadas,
             "orders_ref_v2_ordens_atualizadas_total": orders_ref_v2_enrichment_metrics["ordens_atualizadas_total"],
@@ -1591,6 +1743,10 @@ def main():
             "standalone_owner_sem_destino": standalone_owner_metrics["sem_destino"],
             "standalone_owner_regras_refrigeracao_encontradas": standalone_owner_metrics["regras_refrigeracao_encontradas"],
             "standalone_owner_admins_refrigeracao_elegiveis": standalone_owner_metrics["admins_refrigeracao_elegiveis"],
+            "standalone_pmpl_realign_rpc_disponivel": standalone_pmpl_realign_metrics["rpc_disponivel"],
+            "standalone_pmpl_realign_total_candidatas": standalone_pmpl_realign_metrics["total_candidatas"],
+            "standalone_pmpl_realign_reatribuicoes": standalone_pmpl_realign_metrics["reatribuicoes"],
+            "standalone_pmpl_realign_destino_id": standalone_pmpl_realign_metrics["destino_id"],
         }
 
         finalize_sync_log(
@@ -1631,6 +1787,9 @@ def main():
                     "orders_ref_v2_invalid_type": orders_ref_v2_metrics["invalid_type"],
                     "orders_ref_v2_dedupe_replaced": orders_ref_v2_metrics["dedupe_replaced"],
                     "orders_ref_v2_dedupe_discarded": orders_ref_v2_metrics["dedupe_discarded"],
+                    "orders_ref_v2_effective_start": orders_ref_v2_metrics["effective_start"],
+                    "orders_ref_v2_watermark": orders_ref_v2_metrics["watermark"],
+                    "orders_ref_v2_lookback_days": orders_ref_v2_lookback_days,
                     "orders_ref_v2_inseridas": ordens_ref_v2_inseridas,
                     "orders_ref_v2_atualizadas": ordens_ref_v2_atualizadas,
                     "orders_ref_v2_ordens_atualizadas_total": orders_ref_v2_enrichment_metrics["ordens_atualizadas_total"],
@@ -1645,6 +1804,10 @@ def main():
                     "standalone_owner_sem_destino": standalone_owner_metrics["sem_destino"],
                     "standalone_owner_regras_refrigeracao_encontradas": standalone_owner_metrics["regras_refrigeracao_encontradas"],
                     "standalone_owner_admins_refrigeracao_elegiveis": standalone_owner_metrics["admins_refrigeracao_elegiveis"],
+                    "standalone_pmpl_realign_rpc_disponivel": standalone_pmpl_realign_metrics["rpc_disponivel"],
+                    "standalone_pmpl_realign_total_candidatas": standalone_pmpl_realign_metrics["total_candidatas"],
+                    "standalone_pmpl_realign_reatribuicoes": standalone_pmpl_realign_metrics["reatribuicoes"],
+                    "standalone_pmpl_realign_destino_id": standalone_pmpl_realign_metrics["destino_id"],
                 },
                 error=str(e),
             )

@@ -100,10 +100,12 @@ const PRIORIDADE_OPTIONS = [
 ]
 
 const OWNER_CARDS_VIEW_MODE_STORAGE_KEY = 'cockpit:ordens:owner-cards:view-mode'
-const FIXED_OWNER_CARD_ORDER = {
-  'Brenda': 0,
-  'Adriano': 1,
-} as const
+const FIXED_OWNER_CARD_ORDER_BY_NORMALIZED_NAME: Record<string, number> = {
+  'brenda': 0,
+  'brenda rodrigues': 0,
+  'adriano': 1,
+  'adriano bezerra': 1,
+}
 const GUSTAVO_OWNER_NAME = 'gustavo andrade'
 
 function normalizePersonName(value: string): string {
@@ -116,6 +118,10 @@ function normalizePersonName(value: string): string {
 
 function isGustavoOwner(ownerName: string): boolean {
   return normalizePersonName(ownerName) === GUSTAVO_OWNER_NAME
+}
+
+function getFixedOwnerCardRank(ownerName: string): number | undefined {
+  return FIXED_OWNER_CARD_ORDER_BY_NORMALIZED_NAME[normalizePersonName(ownerName)]
 }
 
 const CARGO_BADGE: Record<string, { color: string }> = {
@@ -514,12 +520,12 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     const items = ownerSummary.filter((owner) => (
       owner.total > 0
       || owner.administrador_id === null
-      || owner.nome in FIXED_OWNER_CARD_ORDER
+      || getFixedOwnerCardRank(owner.nome) !== undefined
     ))
 
     return items.sort((a, b) => {
-      const aRank = FIXED_OWNER_CARD_ORDER[a.nome as keyof typeof FIXED_OWNER_CARD_ORDER]
-      const bRank = FIXED_OWNER_CARD_ORDER[b.nome as keyof typeof FIXED_OWNER_CARD_ORDER]
+      const aRank = getFixedOwnerCardRank(a.nome)
+      const bRank = getFixedOwnerCardRank(b.nome)
 
       if (aRank !== undefined && bRank !== undefined) return aRank - bRank
       if (aRank !== undefined) return -1
