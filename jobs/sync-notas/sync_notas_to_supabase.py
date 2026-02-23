@@ -3,7 +3,7 @@ Databricks Job: Sync notas de manutencao do streaming para o Supabase.
 Roda a cada 5 minutos via Databricks Jobs scheduler.
 
 Fluxo:
-  1. Le notas novas/atualizadas de qmel_clean
+  1. Le notas novas/atualizadas de notas_qm
   2. Upsert no Supabase (tabela notas_manutencao)
   3. Registra ordens derivadas de notas (SAP + manual)
   4. Distribui apenas notas pendentes sem ordem
@@ -27,7 +27,7 @@ from supabase import Client, create_client
 # Secrets armazenados no Databricks scope "cockpit"
 SUPABASE_URL = dbutils.secrets.get(scope="cockpit", key="SUPABASE_URL")
 SUPABASE_SERVICE_KEY = dbutils.secrets.get(scope="cockpit", key="SUPABASE_SERVICE_ROLE_KEY")
-STREAMING_TABLE = "manutencao.streaming.qmel_clean"
+STREAMING_TABLE = "manutencao.streaming.notas_qm"
 PMPL_TABLE = "manutencao.gold.pmpl_pmos"
 ORDERS_DOCUMENT_SOURCE_TABLE = "manutencao.silver.mestre_dados_ordem"
 ORDERS_MAINTENANCE_SOURCE_TABLE = "manutencao.silver.selecao_ordens_manutencao"
@@ -1558,6 +1558,7 @@ def run_standalone_owner_assignment() -> dict:
         "responsaveis_preenchidos": int(row.get("responsaveis_preenchidos") or 0),
         "atribuicoes_refrigeracao": int(row.get("atribuicoes_refrigeracao") or 0),
         "atribuicoes_pmpl_config": int(row.get("atribuicoes_pmpl_config") or 0),
+        "atribuicoes_cd_fixo": int(row.get("atribuicoes_cd_fixo") or 0),
         "atribuicoes_fallback": int(row.get("atribuicoes_fallback") or 0),
         "sem_destino": int(row.get("sem_destino") or 0),
         "regras_refrigeracao_encontradas": int(row.get("regras_refrigeracao_encontradas") or 0),
@@ -1567,11 +1568,12 @@ def run_standalone_owner_assignment() -> dict:
     }
 
     logger.info(
-        "Standalone owner assignment -> candidatas=%s preenchidas=%s refrig=%s pmpl_cfg=%s fallback=%s sem_destino=%s",
+        "Standalone owner assignment -> candidatas=%s preenchidas=%s refrig=%s pmpl_cfg=%s cd_fixo=%s fallback=%s sem_destino=%s",
         metrics["total_candidatas"],
         metrics["responsaveis_preenchidos"],
         metrics["atribuicoes_refrigeracao"],
         metrics["atribuicoes_pmpl_config"],
+        metrics["atribuicoes_cd_fixo"],
         metrics["atribuicoes_fallback"],
         metrics["sem_destino"],
     )
@@ -1775,7 +1777,7 @@ def main():
             orders_document_reference,
         )
 
-        # Enriquece tipo_ordem para ordens sem tipo (vinculadas a notas via qmel_clean)
+        # Enriquece tipo_ordem para ordens sem tipo (vinculadas a notas via notas_qm)
         result_enrich = supabase.rpc("enriquecer_tipo_ordem_por_referencia", {}).execute()
         tipo_enriquecidas = int(result_enrich.data or 0)
         logger.info("tipo_ordem enriquecidas: %s", tipo_enriquecidas)

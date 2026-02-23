@@ -22,6 +22,7 @@ import { OrdersOwnerFullCard } from '@/components/orders/orders-owner-full-card'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { useToast } from '@/components/ui/toast'
 import {
   Select,
   SelectContent,
@@ -40,6 +41,7 @@ import {
   normalizePersonName,
   resolveCargoPresentationFromOwner,
 } from '@/lib/collaborator/cargo-presentation'
+import { copyToClipboard } from '@/lib/orders/copy'
 import type {
   Especialidade,
   OrderOwnerGroup,
@@ -122,6 +124,82 @@ function getFixedOwnerCardRank(ownerName: string): number | undefined {
 
 function sanitizeText(value: string): string {
   return value.trim()
+}
+
+function normalizeSearchToken(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+function isNumericSearchToken(value: string): boolean {
+  return /^\d+$/.test(value)
+}
+
+type SmartSearchMode = 'none' | 'ordem' | 'nota' | 'texto' | 'responsavel'
+
+interface SmartSearchResolution {
+  mode: SmartSearchMode
+  effectiveQ: string
+  derivedResponsavel: string | null
+  highlightQuery: string
+  matchedOwnerLabel: string | null
+}
+
+function resolveSmartSearch(
+  query: string,
+  ownerCandidates: Array<{ id: string; nome: string }>,
+  currentResponsavel: string,
+  canViewGlobal: boolean,
+): SmartSearchResolution {
+  const clean = sanitizeText(query)
+  if (!clean) {
+    return {
+      mode: 'none',
+      effectiveQ: '',
+      derivedResponsavel: null,
+      highlightQuery: '',
+      matchedOwnerLabel: null,
+    }
+  }
+
+  if (isNumericSearchToken(clean)) {
+    return {
+      mode: clean.length <= 7 ? 'nota' : 'ordem',
+      effectiveQ: clean,
+      derivedResponsavel: null,
+      highlightQuery: clean,
+      matchedOwnerLabel: null,
+    }
+  }
+
+  const normalized = normalizeSearchToken(clean)
+  if (
+    canViewGlobal
+    && (currentResponsavel === 'todos' || !currentResponsavel)
+    && normalized.length >= 3
+  ) {
+    const matches = ownerCandidates.filter((owner) => normalizeSearchToken(owner.nome).includes(normalized))
+    if (matches.length === 1) {
+      return {
+        mode: 'responsavel',
+        effectiveQ: '',
+        derivedResponsavel: matches[0].id,
+        highlightQuery: clean,
+        matchedOwnerLabel: matches[0].nome,
+      }
+    }
+  }
+
+  return {
+    mode: 'texto',
+    effectiveQ: clean,
+    derivedResponsavel: null,
+    highlightQuery: clean,
+    matchedOwnerLabel: null,
+  }
 }
 
 function formatIsoDate(value: string): string {
@@ -252,6 +330,7 @@ function mergeRows(prev: OrdemNotaAcompanhamento[], incoming: OrdemNotaAcompanha
 }
 
 export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspaceProps) {
+  const { toast } = useToast()
   const years = useMemo(() => makeYearOptions(), [])
   const [filters, setFilters] = useState<OrdersWorkspaceFilters>(initialFilters)
   const [searchInput, setSearchInput] = useState(initialFilters.q)
@@ -280,6 +359,8 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
   const fetchAbortRef = useRef<AbortController | null>(null)
   const parentRef = useRef<HTMLDivElement | null>(null)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const pendingSearchEnterActionRef = useRef(false)
   const canReassign = currentUser.canViewGlobal
   const batchSize = 100
 
@@ -299,6 +380,14 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   }, [reassignTargets])
 
   const selectedNotaIdsSet = useMemo(() => new Set(selectedNotaIds), [selectedNotaIds])
+  const searchOwnerCandidates = useMemo(
+    () => reassignTargets.map((target) => ({ id: target.id, nome: target.nome })),
+    [reassignTargets]
+  )
+  const smartSearch = useMemo(
+    () => resolveSmartSearch(filters.q, searchOwnerCandidates, filters.responsavel, currentUser.canViewGlobal),
+    [filters.q, searchOwnerCandidates, filters.responsavel, currentUser.canViewGlobal]
+  )
 
   const ownerGroups = useMemo((): OrderOwnerGroup[] => {
     if (ownerCardsViewMode !== 'cards') return []
@@ -339,9 +428,29 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     const timer = setTimeout(() => {
       const clean = sanitizeText(searchInput)
       setFilters((prev) => (prev.q === clean ? prev : { ...prev, q: clean }))
-    }, 250)
+    }, 300)
     return () => clearTimeout(timer)
   }, [searchInput])
+
+  useEffect(() => {
+    function handleSlashFocus(event: KeyboardEvent) {
+      if (event.key !== '/') return
+      if (event.ctrlKey || event.metaKey || event.altKey) return
+
+      const target = event.target as HTMLElement | null
+      if (target) {
+        const tagName = target.tagName.toLowerCase()
+        if (tagName === 'input' || tagName === 'textarea' || target.isContentEditable) return
+      }
+
+      event.preventDefault()
+      searchInputRef.current?.focus()
+      searchInputRef.current?.select()
+    }
+
+    window.addEventListener('keydown', handleSlashFocus)
+    return () => window.removeEventListener('keydown', handleSlashFocus)
+  }, [])
 
   useEffect(() => {
     const persisted = window.localStorage.getItem(OWNER_CARDS_VIEW_MODE_STORAGE_KEY)
@@ -374,13 +483,23 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     }
 
     const reqId = Math.random().toString(36).slice(2, 8)
+    const effectiveFilters: OrdersWorkspaceFilters = {
+      ...filters,
+      q: smartSearch.effectiveQ,
+      responsavel: smartSearch.derivedResponsavel ?? filters.responsavel,
+    }
+
     console.debug(`[ordens:fetch:start] reqId=${reqId} reset=${reset}`, {
-      filtros: { ...filters, q: filters.q ? '***' : '' },
+      filtros: {
+        ...effectiveFilters,
+        q: effectiveFilters.q ? '***' : '',
+        searchMode: smartSearch.mode,
+      },
       cursor: reset ? null : nextCursor,
     })
 
     try {
-      const params = buildWorkspaceParams(filters, reset ? null : nextCursor, batchSize)
+      const params = buildWorkspaceParams(effectiveFilters, reset ? null : nextCursor, batchSize)
       const response = await fetch(`/api/ordens/workspace?${params.toString()}`, {
         signal: controller.signal,
         cache: 'no-store',
@@ -426,6 +545,39 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       if (reset) {
         setRows(payload.rows)
         setSelectedNotaIds([])
+        if (pendingSearchEnterActionRef.current) {
+          pendingSearchEnterActionRef.current = false
+          const first = payload.rows[0]
+          if (!first) {
+            toast({
+              title: 'Nenhum resultado para copiar',
+              variant: 'info',
+            })
+          } else {
+            setDetailRow(first)
+            const target = getPrimaryCopyTarget(first)
+            if (!target) {
+              toast({
+                title: 'Resultado sem código copiável',
+                variant: 'info',
+              })
+            } else {
+              const copied = await copyToClipboard(target.value)
+              if (!copied) {
+                toast({
+                  title: `Falha ao copiar ${target.label}`,
+                  description: 'Não foi possível copiar para a área de transferência.',
+                  variant: 'error',
+                })
+              } else {
+                toast({
+                  title: `${target.label} ${target.value} copiada ✅`,
+                  variant: 'success',
+                })
+              }
+            }
+          }
+        }
       } else {
         setRows((prev) => mergeRows(prev, payload.rows))
       }
@@ -443,14 +595,28 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       if (reset) setLoadingInitial(false)
       setLoadingMore(false)
     }
-  }, [filters, nextCursor])
+  }, [filters, nextCursor, smartSearch.effectiveQ, smartSearch.derivedResponsavel, smartSearch.mode, toast])
 
   useEffect(() => {
     setNextCursor(null)
     parentRef.current?.scrollTo({ top: 0 })
     fetchWorkspace(true)
     return () => fetchAbortRef.current?.abort()
-  }, [filters.periodMode, filters.year, filters.month, filters.startDate, filters.endDate, filters.q, filters.status, filters.responsavel, filters.unidade, filters.prioridade, filters.tipoOrdem])
+  }, [
+    filters.periodMode,
+    filters.year,
+    filters.month,
+    filters.startDate,
+    filters.endDate,
+    filters.q,
+    filters.status,
+    filters.responsavel,
+    filters.unidade,
+    filters.prioridade,
+    filters.tipoOrdem,
+    smartSearch.effectiveQ,
+    smartSearch.derivedResponsavel,
+  ])
 
   const rowsWithLinkedNote = useMemo(
     () => rows.filter((row) => Boolean(getRowNotaId(row))),
@@ -611,6 +777,67 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     }))
   }
 
+  function getPrimaryCopyTarget(row: OrdemNotaAcompanhamento): { label: 'ORDEM' | 'NOTA'; value: string } | null {
+    const ordem = row.ordem_codigo?.trim()
+    if (ordem) return { label: 'ORDEM', value: ordem }
+    const nota = row.numero_nota?.trim()
+    if (nota) return { label: 'NOTA', value: nota }
+    return null
+  }
+
+  const copyFromRow = useCallback(async (row: OrdemNotaAcompanhamento | null | undefined) => {
+    if (!row) {
+      toast({
+        title: 'Nenhum resultado para copiar',
+        variant: 'info',
+      })
+      return
+    }
+
+    setDetailRow(row)
+    const target = getPrimaryCopyTarget(row)
+    if (!target) {
+      toast({
+        title: 'Resultado sem código copiável',
+        variant: 'info',
+      })
+      return
+    }
+
+    const copied = await copyToClipboard(target.value)
+    if (!copied) {
+      toast({
+        title: `Falha ao copiar ${target.label}`,
+        description: 'Não foi possível copiar para a área de transferência.',
+        variant: 'error',
+      })
+      return
+    }
+
+    toast({
+      title: `${target.label} ${target.value} copiada ✅`,
+      variant: 'success',
+    })
+  }, [toast])
+
+  const selectAndCopyFirstResult = useCallback(async () => {
+    await copyFromRow(rows[0])
+  }, [rows, copyFromRow])
+
+  function handleSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== 'Enter') return
+    event.preventDefault()
+
+    const clean = sanitizeText(searchInput)
+    if (clean !== filters.q) {
+      pendingSearchEnterActionRef.current = true
+      setFilters((prev) => (prev.q === clean ? prev : { ...prev, q: clean }))
+      return
+    }
+
+    void selectAndCopyFirstResult()
+  }
+
   return (
     <div className="space-y-4">
       {currentUser.canAccessPmpl && (
@@ -769,10 +996,12 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         )}
       </div>
 
-      <div className="grid gap-2 rounded-lg border p-3 lg:grid-cols-6">
+      <div className="sticky top-2 z-30 grid gap-2 rounded-lg border bg-background/95 p-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:grid-cols-6">
         <Input
+          ref={searchInputRef}
           value={searchInput}
           onChange={(event) => setSearchInput(event.target.value)}
+          onKeyDown={handleSearchKeyDown}
           placeholder="Buscar por nota, ordem ou descrição"
           className="lg:col-span-2"
         />
@@ -926,6 +1155,17 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             Atualizar
           </Button>
         </div>
+        {smartSearch.mode !== 'none' && (
+          <p className="text-[11px] text-muted-foreground lg:col-span-6">
+            {smartSearch.mode === 'responsavel'
+              ? `Busca inteligente ativa: responsável "${smartSearch.matchedOwnerLabel}".`
+              : smartSearch.mode === 'ordem'
+                ? 'Busca inteligente ativa: número longo priorizado como ORDEM.'
+                : smartSearch.mode === 'nota'
+                  ? 'Busca inteligente ativa: número curto priorizado como NOTA.'
+                  : 'Busca inteligente ativa: texto em descrição e termos relacionados.'}
+          </p>
+        )}
       </div>
 
       {canReassign && selectedNotaIds.length > 0 && (
@@ -979,6 +1219,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                     row={row}
                     selected={selected}
                     showCheckbox
+                    highlightQuery={smartSearch.highlightQuery}
                     onToggleSelection={toggleSelection}
                     showReassign={canReassign && reassignTargets.length > 0}
                     reassignProps={{
