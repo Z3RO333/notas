@@ -97,6 +97,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
 
   const [
     cargaResult,
+    adminIdsResult,
     syncResult,
     notasMetricsResult,
     fluxoResult,
@@ -110,6 +111,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
     reassignTargetsResult,
   ] = await Promise.all([
     supabase.from('vw_carga_administradores').select('*').order('nome'),
+    supabase.from('administradores').select('id').eq('role', 'admin'),
     supabase.from('sync_log').select('*').order('started_at', { ascending: false }).limit(1),
     supabase.rpc('calcular_metricas_notas_dashboard', {
       p_start_iso: period.startIso,
@@ -192,6 +194,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
 
   const firstError = [
     cargaResult.error,
+    adminIdsResult.error,
     syncResult.error,
     notasMetricsResult.error,
     fluxoResult.error,
@@ -206,7 +209,11 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
   ].find(Boolean)
   if (firstError) throw firstError
 
-  const carga = (cargaResult.data ?? []) as CargaAdministrador[]
+  const operationalAdminIds = new Set(
+    ((adminIdsResult.data ?? []) as Array<{ id: string }>).map((admin) => admin.id)
+  )
+  const carga = ((cargaResult.data ?? []) as CargaAdministrador[])
+    .filter((admin) => operationalAdminIds.has(admin.id))
   const notasMetrics = ((notasMetricsResult.data ?? {}) as Partial<DashboardNotasMetricsRpc>)
   const fluxoRows = (fluxoResult.data ?? []) as DashboardFluxoDiario90d[]
   const produtividadeRowsRaw = (produtividadeResult.data ?? []) as DashboardProdutividadePeriodoRpc[]

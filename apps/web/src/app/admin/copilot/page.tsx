@@ -51,6 +51,7 @@ export default async function CopilotPage() {
     radarResult,
     prodResult,
     cargaResult,
+    adminIdsResult,
     fluxoResult,
     openNotasResult,
     notasPanelResult,
@@ -62,6 +63,7 @@ export default async function CopilotPage() {
     supabase.from('vw_radar_colaborador').select('*').order('iso_score', { ascending: false }),
     supabase.from('vw_produtividade_detalhada').select('*').order('concluidas_30d', { ascending: false }),
     supabase.from('vw_carga_administradores').select('*').order('nome'),
+    supabase.from('administradores').select('id').eq('role', 'admin'),
     supabase.from('vw_dashboard_fluxo_diario_90d').select('*').order('dia', { ascending: true }),
     supabase.from('notas_manutencao').select(OPEN_NOTAS_FIELDS).in('status', OPEN_STATUSES),
     supabase
@@ -75,6 +77,25 @@ export default async function CopilotPage() {
       .is('administrador_id', null)
       .eq('status', 'nova'),
   ])
+
+  const firstError = [
+    isoAdminsResult.error,
+    isoGlobalResult.error,
+    radarResult.error,
+    prodResult.error,
+    cargaResult.error,
+    adminIdsResult.error,
+    fluxoResult.error,
+    openNotasResult.error,
+    notasPanelResult.error,
+    syncResult.error,
+    unassignedResult.error,
+  ].find(Boolean)
+  if (firstError) throw firstError
+
+  const operationalAdminIds = new Set(
+    ((adminIdsResult.data ?? []) as Array<{ id: string }>).map((admin) => admin.id)
+  )
 
   const ordensRows: Array<Pick<OrdemNotaAcompanhamento, 'unidade' | 'semaforo_atraso'>> = []
   for (let offset = 0; ; offset += ORDERS_FETCH_PAGE_SIZE) {
@@ -92,7 +113,8 @@ export default async function CopilotPage() {
   }
 
   const now = new Date()
-  const isoAdmins = (isoAdminsResult.data ?? []) as IsoAdminRow[]
+  const isoAdmins = ((isoAdminsResult.data ?? []) as IsoAdminRow[])
+    .filter((row) => operationalAdminIds.has(row.administrador_id))
   const isoGlobalRow = isoGlobalResult.data as IsoGlobal | null
   const isoGlobal: IsoGlobal = isoGlobalRow ?? {
     iso_score: 0,
@@ -101,8 +123,12 @@ export default async function CopilotPage() {
     total_abertas: 0,
     admins_criticos: 0,
   }
-  const radarRows = sortRadarRows((radarResult.data ?? []) as WorkloadRadarRow[])
-  const carga = (cargaResult.data ?? []) as CargaAdministrador[]
+  const radarRows = sortRadarRows(
+    ((radarResult.data ?? []) as WorkloadRadarRow[])
+      .filter((row) => operationalAdminIds.has(row.administrador_id))
+  )
+  const carga = ((cargaResult.data ?? []) as CargaAdministrador[])
+    .filter((admin) => operationalAdminIds.has(admin.id))
   const fluxoRows = (fluxoResult.data ?? []) as DashboardFluxoDiario90d[]
   const openNotas = (openNotasResult.data ?? []) as OpenNotaAgingRow[]
   const notasPanel = (notasPanelResult.data ?? []) as NotaPanelData[]
@@ -163,7 +189,9 @@ export default async function CopilotPage() {
 
   // Productivity
   const productivityRows = buildProductivityDetailRows(
-    (prodResult.data ?? []).map((r: Record<string, unknown>) => ({
+    (prodResult.data ?? [])
+      .filter((r: Record<string, unknown>) => operationalAdminIds.has(String(r.administrador_id ?? '')))
+      .map((r: Record<string, unknown>) => ({
       administrador_id: r.administrador_id as string,
       nome: r.nome as string,
       avatar_url: r.avatar_url as string | null,

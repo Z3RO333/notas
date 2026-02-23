@@ -110,6 +110,9 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
       .single(),
   ])
 
+  const preloadError = [cargaResult.error, adminsResult.error, latestSyncResult.error].find(Boolean)
+  if (preloadError) throw preloadError
+
   let notesQuery = supabase
     .from('vw_notas_sem_ordem')
     .select(NOTA_FIELDS)
@@ -147,12 +150,16 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
   const notesResult = await notesQuery.limit(5000)
 
   const allCarga = (cargaResult.data ?? []) as CargaAdministrador[]
+  const operationalAdminIds = new Set(
+    ((adminsResult.data ?? []) as Array<{ id: string }>).map((admin) => admin.id)
+  )
+  const operationalCarga = allCarga.filter((admin) => operationalAdminIds.has(admin.id))
   const notasFiltradas = (notesResult.data ?? []) as NotaPanelData[]
   const notasAtribuidas = notasFiltradas.filter((nota) => Boolean(nota.administrador_id))
   const notasSemAtribuir = notasFiltradas.filter((nota) => !nota.administrador_id)
 
   const notaAdminIds = new Set(notasAtribuidas.map((n) => n.administrador_id).filter(Boolean) as string[])
-  const carga = allCarga.filter((admin) => {
+  const carga = operationalCarga.filter((admin) => {
     // Admin não-gestor vê somente o próprio card
     if (!canViewGlobal) return currentAdminId ? admin.id === currentAdminId : false
     // Gestor vê todos os ativos com distribuição, inativos com notas, e admins com notas no período

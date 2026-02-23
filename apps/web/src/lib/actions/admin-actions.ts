@@ -94,6 +94,17 @@ async function logAudit(
 export async function toggleDistribuicao(adminId: string, valor: boolean, motivo?: string) {
   const { supabase, gestorId } = await getGestorContext()
 
+  const { data: targetAdmin, error: targetAdminError } = await supabase
+    .from('administradores')
+    .select('id, role')
+    .eq('id', adminId)
+    .single()
+
+  if (targetAdminError || !targetAdmin) throw new Error(targetAdminError?.message ?? 'Colaborador não encontrado')
+  if (targetAdmin.role === 'gestor' && valor) {
+    throw new Error('Gestor não pode receber distribuição')
+  }
+
   const { error } = await supabase
     .from('administradores')
     .update({
@@ -295,9 +306,13 @@ export async function salvarPessoaAdmin(params: SalvarPessoaAdminParams) {
 
   let targetId = params.id ?? null
   if (targetId) {
+    const updatePayload = role === 'gestor'
+      ? { ...payload, recebe_distribuicao: false }
+      : payload
+
     const { data, error } = await supabase
       .from('administradores')
-      .update(payload)
+      .update(updatePayload)
       .eq('id', targetId)
       .select('id')
       .single()
