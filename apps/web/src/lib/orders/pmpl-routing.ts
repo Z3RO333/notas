@@ -13,8 +13,8 @@ const FIXED_OWNER_EMAIL_BY_KEY = {
 } as const
 
 export const FIXED_OWNER_LABEL_BY_KEY = {
-  brenda: 'Brenda (CD MANAUS)',
-  adriano: 'Adriano (CD TARUMÃ)',
+  brenda: 'Brenda Rodrigues',
+  adriano: 'Adriano Bezerra',
 } as const
 
 const UNIT_TO_FIXED_OWNER_KEY = {
