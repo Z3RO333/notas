@@ -225,6 +225,46 @@ def _normalize_iso_datetime(value) -> str | None:
     return parsed.isoformat()
 
 
+def _has_source_closure_without_order(row_dict: dict) -> bool:
+    """Detecta nota encerrada/cancelada no SAP sem ordem vinculada.
+
+    DATA_CONCLUSAO futura costuma indicar previsão no SAP (não encerramento real),
+    então só consideramos fechamento por DATA_CONCLUSAO <= hoje (UTC).
+    """
+    ordem = _as_clean_text(row_dict.get("ORDEM"))
+    if ordem:
+        return False
+
+    data_encerramento = _normalize_iso_date(row_dict.get("DATA_ENC_NOTA"))
+    if data_encerramento:
+        return True
+
+    data_conclusao = _normalize_iso_date(row_dict.get("DATA_CONCLUSAO"))
+    if not data_conclusao:
+        return False
+
+    try:
+        return date.fromisoformat(data_conclusao) <= datetime.now(timezone.utc).date()
+    except ValueError:
+        return False
+
+
+def _has_future_source_closure_without_order(row_dict: dict) -> bool:
+    """Sinaliza DATA_CONCLUSAO futura sem ordem para diagnóstico."""
+    ordem = _as_clean_text(row_dict.get("ORDEM"))
+    if ordem:
+        return False
+
+    data_conclusao = _normalize_iso_date(row_dict.get("DATA_CONCLUSAO"))
+    if not data_conclusao:
+        return False
+
+    try:
+        return date.fromisoformat(data_conclusao) > datetime.now(timezone.utc).date()
+    except ValueError:
+        return False
+
+
 def _is_statement_timeout_error(error: Exception) -> bool:
     text = str(error).lower()
     return "statement timeout" in text and ("57014" in text or "canceling statement due to statement timeout" in text)
@@ -692,6 +732,8 @@ def read_new_notes(
 
     notes: list[dict] = []
     missing_centro = 0
+    source_closed_without_order = 0
+    source_future_closure_without_order = 0
 
     for row in rows:
         row_dict = row.asDict()
@@ -702,6 +744,12 @@ def read_new_notes(
         centro = _extract_centro_from_candidates(row_dict, NOTA_CENTRO_COLUMNS_CANDIDATES)
         if not centro:
             missing_centro += 1
+
+        source_closed = _has_source_closure_without_order(row_dict)
+        if source_closed:
+            source_closed_without_order += 1
+        elif _has_future_source_closure_without_order(row_dict):
+            source_future_closure_without_order += 1
 
         notes.append({
             "numero_nota": numero,
@@ -720,11 +768,22 @@ def read_new_notes(
             "status_sap": _as_clean_text(row_dict.get("STATUS_OBJ_ADMIN")),
             "conta_fornecedor": row_dict.get("N_CONTA_FORNECEDOR"),
             "autor_nota": row_dict.get("AUTOR_NOTA_QM_PM"),
+            "status": "cancelada" if source_closed else None,
             "raw_data": json.dumps(row_dict, default=str),
         })
 
     if missing_centro > 0:
         logger.warning("Notas sem centro no lote lido: %s", missing_centro)
+    if source_closed_without_order > 0:
+        logger.info(
+            "Notas com encerramento SAP e sem ordem no lote (serão marcadas como cancelada): %s",
+            source_closed_without_order,
+        )
+    if source_future_closure_without_order > 0:
+        logger.info(
+            "Notas com DATA_CONCLUSAO futura e sem ordem no lote (NÃO serão canceladas): %s",
+            source_future_closure_without_order,
+        )
 
     return notes
 
@@ -782,7 +841,9 @@ def upsert_notes(notes: list[dict], sync_id: str) -> tuple[int, int]:
     ]
 
     ordem_sap_preservada_count = 0
-    upsert_payload = []
+    status_cancelada_from_source_count = 0
+    upsert_payload_regular: list[dict] = []
+    upsert_payload_cancelada: list[dict] = []
     for note in deduped_notes:
         payload = {"numero_nota": note["numero_nota"]}
 
@@ -800,15 +861,22 @@ def upsert_notes(notes: list[dict], sync_id: str) -> tuple[int, int]:
 
             payload[field] = note[field]
 
-        upsert_payload.append(payload)
+        if note.get("status") == "cancelada":
+            payload["status"] = "cancelada"
+            status_cancelada_from_source_count += 1
+            upsert_payload_cancelada.append(payload)
+        else:
+            upsert_payload_regular.append(payload)
 
-    for i in range(0, len(upsert_payload), 500):
-        batch = upsert_payload[i:i + 500]
-        (
-            supabase.table("notas_manutencao")
-            .upsert(batch, on_conflict="numero_nota")
-            .execute()
-        )
+    # Evita lote misto (com/sem campo status), que pode virar status=NULL no PostgREST.
+    for payload_group in (upsert_payload_regular, upsert_payload_cancelada):
+        for i in range(0, len(payload_group), 500):
+            batch = payload_group[i:i + 500]
+            (
+                supabase.table("notas_manutencao")
+                .upsert(batch, on_conflict="numero_nota")
+                .execute()
+            )
 
     inserted_count = sum(1 for note in deduped_notes if note["numero_nota"] not in existing_numbers)
     updated_count = len(deduped_notes) - inserted_count
@@ -821,6 +889,11 @@ def upsert_notes(notes: list[dict], sync_id: str) -> tuple[int, int]:
         logger.info(
             "ordem_sap preservada por regra anti-null em %s nota(s).",
             ordem_sap_preservada_count,
+        )
+    if status_cancelada_from_source_count:
+        logger.info(
+            "status=cancelada aplicado por encerramento SAP sem ordem em %s nota(s).",
+            status_cancelada_from_source_count,
         )
 
     return inserted_count, updated_count
@@ -1454,7 +1527,31 @@ def run_orders_maintenance_reference_enrichment() -> dict:
 
 def run_standalone_owner_assignment() -> dict:
     """Atribui responsável para ordens standalone sem dono."""
-    result = supabase.rpc("atribuir_responsavel_ordens_standalone", {}).execute()
+    rpc_name = "atribuir_responsavel_ordens_standalone"
+    try:
+        result = supabase.rpc(rpc_name, {}).execute()
+    except Exception as exc:
+        if _is_statement_timeout_error(exc):
+            error_text = f"{type(exc).__name__}: {exc}"
+            logger.warning(
+                "Timeout no RPC %s (57014). Mantendo sync ativo e pulando atribuição standalone neste ciclo. erro=%s",
+                rpc_name,
+                error_text,
+            )
+            return {
+                "total_candidatas": 0,
+                "responsaveis_preenchidos": 0,
+                "atribuicoes_refrigeracao": 0,
+                "atribuicoes_pmpl_config": 0,
+                "atribuicoes_fallback": 0,
+                "sem_destino": 0,
+                "regras_refrigeracao_encontradas": 0,
+                "admins_refrigeracao_elegiveis": 0,
+                "timeout_tolerated": True,
+                "error": error_text[:2000],
+            }
+        raise
+
     row = (result.data or [{}])[0]
     metrics = {
         "total_candidatas": int(row.get("total_candidatas") or 0),
@@ -1465,6 +1562,8 @@ def run_standalone_owner_assignment() -> dict:
         "sem_destino": int(row.get("sem_destino") or 0),
         "regras_refrigeracao_encontradas": int(row.get("regras_refrigeracao_encontradas") or 0),
         "admins_refrigeracao_elegiveis": int(row.get("admins_refrigeracao_elegiveis") or 0),
+        "timeout_tolerated": False,
+        "error": None,
     }
 
     logger.info(
@@ -1496,6 +1595,21 @@ def run_standalone_pmpl_owner_realign() -> dict:
     try:
         result = supabase.rpc(rpc_name, {}).execute()
     except Exception as exc:
+        if _is_statement_timeout_error(exc):
+            error_text = f"{type(exc).__name__}: {exc}"
+            logger.warning(
+                "Timeout no RPC %s (57014). Mantendo sync ativo e pulando realinhamento PMPL standalone neste ciclo. erro=%s",
+                rpc_name,
+                error_text,
+            )
+            return {
+                "rpc_disponivel": True,
+                "total_candidatas": 0,
+                "reatribuicoes": 0,
+                "destino_id": None,
+                "timeout_tolerated": True,
+                "error": error_text[:2000],
+            }
         if _is_missing_rpc_error(exc, rpc_name):
             logger.warning(
                 "RPC %s não encontrada no banco. Pulando realinhamento PMPL standalone.",
@@ -1506,6 +1620,8 @@ def run_standalone_pmpl_owner_realign() -> dict:
                 "total_candidatas": 0,
                 "reatribuicoes": 0,
                 "destino_id": None,
+                "timeout_tolerated": False,
+                "error": None,
             }
         raise
 
@@ -1515,6 +1631,8 @@ def run_standalone_pmpl_owner_realign() -> dict:
         "total_candidatas": int(row.get("total_candidatas") or 0),
         "reatribuicoes": int(row.get("reatribuicoes") or 0),
         "destino_id": row.get("destino_id"),
+        "timeout_tolerated": False,
+        "error": None,
     }
 
     logger.info(
@@ -1608,12 +1726,16 @@ def main():
         "sem_destino": 0,
         "regras_refrigeracao_encontradas": 0,
         "admins_refrigeracao_elegiveis": 0,
+        "timeout_tolerated": False,
+        "error": None,
     }
     standalone_pmpl_realign_metrics = {
         "rpc_disponivel": False,
         "total_candidatas": 0,
         "reatribuicoes": 0,
         "destino_id": None,
+        "timeout_tolerated": False,
+        "error": None,
     }
 
     try:
@@ -1761,10 +1883,14 @@ def main():
             "standalone_owner_sem_destino": standalone_owner_metrics["sem_destino"],
             "standalone_owner_regras_refrigeracao_encontradas": standalone_owner_metrics["regras_refrigeracao_encontradas"],
             "standalone_owner_admins_refrigeracao_elegiveis": standalone_owner_metrics["admins_refrigeracao_elegiveis"],
+            "standalone_owner_timeout_tolerated": standalone_owner_metrics["timeout_tolerated"],
+            "standalone_owner_error": standalone_owner_metrics["error"],
             "standalone_pmpl_realign_rpc_disponivel": standalone_pmpl_realign_metrics["rpc_disponivel"],
             "standalone_pmpl_realign_total_candidatas": standalone_pmpl_realign_metrics["total_candidatas"],
             "standalone_pmpl_realign_reatribuicoes": standalone_pmpl_realign_metrics["reatribuicoes"],
             "standalone_pmpl_realign_destino_id": standalone_pmpl_realign_metrics["destino_id"],
+            "standalone_pmpl_realign_timeout_tolerated": standalone_pmpl_realign_metrics["timeout_tolerated"],
+            "standalone_pmpl_realign_error": standalone_pmpl_realign_metrics["error"],
         }
 
         finalize_sync_log(
@@ -1822,10 +1948,14 @@ def main():
                     "standalone_owner_sem_destino": standalone_owner_metrics["sem_destino"],
                     "standalone_owner_regras_refrigeracao_encontradas": standalone_owner_metrics["regras_refrigeracao_encontradas"],
                     "standalone_owner_admins_refrigeracao_elegiveis": standalone_owner_metrics["admins_refrigeracao_elegiveis"],
+                    "standalone_owner_timeout_tolerated": standalone_owner_metrics["timeout_tolerated"],
+                    "standalone_owner_error": standalone_owner_metrics["error"],
                     "standalone_pmpl_realign_rpc_disponivel": standalone_pmpl_realign_metrics["rpc_disponivel"],
                     "standalone_pmpl_realign_total_candidatas": standalone_pmpl_realign_metrics["total_candidatas"],
                     "standalone_pmpl_realign_reatribuicoes": standalone_pmpl_realign_metrics["reatribuicoes"],
                     "standalone_pmpl_realign_destino_id": standalone_pmpl_realign_metrics["destino_id"],
+                    "standalone_pmpl_realign_timeout_tolerated": standalone_pmpl_realign_metrics["timeout_tolerated"],
+                    "standalone_pmpl_realign_error": standalone_pmpl_realign_metrics["error"],
                 },
                 error=str(e),
             )
