@@ -6,6 +6,7 @@ import type {
   NotaStatus,
   SyncLog,
 } from '@/lib/types/database'
+import { resolveAvatarUrl } from '@/lib/collaborator/avatar-presentation'
 import type {
   DashboardAlert,
   DashboardKpiItem,
@@ -184,7 +185,7 @@ export function buildProductivityRanking(
       return {
         administrador_id: row.administrador_id,
         nome: row.nome,
-        avatar_url: row.avatar_url,
+        avatar_url: resolveAvatarUrl({ name: row.nome, avatarUrl: row.avatar_url }),
         especialidade: normalizeEspecialidade(row.especialidade),
         concluidas_30d: concluidas30d,
         concluidas_prev_30d: concluidasPrev30d,

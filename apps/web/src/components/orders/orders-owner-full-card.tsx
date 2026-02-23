@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { useMemo } from 'react'
-import { AlertTriangle, Clock3, FolderKanban, TimerReset } from 'lucide-react'
+import { AlertTriangle, Clock3, TimerReset } from 'lucide-react'
 import { CollaboratorCardShell } from '@/components/collaborator/collaborator-card-shell'
 import { resolveCargoPresentationFromOwner } from '@/lib/collaborator/cargo-presentation'
 import { getSemaforoClass, sortOrdersByPriority } from '@/lib/orders/metrics'
@@ -111,13 +111,6 @@ export function OrdersOwnerFullCard({
           Selecionar grupo
         </label>
       ) : null}
-      primaryMetric={{
-        id: 'total',
-        label: 'Total de ordens',
-        value: group.total,
-        tone: 'info',
-        icon: FolderKanban,
-      }}
       secondaryMetrics={[
         {
           id: 'recentes',
@@ -143,7 +136,8 @@ export function OrdersOwnerFullCard({
       ]}
       summary={(
         <>
-          <span className="font-semibold">{group.total}</span> de ordens
+          <span className="text-base font-bold text-foreground">{group.total}</span>
+          <span> de ordens</span>
         </>
       )}
       details={details}

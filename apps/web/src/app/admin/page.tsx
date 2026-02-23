@@ -24,6 +24,7 @@ import {
   getOrdersCriticalityLevel,
   workspaceKpisToOrdemNotaKpis,
 } from '@/lib/orders/metrics'
+import { resolveAvatarUrl } from '@/lib/collaborator/avatar-presentation'
 import type {
   CargaAdministrador,
   DashboardFluxoDiario90d,
@@ -212,7 +213,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
   const produtividadeRows: DashboardProdutividade60d[] = produtividadeRowsRaw.map((row) => ({
     administrador_id: row.administrador_id,
     nome: row.nome,
-    avatar_url: row.avatar_url,
+    avatar_url: resolveAvatarUrl({ name: row.nome, avatarUrl: row.avatar_url }),
     especialidade: row.especialidade as DashboardProdutividade60d['especialidade'],
     concluidas_30d: Number(row.concluidas_periodo ?? 0),
     concluidas_prev_30d: Number(row.concluidas_periodo_anterior ?? 0),
