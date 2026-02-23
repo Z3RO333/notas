@@ -59,6 +59,16 @@ function normalizeDateInput(value: string | null | undefined): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null
 }
 
+function isMissingRpcFunctionError(
+  error: { code?: string; message?: string; details?: string | null; hint?: string | null } | null | undefined,
+  functionName: string
+): boolean {
+  if (!error) return false
+  if (error.code === 'PGRST202' || error.code === '42883') return true
+  const haystack = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase()
+  return haystack.includes(functionName.toLowerCase()) && (haystack.includes('not found') || haystack.includes('does not exist'))
+}
+
 async function logAudit(
   supabase: Awaited<ReturnType<typeof createClient>>,
   gestorId: string,
@@ -387,6 +397,15 @@ export async function salvarConfigResponsavelPmpl(params: SalvarConfigResponsave
     })
   } catch (routingError) {
     console.error('Falha ao aplicar auto realocação após salvar configuração PMPL:', routingError)
+  }
+
+  try {
+    const { error: realignError } = await supabase.rpc('realinhar_responsavel_pmpl_standalone')
+    if (realignError && !isMissingRpcFunctionError(realignError, 'realinhar_responsavel_pmpl_standalone')) {
+      console.error('Falha ao realinhar PMPL standalone após salvar configuração PMPL:', realignError.message)
+    }
+  } catch (realignError) {
+    console.error('Falha ao executar RPC de realinhamento PMPL standalone:', realignError)
   }
 
   revalidateCockpitPaths()
