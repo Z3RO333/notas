@@ -34,11 +34,48 @@ const VALID_TIPO_ORDEM = new Set(['PMOS', 'PMPL', 'todas'])
 const DEFAULT_LIMIT = 100
 const MAX_LIMIT = 200
 const MIGRATION_HINT_TIPO_ORDEM = 'Aplique a migration 00045_tipo_ordem_pmpl_pmos_tabs.sql para habilitar o filtro PMPL/PMOS.'
+const FIXED_OWNER_AVATAR_BY_NORMALIZED_NAME: Record<string, string> = {
+  brenda: '/avatars/BRENDA.jpg',
+  'brenda rodrigues': '/avatars/BRENDA.jpg',
+  adriano: '/avatars/ADRIANO.jpg',
+  'adriano bezerra': '/avatars/ADRIANO.jpg',
+}
 
 function asText(value: string | null): string | null {
   if (!value) return null
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : null
+}
+
+function normalizePersonName(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+function resolveFixedOwnerAvatarByName(value: string | null | undefined): string | null {
+  if (!value) return null
+  const normalized = normalizePersonName(value)
+  if (!normalized) return null
+
+  const directMatch = FIXED_OWNER_AVATAR_BY_NORMALIZED_NAME[normalized]
+  if (directMatch) return directMatch
+  if (normalized.includes('brenda')) return FIXED_OWNER_AVATAR_BY_NORMALIZED_NAME.brenda
+  if (normalized.includes('adriano')) return FIXED_OWNER_AVATAR_BY_NORMALIZED_NAME.adriano
+  return null
+}
+
+function buildFixedOwnerAvatarByAdminId(fixedOwnerLabelByAdminId: Map<string, string>): Map<string, string> {
+  const avatarByAdminId = new Map<string, string>()
+
+  for (const [adminId, label] of fixedOwnerLabelByAdminId.entries()) {
+    const avatar = resolveFixedOwnerAvatarByName(label)
+    if (avatar) avatarByAdminId.set(adminId, avatar)
+  }
+
+  return avatarByAdminId
 }
 
 function asInt(value: string | null): number | null {
@@ -191,6 +228,8 @@ export async function GET(request: Request) {
     }
   }
 
+  const fixedOwnerAvatarByAdminId = buildFixedOwnerAvatarByAdminId(fixedOwnerLabelByAdminId)
+
   let canAccessPmpl = canViewGlobal
   if (!canViewGlobal) {
     try {
@@ -325,10 +364,16 @@ export async function GET(request: Request) {
   const rawSummary = (summaryResult.data ?? []) as Array<Partial<OrdersOwnerSummary>>
   const summary: OrdersOwnerSummary[] = rawSummary.map((item) => {
     const adminId = item.administrador_id ?? null
+    const fixedName = adminId ? fixedOwnerLabelByAdminId.get(adminId) ?? null : null
+    const fallbackAvatar = (
+      (adminId ? fixedOwnerAvatarByAdminId.get(adminId) ?? null : null)
+      ?? resolveFixedOwnerAvatarByName(fixedName ?? item.nome ?? null)
+    )
+    const avatarFromData = typeof item.avatar_url === 'string' ? item.avatar_url.trim() : ''
     return {
       administrador_id: adminId,
-      nome: (adminId && fixedOwnerLabelByAdminId.get(adminId)) ?? item.nome ?? 'Sem nome',
-      avatar_url: item.avatar_url ?? null,
+      nome: fixedName ?? item.nome ?? 'Sem nome',
+      avatar_url: avatarFromData.length > 0 ? avatarFromData : fallbackAvatar,
       total: Number(item.total ?? 0),
       abertas: Number(item.abertas ?? 0),
       recentes: Number(item.recentes ?? 0),
@@ -367,7 +412,18 @@ export async function GET(request: Request) {
     nextCursor,
     kpis: kpis ?? emptyKpis(),
     ownerSummary: summary,
-    reassignTargets: ((targetsResult.data ?? []) as OrderReassignTarget[]),
+    reassignTargets: ((targetsResult.data ?? []) as OrderReassignTarget[]).map((target) => {
+      const avatarFromData = typeof target.avatar_url === 'string' ? target.avatar_url.trim() : ''
+      const fallbackAvatar = (
+        fixedOwnerAvatarByAdminId.get(target.id)
+        ?? resolveFixedOwnerAvatarByName(target.nome)
+      )
+
+      return {
+        ...target,
+        avatar_url: avatarFromData.length > 0 ? avatarFromData : fallbackAvatar,
+      }
+    }),
     currentUser: {
       role,
       adminId: loggedAdmin.id,
