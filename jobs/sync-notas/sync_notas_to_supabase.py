@@ -28,6 +28,7 @@ from supabase import Client, create_client
 SUPABASE_URL = dbutils.secrets.get(scope="cockpit", key="SUPABASE_URL")
 SUPABASE_SERVICE_KEY = dbutils.secrets.get(scope="cockpit", key="SUPABASE_SERVICE_ROLE_KEY")
 STREAMING_TABLE = "manutencao.streaming.notas_qm"
+STREAMING_TABLE_QMEL = "manutencao.streaming.notas_qmel"
 PMPL_TABLE = "manutencao.gold.pmpl_pmos"
 ORDERS_DOCUMENT_SOURCE_TABLE = "manutencao.silver.mestre_dados_ordem"
 ORDERS_MAINTENANCE_SOURCE_TABLE = "manutencao.silver.selecao_ordens_manutencao"
@@ -52,6 +53,10 @@ ORDERS_REF_V2_TOLERATED_FAILURES = 3
 ORDERS_REF_V2_RUNTIME_JOB_NAME = "sync_notas_to_supabase"
 ORDERS_REF_V2_RUNTIME_STATE_TABLE = "sync_job_runtime_state"
 ORDERS_REF_V2_LOOKBACK_DAYS = 2
+COCKPIT_CONVERGENCE_TABLE = "notas_convergencia_cockpit"
+COCKPIT_CONVERGENCE_UPSERT_BATCH_SIZE = 500
+COCKPIT_CONVERGENCE_FETCH_PAGE_SIZE = 1000
+COCKPIT_CONVERGENCE_SPARK_LOOKUP_BATCH_SIZE = 300
 
 OPEN_STATUS = {"aberta", "em_tratativa", "desconhecido"}
 
@@ -103,6 +108,16 @@ PMPL_DATA_ENTRADA_COLUMNS_CANDIDATES = [
     "DATA_ABERTURA",
     "DT_CRIACAO",
     "DT_ENTRADA",
+]
+
+NOTA_TIMESTAMP_COLUMNS_CANDIDATES = [
+    # Fonte oficial para corte incremental
+    "HORA_NOTA",
+    # Fallbacks para robustez operacional em variações de schema
+    "__TIMESTAMP",
+    "DATA_ATUALIZACAO",
+    "DATA_CRIACAO",
+    "DATA_NOTA",
 ]
 
 # service_role bypassa RLS - intencional para job de sistema
@@ -349,6 +364,60 @@ def _build_date_expr_from_columns(columns: list[str]) -> str:
     return "coalesce(" + ", ".join(parts) + ")"
 
 
+def _build_timestamp_expr_from_columns(columns: list[str]) -> str:
+    """Monta expressão Spark SQL robusta para normalizar timestamp."""
+    if not columns:
+        return "NULL"
+
+    parts: list[str] = []
+    for col in columns:
+        parts.extend([
+            f"to_timestamp({col})",
+            f"to_timestamp(cast({col} as string))",
+            f"to_timestamp(cast({col} as string), 'yyyy-MM-dd HH:mm:ss')",
+            f"to_timestamp(cast({col} as string), 'yyyy-MM-dd HH:mm')",
+            f"to_timestamp(cast({col} as string), 'yyyy-MM-dd')",
+            f"to_timestamp(cast({col} as string), 'dd/MM/yyyy HH:mm:ss')",
+            f"to_timestamp(cast({col} as string), 'dd/MM/yyyy HH:mm')",
+            f"to_timestamp(cast({col} as string), 'dd/MM/yyyy')",
+        ])
+
+    return "coalesce(" + ", ".join(parts) + ")"
+
+
+def _build_nota_timestamp_expr(spark: SparkSession) -> str:
+    """Expressão Spark SQL para normalizar timestamp de nota (base: HORA_NOTA)."""
+    existing = _resolve_existing_columns(spark, STREAMING_TABLE, NOTA_TIMESTAMP_COLUMNS_CANDIDATES)
+    if not existing:
+        logger.warning(
+            "Nenhuma coluna de timestamp candidata encontrada na tabela %s. Candidatas=%s",
+            STREAMING_TABLE,
+            NOTA_TIMESTAMP_COLUMNS_CANDIDATES,
+        )
+    return _build_timestamp_expr_from_columns(existing)
+
+
+def _to_utc_iso_datetime(value) -> str | None:
+    """Converte valor para ISO datetime UTC quando possível."""
+    if value is None:
+        return None
+
+    if isinstance(value, datetime):
+        parsed = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc).isoformat()
+
+    return _normalize_iso_datetime(value)
+
+
+def _to_utc_date_str(value) -> str | None:
+    """Converte valor de data/datetime para YYYY-MM-DD em UTC."""
+    iso_dt = _to_utc_iso_datetime(value)
+    if iso_dt:
+        return iso_dt[:10]
+
+    return _normalize_iso_date(value)
+
+
 def _build_data_criacao_date_expr(spark: SparkSession) -> str:
     # Suporta date/timestamp e formatos string comuns em múltiplas colunas candidatas.
     candidates = ["DATA_CRIACAO", "DATA_ENTRADA", "DATA_ABERTURA", "DT_CRIACAO", "DT_ENTRADA"]
@@ -362,47 +431,57 @@ def _build_data_criacao_date_expr(spark: SparkSession) -> str:
     return _build_date_expr_from_columns(existing)
 
 
-def _log_empty_result_diagnostics(spark: SparkSession, effective_start: str, data_criacao_expr: str):
-    """Loga diagnosticos do source quando a leitura retorna zero linhas."""
+def _log_empty_result_diagnostics(spark: SparkSession, effective_start_ts: str, nota_ts_expr: str):
+    """Loga diagnósticos do source quando a leitura por timestamp retorna zero linhas."""
     try:
+        existing_map = {col.upper(): col for col in spark.table(STREAMING_TABLE).columns}
+        hora_col = existing_map.get("HORA_NOTA")
+        data_nota_col = existing_map.get("DATA_NOTA")
+        numero_col = existing_map.get("NUMERO_NOTA")
+
+        hora_select = f"{hora_col} AS HORA_NOTA" if hora_col else "NULL AS HORA_NOTA"
+        data_nota_select = f"{data_nota_col} AS DATA_NOTA" if data_nota_col else "NULL AS DATA_NOTA"
+        numero_select = f"{numero_col} AS NUMERO_NOTA" if numero_col else "NULL AS NUMERO_NOTA"
+
         summary_row = spark.sql(f"""
             SELECT
               COUNT(*) AS total_rows,
-              SUM(CASE WHEN {data_criacao_expr} IS NULL THEN 1 ELSE 0 END) AS data_criacao_invalidas,
-              MIN({data_criacao_expr}) AS min_data_criacao,
-              MAX({data_criacao_expr}) AS max_data_criacao
+              SUM(CASE WHEN {nota_ts_expr} IS NULL THEN 1 ELSE 0 END) AS nota_ts_invalidas,
+              MIN({nota_ts_expr}) AS min_nota_ts,
+              MAX({nota_ts_expr}) AS max_nota_ts
             FROM {STREAMING_TABLE}
         """).collect()[0]
 
         filtered_row = spark.sql(f"""
             SELECT COUNT(*) AS total_filtradas
             FROM {STREAMING_TABLE}
-            WHERE {data_criacao_expr} >= date('{effective_start}')
+            WHERE {nota_ts_expr} >= timestamp('{effective_start_ts}')
         """).collect()[0]
 
         sample_rows = [
             row.asDict()
             for row in spark.sql(f"""
                 SELECT
-                  DATA_CRIACAO,
-                  NUMERO_NOTA,
-                  {data_criacao_expr} AS data_criacao_norm
+                  {hora_select},
+                  {data_nota_select},
+                  {numero_select},
+                  {nota_ts_expr} AS nota_ts_norm
                 FROM {STREAMING_TABLE}
-                ORDER BY {data_criacao_expr} DESC, DATA_CRIACAO DESC
+                ORDER BY {nota_ts_expr} DESC
                 LIMIT 5
             """).collect()
         ]
 
         logger.warning(
-            "Diagnóstico source vazio: total_rows=%s, invalidas_data_criacao=%s, min_data=%s, max_data=%s, total_filtradas=%s, effective_start=%s",
+            "Diagnóstico source vazio (timestamp): total_rows=%s, invalidas_nota_ts=%s, min_ts=%s, max_ts=%s, total_filtradas=%s, effective_start_ts=%s",
             summary_row["total_rows"],
-            summary_row["data_criacao_invalidas"],
-            summary_row["min_data_criacao"],
-            summary_row["max_data_criacao"],
+            summary_row["nota_ts_invalidas"],
+            summary_row["min_nota_ts"],
+            summary_row["max_nota_ts"],
             filtered_row["total_filtradas"],
-            effective_start,
+            effective_start_ts,
         )
-        logger.warning("Amostra DATA_CRIACAO (top 5): %s", sample_rows)
+        logger.warning("Amostra timestamp (top 5): %s", sample_rows)
     except Exception as diag_error:
         logger.warning("Falha ao gerar diagnóstico de source vazio: %s", diag_error)
 
@@ -506,8 +585,30 @@ def create_sync_log(spark: SparkSession) -> str:
 
 
 def get_watermark() -> str | None:
-    """Busca a ultima data_criacao_sap no Supabase (watermark)."""
-    result = (
+    """Busca watermark priorizando hora_nota (timestamp), com fallback em data_criacao_sap (date)."""
+    try:
+        result_hora = (
+            supabase.table("notas_manutencao")
+            .select("hora_nota")
+            .not_.is_("hora_nota", "null")
+            .order("updated_at", desc=True)
+            .limit(500)
+            .execute()
+        )
+        max_hora_wm: str | None = None
+        for row in (result_hora.data or []):
+            hora_wm = _to_utc_iso_datetime(row.get("hora_nota"))
+            if hora_wm and (max_hora_wm is None or hora_wm > max_hora_wm):
+                max_hora_wm = hora_wm
+        if max_hora_wm:
+            return max_hora_wm
+    except Exception as watermark_hora_error:
+        logger.warning(
+            "Falha ao buscar watermark por hora_nota. Usando fallback por data_criacao_sap. erro=%s",
+            watermark_hora_error,
+        )
+
+    result_date = (
         supabase.table("notas_manutencao")
         .select("data_criacao_sap")
         .not_.is_("data_criacao_sap", "null")
@@ -515,8 +616,10 @@ def get_watermark() -> str | None:
         .limit(1)
         .execute()
     )
-    if result.data and result.data[0].get("data_criacao_sap"):
-        return result.data[0]["data_criacao_sap"]
+    if result_date.data and result_date.data[0].get("data_criacao_sap"):
+        date_wm = _normalize_iso_date(result_date.data[0]["data_criacao_sap"])
+        if date_wm:
+            return f"{date_wm}T00:00:00+00:00"
     return None
 
 
@@ -642,6 +745,548 @@ def set_orders_ref_v2_failure_streak(streak: int, error_message: str | None):
     )
 
 
+def _iter_batches(items: list, batch_size: int):
+    for i in range(0, len(items), batch_size):
+        yield items[i:i + batch_size]
+
+
+def _sql_quote(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _fetch_all_table_rows(
+    table_name: str,
+    select_columns: str,
+    order_column: str,
+    page_size: int = COCKPIT_CONVERGENCE_FETCH_PAGE_SIZE,
+) -> list[dict]:
+    """Lê todas as linhas usando keyset pagination (evita custo alto de OFFSET)."""
+    rows: list[dict] = []
+    last_value = None
+    page = 0
+
+    while True:
+        query = (
+            supabase.table(table_name)
+            .select(select_columns)
+            .order(order_column, desc=False)
+            .limit(page_size)
+        )
+        if last_value is not None:
+            query = query.gt(order_column, last_value)
+
+        result = query.execute()
+
+        batch = result.data or []
+        if not batch:
+            break
+
+        rows.extend(batch)
+        page += 1
+        if len(batch) < page_size:
+            break
+
+        next_last_value = batch[-1].get(order_column)
+        if next_last_value is None:
+            logger.warning(
+                "Keyset interrompido em %s: última linha sem %s (page=%s, total=%s).",
+                table_name,
+                order_column,
+                page,
+                len(rows),
+            )
+            break
+
+        if last_value == next_last_value:
+            logger.warning(
+                "Keyset interrompido em %s: valor de paginação não avançou (%s=%s, page=%s, total=%s).",
+                table_name,
+                order_column,
+                next_last_value,
+                page,
+                len(rows),
+            )
+            break
+
+        last_value = next_last_value
+
+    return rows
+
+
+def _fetch_qmel_latest_rows_by_note(
+    spark: SparkSession,
+    note_numbers: list[str],
+) -> dict[str, dict]:
+    if not note_numbers:
+        return {}
+
+    # Consulta ambas as tabelas (QM primária, QMEL secundária).
+    # QM prevalece: iteramos QMEL primeiro, depois QM sobrescreve a mesma nota.
+    tables_to_query = [STREAMING_TABLE_QMEL, STREAMING_TABLE]
+    by_note_norm: dict[str, dict] = {}
+    primary_missing = True
+
+    for table in tables_to_query:
+        try:
+            existing_map = {col.upper(): col for col in spark.table(table).columns}
+        except Exception as e:
+            logger.warning("Tabela %s indisponível para QMEL lookup, pulando. erro=%s", table, e)
+            continue
+
+        numero_col = existing_map.get("NUMERO_NOTA")
+        ordem_col = existing_map.get("ORDEM")
+        if not numero_col:
+            logger.warning("Coluna NUMERO_NOTA não encontrada em %s, pulando.", table)
+            continue
+
+        if table == STREAMING_TABLE:
+            primary_missing = False
+
+        rank_candidates = [
+            existing_map.get("DATA_ATUALIZACAO"),
+            existing_map.get("__TIMESTAMP"),
+            existing_map.get("DATA_CRIACAO"),
+        ]
+        rank_parts = []
+        for col in rank_candidates:
+            if not col:
+                continue
+            rank_parts.append(
+                "coalesce("
+                f"to_timestamp(cast({col} as string)), "
+                f"to_timestamp(cast({col} as string), 'yyyy-MM-dd HH:mm:ss'), "
+                f"to_timestamp(cast({col} as string), 'yyyy-MM-dd HH:mm'), "
+                f"to_timestamp(cast({col} as string), 'yyyy-MM-dd')"
+                ") DESC"
+            )
+        rank_parts.append(f"{numero_col} DESC")
+        rank_clause = ", ".join(rank_parts)
+
+        for batch in _iter_batches(sorted(set(note_numbers)), COCKPIT_CONVERGENCE_SPARK_LOOKUP_BATCH_SIZE):
+            escaped = ", ".join(_sql_quote(item) for item in batch)
+            ordem_select = ordem_col if ordem_col else "NULL"
+            df = spark.sql(f"""
+                SELECT
+                  {numero_col} AS NUMERO_NOTA,
+                  {ordem_select} AS ORDEM
+                FROM (
+                  SELECT
+                    {numero_col},
+                    {ordem_select},
+                    ROW_NUMBER() OVER (
+                      PARTITION BY {numero_col}
+                      ORDER BY {rank_clause}
+                    ) AS _rn
+                  FROM {table}
+                  WHERE {numero_col} IN ({escaped})
+                ) t
+                WHERE _rn = 1
+            """)
+
+            for row in df.collect():
+                row_dict = row.asDict()
+                numero_raw = _as_clean_text(row_dict.get("NUMERO_NOTA"))
+                numero_norm = _normalize_numero_nota(numero_raw)
+                if not numero_norm:
+                    continue
+
+                by_note_norm[numero_norm] = {
+                    "numero_nota": numero_raw or numero_norm,
+                    "ordem_qmel_raw": _as_clean_text(row_dict.get("ORDEM")),
+                }
+
+    if primary_missing:
+        raise RuntimeError(
+            f"Coluna NUMERO_NOTA não encontrada em {STREAMING_TABLE}. "
+            "Não foi possível montar convergência do cockpit."
+        )
+
+    return by_note_norm
+
+
+def _fetch_best_bridge_order_by_note(note_norms: list[str]) -> dict[str, dict]:
+    if not note_norms:
+        return {}
+
+    by_note_norm: dict[str, dict] = {}
+    for batch in _iter_batches(sorted(set(note_norms)), BATCH_SIZE):
+        result = (
+            supabase.table("ordens_manutencao_referencia")
+            .select(
+                "ordem_codigo_norm, ordem_codigo_original, numero_nota_norm, "
+                "tipo_ordem, texto_breve, centro_liberacao, data_extracao"
+            )
+            .in_("numero_nota_norm", batch)
+            .execute()
+        )
+
+        for row in (result.data or []):
+            numero_nota_norm = _normalize_numero_nota(row.get("numero_nota_norm"))
+            ordem_norm = _normalize_ordem_codigo(row.get("ordem_codigo_norm") or row.get("ordem_codigo_original"))
+            if not numero_nota_norm or not ordem_norm:
+                continue
+
+            candidate = {
+                "numero_nota_norm": numero_nota_norm,
+                "ordem_codigo_norm": ordem_norm,
+                "ordem_codigo_original": _as_clean_text(row.get("ordem_codigo_original")) or ordem_norm,
+                "tipo_ordem": _normalize_tipo_ordem(row.get("tipo_ordem")),
+                "texto_breve": _as_clean_text(row.get("texto_breve")),
+                "centro_liberacao": _normalize_centro(row.get("centro_liberacao")),
+                "data_extracao": _normalize_iso_datetime(row.get("data_extracao")),
+            }
+            candidate["completeness_score"] = _calculate_maintenance_reference_completeness(candidate)
+
+            current = by_note_norm.get(numero_nota_norm)
+            if current is None or _is_better_maintenance_reference(current, candidate):
+                by_note_norm[numero_nota_norm] = candidate
+
+    return by_note_norm
+
+
+def _fetch_mestre_presence_by_order(order_norms: list[str]) -> set[str]:
+    present: set[str] = set()
+    if not order_norms:
+        return present
+
+    for batch in _iter_batches(sorted(set(order_norms)), BATCH_SIZE):
+        result = (
+            supabase.table("ordens_tipo_documento_referencia")
+            .select("ordem_codigo_norm")
+            .in_("ordem_codigo_norm", batch)
+            .execute()
+        )
+        for row in (result.data or []):
+            ordem_norm = _normalize_ordem_codigo(row.get("ordem_codigo_norm"))
+            if ordem_norm:
+                present.add(ordem_norm)
+
+    return present
+
+
+def _fetch_pmpl_presence_by_order(
+    spark: SparkSession,
+    order_lookup_values: list[str],
+) -> set[str]:
+    present: set[str] = set()
+    if not order_lookup_values:
+        return present
+
+    for batch in _iter_batches(sorted(set(order_lookup_values)), COCKPIT_CONVERGENCE_SPARK_LOOKUP_BATCH_SIZE):
+        escaped = ", ".join(_sql_quote(item) for item in batch)
+        df = spark.sql(f"""
+            SELECT DISTINCT ORDEM
+            FROM {PMPL_TABLE}
+            WHERE ORDEM IN ({escaped})
+              AND ORDEM IS NOT NULL
+        """)
+        for row in df.collect():
+            ordem_norm = _normalize_ordem_codigo(row.asDict().get("ORDEM"))
+            if ordem_norm:
+                present.add(ordem_norm)
+
+    return present
+
+
+def _fetch_order_link_sets() -> tuple[set[str], set[str]]:
+    rows = _fetch_all_table_rows(
+        "ordens_notas_acompanhamento",
+        "nota_id,numero_nota",
+        "id",
+    )
+
+    linked_note_ids: set[str] = set()
+    linked_note_norms: set[str] = set()
+    for row in rows:
+        nota_id = _as_clean_text(row.get("nota_id"))
+        if nota_id:
+            linked_note_ids.add(nota_id)
+
+        numero_norm = _normalize_numero_nota(row.get("numero_nota"))
+        if numero_norm:
+            linked_note_norms.add(numero_norm)
+
+    return linked_note_ids, linked_note_norms
+
+
+def _build_not_eligible_reasons(
+    *,
+    tem_ordem_vinculada: bool,
+    status_elegivel: bool,
+    tem_qmel: bool,
+    tem_pmpl: bool,
+    tem_mestre: bool,
+) -> tuple[str | None, list[str]]:
+    reason_codes: list[str] = []
+    if tem_ordem_vinculada:
+        reason_codes.append("has_order_linked")
+    if not status_elegivel:
+        reason_codes.append("invalid_status")
+    if not tem_qmel:
+        reason_codes.append("missing_qmel")
+    if not tem_pmpl:
+        reason_codes.append("missing_pmpl")
+    if not tem_mestre:
+        reason_codes.append("missing_mestre")
+
+    return (reason_codes[0] if reason_codes else None), reason_codes
+
+
+def build_cockpit_convergence_dataset(
+    spark: SparkSession,
+) -> tuple[list[dict], dict]:
+    notes = _fetch_all_table_rows(
+        "notas_manutencao",
+        (
+            "id,numero_nota,ordem_sap,ordem_gerada,status,descricao,centro,"
+            "administrador_id,data_criacao_sap,updated_at"
+        ),
+        "numero_nota",
+    )
+    if not notes:
+        metrics = {
+            "total_rows": 0,
+            "eligible_rows": 0,
+            "missing_pmpl": 0,
+            "missing_mestre": 0,
+            "has_order_linked": 0,
+            "invalid_status": 0,
+        }
+        return [], metrics
+
+    deduped_notes: dict[str, dict] = {}
+    for row in notes:
+        numero_nota = _as_clean_text(row.get("numero_nota"))
+        numero_nota_norm = _normalize_numero_nota(numero_nota)
+        if not numero_nota or not numero_nota_norm:
+            continue
+
+        current = deduped_notes.get(numero_nota)
+        if current is None:
+            deduped_notes[numero_nota] = row
+            continue
+
+        current_updated = _normalize_iso_datetime(current.get("updated_at"))
+        candidate_updated = _normalize_iso_datetime(row.get("updated_at"))
+        if candidate_updated and current_updated:
+            if candidate_updated > current_updated:
+                deduped_notes[numero_nota] = row
+        elif candidate_updated and not current_updated:
+            deduped_notes[numero_nota] = row
+
+    notes = list(deduped_notes.values())
+    note_numbers = [row["numero_nota"] for row in notes if _as_clean_text(row.get("numero_nota"))]
+    note_norms = [
+        norm
+        for norm in (_normalize_numero_nota(row.get("numero_nota")) for row in notes)
+        if norm
+    ]
+
+    qmel_by_note = _fetch_qmel_latest_rows_by_note(spark, note_numbers)
+    bridge_by_note = _fetch_best_bridge_order_by_note(note_norms)
+    linked_note_ids, linked_note_norms = _fetch_order_link_sets()
+
+    base_rows: list[dict] = []
+    ordem_candidates_norm: set[str] = set()
+    ordem_lookup_values: set[str] = set()
+
+    for row in notes:
+        numero_nota = _as_clean_text(row.get("numero_nota"))
+        numero_nota_norm = _normalize_numero_nota(numero_nota)
+        if not numero_nota or not numero_nota_norm:
+            continue
+
+        qmel_row = qmel_by_note.get(numero_nota_norm)
+        bridge_row = bridge_by_note.get(numero_nota_norm)
+
+        ordem_sap = _as_clean_text(row.get("ordem_sap"))
+        ordem_gerada = _as_clean_text(row.get("ordem_gerada"))
+
+        ordem_qmel_raw = _as_clean_text(qmel_row.get("ordem_qmel_raw") if qmel_row else None) or ordem_sap
+        ordem_qmel_norm = _normalize_ordem_codigo(ordem_qmel_raw)
+
+        ordem_bridge_raw = _as_clean_text(bridge_row.get("ordem_codigo_original") if bridge_row else None)
+        ordem_bridge_norm = _normalize_ordem_codigo(
+            (bridge_row.get("ordem_codigo_norm") if bridge_row else None) or ordem_bridge_raw
+        )
+
+        ordem_candidata = ordem_qmel_raw or ordem_bridge_raw
+        ordem_candidata_norm = ordem_qmel_norm or ordem_bridge_norm
+
+        if ordem_candidata_norm:
+            ordem_candidates_norm.add(ordem_candidata_norm)
+        for value in (ordem_candidata, ordem_candidata_norm):
+            clean = _as_clean_text(value)
+            if clean:
+                ordem_lookup_values.add(clean)
+
+        nota_id = _as_clean_text(row.get("id"))
+        status_raw = _as_clean_text(row.get("status"))
+        status_norm = status_raw.lower() if status_raw else None
+        status_elegivel = bool(status_norm and status_norm not in {"cancelada", "concluida"})
+
+        tem_ordem_vinculada = bool(
+            ordem_sap
+            or ordem_gerada
+            or (nota_id and nota_id in linked_note_ids)
+            or (numero_nota_norm in linked_note_norms)
+        )
+
+        base_rows.append({
+            "numero_nota": numero_nota,
+            "numero_nota_norm": numero_nota_norm,
+            "nota_id": nota_id,
+            "ordem_sap": ordem_sap,
+            "ordem_gerada": ordem_gerada,
+            "ordem_candidata": ordem_candidata,
+            "ordem_candidata_norm": ordem_candidata_norm,
+            "status": status_norm,
+            "descricao": _as_clean_text(row.get("descricao")),
+            "centro": _normalize_centro(row.get("centro")) or _as_clean_text(row.get("centro")),
+            "administrador_id": _as_clean_text(row.get("administrador_id")),
+            "data_criacao_sap": _normalize_iso_date(row.get("data_criacao_sap")),
+            "tem_qmel": numero_nota_norm in qmel_by_note,
+            "status_elegivel": status_elegivel,
+            "tem_ordem_vinculada": tem_ordem_vinculada,
+            "source_updated_at": _normalize_iso_datetime(row.get("updated_at")),
+        })
+
+    mestre_present = _fetch_mestre_presence_by_order(list(ordem_candidates_norm))
+    pmpl_present = _fetch_pmpl_presence_by_order(spark, list(ordem_lookup_values))
+
+    payload: list[dict] = []
+    metrics = {
+        "total_rows": 0,
+        "eligible_rows": 0,
+        "missing_pmpl": 0,
+        "missing_mestre": 0,
+        "has_order_linked": 0,
+        "invalid_status": 0,
+    }
+
+    for row in base_rows:
+        ordem_candidata_norm = row.get("ordem_candidata_norm")
+        tem_pmpl = bool(ordem_candidata_norm and ordem_candidata_norm in pmpl_present)
+        tem_mestre = bool(ordem_candidata_norm and ordem_candidata_norm in mestre_present)
+        eligible_cockpit = bool(
+            row["tem_qmel"]
+            and tem_pmpl
+            and tem_mestre
+            and row["status_elegivel"]
+            and not row["tem_ordem_vinculada"]
+        )
+        reason_not_eligible, reason_codes = _build_not_eligible_reasons(
+            tem_ordem_vinculada=row["tem_ordem_vinculada"],
+            status_elegivel=row["status_elegivel"],
+            tem_qmel=row["tem_qmel"],
+            tem_pmpl=tem_pmpl,
+            tem_mestre=tem_mestre,
+        )
+        if eligible_cockpit:
+            reason_not_eligible = None
+            reason_codes = []
+
+        item = {
+            "numero_nota": row["numero_nota"],
+            "numero_nota_norm": row["numero_nota_norm"],
+            "nota_id": row["nota_id"],
+            "ordem_sap": row["ordem_sap"],
+            "ordem_gerada": row["ordem_gerada"],
+            "ordem_candidata": row["ordem_candidata"],
+            "ordem_candidata_norm": ordem_candidata_norm,
+            "status": row["status"],
+            "descricao": row["descricao"],
+            "centro": row["centro"],
+            "administrador_id": row["administrador_id"],
+            "data_criacao_sap": row["data_criacao_sap"],
+            "tem_qmel": row["tem_qmel"],
+            "tem_pmpl": tem_pmpl,
+            "tem_mestre": tem_mestre,
+            "status_elegivel": row["status_elegivel"],
+            "tem_ordem_vinculada": row["tem_ordem_vinculada"],
+            "eligible_cockpit": eligible_cockpit,
+            "reason_not_eligible": reason_not_eligible,
+            "reason_codes": reason_codes,
+            "source_updated_at": row["source_updated_at"],
+        }
+        payload.append(item)
+
+        metrics["total_rows"] += 1
+        if item["eligible_cockpit"]:
+            metrics["eligible_rows"] += 1
+        if not item["tem_pmpl"]:
+            metrics["missing_pmpl"] += 1
+        if not item["tem_mestre"]:
+            metrics["missing_mestre"] += 1
+        if item["tem_ordem_vinculada"]:
+            metrics["has_order_linked"] += 1
+        if not item["status_elegivel"]:
+            metrics["invalid_status"] += 1
+
+    logger.info(
+        "Convergência cockpit -> total=%s eligible=%s missing_pmpl=%s missing_mestre=%s has_order_linked=%s invalid_status=%s",
+        metrics["total_rows"],
+        metrics["eligible_rows"],
+        metrics["missing_pmpl"],
+        metrics["missing_mestre"],
+        metrics["has_order_linked"],
+        metrics["invalid_status"],
+    )
+
+    return payload, metrics
+
+
+def upsert_cockpit_convergence(sync_id: str, rows: list[dict]) -> tuple[int, int]:
+    if not rows:
+        return 0, 0
+
+    deduped: dict[str, dict] = {}
+    for row in rows:
+        numero_nota = _as_clean_text(row.get("numero_nota"))
+        if not numero_nota:
+            continue
+        payload = dict(row)
+        payload["numero_nota"] = numero_nota
+        payload["sync_id"] = sync_id
+        deduped[numero_nota] = payload
+
+    payload = list(deduped.values())
+    if not payload:
+        return 0, 0
+
+    existing_numbers: set[str] = set()
+    for batch in _iter_batches([row["numero_nota"] for row in payload], BATCH_SIZE):
+        result = (
+            supabase.table(COCKPIT_CONVERGENCE_TABLE)
+            .select("numero_nota")
+            .in_("numero_nota", batch)
+            .execute()
+        )
+        existing_numbers.update(
+            _as_clean_text(item.get("numero_nota"))
+            for item in (result.data or [])
+            if _as_clean_text(item.get("numero_nota"))
+        )
+
+    for batch in _iter_batches(payload, COCKPIT_CONVERGENCE_UPSERT_BATCH_SIZE):
+        (
+            supabase.table(COCKPIT_CONVERGENCE_TABLE)
+            .upsert(batch, on_conflict="numero_nota")
+            .execute()
+        )
+
+    inserted_count = sum(1 for item in payload if item["numero_nota"] not in existing_numbers)
+    updated_count = len(payload) - inserted_count
+
+    logger.info(
+        "Convergência cockpit upsert -> inseridas=%s atualizadas=%s total=%s",
+        inserted_count,
+        updated_count,
+        len(payload),
+    )
+    return inserted_count, updated_count
+
+
 def read_new_notes(
     spark: SparkSession,
     window_days: int,
@@ -649,11 +1294,14 @@ def read_new_notes(
     ignore_watermark: bool,
     sync_start_date: str,
     full_bootstrap: bool,
+    streaming_table: str | None = None,
 ) -> list[dict]:
-    """Le notas do streaming table. Usa watermark, com opcao de forcar janela."""
+    """Lê notas do streaming table com corte temporal baseado em HORA_NOTA."""
+    streaming_table = streaming_table or STREAMING_TABLE
     watermark = get_watermark()
     logger.info(
-        "Parametros leitura -> watermark_bruto=%s, sync_start_date=%s, force_window=%s, ignore_watermark=%s, full_bootstrap=%s, window_days=%s",
+        "Parametros leitura (timestamp) -> tabela=%s watermark_bruto=%s, sync_start_date=%s, force_window=%s, ignore_watermark=%s, full_bootstrap=%s, window_days=%s",
+        streaming_table,
         watermark,
         sync_start_date,
         force_window,
@@ -662,38 +1310,29 @@ def read_new_notes(
         window_days,
     )
 
-    data_criacao_expr = _build_data_criacao_date_expr(spark)
+    nota_ts_expr = _build_nota_timestamp_expr(spark)
 
     if full_bootstrap:
         logger.info(
-            "Bootstrap inicial ativo: leitura ampla da tabela %s desde %s.",
-            STREAMING_TABLE,
+            "Bootstrap inicial ativo (timestamp): leitura ampla da tabela %s desde %s.",
+            streaming_table,
             sync_start_date,
         )
-        df = spark.sql(f"""
-            SELECT *
-            FROM (
-                SELECT *, {data_criacao_expr} AS DATA_CRIACAO_NORM
-                FROM {STREAMING_TABLE}
-            ) t
-            WHERE DATA_CRIACAO_NORM >= date('{sync_start_date}')
-            ORDER BY DATA_CRIACAO_NORM ASC, NUMERO_NOTA ASC
-        """)
-        effective_start = sync_start_date
+        effective_start_date = sync_start_date
     elif force_window:
         window_start_date = (datetime.now(timezone.utc).date() - timedelta(days=window_days)).isoformat()
-        effective_start = max(window_start_date, sync_start_date)
+        effective_start_date = max(window_start_date, sync_start_date)
         logger.info(
-            "Leitura por janela fixa: ultimos %s dias (force_window=%s, inicio_efetivo=%s)",
+            "Leitura por janela fixa (timestamp): ultimos %s dias (force_window=%s, inicio_efetivo=%s)",
             window_days,
             force_window,
-            effective_start,
+            effective_start_date,
         )
     elif ignore_watermark:
-        effective_start = sync_start_date
-        logger.info("Leitura configurada para ignorar watermark. Inicio efetivo=%s", effective_start)
+        effective_start_date = sync_start_date
+        logger.info("Leitura configurada para ignorar watermark (timestamp). Inicio efetivo=%s", effective_start_date)
     else:
-        watermark_date = _normalize_iso_date(watermark)
+        watermark_date = _to_utc_date_str(watermark)
         if watermark_date and _watermark_is_too_future(watermark_date):
             logger.warning(
                 "Watermark %s esta no futuro (> %s dia(s)). Ignorando watermark e usando sync_start_date=%s",
@@ -703,32 +1342,32 @@ def read_new_notes(
             )
             watermark_date = None
         if watermark_date:
-            effective_start = max(watermark_date, sync_start_date)
+            effective_start_date = max(watermark_date, sync_start_date)
             logger.info(
-                "Watermark (DATA_CRIACAO): %s | inicio_configurado=%s | inicio_efetivo=%s",
+                "Watermark (timestamp): %s | inicio_configurado=%s | inicio_efetivo=%s",
                 watermark_date,
                 sync_start_date,
-                effective_start,
+                effective_start_date,
             )
         else:
-            effective_start = sync_start_date
-            logger.info("Sem watermark válido. Leitura iniciando em %s", effective_start)
+            effective_start_date = sync_start_date
+            logger.info("Sem watermark válido. Leitura iniciando em %s", effective_start_date)
 
-    if not full_bootstrap:
-        df = spark.sql(f"""
-            SELECT *
-            FROM (
-                SELECT *, {data_criacao_expr} AS DATA_CRIACAO_NORM
-                FROM {STREAMING_TABLE}
-            ) t
-            WHERE DATA_CRIACAO_NORM >= date('{effective_start}')
-            ORDER BY DATA_CRIACAO_NORM ASC, NUMERO_NOTA ASC
-        """)
+    effective_start_ts = f"{effective_start_date} 00:00:00"
+    df = spark.sql(f"""
+        SELECT *
+        FROM (
+            SELECT *, {nota_ts_expr} AS NOTA_TS_NORM
+            FROM {streaming_table}
+        ) t
+        WHERE NOTA_TS_NORM IS NOT NULL
+          AND NOTA_TS_NORM >= timestamp('{effective_start_ts}')
+        ORDER BY NOTA_TS_NORM ASC, NUMERO_NOTA ASC
+    """)
 
     rows = df.collect()
     if not rows:
-        diagnostics_start = effective_start or sync_start_date
-        _log_empty_result_diagnostics(spark, diagnostics_start, data_criacao_expr)
+        _log_empty_result_diagnostics(spark, effective_start_ts, nota_ts_expr)
 
     notes: list[dict] = []
     missing_centro = 0
@@ -751,6 +1390,18 @@ def read_new_notes(
         elif _has_future_source_closure_without_order(row_dict):
             source_future_closure_without_order += 1
 
+        hora_nota_iso = _to_utc_iso_datetime(
+            row_dict.get("HORA_NOTA")
+            or row_dict.get("hora_nota")
+            or row_dict.get("NOTA_TS_NORM")
+        )
+        data_criacao_sap = (
+            _to_utc_date_str(hora_nota_iso)
+            or _to_utc_date_str(row_dict.get("DATA_CRIACAO"))
+            or _to_utc_date_str(row_dict.get("DATA_NOTA"))
+        )
+        data_nota = _to_utc_date_str(row_dict.get("DATA_NOTA")) or data_criacao_sap
+
         notes.append({
             "numero_nota": numero,
             "tipo_nota": row_dict.get("TIPO_NOTA"),
@@ -760,9 +1411,10 @@ def read_new_notes(
             "tipo_prioridade": row_dict.get("TIPO_PRIORIDADE"),
             "criado_por_sap": row_dict.get("CRIADO_POR"),
             "solicitante": row_dict.get("SOLICITANTE"),
-            "data_criacao_sap": str(row_dict["DATA_CRIACAO"]) if row_dict.get("DATA_CRIACAO") else None,
-            "data_nota": str(row_dict["DATA_NOTA"]) if row_dict.get("DATA_NOTA") else None,
-            "hora_nota": row_dict.get("HORA_NOTA"),
+            # Mantém compatibilidade do schema Supabase (DATE) e usa hora_nota como origem temporal oficial.
+            "data_criacao_sap": data_criacao_sap,
+            "data_nota": data_nota,
+            "hora_nota": hora_nota_iso or _as_clean_text(row_dict.get("HORA_NOTA")) or _as_clean_text(row_dict.get("hora_nota")),
             "ordem_sap": _as_clean_text(row_dict.get("ORDEM")),
             "centro": centro,
             "status_sap": _as_clean_text(row_dict.get("STATUS_OBJ_ADMIN")),
@@ -785,7 +1437,25 @@ def read_new_notes(
             source_future_closure_without_order,
         )
 
+    logger.info("Leitura por timestamp concluída [%s]: %s notas (NOTA_TS_NORM >= %s).", streaming_table, len(notes), effective_start_ts)
     return notes
+
+
+def _merge_notes_by_recency(
+    notes_primary: list[dict],
+    notes_secondary: list[dict],
+) -> list[dict]:
+    """Combina duas listas de notas deduplicamente por numero_nota. A primária prevalece."""
+    merged: dict[str, dict] = {}
+    for note in notes_secondary:
+        numero = _as_clean_text(note.get("numero_nota"))
+        if numero:
+            merged[numero] = note
+    for note in notes_primary:
+        numero = _as_clean_text(note.get("numero_nota"))
+        if numero:
+            merged[numero] = note
+    return list(merged.values())
 
 
 def upsert_notes(notes: list[dict], sync_id: str) -> tuple[int, int]:
@@ -901,7 +1571,17 @@ def upsert_notes(notes: list[dict], sync_id: str) -> tuple[int, int]:
 
 def run_register_orders(sync_id: str) -> tuple[int, int]:
     """Registra ordens detectadas em notas e auto-conclui notas abertas quando aplicável."""
-    result = supabase.rpc("registrar_ordens_por_notas", {"p_sync_id": sync_id}).execute()
+    try:
+        result = supabase.rpc("registrar_ordens_por_notas", {"p_sync_id": sync_id}).execute()
+    except Exception as exc:
+        if _is_statement_timeout_error(exc):
+            logger.warning(
+                "Timeout no RPC registrar_ordens_por_notas (57014). Pulando etapa neste ciclo. erro=%s",
+                f"{type(exc).__name__}: {exc}",
+            )
+            return 0, 0
+        raise
+
     row = (result.data or [{}])[0]
     detectadas = int(row.get("ordens_detectadas") or 0)
     auto_concluidas = int(row.get("notas_auto_concluidas") or 0)
@@ -911,7 +1591,17 @@ def run_register_orders(sync_id: str) -> tuple[int, int]:
 
 def run_distribution(sync_id: str) -> int:
     """Chama a funcao de distribuição no Supabase."""
-    result = supabase.rpc("distribuir_notas", {"p_sync_id": sync_id}).execute()
+    try:
+        result = supabase.rpc("distribuir_notas", {"p_sync_id": sync_id}).execute()
+    except Exception as exc:
+        if _is_statement_timeout_error(exc):
+            logger.warning(
+                "Timeout no RPC distribuir_notas (57014). Pulando etapa neste ciclo. erro=%s",
+                f"{type(exc).__name__}: {exc}",
+            )
+            return 0
+        raise
+
     distributed = len(result.data) if result.data else 0
     logger.info("Distribuidas: %s", distributed)
     return distributed
@@ -1058,13 +1748,25 @@ def push_pmpl_updates(sync_id: str, updates: list[dict]) -> tuple[int, int, int]
 
     for i in range(0, len(updates), PMPL_RPC_BATCH_SIZE):
         batch = updates[i:i + PMPL_RPC_BATCH_SIZE]
-        result = supabase.rpc(
-            "atualizar_status_ordens_pmpl_lote",
-            {
-                "p_updates": batch,
-                "p_sync_id": sync_id,
-            },
-        ).execute()
+        try:
+            result = supabase.rpc(
+                "atualizar_status_ordens_pmpl_lote",
+                {
+                    "p_updates": batch,
+                    "p_sync_id": sync_id,
+                },
+            ).execute()
+        except Exception as exc:
+            if _is_statement_timeout_error(exc):
+                logger.warning(
+                    "Timeout no RPC atualizar_status_ordens_pmpl_lote (57014) no batch %s/%s. "
+                    "Mantendo sync ativo e interrompendo os batches restantes. erro=%s",
+                    (i // PMPL_RPC_BATCH_SIZE) + 1,
+                    ((len(updates) - 1) // PMPL_RPC_BATCH_SIZE) + 1,
+                    f"{type(exc).__name__}: {exc}",
+                )
+                break
+            raise
 
         row = (result.data or [{}])[0]
         total_recebidas += int(row.get("total_recebidas") or 0)
@@ -1194,13 +1896,25 @@ def push_standalone_pmpl_orders(sync_id: str, orders: list[dict]) -> tuple[int, 
 
     for i in range(0, len(orders), PMPL_STANDALONE_BATCH_SIZE):
         batch = orders[i:i + PMPL_STANDALONE_BATCH_SIZE]
-        result = supabase.rpc(
-            "importar_ordens_pmpl_standalone",
-            {
-                "p_orders": batch,
-                "p_sync_id": sync_id,
-            },
-        ).execute()
+        try:
+            result = supabase.rpc(
+                "importar_ordens_pmpl_standalone",
+                {
+                    "p_orders": batch,
+                    "p_sync_id": sync_id,
+                },
+            ).execute()
+        except Exception as exc:
+            if _is_statement_timeout_error(exc):
+                logger.warning(
+                    "Timeout no RPC importar_ordens_pmpl_standalone (57014) no batch %s/%s. "
+                    "Mantendo sync ativo e interrompendo os batches restantes. erro=%s",
+                    (i // PMPL_STANDALONE_BATCH_SIZE) + 1,
+                    ((len(orders) - 1) // PMPL_STANDALONE_BATCH_SIZE) + 1,
+                    f"{type(exc).__name__}: {exc}",
+                )
+                break
+            raise
 
         row = (result.data or [{}])[0]
         total_recebidas += int(row.get("total_recebidas") or 0)
@@ -1287,12 +2001,21 @@ def upsert_orders_document_reference(sync_id: str, references: list[dict]) -> tu
 
     for i in range(0, len(ordem_codes), BATCH_SIZE):
         batch = ordem_codes[i:i + BATCH_SIZE]
-        result = (
-            supabase.table("ordens_tipo_documento_referencia")
-            .select("ordem_codigo_norm")
-            .in_("ordem_codigo_norm", batch)
-            .execute()
-        )
+        try:
+            result = (
+                supabase.table("ordens_tipo_documento_referencia")
+                .select("ordem_codigo_norm")
+                .in_("ordem_codigo_norm", batch)
+                .execute()
+            )
+        except Exception as exc:
+            if _is_statement_timeout_error(exc):
+                logger.warning(
+                    "Timeout ao consultar referência ORDEM/TIPO (57014). Pulando etapa neste ciclo. erro=%s",
+                    f"{type(exc).__name__}: {exc}",
+                )
+                return 0, 0
+            raise
         existing_orders.update(r["ordem_codigo_norm"] for r in (result.data or []))
 
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -1310,11 +2033,21 @@ def upsert_orders_document_reference(sync_id: str, references: list[dict]) -> tu
 
     for i in range(0, len(payload), ORDERS_DOCUMENT_UPSERT_BATCH_SIZE):
         batch = payload[i:i + ORDERS_DOCUMENT_UPSERT_BATCH_SIZE]
-        (
-            supabase.table("ordens_tipo_documento_referencia")
-            .upsert(batch, on_conflict="ordem_codigo_norm")
-            .execute()
-        )
+        try:
+            (
+                supabase.table("ordens_tipo_documento_referencia")
+                .upsert(batch, on_conflict="ordem_codigo_norm")
+                .execute()
+            )
+        except Exception as exc:
+            if _is_statement_timeout_error(exc):
+                logger.warning(
+                    "Timeout no upsert referência ORDEM/TIPO (57014). "
+                    "Mantendo sync ativo e interrompendo os batches restantes. erro=%s",
+                    f"{type(exc).__name__}: {exc}",
+                )
+                break
+            raise
 
     inserted_count = sum(1 for item in references if item["ordem_codigo_norm"] not in existing_orders)
     updated_count = len(references) - inserted_count
@@ -1677,6 +2410,7 @@ def finalize_sync_log(
 # ----- Execução Principal -----
 def main():
     spark = SparkSession.builder.getOrCreate()
+    current_stage = "bootstrap"
     window_days = get_sync_window_days(spark)
     force_window = should_force_window(spark)
     ignore_watermark = should_ignore_watermark(spark)
@@ -1687,6 +2421,7 @@ def main():
     orders_ref_v2_lookback_days = get_orders_ref_v2_lookback_days(spark)
 
     try:
+        current_stage = "supabase_healthcheck"
         supabase.table("sync_log").select("id").limit(1).execute()
         logger.info("Conexão com Supabase OK. sync_log acessivel.")
     except Exception as e:
@@ -1739,8 +2474,21 @@ def main():
         "timeout_tolerated": False,
         "error": None,
     }
+    convergencia_inseridas = 0
+    convergencia_atualizadas = 0
+    convergencia_metrics = {
+        "total_rows": 0,
+        "eligible_rows": 0,
+        "missing_pmpl": 0,
+        "missing_mestre": 0,
+        "has_order_linked": 0,
+        "invalid_status": 0,
+    }
+    convergencia_status = "not_run"
+    convergencia_error: str | None = None
 
     try:
+        current_stage = "read_new_notes"
         full_bootstrap = should_run_full_bootstrap(bootstrap_mode, sync_start_date)
         notes = read_new_notes(
             spark,
@@ -1749,38 +2497,90 @@ def main():
             ignore_watermark=ignore_watermark,
             sync_start_date=sync_start_date,
             full_bootstrap=full_bootstrap,
+            streaming_table=STREAMING_TABLE,
         )
-        logger.info("Lidas: %s notas do streaming", len(notes))
+        logger.info("Lidas: %s notas do streaming QM", len(notes))
 
+        try:
+            notes_qmel = read_new_notes(
+                spark,
+                window_days=window_days,
+                force_window=force_window,
+                ignore_watermark=ignore_watermark,
+                sync_start_date=sync_start_date,
+                full_bootstrap=full_bootstrap,
+                streaming_table=STREAMING_TABLE_QMEL,
+            )
+            if notes_qmel:
+                qmel_only = sum(
+                    1 for n in notes_qmel
+                    if _as_clean_text(n.get("numero_nota")) not in {_as_clean_text(m.get("numero_nota")) for m in notes}
+                )
+                notes = _merge_notes_by_recency(notes, notes_qmel)
+                logger.info(
+                    "Merge QM+QMEL: total=%s (QMEL exclusivas=%s)",
+                    len(notes),
+                    qmel_only,
+                )
+        except Exception as qmel_exc:
+            logger.warning(
+                "Falha ao ler %s, continuando apenas com notas_qm. erro=%s",
+                STREAMING_TABLE_QMEL,
+                qmel_exc,
+            )
+
+        current_stage = "upsert_notes"
         inserted, updated = upsert_notes(notes, sync_id)
 
+        current_stage = "run_register_orders"
         ordens_detectadas, notas_auto_concluidas = run_register_orders(sync_id)
 
+        current_stage = "run_distribution"
         distributed = run_distribution(sync_id)
 
         # Importa ordens PMPL standalone (sem nota correspondente) direto da fonte
+        current_stage = "read_standalone_pmpl_orders"
         standalone_orders = read_standalone_pmpl_orders(
             spark,
             pmpl_standalone_window_days,
             sync_start_date,
             ignore_watermark=ignore_watermark,
         )
+
+        current_stage = "push_standalone_pmpl_orders"
         _, pmpl_standalone_inseridas, pmpl_standalone_atualizadas = push_standalone_pmpl_orders(sync_id, standalone_orders)
 
+        current_stage = "get_orders_for_pmpl_refresh"
         eligible_orders = get_orders_for_pmpl_refresh(min_age_days=pmpl_min_age_days)
+        current_stage = "consolidate_pmpl_status_by_order"
         pmpl_updates = consolidate_pmpl_status_by_order(spark, eligible_orders)
+        current_stage = "push_pmpl_updates"
         _, ordens_status_atualizadas, mudancas_status = push_pmpl_updates(sync_id, pmpl_updates)
 
+        current_stage = "read_orders_document_reference"
         orders_document_reference, orders_document_metrics = read_orders_document_reference(spark)
+        current_stage = "upsert_orders_document_reference"
         ordens_tipo_ref_inseridas, ordens_tipo_ref_atualizadas = upsert_orders_document_reference(
             sync_id,
             orders_document_reference,
         )
 
         # Enriquece tipo_ordem para ordens sem tipo (vinculadas a notas via notas_qm)
-        result_enrich = supabase.rpc("enriquecer_tipo_ordem_por_referencia", {}).execute()
-        tipo_enriquecidas = int(result_enrich.data or 0)
-        logger.info("tipo_ordem enriquecidas: %s", tipo_enriquecidas)
+        current_stage = "enriquecer_tipo_ordem_por_referencia"
+        try:
+            result_enrich = supabase.rpc("enriquecer_tipo_ordem_por_referencia", {}).execute()
+            tipo_enriquecidas = int(result_enrich.data or 0)
+            logger.info("tipo_ordem enriquecidas: %s", tipo_enriquecidas)
+        except Exception as enrich_tipo_exc:
+            if _is_statement_timeout_error(enrich_tipo_exc):
+                tipo_enriquecidas = 0
+                logger.warning(
+                    "Timeout no RPC enriquecer_tipo_ordem_por_referencia (57014). "
+                    "Mantendo sync ativo e pulando etapa neste ciclo. erro=%s",
+                    f"{type(enrich_tipo_exc).__name__}: {enrich_tipo_exc}",
+                )
+            else:
+                raise
 
         # Fonte v2 (manutencao.silver.selecao_ordens_manutencao):
         # dedupe por completude + data_extracao e enriquecimento direto da tabela operacional.
@@ -1830,6 +2630,32 @@ def main():
                     "Falha recorrente na referência v2 de manutenção "
                     f"por {orders_ref_v2_failure_streak} ciclos consecutivos."
                 ) from ref_v2_exc
+
+        try:
+            convergence_rows, convergencia_metrics = build_cockpit_convergence_dataset(spark)
+            convergencia_inseridas, convergencia_atualizadas = upsert_cockpit_convergence(sync_id, convergence_rows)
+            convergencia_status = "success"
+            convergencia_error = None
+        except Exception as convergencia_exc:
+            if _is_statement_timeout_error(convergencia_exc):
+                convergencia_status = "error_tolerated"
+                convergencia_error = f"{type(convergencia_exc).__name__}: {convergencia_exc}"
+                convergencia_inseridas = 0
+                convergencia_atualizadas = 0
+                convergencia_metrics = {
+                    "total_rows": 0,
+                    "eligible_rows": 0,
+                    "missing_pmpl": 0,
+                    "missing_mestre": 0,
+                    "has_order_linked": 0,
+                    "invalid_status": 0,
+                }
+                logger.warning(
+                    "Timeout na convergência do cockpit (57014). Mantendo sync ativo e pulando convergência neste ciclo. erro=%s",
+                    convergencia_error,
+                )
+            else:
+                raise
 
         standalone_owner_metrics = run_standalone_owner_assignment()
         standalone_pmpl_realign_metrics = run_standalone_pmpl_owner_realign()
@@ -1893,22 +2719,44 @@ def main():
             "standalone_pmpl_realign_destino_id": standalone_pmpl_realign_metrics["destino_id"],
             "standalone_pmpl_realign_timeout_tolerated": standalone_pmpl_realign_metrics["timeout_tolerated"],
             "standalone_pmpl_realign_error": standalone_pmpl_realign_metrics["error"],
+            "convergencia_total_rows": convergencia_metrics["total_rows"],
+            "convergencia_eligible_rows": convergencia_metrics["eligible_rows"],
+            "convergencia_missing_pmpl": convergencia_metrics["missing_pmpl"],
+            "convergencia_missing_mestre": convergencia_metrics["missing_mestre"],
+            "convergencia_has_order_linked": convergencia_metrics["has_order_linked"],
+            "convergencia_invalid_status": convergencia_metrics["invalid_status"],
+            "convergencia_inseridas": convergencia_inseridas,
+            "convergencia_atualizadas": convergencia_atualizadas,
+            "convergencia_status": convergencia_status,
+            "convergencia_error": convergencia_error,
         }
 
-        finalize_sync_log(
-            sync_id,
-            read_count=len(notes),
-            inserted=inserted,
-            updated=updated,
-            distributed=distributed,
-            metadata=metadata,
-        )
+        current_stage = "finalize_sync_log_success"
+        try:
+            finalize_sync_log(
+                sync_id,
+                read_count=len(notes),
+                inserted=inserted,
+                updated=updated,
+                distributed=distributed,
+                metadata=metadata,
+            )
+        except Exception as finalize_success_exc:
+            if _is_statement_timeout_error(finalize_success_exc):
+                logger.warning(
+                    "Timeout ao finalizar sync_log com sucesso (57014). "
+                    "Execução seguirá sem interromper o ciclo. erro=%s",
+                    f"{type(finalize_success_exc).__name__}: {finalize_success_exc}",
+                )
+            else:
+                raise
 
         logger.info("Sync concluido com sucesso")
 
     except Exception as e:
-        logger.error("Sync falhou: %s: %s", type(e).__name__, e)
+        logger.error("Sync falhou na etapa '%s': %s: %s", current_stage, type(e).__name__, e)
         try:
+            current_stage = "finalize_sync_log_error"
             finalize_sync_log(
                 sync_id,
                 read_count=0,
@@ -1958,11 +2806,28 @@ def main():
                     "standalone_pmpl_realign_destino_id": standalone_pmpl_realign_metrics["destino_id"],
                     "standalone_pmpl_realign_timeout_tolerated": standalone_pmpl_realign_metrics["timeout_tolerated"],
                     "standalone_pmpl_realign_error": standalone_pmpl_realign_metrics["error"],
+                    "convergencia_total_rows": convergencia_metrics["total_rows"],
+                    "convergencia_eligible_rows": convergencia_metrics["eligible_rows"],
+                    "convergencia_missing_pmpl": convergencia_metrics["missing_pmpl"],
+                    "convergencia_missing_mestre": convergencia_metrics["missing_mestre"],
+                    "convergencia_has_order_linked": convergencia_metrics["has_order_linked"],
+                    "convergencia_invalid_status": convergencia_metrics["invalid_status"],
+                    "convergencia_inseridas": convergencia_inseridas,
+                    "convergencia_atualizadas": convergencia_atualizadas,
+                    "convergencia_status": convergencia_status,
+                    "convergencia_error": convergencia_error,
                 },
                 error=str(e),
             )
-        except Exception:
-            logger.error("Não conseguiu gravar erro no sync_log")
+        except Exception as finalize_error_exc:
+            if _is_statement_timeout_error(finalize_error_exc):
+                logger.warning(
+                    "Timeout ao gravar erro no sync_log (57014). erro_original=%s erro_finalize=%s",
+                    e,
+                    f"{type(finalize_error_exc).__name__}: {finalize_error_exc}",
+                )
+            else:
+                logger.error("Não conseguiu gravar erro no sync_log")
         raise
 
 
