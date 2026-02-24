@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { ArrowUpDown, ExternalLink } from 'lucide-react'
+import { ArrowUpDown, Copy, ExternalLink } from 'lucide-react'
 import { type ColumnDef, type RowSelectionState, type SortingState, type VisibilityState } from '@tanstack/react-table'
 import { DataGrid } from '@/components/data-grid/data-grid'
 import { GridColumnVisibility } from '@/components/data-grid/grid-column-visibility'
@@ -16,6 +16,8 @@ import { DrawerDetalhes } from '@/components/shared/drawer-detalhes'
 import { SemaforoIdade } from '@/components/shared/semaforo-idade'
 import { NotaStatusBadge } from '@/components/notas/nota-status-badge'
 import { Button } from '@/components/ui/button'
+import { useToast } from '@/components/ui/toast'
+import { copyToClipboard } from '@/lib/orders/copy'
 import { getAgingDays } from '@/lib/collaborator/aging'
 import { buildSortParam, updateSearchParams } from '@/lib/grid/query'
 import type { GridSortState, NotaStatus } from '@/lib/types/database'
@@ -90,6 +92,34 @@ function formatDate(value: string | null, fallbackIso: string): string {
   const [year, month, day] = datePart.split('-')
   if (!year || !month || !day) return fallbackIso
   return `${day}/${month}/${year}`
+}
+
+function CopyNotaCell({ numero_nota, descricao }: { numero_nota: string; descricao: string }) {
+  const { toast } = useToast()
+
+  async function handleCopy(event: React.MouseEvent) {
+    event.stopPropagation()
+    const copied = await copyToClipboard(numero_nota)
+    toast({
+      title: copied ? `NOTA ${numero_nota} copiada ✅` : 'Falha ao copiar NOTA',
+      variant: copied ? 'success' : 'error',
+    })
+  }
+
+  return (
+    <div className="min-w-[220px]">
+      <button
+        type="button"
+        onClick={(e) => { void handleCopy(e) }}
+        className="group inline-flex items-center gap-1 rounded-md px-1 -mx-1 font-mono text-sm font-semibold transition-colors hover:bg-muted"
+        title={`Copiar NOTA ${numero_nota}`}
+      >
+        #{numero_nota}
+        <Copy className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-50" />
+      </button>
+      <p className="truncate text-xs text-muted-foreground">{descricao}</p>
+    </div>
+  )
 }
 
 function SortableHeader({
@@ -260,10 +290,7 @@ export function NotasGrid({
         />
       ),
       cell: ({ row }) => (
-        <div className="min-w-[220px]">
-          <p className="font-mono text-sm font-semibold">#{row.original.numero_nota}</p>
-          <p className="truncate text-xs text-muted-foreground">{row.original.descricao}</p>
-        </div>
+        <CopyNotaCell numero_nota={row.original.numero_nota} descricao={row.original.descricao} />
       ),
     },
     {
