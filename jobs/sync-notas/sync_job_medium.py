@@ -146,8 +146,19 @@ def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]
     if not ordem_codes:
         return []
 
+    # Resolve dinamicamente quais colunas de status existem no PMPL_TABLE
+    existing_status_cols = _resolve_existing_columns(spark, PMPL_TABLE, STATUS_COLUMNS_CANDIDATES)
+    if not existing_status_cols:
+        existing_status_cols = ["STATUS"]  # fallback seguro
+    status_coalesce = (
+        existing_status_cols[0]
+        if len(existing_status_cols) == 1
+        else f"COALESCE({', '.join(existing_status_cols)})"
+    )
+    logger.debug("PMPL status coalesce expr: %s", status_coalesce)
+
     priority_expr = " ".join([
-        "CASE UPPER(TRIM(COALESCE(STATUS, STATUS_ORDEM, STATUS_OBJ_ADMIN)))",
+        f"CASE UPPER(TRIM({status_coalesce}))",
         *[f"WHEN '{k}' THEN {v}" for k, v in STATUS_PRIORITY.items()],
         "ELSE 0 END",
     ])
@@ -160,13 +171,11 @@ def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]
             SELECT ORDEM, STATUS_RAW, CENTRO, DATA_ENTRADA, TIPO_ORDEM
             FROM (
               SELECT
-                CAST(ORDEM AS STRING)                                        AS ORDEM,
-                UPPER(TRIM(
-                  COALESCE(STATUS, STATUS_ORDEM, STATUS_OBJ_ADMIN)
-                ))                                                           AS STATUS_RAW,
-                {PMPL_CENTRO_COLUMN}                                         AS CENTRO,
-                CAST({data_expr} AS STRING)                                  AS DATA_ENTRADA,
-                {PMPL_TIPO_ORDEM_COLUMN}                                     AS TIPO_ORDEM,
+                CAST(ORDEM AS STRING)            AS ORDEM,
+                UPPER(TRIM({status_coalesce}))   AS STATUS_RAW,
+                {PMPL_CENTRO_COLUMN}             AS CENTRO,
+                CAST({data_expr} AS STRING)      AS DATA_ENTRADA,
+                {PMPL_TIPO_ORDEM_COLUMN}         AS TIPO_ORDEM,
                 ROW_NUMBER() OVER (
                   PARTITION BY ORDEM
                   ORDER BY {priority_expr} DESC,
