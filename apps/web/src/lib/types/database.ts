@@ -88,6 +88,34 @@ export interface NotaManutencao {
   administradores?: { nome: string; email: string } | null
 }
 
+export interface NotaConvergenciaCockpit {
+  numero_nota: string
+  numero_nota_norm: string
+  nota_id: string | null
+  id: string | null
+  ordem_sap: string | null
+  ordem_gerada: string | null
+  ordem_candidata: string | null
+  ordem_candidata_norm: string | null
+  status: NotaStatus | null
+  descricao: string | null
+  centro: string | null
+  administrador_id: string | null
+  data_criacao_sap: string | null
+  tem_qmel: boolean
+  tem_pmpl: boolean
+  tem_mestre: boolean
+  status_elegivel: boolean
+  tem_ordem_vinculada: boolean
+  eligible_cockpit: boolean
+  reason_not_eligible: string | null
+  reason_codes: string[]
+  sync_id: string | null
+  source_updated_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface NotaHistorico {
   id: string
   nota_id: string

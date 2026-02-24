@@ -14,6 +14,7 @@
 -- 2) Execute a secao "reset".
 -- 3) Rode o job sync_notas_to_supabase com bootstrap_mode=force
 --    (mantendo sync_start_date configurado, ex: 2026-01-01).
+-- 4) Requer migration 00071 aplicada (tabela notas_convergencia_cockpit).
 
 -- ============================================================
 -- PRE-CHECK (somente leitura)
@@ -34,6 +35,8 @@ SELECT 'ordens_tipo_documento_referencia', COUNT(*) FROM public.ordens_tipo_docu
 UNION ALL
 SELECT 'ordens_manutencao_referencia', COUNT(*) FROM public.ordens_manutencao_referencia
 UNION ALL
+SELECT 'notas_convergencia_cockpit', COUNT(*) FROM public.notas_convergencia_cockpit
+UNION ALL
 SELECT 'sync_job_runtime_state', COUNT(*) FROM public.sync_job_runtime_state
 UNION ALL
 SELECT 'sync_log', COUNT(*) FROM public.sync_log
@@ -53,6 +56,7 @@ TRUNCATE TABLE
   public.notas_manutencao,
   public.ordens_tipo_documento_referencia,
   public.ordens_manutencao_referencia,
+  public.notas_convergencia_cockpit,
   public.sync_job_runtime_state,
   public.sync_log;
 
@@ -76,6 +80,8 @@ UNION ALL
 SELECT 'ordens_tipo_documento_referencia', COUNT(*) FROM public.ordens_tipo_documento_referencia
 UNION ALL
 SELECT 'ordens_manutencao_referencia', COUNT(*) FROM public.ordens_manutencao_referencia
+UNION ALL
+SELECT 'notas_convergencia_cockpit', COUNT(*) FROM public.notas_convergencia_cockpit
 UNION ALL
 SELECT 'sync_job_runtime_state', COUNT(*) FROM public.sync_job_runtime_state
 UNION ALL
