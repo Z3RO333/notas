@@ -27,6 +27,7 @@ SUPABASE_URL = dbutils.secrets.get(scope="cockpit", key="SUPABASE_URL")
 SUPABASE_SERVICE_KEY = dbutils.secrets.get(scope="cockpit", key="SUPABASE_SERVICE_ROLE_KEY")
 STREAMING_TABLE = "manutencao.streaming.notas_qm"
 STREAMING_TABLE_QMEL = "manutencao.streaming.notas_qmel"
+GOLD_NOTES_TABLE = "manutencao.gold.vw_notas_base_latest"
 PMPL_TABLE = "manutencao.gold.pmpl_pmos"
 ORDERS_DOCUMENT_SOURCE_TABLE = "manutencao.silver.mestre_dados_ordem"
 ORDERS_MAINTENANCE_SOURCE_TABLE = "manutencao.silver.selecao_ordens_manutencao"
