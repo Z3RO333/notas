@@ -111,9 +111,9 @@ PMPL_DATA_ENTRADA_COLUMNS_CANDIDATES = [
 ]
 
 NOTA_TIMESTAMP_COLUMNS_CANDIDATES = [
-    # Fonte oficial para corte incremental
+    # Fonte oficial (está populada conforme validado)
     "HORA_NOTA",
-    # Fallbacks para robustez operacional em variações de schema
+    # Fallbacks fortes
     "__TIMESTAMP",
     "DATA_ATUALIZACAO",
     "DATA_CRIACAO",
@@ -364,13 +364,28 @@ def _build_date_expr_from_columns(columns: list[str]) -> str:
     return "coalesce(" + ", ".join(parts) + ")"
 
 
-def _build_timestamp_expr_from_columns(columns: list[str]) -> str:
-    """Monta expressão Spark SQL robusta para normalizar timestamp."""
-    if not columns:
-        return "NULL"
+
+def _build_nota_timestamp_expr(spark: SparkSession) -> str:
+    """
+    Expressão Spark SQL robusta para normalizar timestamp de nota.
+    Prioriza HORA_NOTA, com fallbacks seguros.
+    """
+    existing = _resolve_existing_columns(
+        spark,
+        STREAMING_TABLE,
+        NOTA_TIMESTAMP_COLUMNS_CANDIDATES,
+    )
+
+    if not existing:
+        logger.warning(
+            "Nenhuma coluna de timestamp candidata encontrada na tabela %s. Candidatas=%s",
+            STREAMING_TABLE,
+            NOTA_TIMESTAMP_COLUMNS_CANDIDATES,
+        )
 
     parts: list[str] = []
-    for col in columns:
+
+    for col in existing:
         parts.extend([
             f"to_timestamp({col})",
             f"to_timestamp(cast({col} as string))",
@@ -382,19 +397,10 @@ def _build_timestamp_expr_from_columns(columns: list[str]) -> str:
             f"to_timestamp(cast({col} as string), 'dd/MM/yyyy')",
         ])
 
+    if not parts:
+        return "NULL"
+
     return "coalesce(" + ", ".join(parts) + ")"
-
-
-def _build_nota_timestamp_expr(spark: SparkSession) -> str:
-    """Expressão Spark SQL para normalizar timestamp de nota (base: HORA_NOTA)."""
-    existing = _resolve_existing_columns(spark, STREAMING_TABLE, NOTA_TIMESTAMP_COLUMNS_CANDIDATES)
-    if not existing:
-        logger.warning(
-            "Nenhuma coluna de timestamp candidata encontrada na tabela %s. Candidatas=%s",
-            STREAMING_TABLE,
-            NOTA_TIMESTAMP_COLUMNS_CANDIDATES,
-        )
-    return _build_timestamp_expr_from_columns(existing)
 
 
 def _to_utc_iso_datetime(value) -> str | None:
@@ -1393,6 +1399,9 @@ def read_new_notes(
         hora_nota_iso = _to_utc_iso_datetime(
             row_dict.get("HORA_NOTA")
             or row_dict.get("hora_nota")
+            or row_dict.get("__timestamp")
+            or row_dict.get("__TIMESTAMP")
+            or row_dict.get("DATA_ATUALIZACAO")
             or row_dict.get("NOTA_TS_NORM")
         )
         data_criacao_sap = (
