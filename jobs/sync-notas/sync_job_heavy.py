@@ -27,6 +27,7 @@ from sync_shared import (
     COCKPIT_CONVERGENCE_UPSERT_BATCH_SIZE,
     COCKPIT_CONVERGENCE_SPARK_LOOKUP_BATCH_SIZE,
     CONVERGENCE_INCREMENTAL_DAYS,
+    COCKPIT_ESTADO_OPERACIONAL_VALUES,
     STATUS_PRIORITY,
     STATUS_COLUMNS_CANDIDATES,
     BATCH_SIZE,
@@ -36,7 +37,10 @@ from sync_shared import (
     _normalize_numero_nota,
     _normalize_iso_date,
     _normalize_iso_datetime,
-    _to_utc_iso_datetime,
+    _extract_raw_data_field,
+    _is_open_note_status,
+    _resolve_hora_base_utc,
+    _classify_cockpit_estado_operacional,
     _is_statement_timeout_error,
     _calculate_maintenance_reference_completeness,
     _is_better_maintenance_reference,
@@ -388,13 +392,19 @@ def _fetch_order_link_sets() -> tuple[set[str], set[str]]:
 
 def _build_not_eligible_reasons(
     *,
+    estado_operacional: str,
+    eligible_cockpit: bool,
     tem_ordem_vinculada: bool,
     status_elegivel: bool,
     tem_qmel: bool,
     tem_pmpl: bool,
     tem_mestre: bool,
 ) -> tuple[str | None, list[str]]:
+    if eligible_cockpit:
+        return None, []
+
     reason_codes: list[str] = []
+    reason_codes.append(f"state_{estado_operacional.lower()}")
     if tem_ordem_vinculada:
         reason_codes.append("has_order_linked")
     if not status_elegivel:
@@ -405,7 +415,7 @@ def _build_not_eligible_reasons(
         reason_codes.append("missing_pmpl")
     if not tem_mestre:
         reason_codes.append("missing_mestre")
-    return (reason_codes[0] if reason_codes else None), reason_codes
+    return estado_operacional, reason_codes
 
 
 def build_cockpit_convergence_dataset(
@@ -418,7 +428,10 @@ def build_cockpit_convergence_dataset(
     if full_rebuild:
         notes = _fetch_all_table_rows(
             "notas_manutencao",
-            "id,numero_nota,ordem_sap,ordem_gerada,status,descricao,centro,administrador_id,data_criacao_sap,updated_at",
+            (
+                "id,numero_nota,ordem_sap,ordem_gerada,status,status_sap,hora_nota,"
+                "descricao,centro,administrador_id,data_criacao_sap,raw_data,created_at,updated_at"
+            ),
             "numero_nota",
         )
         logger.info("Convergência: full rebuild ativado (%s notas)", len(notes))
@@ -426,7 +439,12 @@ def build_cockpit_convergence_dataset(
         cutoff = (datetime.now(timezone.utc) - timedelta(days=incremental_days)).isoformat()
         result = (
             supabase.table("notas_manutencao")
-            .select("id,numero_nota,ordem_sap,ordem_gerada,status,descricao,centro,administrador_id,data_criacao_sap,updated_at")
+            .select(
+                (
+                    "id,numero_nota,ordem_sap,ordem_gerada,status,status_sap,hora_nota,"
+                    "descricao,centro,administrador_id,data_criacao_sap,raw_data,created_at,updated_at"
+                )
+            )
             .gte("updated_at", cutoff)
             .order("numero_nota")
             .execute()
@@ -435,7 +453,19 @@ def build_cockpit_convergence_dataset(
         logger.info("Convergência incremental: %s notas (updated_at >= %s)", len(notes), cutoff)
 
     if not notes:
-        metrics = {"total_rows": 0, "eligible_rows": 0, "missing_pmpl": 0, "missing_mestre": 0, "has_order_linked": 0, "invalid_status": 0}
+        metrics = {
+            "total_rows": 0,
+            "eligible_rows": 0,
+            "missing_pmpl": 0,
+            "missing_mestre": 0,
+            "has_order_linked": 0,
+            "invalid_status": 0,
+            "total_com_ordem": 0,
+            "total_encerrada_sem_ordem": 0,
+            "total_aguardando_convergencia": 0,
+            "total_cancelada": 0,
+            "estado_operacional_counts": {k: 0 for k in COCKPIT_ESTADO_OPERACIONAL_VALUES},
+        }
         return [], metrics
 
     deduped_notes: dict[str, dict] = {}
@@ -496,12 +526,29 @@ def build_cockpit_convergence_dataset(
         nota_id = _as_clean_text(row.get("id"))
         status_raw = _as_clean_text(row.get("status"))
         status_norm = status_raw.lower() if status_raw else None
-        status_elegivel = bool(status_norm and status_norm not in {"cancelada", "concluida"})
+        status_elegivel = _is_open_note_status(status_norm)
         tem_ordem_vinculada = bool(
             ordem_sap
             or ordem_gerada
             or (nota_id and nota_id in linked_note_ids)
             or (numero_nota_norm in linked_note_norms)
+        )
+        status_sap = _as_clean_text(row.get("status_sap"))
+        raw_data = row.get("raw_data")
+        data_conclusao = _extract_raw_data_field(raw_data, "DATA_CONCLUSAO")
+        data_enc_nota = _extract_raw_data_field(raw_data, "DATA_ENC_NOTA")
+        hora_base_utc = _resolve_hora_base_utc(
+            row.get("hora_nota"),
+            row.get("data_criacao_sap"),
+            row.get("created_at"),
+        )
+        estado_operacional = _classify_cockpit_estado_operacional(
+            tem_ordem_vinculada=tem_ordem_vinculada,
+            status_nota=status_norm,
+            status_sap=status_sap,
+            data_conclusao=data_conclusao,
+            data_enc_nota=data_enc_nota,
+            hora_base_utc=hora_base_utc,
         )
 
         base_rows.append({
@@ -517,9 +564,14 @@ def build_cockpit_convergence_dataset(
             "centro": _normalize_centro(row.get("centro")) or _as_clean_text(row.get("centro")),
             "administrador_id": _as_clean_text(row.get("administrador_id")),
             "data_criacao_sap": _normalize_iso_date(row.get("data_criacao_sap")),
+            "status_sap": status_sap,
             "tem_qmel": numero_nota_norm in qmel_by_note,
             "status_elegivel": status_elegivel,
             "tem_ordem_vinculada": tem_ordem_vinculada,
+            "estado_operacional": estado_operacional,
+            "hora_base_utc": hora_base_utc,
+            "data_conclusao_sap": _normalize_iso_date(data_conclusao),
+            "data_enc_nota_sap": _normalize_iso_date(data_enc_nota),
             "source_updated_at": _normalize_iso_datetime(row.get("updated_at")),
         })
 
@@ -527,26 +579,35 @@ def build_cockpit_convergence_dataset(
     pmpl_present = _fetch_pmpl_presence_by_order(spark, list(ordem_lookup_values))
 
     payload: list[dict] = []
-    metrics = {"total_rows": 0, "eligible_rows": 0, "missing_pmpl": 0, "missing_mestre": 0, "has_order_linked": 0, "invalid_status": 0}
+    metrics = {
+        "total_rows": 0,
+        "eligible_rows": 0,
+        "missing_pmpl": 0,
+        "missing_mestre": 0,
+        "has_order_linked": 0,
+        "invalid_status": 0,
+        "total_com_ordem": 0,
+        "total_encerrada_sem_ordem": 0,
+        "total_aguardando_convergencia": 0,
+        "total_cancelada": 0,
+        "estado_operacional_counts": {k: 0 for k in COCKPIT_ESTADO_OPERACIONAL_VALUES},
+    }
 
     for row in base_rows:
         ordem_candidata_norm = row.get("ordem_candidata_norm")
         tem_pmpl = bool(ordem_candidata_norm and ordem_candidata_norm in pmpl_present)
         tem_mestre = bool(ordem_candidata_norm and ordem_candidata_norm in mestre_present)
-        eligible_cockpit = bool(
-            row["tem_qmel"] and tem_pmpl and tem_mestre
-            and row["status_elegivel"] and not row["tem_ordem_vinculada"]
-        )
+        estado_operacional = row["estado_operacional"]
+        eligible_cockpit = estado_operacional == "COCKPIT_PENDENTE"
         reason_not_eligible, reason_codes = _build_not_eligible_reasons(
+            estado_operacional=estado_operacional,
+            eligible_cockpit=eligible_cockpit,
             tem_ordem_vinculada=row["tem_ordem_vinculada"],
             status_elegivel=row["status_elegivel"],
             tem_qmel=row["tem_qmel"],
             tem_pmpl=tem_pmpl,
             tem_mestre=tem_mestre,
         )
-        if eligible_cockpit:
-            reason_not_eligible = None
-            reason_codes = []
 
         item = {
             "numero_nota": row["numero_nota"],
@@ -557,6 +618,7 @@ def build_cockpit_convergence_dataset(
             "ordem_candidata": row["ordem_candidata"],
             "ordem_candidata_norm": ordem_candidata_norm,
             "status": row["status"],
+            "estado_operacional": estado_operacional,
             "descricao": row["descricao"],
             "centro": row["centro"],
             "administrador_id": row["administrador_id"],
@@ -574,6 +636,9 @@ def build_cockpit_convergence_dataset(
         payload.append(item)
 
         metrics["total_rows"] += 1
+        metrics["estado_operacional_counts"][estado_operacional] = (
+            metrics["estado_operacional_counts"].get(estado_operacional, 0) + 1
+        )
         if item["eligible_cockpit"]:
             metrics["eligible_rows"] += 1
         if not item["tem_pmpl"]:
@@ -584,11 +649,28 @@ def build_cockpit_convergence_dataset(
             metrics["has_order_linked"] += 1
         if not item["status_elegivel"]:
             metrics["invalid_status"] += 1
+        if estado_operacional == "COM_ORDEM":
+            metrics["total_com_ordem"] += 1
+        elif estado_operacional == "ENCERRADA_SEM_ORDEM":
+            metrics["total_encerrada_sem_ordem"] += 1
+        elif estado_operacional == "AGUARDANDO_CONVERGENCIA":
+            metrics["total_aguardando_convergencia"] += 1
+        elif estado_operacional == "CANCELADA":
+            metrics["total_cancelada"] += 1
 
     logger.info(
-        "Convergência cockpit -> total=%s eligible=%s missing_pmpl=%s missing_mestre=%s has_order_linked=%s invalid_status=%s",
+        (
+            "Convergência cockpit -> total=%s eligible=%s missing_pmpl=%s missing_mestre=%s "
+            "has_order_linked=%s invalid_status=%s states=%s com_ordem=%s encerrada_sem_ordem=%s "
+            "aguardando_convergencia=%s cancelada=%s"
+        ),
         metrics["total_rows"], metrics["eligible_rows"], metrics["missing_pmpl"],
         metrics["missing_mestre"], metrics["has_order_linked"], metrics["invalid_status"],
+        metrics["estado_operacional_counts"],
+        metrics["total_com_ordem"],
+        metrics["total_encerrada_sem_ordem"],
+        metrics["total_aguardando_convergencia"],
+        metrics["total_cancelada"],
     )
     return payload, metrics
 
@@ -643,7 +725,19 @@ def main():
 
     convergencia_inseridas = 0
     convergencia_atualizadas = 0
-    convergencia_metrics = {"total_rows": 0, "eligible_rows": 0, "missing_pmpl": 0, "missing_mestre": 0, "has_order_linked": 0, "invalid_status": 0}
+    convergencia_metrics = {
+        "total_rows": 0,
+        "eligible_rows": 0,
+        "missing_pmpl": 0,
+        "missing_mestre": 0,
+        "has_order_linked": 0,
+        "invalid_status": 0,
+        "total_com_ordem": 0,
+        "total_encerrada_sem_ordem": 0,
+        "total_aguardando_convergencia": 0,
+        "total_cancelada": 0,
+        "estado_operacional_counts": {k: 0 for k in COCKPIT_ESTADO_OPERACIONAL_VALUES},
+    }
     convergencia_status = "not_run"
     convergencia_error: str | None = None
     pmpl_standalone_inseridas = 0
@@ -697,6 +791,11 @@ def main():
             "convergencia_missing_mestre": convergencia_metrics["missing_mestre"],
             "convergencia_has_order_linked": convergencia_metrics["has_order_linked"],
             "convergencia_invalid_status": convergencia_metrics["invalid_status"],
+            "convergencia_total_com_ordem": convergencia_metrics["total_com_ordem"],
+            "convergencia_total_encerrada_sem_ordem": convergencia_metrics["total_encerrada_sem_ordem"],
+            "convergencia_total_aguardando_convergencia": convergencia_metrics["total_aguardando_convergencia"],
+            "convergencia_total_cancelada": convergencia_metrics["total_cancelada"],
+            "estado_operacional_counts": convergencia_metrics["estado_operacional_counts"],
             "convergencia_inseridas": convergencia_inseridas,
             "convergencia_atualizadas": convergencia_atualizadas,
             "convergencia_status": convergencia_status,

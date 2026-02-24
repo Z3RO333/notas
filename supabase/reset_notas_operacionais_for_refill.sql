@@ -12,9 +12,12 @@
 -- Passos sugeridos:
 -- 1) Execute a secao "pre-check" e valide os volumes.
 -- 2) Execute a secao "reset".
--- 3) Rode o job sync_notas_to_supabase com bootstrap_mode=force
+-- 3) Rode os jobs em sequência:
+--    a) sync_job_fast com bootstrap_mode=force
+--    b) sync_job_medium
+--    c) sync_job_heavy (1a execução com cockpit.sync.convergence_full_rebuild=true)
 --    (mantendo sync_start_date configurado, ex: 2026-01-01).
--- 4) Requer migration 00071 aplicada (tabela notas_convergencia_cockpit).
+-- 4) Requer migrations 00071 e 00074 aplicadas (convergência + estado_operacional).
 
 -- ============================================================
 -- PRE-CHECK (somente leitura)

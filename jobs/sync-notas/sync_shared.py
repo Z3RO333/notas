@@ -6,6 +6,7 @@ Importado por sync_job_fast.py, sync_job_medium.py e sync_job_heavy.py.
 import subprocess
 subprocess.check_call(["pip", "install", "supabase"])
 
+import json
 import logging
 import re
 from datetime import date, datetime, timedelta, timezone
@@ -51,6 +52,25 @@ COCKPIT_CONVERGENCE_SPARK_LOOKUP_BATCH_SIZE = 300
 CONVERGENCE_INCREMENTAL_DAYS = 7
 
 OPEN_STATUS = {"aberta", "em_tratativa", "desconhecido"}
+NOTA_OPEN_STATUS = {"nova", "em_andamento", "encaminhada_fornecedor"}
+COCKPIT_CONVERGENCE_GRACE_HOURS = 48
+COCKPIT_ESTADO_OPERACIONAL_VALUES = (
+    "COCKPIT_PENDENTE",
+    "AGUARDANDO_CONVERGENCIA",
+    "COM_ORDEM",
+    "ENCERRADA_SEM_ORDEM",
+    "CANCELADA",
+)
+SAP_FINAL_STATUS_KEYWORDS = (
+    "ENCERR",
+    "CONCL",
+    "FINALIZ",
+    "FECH",
+    "CANCEL",
+    "AGUARDANDO_FATURAMENTO_NF",
+    "EXECUCAO_SATISFATORIO",
+    "EXECUCAO_SATISFATORIA",
+)
 
 STATUS_PRIORITY = {
     "CANCELADO": 5,
@@ -263,6 +283,127 @@ def _has_future_source_closure_without_order(row_dict: dict) -> bool:
         return date.fromisoformat(data_conclusao) > datetime.now(timezone.utc).date()
     except ValueError:
         return False
+
+
+def _extract_raw_data_field(raw_data: dict | str | None, key: str) -> str | None:
+    if raw_data is None:
+        return None
+    if isinstance(raw_data, dict):
+        return _as_clean_text(raw_data.get(key))
+    text = _as_clean_text(raw_data)
+    if not text:
+        return None
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        return None
+    if isinstance(parsed, dict):
+        return _as_clean_text(parsed.get(key))
+    return None
+
+
+def _normalize_status_sap_token(value) -> str | None:
+    text = _as_clean_text(value)
+    if not text:
+        return None
+    normalized = re.sub(r"\s+", "_", text.upper())
+    return re.sub(r"_+", "_", normalized)
+
+
+def _is_final_status_sap(value) -> bool:
+    token = _normalize_status_sap_token(value)
+    if not token:
+        return False
+    return any(keyword in token for keyword in SAP_FINAL_STATUS_KEYWORDS)
+
+
+def _is_open_note_status(status_nota: str | None) -> bool:
+    text = _as_clean_text(status_nota)
+    if not text:
+        return False
+    return text.lower() in NOTA_OPEN_STATUS
+
+
+def _resolve_hora_base_utc(*candidates) -> str | None:
+    for value in candidates:
+        normalized = _to_utc_iso_datetime(value)
+        if normalized:
+            return normalized
+    return None
+
+
+def _has_sap_structural_closure(
+    *,
+    status_sap: str | None,
+    data_conclusao: str | None,
+    data_enc_nota: str | None,
+    now_utc: datetime | None = None,
+) -> bool:
+    if _normalize_iso_date(data_enc_nota):
+        return True
+
+    data_conclusao_date = _to_utc_date_str(data_conclusao)
+    if data_conclusao_date:
+        reference_date = (now_utc or datetime.now(timezone.utc)).date()
+        try:
+            if date.fromisoformat(data_conclusao_date) <= reference_date:
+                return True
+        except ValueError:
+            pass
+
+    return _is_final_status_sap(status_sap)
+
+
+def _classify_cockpit_estado_operacional(
+    *,
+    tem_ordem_vinculada: bool,
+    status_nota: str | None,
+    status_sap: str | None,
+    data_conclusao: str | None,
+    data_enc_nota: str | None,
+    hora_base_utc: str | None,
+    convergence_grace_hours: int = COCKPIT_CONVERGENCE_GRACE_HOURS,
+    now_utc: datetime | None = None,
+) -> str:
+    if tem_ordem_vinculada:
+        return "COM_ORDEM"
+
+    if _has_sap_structural_closure(
+        status_sap=status_sap,
+        data_conclusao=data_conclusao,
+        data_enc_nota=data_enc_nota,
+        now_utc=now_utc,
+    ):
+        return "ENCERRADA_SEM_ORDEM"
+
+    status_norm = (_as_clean_text(status_nota) or "").lower()
+    if status_norm == "cancelada":
+        return "CANCELADA"
+    if status_norm == "concluida":
+        return "ENCERRADA_SEM_ORDEM"
+
+    if not _is_open_note_status(status_norm):
+        return "AGUARDANDO_CONVERGENCIA"
+
+    now_ts = now_utc or datetime.now(timezone.utc)
+    hora_base_norm = _to_utc_iso_datetime(hora_base_utc)
+    if not hora_base_norm:
+        return "AGUARDANDO_CONVERGENCIA"
+
+    try:
+        base_ts = datetime.fromisoformat(hora_base_norm.replace("Z", "+00:00"))
+    except ValueError:
+        return "AGUARDANDO_CONVERGENCIA"
+
+    if base_ts.tzinfo is None:
+        base_ts = base_ts.replace(tzinfo=timezone.utc)
+    else:
+        base_ts = base_ts.astimezone(timezone.utc)
+
+    age_hours = max((now_ts - base_ts).total_seconds() / 3600.0, 0.0)
+    if age_hours > convergence_grace_hours:
+        return "COCKPIT_PENDENTE"
+    return "AGUARDANDO_CONVERGENCIA"
 
 
 # ----- Classificação de erros -----

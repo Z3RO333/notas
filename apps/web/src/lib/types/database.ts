@@ -36,6 +36,14 @@ export type OrdemStatusAcomp =
   | 'cancelada'
   | 'desconhecido'
 
+export type CockpitEstadoOperacional =
+  | 'COCKPIT_PENDENTE'
+  | 'AGUARDANDO_CONVERGENCIA'
+  | 'COM_ORDEM'
+  | 'ENCERRADA_SEM_ORDEM'
+  | 'CANCELADA'
+  | 'ORDEM_SEM_NOTA'
+
 export interface Administrador {
   id: string
   auth_user_id: string | null
@@ -98,6 +106,7 @@ export interface NotaConvergenciaCockpit {
   ordem_candidata: string | null
   ordem_candidata_norm: string | null
   status: NotaStatus | null
+  estado_operacional: CockpitEstadoOperacional
   descricao: string | null
   centro: string | null
   administrador_id: string | null
