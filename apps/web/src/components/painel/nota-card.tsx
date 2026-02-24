@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
-import { CheckCircle, Loader2 } from 'lucide-react'
+import { CheckCircle, Copy, Loader2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { NotaStatusBadge } from '@/components/notas/nota-status-badge'
 import { useToast } from '@/components/ui/toast'
 import { concluirNotaRapida } from '@/lib/actions/nota-actions'
+import { copyToClipboard } from '@/lib/orders/copy'
 import type { NotaPanelData } from '@/lib/types/database'
 
 const prioridadeLabel: Record<string, string> = {
@@ -44,6 +45,16 @@ export function NotaCard({ nota }: NotaCardProps) {
   const prioridadeCor = nota.prioridade ? (prioridadeColor[nota.prioridade] || 'border-l-gray-300') : 'border-l-gray-300'
 
   const canConclude = nota.administrador_id && (nota.status === 'em_andamento' || nota.status === 'encaminhada_fornecedor')
+
+  async function handleCopyNota(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    const copied = await copyToClipboard(nota.numero_nota)
+    toast({
+      title: copied ? `NOTA ${nota.numero_nota} copiada ✅` : 'Falha ao copiar NOTA',
+      variant: copied ? 'success' : 'error',
+    })
+  }
 
   function handleConcluirClick(e: React.MouseEvent) {
     e.preventDefault()
@@ -84,9 +95,15 @@ export function NotaCard({ nota }: NotaCardProps) {
           className={`group rounded-lg border border-l-4 ${prioridadeCor} bg-card p-4 transition-all hover:shadow-md hover:border-l-primary cursor-pointer`}
         >
           <div className="flex items-start justify-between gap-2 mb-3">
-            <span className="font-mono text-sm font-bold text-foreground">
+            <button
+              type="button"
+              onClick={handleCopyNota}
+              className="group inline-flex items-center gap-1 rounded px-1 -mx-1 font-mono text-sm font-bold text-foreground transition-colors hover:bg-muted"
+              title={`Copiar NOTA ${nota.numero_nota}`}
+            >
               #{nota.numero_nota}
-            </span>
+              <Copy className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-50" />
+            </button>
             <div className="flex items-center gap-2">
               {canConclude && (
                 <button
