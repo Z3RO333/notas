@@ -51,7 +51,8 @@ CREATE INDEX IF NOT EXISTS idx_notas_admin_estado
 -- ============================================================
 -- 3) View do cockpit (compatível: segue filtrando eligible=true)
 -- ============================================================
-CREATE OR REPLACE VIEW public.vw_notas_cockpit_convergidas AS
+DROP VIEW IF EXISTS public.vw_notas_cockpit_convergidas;
+CREATE VIEW public.vw_notas_cockpit_convergidas AS
 SELECT
   c.nota_id AS id,
   c.numero_nota,
@@ -62,7 +63,6 @@ SELECT
   c.ordem_candidata,
   c.ordem_candidata_norm,
   c.status,
-  c.estado_operacional,
   c.descricao,
   c.centro,
   c.administrador_id,
@@ -78,7 +78,8 @@ SELECT
   c.sync_id,
   c.source_updated_at,
   c.created_at,
-  c.updated_at
+  c.updated_at,
+  c.estado_operacional
 FROM public.notas_convergencia_cockpit c
 WHERE c.eligible_cockpit = true
 ORDER BY c.data_criacao_sap ASC NULLS LAST, c.updated_at ASC;
@@ -108,4 +109,3 @@ LEFT JOIN public.administradores a
 LEFT JOIN public.dim_centro_unidade d
   ON d.centro = o.centro
 WHERE o.nota_id IS NULL;
-

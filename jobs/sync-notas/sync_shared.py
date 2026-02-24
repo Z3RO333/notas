@@ -15,6 +15,13 @@ from uuid import uuid4
 from pyspark.sql import SparkSession
 from supabase import Client, create_client
 
+# dbutils não é injetado em módulos importados — instanciar via DBUtils(spark)
+try:
+    dbutils  # noqa: F821 — disponível no script principal (notebook context)
+except NameError:
+    from pyspark.dbutils import DBUtils
+    dbutils = DBUtils(SparkSession.builder.getOrCreate())
+
 # ----- Configuracao -----
 SUPABASE_URL = dbutils.secrets.get(scope="cockpit", key="SUPABASE_URL")
 SUPABASE_SERVICE_KEY = dbutils.secrets.get(scope="cockpit", key="SUPABASE_SERVICE_ROLE_KEY")
