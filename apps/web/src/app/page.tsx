@@ -96,7 +96,7 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
   const activeNotesKpi = (VALID_NOTES_KPI.includes(kpiRaw as NotesKpiFilter) ? kpiRaw : '') as NotesKpiFilter | ''
 
   const [cargaResult, adminsResult, latestSyncResult] = await Promise.all([
-    supabase.from('vw_carga_administradores').select('*').order('nome'),
+    supabase.from('vw_carga_administradores_cockpit_convergidas').select('*').order('nome'),
     supabase
       .from('administradores')
       .select('id, nome')
@@ -114,7 +114,7 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
   if (preloadError) throw preloadError
 
   let notesQuery = supabase
-    .from('vw_notas_sem_ordem')
+    .from('vw_notas_cockpit_convergidas')
     .select(NOTA_FIELDS)
     .order('data_criacao_sap', { ascending: true })
 
