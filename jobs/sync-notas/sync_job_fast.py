@@ -2,21 +2,18 @@
 Databricks Job: Sync rápido de notas — roda a cada 5 minutos.
 
 Fluxo:
-  1. Lê notas novas/atualizadas de notas_qm + notas_qmel (SELECT colunas, LIMIT 10k)
+  1. Lê notas novas/atualizadas de vw_notas_base_latest (QM+QMEL deduplicados, SELECT colunas, LIMIT 10k)
   2. Upsert no Supabase (tabela notas_manutencao) sem roundtrip de existence check
   3. Registra ordens derivadas de notas
   4. Distribui notas pendentes sem ordem
 """
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from pyspark.sql import SparkSession
 
 from sync_shared import (
-    STREAMING_TABLE,
-    STREAMING_TABLE_QMEL,
-    NOTA_TIMESTAMP_COLUMNS_CANDIDATES,
     NOTA_CENTRO_COLUMNS_CANDIDATES,
     BATCH_SIZE,
     _as_clean_text,
@@ -45,41 +42,28 @@ from sync_shared import (
     logger,
 )
 
+GOLD_NOTES_TABLE = "manutencao.gold.vw_notas_base_latest"
+
 # Otimização 1: colunas explícitas + limite por ciclo
 MAX_NOTES_PER_CYCLE = 10_000
 
 NOTA_COLUMNS_SELECT = [
     "NUMERO_NOTA", "TIPO_NOTA", "TEXTO_BREVE", "TEXTO_DESC_OBJETO",
     "PRIORIDADE", "TIPO_PRIORIDADE", "CRIADO_POR", "SOLICITANTE",
-    "DATA_CRIACAO", "DATA_NOTA", "HORA_NOTA", "__TIMESTAMP", "DATA_ATUALIZACAO",
-    "ORDEM", "CENTRO_MATERIAL", "CENTRO_LOCALIZACAO", "CENTRO",
+    "DATA_CRIACAO", "DATA_NOTA", "HORA_NOTA", "DATA_ATUALIZACAO",
+    "ORDEM", "CENTRO_MATERIAL",
     "STATUS_OBJ_ADMIN", "N_CONTA_FORNECEDOR", "AUTOR_NOTA_QM_PM",
     "DATA_CONCLUSAO", "DATA_ENC_NOTA",
 ]
 
 
-def _build_nota_timestamp_expr(spark: SparkSession, streaming_table: str = STREAMING_TABLE) -> str:
-    existing = _resolve_existing_columns(spark, streaming_table, NOTA_TIMESTAMP_COLUMNS_CANDIDATES)
-    if not existing:
-        logger.warning(
-            "Nenhuma coluna de timestamp candidata encontrada na tabela %s. Candidatas=%s",
-            streaming_table, NOTA_TIMESTAMP_COLUMNS_CANDIDATES,
-        )
-    parts: list[str] = []
-    for col in existing:
-        parts.extend([
-            f"to_timestamp({col})",
-            f"to_timestamp(cast({col} as string))",
-            f"to_timestamp(cast({col} as string), 'yyyy-MM-dd HH:mm:ss')",
-            f"to_timestamp(cast({col} as string), 'yyyy-MM-dd HH:mm')",
-            f"to_timestamp(cast({col} as string), 'yyyy-MM-dd')",
-            f"to_timestamp(cast({col} as string), 'dd/MM/yyyy HH:mm:ss')",
-            f"to_timestamp(cast({col} as string), 'dd/MM/yyyy HH:mm')",
-            f"to_timestamp(cast({col} as string), 'dd/MM/yyyy')",
-        ])
-    if not parts:
-        return "NULL"
-    return "coalesce(" + ", ".join(parts) + ")"
+def _build_nota_timestamp_expr(spark: SparkSession, streaming_table: str = GOLD_NOTES_TABLE) -> str:
+    """View gold garante HORA_NOTA como TIMESTAMP — expr trivial."""
+    existing = _resolve_existing_columns(spark, streaming_table, ["HORA_NOTA"])
+    if existing:
+        return "HORA_NOTA"
+    logger.warning("HORA_NOTA não encontrada em %s — usando NULL como timestamp expr", streaming_table)
+    return "NULL"
 
 
 def _log_empty_result_diagnostics(spark: SparkSession, effective_start_ts: str, nota_ts_expr: str, streaming_table: str):
@@ -143,7 +127,7 @@ def read_new_notes(
     streaming_table: str | None = None,
 ) -> list[dict]:
     """Lê notas com SELECT colunas explícitas e LIMIT por ciclo."""
-    streaming_table = streaming_table or STREAMING_TABLE
+    streaming_table = streaming_table or GOLD_NOTES_TABLE
     watermark = get_watermark()
     logger.info(
         "Parametros leitura (timestamp) -> tabela=%s watermark_bruto=%s, sync_start_date=%s, force_window=%s, ignore_watermark=%s, full_bootstrap=%s, window_days=%s",
@@ -171,8 +155,12 @@ def read_new_notes(
             )
             watermark_date = None
         if watermark_date:
-            effective_start_date = max(watermark_date, sync_start_date)
-            logger.info("Watermark (timestamp): %s | inicio_efetivo=%s", watermark_date, effective_start_date)
+            # -1 dia: cobre delay de extração entre SAP → Databricks
+            wm_with_lookback = (
+                date.fromisoformat(watermark_date) - timedelta(days=1)
+            ).isoformat()
+            effective_start_date = max(wm_with_lookback, sync_start_date)
+            logger.info("Watermark: %s | lookback -1d → %s | inicio_efetivo=%s", watermark_date, wm_with_lookback, effective_start_date)
         else:
             effective_start_date = sync_start_date
             logger.info("Sem watermark válido. Leitura iniciando em %s", effective_start_date)
@@ -271,23 +259,6 @@ def read_new_notes(
 
     logger.info("Leitura por timestamp concluída [%s]: %s notas (NOTA_TS_NORM >= %s).", streaming_table, len(notes), effective_start_ts)
     return notes
-
-
-def _merge_notes_by_recency(
-    notes_primary: list[dict],
-    notes_secondary: list[dict],
-) -> list[dict]:
-    """Combina duas listas de notas por numero_nota. A primária prevalece."""
-    merged: dict[str, dict] = {}
-    for note in notes_secondary:
-        numero = _as_clean_text(note.get("numero_nota"))
-        if numero:
-            merged[numero] = note
-    for note in notes_primary:
-        numero = _as_clean_text(note.get("numero_nota"))
-        if numero:
-            merged[numero] = note
-    return list(merged.values())
 
 
 def upsert_notes(notes: list[dict], sync_id: str) -> tuple[int, int]:
@@ -428,29 +399,9 @@ def main():
             ignore_watermark=ignore_watermark,
             sync_start_date=sync_start_date,
             full_bootstrap=full_bootstrap,
-            streaming_table=STREAMING_TABLE,
+            streaming_table=GOLD_NOTES_TABLE,
         )
-        logger.info("Lidas: %s notas do streaming QM", len(notes))
-
-        try:
-            notes_qmel = read_new_notes(
-                spark,
-                window_days=window_days,
-                force_window=force_window,
-                ignore_watermark=ignore_watermark,
-                sync_start_date=sync_start_date,
-                full_bootstrap=full_bootstrap,
-                streaming_table=STREAMING_TABLE_QMEL,
-            )
-            if notes_qmel:
-                qmel_only = sum(
-                    1 for n in notes_qmel
-                    if _as_clean_text(n.get("numero_nota")) not in {_as_clean_text(m.get("numero_nota")) for m in notes}
-                )
-                notes = _merge_notes_by_recency(notes, notes_qmel)
-                logger.info("Merge QM+QMEL: total=%s (QMEL exclusivas=%s)", len(notes), qmel_only)
-        except Exception as qmel_exc:
-            logger.warning("Falha ao ler %s, continuando apenas com notas_qm. erro=%s", STREAMING_TABLE_QMEL, qmel_exc)
+        logger.info("Lidas: %s notas da view gold (QM+QMEL deduped)", len(notes))
 
         current_stage = "upsert_notes"
         inserted, updated = upsert_notes(notes, sync_id)
@@ -467,7 +418,7 @@ def main():
             "force_window": force_window,
             "ignore_watermark": ignore_watermark,
             "sync_start_date": sync_start_date,
-            "streaming_table": STREAMING_TABLE,
+            "streaming_table": GOLD_NOTES_TABLE,
             "bootstrap_mode": bootstrap_mode,
             "full_bootstrap": full_bootstrap,
             "max_notes_per_cycle": MAX_NOTES_PER_CYCLE,
@@ -491,7 +442,7 @@ def main():
         try:
             finalize_sync_log(
                 sync_id, read_count=0, inserted=0, updated=0, distributed=0,
-                metadata={"job": "fast", "window_days": window_days, "sync_start_date": sync_start_date, "streaming_table": STREAMING_TABLE},
+                metadata={"job": "fast", "window_days": window_days, "sync_start_date": sync_start_date, "streaming_table": GOLD_NOTES_TABLE},
                 error=str(e),
             )
         except Exception:

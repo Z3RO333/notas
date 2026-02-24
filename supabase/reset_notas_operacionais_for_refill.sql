@@ -12,10 +12,11 @@
 -- Passos sugeridos:
 -- 1) Execute a secao "pre-check" e valide os volumes.
 -- 2) Execute a secao "reset".
--- 3) Rode os jobs em sequência:
---    a) sync_job_fast com bootstrap_mode=force
---    b) sync_job_medium
---    c) sync_job_heavy (1a execução com cockpit.sync.convergence_full_rebuild=true)
+-- 3) Rode o job monolítico sync_notas_to_supabase (dispatcher automático):
+--    - fast sempre
+--    - medium a cada ~30 min (quando heavy não estiver due)
+--    - heavy a cada ~60 min
+--    - para rebuild inicial de convergência: cockpit.sync.convergence_full_rebuild=true
 --    (mantendo sync_start_date configurado, ex: 2026-01-01).
 -- 4) Requer migrations 00071 e 00074 aplicadas (convergência + estado_operacional).
 
