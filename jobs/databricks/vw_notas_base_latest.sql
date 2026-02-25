@@ -72,7 +72,13 @@ deduped AS (
     *,
     ROW_NUMBER() OVER (
       PARTITION BY NUMERO_NOTA
-      ORDER BY hora_nota_ts DESC NULLS LAST, _fonte ASC
+      ORDER BY
+        hora_nota_ts DESC NULLS LAST,
+        CASE
+          WHEN ORDEM IS NULL OR TRIM(CAST(ORDEM AS STRING)) IN ('', '0') THEN 1
+          ELSE 0
+        END ASC,
+        _fonte ASC
     ) AS _rn
   FROM base
 )
