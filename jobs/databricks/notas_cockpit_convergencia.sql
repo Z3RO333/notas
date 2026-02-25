@@ -2,8 +2,12 @@
 -- notas_cockpit_convergencia
 -- Dataset mensal de convergência Nota x Ordem
 -- Fonte exclusiva: manutencao.streaming.notas_qm
--- Carga a partir de: 2026-01-01
+-- Carga a partir de: configurável via widget sync_start_date
+--   Padrão: 2024-01-01 (cobre histórico operacional completo)
+--   Para ajustar: defina o widget sync_start_date no job Databricks
 -- ============================================================
+-- Widget Databricks (defina no cluster/job):
+--   sync_start_date = 2024-01-01
 CREATE OR REPLACE VIEW manutencao.gold.notas_cockpit_convergencia AS
 
 WITH
@@ -13,6 +17,7 @@ WITH
 --    Normaliza HORA_NOTA para TIMESTAMP e aplica o filtro
 --    de recorte diretamente na coluna de partição (sem
 --    funções sobre ela) para preservar partition pruning.
+--    Data configurável via widget sync_start_date.
 -- --------------------------------------------------------
 staging AS (
   SELECT
@@ -21,7 +26,7 @@ staging AS (
     DATA_CONCLUSAO,
     CAST(HORA_NOTA AS TIMESTAMP) AS hora_nota_ts
   FROM manutencao.streaming.notas_qm
-  WHERE HORA_NOTA >= TIMESTAMP('2026-01-01 00:00:00')
+  WHERE HORA_NOTA >= TIMESTAMP(getArgument('sync_start_date'))
 ),
 
 -- --------------------------------------------------------
