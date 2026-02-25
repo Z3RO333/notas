@@ -376,11 +376,22 @@ def _fetch_pmpl_presence_by_order(spark: SparkSession, order_lookup_values: list
     return present
 
 
+_INACTIVE_ORDER_STATUSES = {"concluida", "cancelada"}
+
+
 def _fetch_order_link_sets() -> tuple[set[str], set[str]]:
-    rows = _fetch_all_table_rows("ordens_notas_acompanhamento", "nota_id,numero_nota", "id")
+    """Retorna sets de nota_id e numero_nota que possuem ordem ATIVA vinculada.
+
+    Exclui ordens com status concluida/cancelada para que notas cujas únicas
+    ordens foram finalizadas possam reentrar no cockpit como COCKPIT_PENDENTE.
+    """
+    rows = _fetch_all_table_rows("ordens_notas_acompanhamento", "nota_id,numero_nota,status_ordem", "id")
     linked_note_ids: set[str] = set()
     linked_note_norms: set[str] = set()
     for row in rows:
+        status_ordem = (_as_clean_text(row.get("status_ordem")) or "").lower()
+        if status_ordem in _INACTIVE_ORDER_STATUSES:
+            continue
         nota_id = _as_clean_text(row.get("nota_id"))
         if nota_id:
             linked_note_ids.add(nota_id)
@@ -527,10 +538,12 @@ def build_cockpit_convergence_dataset(
         status_raw = _as_clean_text(row.get("status"))
         status_norm = status_raw.lower() if status_raw else None
         status_elegivel = _is_open_note_status(status_norm)
+        # ordem_sap/ordem_gerada refletem vínculos históricos do SAP e podem
+        # estar preenchidos mesmo quando a ordem já foi concluída/cancelada.
+        # A fonte de verdade para vínculo ATIVO é ordens_notas_acompanhamento
+        # filtrado por status ativo (ver _fetch_order_link_sets).
         tem_ordem_vinculada = bool(
-            ordem_sap
-            or ordem_gerada
-            or (nota_id and nota_id in linked_note_ids)
+            (nota_id and nota_id in linked_note_ids)
             or (numero_nota_norm in linked_note_norms)
         )
         status_sap = _as_clean_text(row.get("status_sap"))
