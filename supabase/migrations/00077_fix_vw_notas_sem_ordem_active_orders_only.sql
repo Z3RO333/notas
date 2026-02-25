@@ -1,0 +1,11 @@
+-- 00077_fix_vw_notas_sem_ordem_active_orders_only.sql
+--
+-- Problema:
+--   Após o commit a11ae1f (dual-source QM+QMEL), o sync job passou a
+--   preencher ordem_sap em todas as notas com vínculo histórico SAP,
+--   inclusive notas cujas ordens já foram concluídas ou canceladas.
+--   A view vw_notas_sem_ordem filtrava por "ordem_sap IS NULL", fazendo
+--   94.910 notas desaparecerem do cockpit mesmo sem ordem ativa.
+--
+-- Substituída por 00078 (rewrite + índice de performance).
+-- Este arquivo documenta a intenção original da correção.
