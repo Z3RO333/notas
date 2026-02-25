@@ -376,28 +376,48 @@ def _fetch_pmpl_presence_by_order(spark: SparkSession, order_lookup_values: list
     return present
 
 
-_INACTIVE_ORDER_STATUSES = {"concluida", "cancelada"}
-
-
 def _fetch_order_link_sets() -> tuple[set[str], set[str]]:
-    """Retorna sets de nota_id e numero_nota que possuem ordem ATIVA vinculada.
+    """Retorna sets de nota_id e numero_nota com ordem ATIVA vinculada.
 
-    Exclui ordens com status concluida/cancelada para que notas cujas únicas
-    ordens foram finalizadas possam reentrar no cockpit como COCKPIT_PENDENTE.
+    Filtro server-side exclui ordens concluidas/canceladas, evitando
+    transferência de ~40k linhas inativas do Supabase.
     """
-    rows = _fetch_all_table_rows("ordens_notas_acompanhamento", "nota_id,numero_nota,status_ordem", "id")
     linked_note_ids: set[str] = set()
     linked_note_norms: set[str] = set()
-    for row in rows:
-        status_ordem = (_as_clean_text(row.get("status_ordem")) or "").lower()
-        if status_ordem in _INACTIVE_ORDER_STATUSES:
-            continue
-        nota_id = _as_clean_text(row.get("nota_id"))
-        if nota_id:
-            linked_note_ids.add(nota_id)
-        numero_norm = _normalize_numero_nota(row.get("numero_nota"))
-        if numero_norm:
-            linked_note_norms.add(numero_norm)
+    last_id: str | None = None
+    page_size = COCKPIT_CONVERGENCE_FETCH_PAGE_SIZE
+
+    while True:
+        query = (
+            supabase.table("ordens_notas_acompanhamento")
+            .select("id,nota_id,numero_nota")
+            .not_("status_ordem", "in", "(concluida,cancelada)")
+            .order("id", desc=False)
+            .limit(page_size)
+        )
+        if last_id is not None:
+            query = query.gt("id", last_id)
+
+        result = query.execute()
+        batch = result.data or []
+        if not batch:
+            break
+
+        for row in batch:
+            nota_id = _as_clean_text(row.get("nota_id"))
+            if nota_id:
+                linked_note_ids.add(nota_id)
+            numero_norm = _normalize_numero_nota(row.get("numero_nota"))
+            if numero_norm:
+                linked_note_norms.add(numero_norm)
+
+        if len(batch) < page_size:
+            break
+
+        last_id = batch[-1].get("id")
+        if last_id is None:
+            break
+
     return linked_note_ids, linked_note_norms
 
 
@@ -501,7 +521,15 @@ def build_cockpit_convergence_dataset(
     note_numbers = [row["numero_nota"] for row in notes if _as_clean_text(row.get("numero_nota"))]
     note_norms = [norm for norm in (_normalize_numero_nota(row.get("numero_nota")) for row in notes) if norm]
 
-    qmel_by_note = _fetch_qmel_latest_rows_by_note(spark, note_numbers)
+    try:
+        qmel_by_note = _fetch_qmel_latest_rows_by_note(spark, note_numbers)
+    except Exception as exc:
+        logger.warning(
+            "QMEL streaming table lookup falhou (%s: %s); continuando sem dados QMEL "
+            "(não afeta eligible_cockpit nem estado_operacional).",
+            type(exc).__name__, exc,
+        )
+        qmel_by_note = {}
     bridge_by_note = _fetch_best_bridge_order_by_note(note_norms)
     linked_note_ids, linked_note_norms = _fetch_order_link_sets()
 
