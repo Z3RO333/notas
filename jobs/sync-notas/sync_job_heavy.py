@@ -392,7 +392,7 @@ def _fetch_order_link_sets() -> tuple[set[str], set[str]]:
         query = (
             supabase.table("ordens_notas_acompanhamento")
             .select("id,nota_id,numero_nota")
-            .not_("status_ordem", "in", "(concluida,cancelada)")
+            .filter("status_ordem", "not.in", "(concluida,cancelada)")
             .order("id", desc=False)
             .limit(page_size)
         )
