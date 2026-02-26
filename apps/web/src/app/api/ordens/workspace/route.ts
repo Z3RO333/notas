@@ -34,6 +34,8 @@ const VALID_TIPO_ORDEM = new Set(['PMOS', 'PMPL', 'todas'])
 const DEFAULT_LIMIT = 100
 const MAX_LIMIT = 200
 const MIGRATION_HINT_TIPO_ORDEM = 'Aplique a migration 00045_tipo_ordem_pmpl_pmos_tabs.sql para habilitar o filtro PMPL/PMOS.'
+const RAW_STATUS_EM_AVALIACAO = new Set(['AVALIACAO_DA_EXECUCAO', 'AVALIACAO_DE_EXECUCAO'])
+const RAW_STATUS_AVALIADA = new Set(['EXECUCAO_SATISFATORIO', 'EXECUCAO_SATISFATORIA'])
 const FIXED_OWNER_AVATAR_BY_NORMALIZED_NAME: Record<string, string> = {
   brenda: '/avatars/BRENDA.jpg',
   'brenda rodrigues': '/avatars/BRENDA.jpg',
@@ -182,6 +184,49 @@ function emptyKpis(): OrdersWorkspaceKpis {
     avaliadas: 0,
     atrasadas: 0,
     sem_responsavel: 0,
+  }
+}
+
+function normalizeRawStatus(value: string | null | undefined): string {
+  return (value ?? '').trim().toUpperCase()
+}
+
+function isEmAvaliacao(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
+  return RAW_STATUS_EM_AVALIACAO.has(normalizeRawStatus(row.status_ordem_raw))
+}
+
+function isAvaliada(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
+  return RAW_STATUS_AVALIADA.has(normalizeRawStatus(row.status_ordem_raw))
+}
+
+function isNaoRealizada(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
+  return normalizeRawStatus(row.status_ordem_raw) === 'EXECUCAO_NAO_REALIZADA'
+}
+
+function isEmProcessamento(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
+  return normalizeRawStatus(row.status_ordem_raw) === 'EM_PROCESSAMENTO'
+}
+
+function isEmExecucao(row: Pick<OrdemNotaAcompanhamento, 'status_ordem' | 'status_ordem_raw'>): boolean {
+  const inExecutionStatus = row.status_ordem === 'em_tratativa' || row.status_ordem === 'desconhecido'
+  if (!inExecutionStatus) return false
+  return !isEmAvaliacao(row) && !isNaoRealizada(row) && !isEmProcessamento(row)
+}
+
+function recomputeKpisFromRows(rows: OrdemNotaAcompanhamento[]): OrdersWorkspaceKpis {
+  return {
+    total: rows.length,
+    abertas: rows.filter((row) => row.status_ordem === 'aberta').length,
+    em_tratativa: rows.filter((row) => isEmExecucao(row)).length,
+    em_avaliacao: rows.filter((row) => isEmAvaliacao(row)).length,
+    concluidas: rows.filter((row) => row.status_ordem === 'concluida' && !isAvaliada(row)).length,
+    canceladas: rows.filter((row) => row.status_ordem === 'cancelada').length,
+    avaliadas: rows.filter((row) => isAvaliada(row)).length,
+    atrasadas: rows.filter((row) => (
+      row.semaforo_atraso === 'vermelho'
+      && (row.status_ordem === 'aberta' || isEmExecucao(row) || isEmAvaliacao(row))
+    )).length,
+    sem_responsavel: rows.filter((row) => !row.responsavel_atual_id).length,
   }
 }
 
@@ -360,9 +405,10 @@ export async function GET(request: Request) {
     console.warn('[orders/workspace] fallback sem p_tipo_ordem ativo. Resultado pode não refletir separação PMPL/PMOS.')
   }
 
-  const rows = (rowsResult.data ?? []) as OrdemNotaAcompanhamento[]
+  const rowsFromRpc = (rowsResult.data ?? []) as OrdemNotaAcompanhamento[]
+  let rows = rowsFromRpc
   const rawSummary = (summaryResult.data ?? []) as Array<Partial<OrdersOwnerSummary>>
-  const summary: OrdersOwnerSummary[] = rawSummary.map((item) => {
+  let summary: OrdersOwnerSummary[] = rawSummary.map((item) => {
     const adminId = item.administrador_id ?? null
     const fixedName = adminId ? fixedOwnerLabelByAdminId.get(adminId) ?? null : null
     const fallbackAvatar = (
@@ -387,7 +433,7 @@ export async function GET(request: Request) {
     console.log('[DEBUG workspace/kpis] raw RPC response:', JSON.stringify(kpisResult.data))
   }
 
-  const kpis: OrdersWorkspaceKpis = {
+  const kpisFromRpc: OrdersWorkspaceKpis = {
     total: Number(rawKpis.total ?? 0),
     abertas: Number(rawKpis.abertas ?? 0),
     em_tratativa: Number(rawKpis.em_tratativa ?? 0),
@@ -399,11 +445,42 @@ export async function GET(request: Request) {
     sem_responsavel: Number(rawKpis.sem_responsavel ?? 0),
   }
 
-  const lastRow = rows.length > 0 ? rows[rows.length - 1] : null
-  const nextCursor: OrdersWorkspaceCursor | null = rows.length === limit && lastRow
+  let discardedRows = 0
+  let discardedSummary = 0
+
+  if (!canViewGlobal) {
+    const scopedRows = rows.filter((row) => row.responsavel_atual_id === loggedAdmin.id)
+    const scopedSummary = summary.filter((item) => item.administrador_id === loggedAdmin.id)
+
+    discardedRows = rows.length - scopedRows.length
+    discardedSummary = summary.length - scopedSummary.length
+
+    rows = scopedRows
+    summary = scopedSummary
+
+    if (discardedRows > 0 || discardedSummary > 0) {
+      console.warn(
+        '[orders/workspace] escopo privado descartou dados fora do admin logado',
+        {
+          adminId: loggedAdmin.id,
+          discardedRows,
+          discardedSummary,
+          rowsFromRpc: rowsFromRpc.length,
+          summaryFromRpc: rawSummary.length,
+        },
+      )
+    }
+  }
+
+  const kpis = (!canViewGlobal && (discardedRows > 0 || discardedSummary > 0))
+    ? recomputeKpisFromRows(rows)
+    : kpisFromRpc
+
+  const lastCursorRow = rowsFromRpc.length > 0 ? rowsFromRpc[rowsFromRpc.length - 1] : null
+  const nextCursor: OrdersWorkspaceCursor | null = rowsFromRpc.length === limit && lastCursorRow
     ? {
-      ordem_detectada_em: lastRow.ordem_detectada_em,
-      ordem_id: lastRow.ordem_id,
+      ordem_detectada_em: lastCursorRow.ordem_detectada_em,
+      ordem_id: lastCursorRow.ordem_id,
     }
     : null
 
