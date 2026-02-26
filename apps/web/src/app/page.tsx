@@ -110,7 +110,7 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
       .single(),
   ])
 
-  const preloadError = [cargaResult.error, adminsResult.error, latestSyncResult.error].find(Boolean)
+  const preloadError = [cargaResult.error, adminsResult.error].find(Boolean)
   if (preloadError) throw preloadError
 
   let notesQuery = supabase
@@ -193,7 +193,7 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
       .map((centro) => ({ value: centro, label: centro })),
   ]
 
-  const latestSync = latestSyncResult.data ?? null
+  const latestSync = latestSyncResult.error ? null : (latestSyncResult.data ?? null)
 
   return (
     <div className="space-y-6">
