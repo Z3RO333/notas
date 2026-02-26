@@ -75,6 +75,18 @@ const VIEW_MODE_OPTIONS: Array<{ value: PanelViewMode; label: string; icon: type
   { value: 'cards', label: 'Cards completos', icon: LayoutGrid },
 ]
 
+function getStatusFilterLabel(value: string): string {
+  if (value === 'em_tratativa') return 'Em execução'
+  if (value === 'em_avaliacao') return 'Em avaliação'
+  if (value === 'nao_realizada') return 'Não realizada'
+  if (value === 'concluida') return 'Concluída'
+  if (value === 'cancelada') return 'Cancelada'
+  if (value === 'desconhecido') return 'Desconhecido'
+  if (value === 'aberta') return 'Aberta'
+  if (value === 'avaliadas') return 'Avaliadas'
+  return value
+}
+
 function resolveOwner(row: OrdemNotaAcompanhamento, mode: OrderOwnerMode): { id: string; nome: string } {
   if (mode === 'origem') {
     return {
@@ -351,7 +363,7 @@ export function OrdersOwnerPanel({
 
   const activeFilters = [
     q ? { key: 'q', label: `Busca: ${q}` } : null,
-    status ? { key: 'status', label: `Status: ${status}` } : null,
+    status ? { key: 'status', label: `Status: ${getStatusFilterLabel(status)}` } : null,
     responsavel
       ? {
         key: 'responsavel',
@@ -381,7 +393,7 @@ export function OrdersOwnerPanel({
           options={[
             { value: 'todas', label: 'Todos os status' },
             { value: 'aberta', label: 'Aberta' },
-            { value: 'em_tratativa', label: 'Em tratativa' },
+            { value: 'em_tratativa', label: 'Em execução' },
             { value: 'em_avaliacao', label: 'Em avaliação' },
             { value: 'avaliadas', label: 'Avaliadas' },
             { value: 'nao_realizada', label: 'Não realizada' },

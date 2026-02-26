@@ -94,7 +94,7 @@ const PERIOD_MODE_LABELS: Array<{ value: OrdersPeriodModeOperational; label: str
 const STATUS_OPTIONS = [
   { value: 'todas', label: 'Todos os status' },
   { value: 'aberta', label: 'Aberta' },
-  { value: 'em_tratativa', label: 'Em tratativa' },
+  { value: 'em_tratativa', label: 'Em execução' },
   { value: 'em_avaliacao', label: 'Em avaliação' },
   { value: 'avaliadas', label: 'Avaliadas' },
   { value: 'nao_realizada', label: 'Não realizada' },

@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
+  const authFlowType = searchParams.get('type')
 
   if (code) {
     const cookieStore = await cookies()
@@ -35,6 +36,10 @@ export async function GET(request: Request) {
           .from('administradores')
           .update({ auth_user_id: user.id })
           .eq('email', user.email)
+      }
+
+      if (authFlowType === 'recovery') {
+        return NextResponse.redirect(`${origin}/reset-password?type=recovery`)
       }
 
       return NextResponse.redirect(`${origin}/api/auth/landing`)

@@ -256,7 +256,7 @@ export function sortOrdersByPriority(rows: OrdemNotaAcompanhamento[]): OrdemNota
 
 export function getOrderStatusLabel(status: OrdemStatusAcomp): string {
   if (status === 'aberta') return 'Aberta'
-  if (status === 'em_tratativa') return 'Em tratativa'
+  if (status === 'em_tratativa') return 'Em execução'
   if (status === 'concluida') return 'Concluída'
   if (status === 'cancelada') return 'Cancelada'
   return 'Desconhecido'
