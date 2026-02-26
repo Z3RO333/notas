@@ -52,6 +52,8 @@ ORDERS_REF_V2_TOLERATED_FAILURES = 3
 ORDERS_REF_V2_RUNTIME_JOB_NAME = "sync_notas_to_supabase"
 ORDERS_REF_V2_RUNTIME_STATE_TABLE = "sync_job_runtime_state"
 ORDERS_REF_V2_LOOKBACK_DAYS = 2
+COPY_INTENT_TTL_MINUTES = 60
+COPY_INTENT_CONFIRM_REPAIR_MINUTES = 15
 
 OPEN_STATUS = {"aberta", "em_tratativa", "desconhecido"}
 
@@ -453,6 +455,37 @@ def get_orders_ref_v2_lookback_days(spark: SparkSession) -> int:
     return max(parsed, 0)
 
 
+def get_copy_intent_ttl_minutes(spark: SparkSession) -> int:
+    raw = spark.conf.get("cockpit.sync.copy_intent_ttl_minutes", str(COPY_INTENT_TTL_MINUTES))
+    try:
+        parsed = int(raw)
+    except ValueError:
+        logger.warning(
+            "Valor invÃ¡lido em cockpit.sync.copy_intent_ttl_minutes=%s. Usando %s.",
+            raw,
+            COPY_INTENT_TTL_MINUTES,
+        )
+        return COPY_INTENT_TTL_MINUTES
+    return max(parsed, 1)
+
+
+def get_copy_intent_confirm_repair_minutes(spark: SparkSession) -> int:
+    raw = spark.conf.get(
+        "cockpit.sync.copy_intent_confirm_repair_minutes",
+        str(COPY_INTENT_CONFIRM_REPAIR_MINUTES),
+    )
+    try:
+        parsed = int(raw)
+    except ValueError:
+        logger.warning(
+            "Valor invÃ¡lido em cockpit.sync.copy_intent_confirm_repair_minutes=%s. Usando %s.",
+            raw,
+            COPY_INTENT_CONFIRM_REPAIR_MINUTES,
+        )
+        return COPY_INTENT_CONFIRM_REPAIR_MINUTES
+    return max(parsed, 1)
+
+
 def create_sync_log(spark: SparkSession) -> str:
     """Cria entrada no sync_log e retorna o ID."""
     sync_id = str(uuid4())
@@ -824,6 +857,45 @@ def run_distribution(sync_id: str) -> int:
     distributed = len(result.data) if result.data else 0
     logger.info("Distribuidas: %s", distributed)
     return distributed
+
+
+def reconcile_copy_intent_states(
+    sync_id: str,
+    ttl_minutes: int,
+    confirm_repair_minutes: int,
+) -> dict:
+    result = supabase.rpc(
+        "reconciliar_notas_em_geracao",
+        {
+            "p_sync_id": sync_id,
+            "p_ttl_minutes": ttl_minutes,
+            "p_confirm_repair_minutes": confirm_repair_minutes,
+        },
+    ).execute()
+
+    raw = result.data
+    if isinstance(raw, list):
+        raw = raw[0] if raw else {}
+    if not isinstance(raw, dict):
+        raw = {}
+
+    metrics = {
+        "em_geracao_to_alerta": int(raw.get("em_geracao_to_alerta") or 0),
+        "confirmadas": int(raw.get("confirmadas") or 0),
+        "confirm_repaired": int(raw.get("confirm_repaired") or 0),
+        "ttl_minutes": int(raw.get("ttl_minutes") or ttl_minutes),
+        "confirm_repair_minutes": int(raw.get("confirm_repair_minutes") or confirm_repair_minutes),
+    }
+
+    logger.info(
+        "Copy intent reconciliacao -> em_geracao_to_alerta=%s confirmadas=%s confirm_repaired=%s ttl=%s repair=%s",
+        metrics["em_geracao_to_alerta"],
+        metrics["confirmadas"],
+        metrics["confirm_repaired"],
+        metrics["ttl_minutes"],
+        metrics["confirm_repair_minutes"],
+    )
+    return metrics
 
 
 def get_orders_for_pmpl_refresh(min_age_days: int = PMPL_MIN_AGE_DAYS) -> list[str]:
@@ -1547,6 +1619,8 @@ def main():
     pmpl_min_age_days = get_pmpl_min_age_days(spark)
     pmpl_standalone_window_days = get_pmpl_standalone_window_days(spark)
     orders_ref_v2_lookback_days = get_orders_ref_v2_lookback_days(spark)
+    copy_intent_ttl_minutes = get_copy_intent_ttl_minutes(spark)
+    copy_intent_confirm_repair_minutes = get_copy_intent_confirm_repair_minutes(spark)
 
     try:
         supabase.table("sync_log").select("id").limit(1).execute()
@@ -1597,6 +1671,15 @@ def main():
         "reatribuicoes": 0,
         "destino_id": None,
     }
+    copy_reconcile_status = "not_run"
+    copy_reconcile_error: str | None = None
+    copy_reconcile_metrics = {
+        "em_geracao_to_alerta": 0,
+        "confirmadas": 0,
+        "confirm_repaired": 0,
+        "ttl_minutes": copy_intent_ttl_minutes,
+        "confirm_repair_minutes": copy_intent_confirm_repair_minutes,
+    }
 
     try:
         full_bootstrap = should_run_full_bootstrap(bootstrap_mode, sync_start_date)
@@ -1613,6 +1696,22 @@ def main():
         inserted, updated = upsert_notes(notes, sync_id)
 
         ordens_detectadas, notas_auto_concluidas = run_register_orders(sync_id)
+
+        try:
+            copy_reconcile_metrics = reconcile_copy_intent_states(
+                sync_id=sync_id,
+                ttl_minutes=copy_intent_ttl_minutes,
+                confirm_repair_minutes=copy_intent_confirm_repair_minutes,
+            )
+            copy_reconcile_status = "success"
+            copy_reconcile_error = None
+        except Exception as copy_reconcile_exc:
+            copy_reconcile_status = "error_tolerated"
+            copy_reconcile_error = f"{type(copy_reconcile_exc).__name__}: {copy_reconcile_exc}"
+            logger.warning(
+                "Falha tolerada na reconciliacao de copy intent. erro=%s",
+                copy_reconcile_error,
+            )
 
         distributed = run_distribution(sync_id)
 
@@ -1718,6 +1817,13 @@ def main():
             "ordens_status_atualizadas": ordens_status_atualizadas,
             "ordens_mudanca_status": mudancas_status,
             "notas_auto_concluidas": notas_auto_concluidas,
+            "copy_reconcile_status": copy_reconcile_status,
+            "copy_reconcile_error": copy_reconcile_error,
+            "copy_ttl_minutes": copy_reconcile_metrics["ttl_minutes"],
+            "copy_confirm_repair_minutes": copy_reconcile_metrics["confirm_repair_minutes"],
+            "copy_em_geracao_to_alerta": copy_reconcile_metrics["em_geracao_to_alerta"],
+            "copy_confirmadas": copy_reconcile_metrics["confirmadas"],
+            "copy_confirm_repaired": copy_reconcile_metrics["confirm_repaired"],
             "ordens_elegiveis_pmpl": len(eligible_orders),
             "ordens_tipo_ref_total_rows": orders_document_metrics["total_rows"],
             "ordens_tipo_ref_valid_rows": orders_document_metrics["valid_rows"],
@@ -1788,6 +1894,13 @@ def main():
                     "bootstrap_mode": bootstrap_mode,
                     "pmpl_min_age_days": pmpl_min_age_days,
                     "pmpl_standalone_window_days": pmpl_standalone_window_days,
+                    "copy_reconcile_status": copy_reconcile_status,
+                    "copy_reconcile_error": copy_reconcile_error,
+                    "copy_ttl_minutes": copy_reconcile_metrics["ttl_minutes"],
+                    "copy_confirm_repair_minutes": copy_reconcile_metrics["confirm_repair_minutes"],
+                    "copy_em_geracao_to_alerta": copy_reconcile_metrics["em_geracao_to_alerta"],
+                    "copy_confirmadas": copy_reconcile_metrics["confirmadas"],
+                    "copy_confirm_repaired": copy_reconcile_metrics["confirm_repaired"],
                     "orders_ref_v2_status": orders_ref_v2_status,
                     "orders_ref_v2_failure_streak": orders_ref_v2_failure_streak,
                     "orders_ref_v2_error": orders_ref_v2_error,

@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { AlertTriangle, Clock3, Sparkles, StickyNote } from 'lucide-react'
 import { CollaboratorCardShell } from '@/components/collaborator/collaborator-card-shell'
-import { getAgingBadge, getAgingBucket, getAgingDays, isOpenStatus } from '@/lib/collaborator/aging'
+import { NotaListItem } from '@/components/painel/nota-list-item'
+import { getAgingDays, isOpenStatus } from '@/lib/collaborator/aging'
 import {
   getCargoPresentationByLabel,
   resolveCargoPresentationFromEspecialidade,
@@ -45,33 +46,14 @@ export function CollaboratorFullCard({
   const details = (
     <div className="space-y-3">
       <div className="space-y-2">
-        <p className="text-sm font-semibold text-muted-foreground">Notas distribuídas</p>
+        <p className="text-sm font-semibold text-muted-foreground">Notas distribuidas</p>
         {sortedNotas.length === 0 ? (
           <p className="text-xs text-muted-foreground">Nenhuma nota em aberto.</p>
         ) : (
           <div className="max-h-[24rem] space-y-1.5 overflow-y-auto pr-1">
-            {sortedNotas.map((nota) => {
-              const aging = isOpenStatus(nota.status)
-                ? getAgingBadge(getAgingBucket(nota))
-                : {
-                  label: nota.status === 'concluida' ? 'Concluída' : 'Cancelada',
-                  chip: 'bg-slate-100 text-slate-600',
-                }
-              return (
-                <Link
-                  key={nota.id}
-                  href={`/notas/${nota.id}`}
-                  className="flex items-center justify-between gap-2 rounded px-1 py-1 text-sm hover:bg-muted/50"
-                >
-                  <span className="font-mono font-medium">#{nota.numero_nota}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${aging.chip}`}>
-                      {aging.label}
-                    </span>
-                  </div>
-                </Link>
-              )
-            })}
+            {sortedNotas.map((nota) => (
+              <NotaListItem key={nota.id} nota={nota} />
+            ))}
           </div>
         )}
       </div>

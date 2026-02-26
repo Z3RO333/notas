@@ -13,11 +13,13 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { NotaOperacionalBadge } from '@/components/notas/nota-operacional-badge'
 import { NotaStatusBadge } from '@/components/notas/nota-status-badge'
 import { useToast } from '@/components/ui/toast'
 import { concluirNotaRapida } from '@/lib/actions/nota-actions'
+import { emitNotaOperacaoEvent, marcarNotaEmGeracao } from '@/lib/notes/copy-intent'
 import { copyToClipboard } from '@/lib/orders/copy'
-import type { NotaPanelData } from '@/lib/types/database'
+import type { NotaOperacaoEstado, NotaPanelData } from '@/lib/types/database'
 
 const prioridadeLabel: Record<string, string> = {
   '1': 'Muito Alta',
@@ -37,22 +39,128 @@ interface NotaCardProps {
   nota: NotaPanelData
 }
 
+function buildCurrentStateFromNota(nota: NotaPanelData): NotaOperacaoEstado | null {
+  if (!nota.status_operacional) return null
+  const nowIso = new Date().toISOString()
+  return {
+    nota_id: nota.id,
+    numero_nota: nota.numero_nota,
+    status_operacional: nota.status_operacional,
+    em_geracao_por_admin_id: nota.em_geracao_por_admin_id ?? null,
+    em_geracao_por_email: nota.em_geracao_por_email ?? null,
+    em_geracao_em: nota.em_geracao_em ?? null,
+    ultima_copia_em: nota.ultima_copia_em ?? null,
+    ttl_minutos: Number(nota.ttl_minutos ?? 60),
+    numero_ordem_confirmada: nota.numero_ordem_confirmada ?? null,
+    confirmada_em: nota.confirmada_em ?? null,
+    created_at: nowIso,
+    updated_at: nowIso,
+  }
+}
+
 export function NotaCard({ nota }: NotaCardProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [copyLoading, setCopyLoading] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const prioridadeCor = nota.prioridade ? (prioridadeColor[nota.prioridade] || 'border-l-gray-300') : 'border-l-gray-300'
+  const [overrideOpen, setOverrideOpen] = useState(false)
+  const [conflictOwnerEmail, setConflictOwnerEmail] = useState<string | null>(null)
+  const [operacaoLocal, setOperacaoLocal] = useState<NotaOperacaoEstado | null>(null)
 
+  const prioridadeCor = nota.prioridade ? (prioridadeColor[nota.prioridade] || 'border-l-gray-300') : 'border-l-gray-300'
   const canConclude = nota.administrador_id && (nota.status === 'em_andamento' || nota.status === 'encaminhada_fornecedor')
+  const estadoOperacional = operacaoLocal ?? buildCurrentStateFromNota(nota)
+
+  async function callCopyIntent(forceOverride: boolean) {
+    const result = await marcarNotaEmGeracao({ notaId: nota.id, forceOverride })
+    if (result.ok) {
+      setOperacaoLocal(result.data)
+      emitNotaOperacaoEvent({ notaId: nota.id, state: result.data })
+      toast({
+        title: forceOverride
+          ? `Geracao assumida para NOTA ${nota.numero_nota}`
+          : `NOTA ${nota.numero_nota} em geracao`,
+        variant: 'success',
+      })
+      return true
+    }
+
+    if (result.status === 409 && result.code === 'already_in_progress_by_other') {
+      setConflictOwnerEmail(result.ownerEmail)
+      if (result.canOverride) {
+        setOverrideOpen(true)
+      } else {
+        toast({
+          title: 'Nota ja esta em geracao',
+          description: result.ownerEmail
+            ? `Responsavel atual: ${result.ownerEmail}.`
+            : 'Outro responsavel ja iniciou esta geracao.',
+          variant: 'info',
+        })
+      }
+      return false
+    }
+
+    if (result.status === 403) {
+      toast({
+        title: 'Sem permissao para iniciar geracao',
+        description: result.message,
+        variant: 'error',
+      })
+      return false
+    }
+
+    toast({
+      title: 'Falha ao marcar nota em geracao',
+      description: result.message,
+      variant: 'error',
+    })
+    return false
+  }
 
   async function handleCopyNota(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
+    if (copyLoading) return
+
     const copied = await copyToClipboard(nota.numero_nota)
+    if (!copied) {
+      toast({
+        title: 'Falha ao copiar NOTA',
+        variant: 'error',
+      })
+      return
+    }
+
+    const previousState = operacaoLocal ?? buildCurrentStateFromNota(nota)
+    const optimisticNow = new Date().toISOString()
+
+    setCopyLoading(true)
+    setOperacaoLocal({
+      nota_id: nota.id,
+      numero_nota: nota.numero_nota,
+      status_operacional: 'EM_GERACAO',
+      em_geracao_por_admin_id: previousState?.em_geracao_por_admin_id ?? null,
+      em_geracao_por_email: previousState?.em_geracao_por_email ?? null,
+      em_geracao_em: optimisticNow,
+      ultima_copia_em: optimisticNow,
+      ttl_minutos: Number(previousState?.ttl_minutos ?? nota.ttl_minutos ?? 60),
+      numero_ordem_confirmada: null,
+      confirmada_em: null,
+      created_at: previousState?.created_at ?? optimisticNow,
+      updated_at: optimisticNow,
+    })
+
+    const marked = await callCopyIntent(false)
+    if (!marked) {
+      setOperacaoLocal(previousState)
+    }
+    setCopyLoading(false)
+
     toast({
-      title: copied ? `NOTA ${nota.numero_nota} copiada ✅` : 'Falha ao copiar NOTA',
-      variant: copied ? 'success' : 'error',
+      title: `NOTA ${nota.numero_nota} copiada`,
+      variant: 'success',
     })
   }
 
@@ -73,28 +181,41 @@ export function NotaCard({ nota }: NotaCardProps) {
       })
       toast({
         variant: 'success',
-        title: 'Nota concluída',
-        description: `Nota #${nota.numero_nota} foi marcada como concluída.`,
+        title: 'Nota concluida',
+        description: `Nota #${nota.numero_nota} foi marcada como concluida.`,
       })
       router.refresh()
     } catch {
       toast({
         variant: 'error',
         title: 'Erro ao concluir nota',
-        description: 'Não foi possível concluir a nota. Verifique sua conexão e tente novamente.',
+        description: 'Nao foi possivel concluir a nota. Verifique sua conexao e tente novamente.',
       })
     } finally {
       setLoading(false)
     }
   }
 
+  async function handleOverrideConfirm() {
+    if (copyLoading) return
+    setOverrideOpen(false)
+    setCopyLoading(true)
+
+    const marked = await callCopyIntent(true)
+    if (!marked) {
+      setOperacaoLocal(buildCurrentStateFromNota(nota))
+    }
+
+    setCopyLoading(false)
+  }
+
   return (
     <>
       <Link href={`/notas/${nota.id}`}>
         <div
-          className={`group rounded-lg border border-l-4 ${prioridadeCor} bg-card p-4 transition-all hover:shadow-md hover:border-l-primary cursor-pointer`}
+          className={`group rounded-lg border border-l-4 ${prioridadeCor} bg-card p-4 transition-all hover:border-l-primary hover:shadow-md cursor-pointer`}
         >
-          <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="mb-3 flex items-start justify-between gap-2">
             <button
               type="button"
               onClick={handleCopyNota}
@@ -102,15 +223,28 @@ export function NotaCard({ nota }: NotaCardProps) {
               title={`Copiar NOTA ${nota.numero_nota}`}
             >
               #{nota.numero_nota}
-              <Copy className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-50" />
+              {copyLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Copy className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-50" />
+              )}
             </button>
-            <div className="flex items-center gap-2">
+
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <NotaOperacionalBadge
+                statusOperacional={estadoOperacional?.status_operacional ?? null}
+                emGeracaoPorEmail={estadoOperacional?.em_geracao_por_email ?? null}
+                emGeracaoEm={estadoOperacional?.em_geracao_em ?? null}
+                ttlMinutos={estadoOperacional?.ttl_minutos ?? null}
+                numeroOrdemConfirmada={estadoOperacional?.numero_ordem_confirmada ?? null}
+              />
+
               {canConclude && (
                 <button
                   type="button"
                   onClick={handleConcluirClick}
                   disabled={loading}
-                  className="flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 transition-colors hover:bg-green-100 disabled:opacity-50"
                   title="Concluir nota"
                 >
                   {loading ? (
@@ -121,11 +255,12 @@ export function NotaCard({ nota }: NotaCardProps) {
                   Concluir
                 </button>
               )}
+
               <NotaStatusBadge status={nota.status} />
             </div>
           </div>
 
-          <p className="text-sm text-foreground/80 line-clamp-2 mb-3 min-h-[2.5rem]">
+          <p className="mb-3 min-h-[2.5rem] line-clamp-2 text-sm text-foreground/80">
             {nota.descricao}
           </p>
 
@@ -150,15 +285,40 @@ export function NotaCard({ nota }: NotaCardProps) {
           <DialogHeader>
             <DialogTitle>Concluir nota #{nota.numero_nota}?</DialogTitle>
             <DialogDescription>
-              Esta ação marcará a nota como concluída e será registrada no histórico. Tem certeza?
+              Esta acao marcara a nota como concluida e sera registrada no historico. Tem certeza?
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end gap-2 mt-4">
+          <div className="mt-4 flex justify-end gap-2">
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>
               Cancelar
             </Button>
             <Button onClick={handleConfirm} disabled={loading} className="bg-green-600 hover:bg-green-700">
               {loading ? 'Concluindo...' : 'Confirmar'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={overrideOpen} onOpenChange={setOverrideOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Nota em geracao por outro responsavel</DialogTitle>
+            <DialogDescription>
+              {conflictOwnerEmail
+                ? `A nota esta em geracao por ${conflictOwnerEmail}. Deseja assumir a geracao?`
+                : 'A nota ja esta em geracao por outro responsavel. Deseja assumir a geracao?'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setOverrideOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleOverrideConfirm}
+              disabled={copyLoading}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {copyLoading ? 'Assumindo...' : 'Assumir geracao'}
             </Button>
           </div>
         </DialogContent>

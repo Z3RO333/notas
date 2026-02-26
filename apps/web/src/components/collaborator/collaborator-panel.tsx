@@ -17,6 +17,12 @@ import { CollaboratorAccordion } from './collaborator-accordion'
 import { CollaboratorAdminActions } from './collaborator-admin-actions'
 import { CollaboratorFullCard } from './collaborator-full-card'
 import { TrackingOrdersBlock } from './tracking-orders-block'
+import { listenNotaOperacaoEvent } from '@/lib/notes/copy-intent'
+import {
+  applyOperationalStateToNota,
+  clearOperationalStateFromNota,
+  toNotaOperacaoEstado,
+} from '@/lib/notes/operational-state'
 import type {
   CollaboratorData,
   NotesViewMode,
@@ -24,6 +30,7 @@ import type {
 } from '@/lib/types/collaborator'
 import type { NotesKpiFilter, NotaPanelData, OrdemAcompanhamento } from '@/lib/types/database'
 import { updateSearchParams } from '@/lib/grid/query'
+import { createClient } from '@/lib/supabase/client'
 
 interface CollaboratorPanelProps {
   collaborators: CollaboratorData[]
@@ -72,6 +79,7 @@ export function CollaboratorPanel({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const supabase = useMemo(() => createClient(), [])
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [search, setSearch] = useState(initialSearch)
@@ -80,6 +88,68 @@ export function CollaboratorPanel({
   const [unidadeFilter, setUnidadeFilter] = useState(initialUnidade || 'todas')
   const [viewMode, setViewMode] = useState<NotesViewMode>('list')
   const [trackingPosition, setTrackingPosition] = useState<TrackingPositionMode>('top')
+  const [notasState, setNotasState] = useState<NotaPanelData[]>(notas)
+  const [notasSemAtribuirState, setNotasSemAtribuirState] = useState<NotaPanelData[]>(notasSemAtribuir ?? [])
+
+  useEffect(() => {
+    setNotasState(notas)
+  }, [notas])
+
+  useEffect(() => {
+    setNotasSemAtribuirState(notasSemAtribuir ?? [])
+  }, [notasSemAtribuir])
+
+  useEffect(() => {
+    function patchNotasById(
+      source: NotaPanelData[],
+      notaId: string,
+      mode: 'apply' | 'clear',
+      row: Record<string, unknown> | null,
+    ): NotaPanelData[] {
+      let changed = false
+      const mapped = source.map((nota) => {
+        if (nota.id !== notaId) return nota
+        changed = true
+        if (mode === 'clear') return clearOperationalStateFromNota(nota)
+        const state = toNotaOperacaoEstado(row)
+        return applyOperationalStateToNota(nota, state)
+      })
+      return changed ? mapped : source
+    }
+
+    const channel = supabase
+      .channel('notas-operacao-estado-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notas_operacao_estado',
+        },
+        (payload) => {
+          const raw = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Record<string, unknown>
+          const notaId = typeof raw?.nota_id === 'string' ? raw.nota_id : null
+          if (!notaId) return
+
+          const mode = payload.eventType === 'DELETE' ? 'clear' : 'apply'
+          setNotasState((prev) => patchNotasById(prev, notaId, mode, raw))
+          setNotasSemAtribuirState((prev) => patchNotasById(prev, notaId, mode, raw))
+        },
+      )
+      .subscribe()
+
+    const unsubscribeLocalEvent = listenNotaOperacaoEvent(({ notaId, state }) => {
+      const row = state ? (state as unknown as Record<string, unknown>) : null
+      const mode: 'apply' | 'clear' = state ? 'apply' : 'clear'
+      setNotasState((prev) => patchNotasById(prev, notaId, mode, row))
+      setNotasSemAtribuirState((prev) => patchNotasById(prev, notaId, mode, row))
+    })
+
+    return () => {
+      unsubscribeLocalEvent()
+      supabase.removeChannel(channel)
+    }
+  }, [supabase])
 
   useEffect(() => {
     setSearch(initialSearch)
@@ -168,7 +238,7 @@ export function CollaboratorPanel({
 
   const notasByAdmin = useMemo(() => {
     const map = new Map<string, NotaPanelData[]>()
-    for (const nota of notas) {
+    for (const nota of notasState) {
       if (!nota.administrador_id) continue
       const list = map.get(nota.administrador_id)
       if (list) {
@@ -178,7 +248,7 @@ export function CollaboratorPanel({
       }
     }
     return map
-  }, [notas])
+  }, [notasState])
 
   const destinationsByAdmin = useMemo(() => {
     const map = new Map<string, Array<{ id: string; nome: string }>>()
@@ -227,8 +297,8 @@ export function CollaboratorPanel({
   }
 
   const filteredNotasSemAtribuir = useMemo(
-    () => filterNotas(notasSemAtribuir ?? []),
-    [notasSemAtribuir, statusFilter, unidadeFilter, activeNotesKpi, search]
+    () => filterNotas(notasSemAtribuirState),
+    [notasSemAtribuirState, statusFilter, unidadeFilter, activeNotesKpi, search]
   )
 
   const visibleCollaborators = useMemo(() => {
