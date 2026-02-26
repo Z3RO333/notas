@@ -10,6 +10,19 @@ interface SyncHealthProps {
   notasSemAtribuir: number
 }
 
+function getJobLabel(log: SyncLog): string {
+  const metadata = log.metadata
+  if (!metadata || typeof metadata !== 'object') return 'dispatcher'
+
+  const job = (metadata as Record<string, unknown>).job
+  if (typeof job !== 'string' || !job.trim()) return 'dispatcher'
+  return job.toLowerCase()
+}
+
+function getLogCounters(log: SyncLog): string {
+  return `${log.notas_lidas}/${log.notas_inseridas}/${log.notas_atualizadas}/${log.notas_distribuidas}`
+}
+
 export function SyncHealth({ logs, adminsAtivos, adminsTotal, notasSemAtribuir }: SyncHealthProps) {
   const lastSync = logs[0]
 
@@ -49,16 +62,19 @@ export function SyncHealth({ logs, adminsAtivos, adminsTotal, notasSemAtribuir }
                   <span className="text-muted-foreground">
                     {format(new Date(log.started_at), 'HH:mm')}
                   </span>
+                  <span className="w-16 text-center font-mono text-[10px] uppercase text-muted-foreground">
+                    {getJobLabel(log)}
+                  </span>
                   <Badge variant={log.status === 'success' ? 'concluida' : log.status === 'error' ? 'cancelada' : 'em_andamento'}>
                     {log.status === 'success' ? 'OK' : log.status === 'error' ? 'ERRO' : 'EXEC'}
                   </Badge>
                   <span>
-                    {log.notas_lidas}/{log.notas_inseridas}/{log.notas_distribuidas}
+                    {getLogCounters(log)}
                   </span>
                 </div>
               ))}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">lidas/inseridas/distribuidas</p>
+            <p className="mt-1 text-xs text-muted-foreground">lidas/inseridas/atualizadas/distribuidas</p>
           </div>
         )}
       </CardContent>

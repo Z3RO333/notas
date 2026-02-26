@@ -38,6 +38,7 @@ ORDERS_MAINTENANCE_SOURCE_TABLE = "manutencao.silver.selecao_ordens_manutencao"
 VALID_WINDOWS = {30, 90, 180, 365}
 DEFAULT_WINDOW_DAYS = 30
 DEFAULT_SYNC_START_DATE = "2026-01-01"
+MIN_SYNC_START_DATE = "2026-01-01"
 MAX_WATERMARK_FUTURE_DAYS = 1
 VALID_BOOTSTRAP_MODES = {"auto", "force", "off"}
 DEFAULT_BOOTSTRAP_MODE = "auto"
@@ -689,6 +690,16 @@ def get_sync_start_date(spark: SparkSession) -> str:
     if not parsed:
         logger.warning("Valor inválido em cockpit.sync.start_date=%s. Usando %s.", raw, DEFAULT_SYNC_START_DATE)
         return DEFAULT_SYNC_START_DATE
+
+    if parsed < MIN_SYNC_START_DATE:
+        logger.warning(
+            "Valor em cockpit.sync.start_date=%s é anterior ao mínimo suportado (%s). Usando %s.",
+            parsed,
+            MIN_SYNC_START_DATE,
+            MIN_SYNC_START_DATE,
+        )
+        return MIN_SYNC_START_DATE
+
     return parsed
 
 
@@ -2916,4 +2927,5 @@ def main():
                 logger.error("Falha ao liberar lock do dispatcher: %s: %s", type(release_error).__name__, release_error)
 
 
-main()
+if __name__ == "__main__":
+    main()
