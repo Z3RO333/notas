@@ -362,6 +362,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const pendingSearchEnterActionRef = useRef(false)
   const canReassign = currentUser.canViewGlobal
+  const isPrivateScope = !currentUser.canViewGlobal
   const batchSize = 100
 
   const ownerById = useMemo(() => {
@@ -392,6 +393,10 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   const ownerGroups = useMemo((): OrderOwnerGroup[] => {
     if (ownerCardsViewMode !== 'cards') return []
 
+    const scopedOwnerSummary = isPrivateScope
+      ? ownerSummary.filter((item) => item.administrador_id === currentUser.adminId)
+      : ownerSummary
+
     // Agrupar rows carregados por responsável (para a lista de itens)
     const rowsByOwner = new Map<string, OrdemNotaAcompanhamento[]>()
     for (const row of rows) {
@@ -402,7 +407,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     }
 
     // Usar ownerSummary para os totais corretos (dados completos da API)
-    return ownerSummary
+    return scopedOwnerSummary
       .filter((s) => {
         if (s.total <= 0) return false
         // Gustavo deve aparecer na aba PMPL; em PMOS mantém regra legada de ocultar.
@@ -422,7 +427,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         total: s.total,
       }))
       .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, 'pt-BR'))
-  }, [rows, ownerCardsViewMode, ownerSummary, filters.tipoOrdem, ownerEspecialidadeById])
+  }, [rows, ownerCardsViewMode, ownerSummary, filters.tipoOrdem, ownerEspecialidadeById, isPrivateScope, currentUser.adminId])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -469,6 +474,12 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     if (filters.tipoOrdem !== 'PMPL') return
     setFilters((prev) => ({ ...prev, tipoOrdem: 'PMOS' }))
   }, [currentUser.canAccessPmpl, filters.tipoOrdem])
+
+  useEffect(() => {
+    if (!isPrivateScope) return
+    if (!filters.responsavel || filters.responsavel === 'todos') return
+    setFilters((prev) => (prev.responsavel === 'todos' ? prev : { ...prev, responsavel: 'todos' }))
+  }, [isPrivateScope, filters.responsavel])
 
   const fetchWorkspace = useCallback(async (reset: boolean) => {
     fetchAbortRef.current?.abort()
@@ -705,9 +716,13 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   }, [ownerSummary])
 
   const visibleOwners = useMemo(() => {
-    const shouldPinFixedOwners = filters.tipoOrdem !== 'PMPL'
+    const shouldPinFixedOwners = currentUser.canViewGlobal && filters.tipoOrdem !== 'PMPL'
     const shouldHideGustavo = filters.tipoOrdem !== 'PMPL'
-    const items = ownerSummary.filter((owner) => (
+    const scopedOwnerSummary = isPrivateScope
+      ? ownerSummary.filter((owner) => owner.administrador_id === currentUser.adminId)
+      : ownerSummary
+
+    const items = scopedOwnerSummary.filter((owner) => (
       !(
         shouldHideGustavo
         && isGustavoOwnerName(owner.nome)
@@ -732,7 +747,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       if (bRank !== undefined) return 1
       return 0
     })
-  }, [ownerSummary, filters.tipoOrdem])
+  }, [ownerSummary, filters.tipoOrdem, currentUser.canViewGlobal, currentUser.adminId, isPrivateScope])
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
@@ -771,6 +786,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   }
 
   function toggleOwnerFilter(ownerKey: string) {
+    if (isPrivateScope) return
     setFilters((prev) => ({
       ...prev,
       responsavel: prev.responsavel === ownerKey ? 'todos' : ownerKey,
@@ -912,14 +928,16 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                 Sem responsável: {formatNumber(kpis.sem_responsavel)}
               </button>
             )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setFilters((prev) => ({ ...prev, responsavel: 'todos' }))}
-            >
-              Todos
-            </Button>
+            {currentUser.canViewGlobal && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFilters((prev) => ({ ...prev, responsavel: 'todos' }))}
+              >
+                Todos
+              </Button>
+            )}
           </div>
         </div>
 
@@ -927,7 +945,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {visibleOwners.map((owner) => {
               const ownerKey = owner.administrador_id ?? '__sem_atual__'
-              const active = filters.responsavel === ownerKey
+              const active = isPrivateScope ? false : filters.responsavel === ownerKey
               const ownerCargo = resolveCargoPresentationFromOwner({
                 administrador_id: owner.administrador_id,
                 nome: owner.nome,
