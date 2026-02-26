@@ -1,45 +1,56 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Wrench, Loader2 } from 'lucide-react'
+import { Loader2, Wrench } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+
+function mapLoginErrorMessage(rawMessage: string): string {
+  const message = rawMessage.toLowerCase()
+  if (message.includes('email not confirmed')) {
+    return 'Email nao confirmado. Clique no link de confirmacao enviado para sua caixa de entrada.'
+  }
+  if (message.includes('invalid login credentials')) {
+    return 'Email ou senha invalidos. Se voce pediu recuperacao, abra o link do email e redefina sua senha.'
+  }
+  return 'Nao foi possivel autenticar agora. Tente novamente.'
+}
 
 export default function LoginPage() {
-  const router = useRouter()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+
+  const isLogin = mode === 'login'
 
   function switchMode() {
-    setMode((m) => (m === 'login' ? 'register' : 'login'))
+    setMode((current) => (current === 'login' ? 'register' : 'login'))
     setError('')
+    setNotice('')
     setConfirmPassword('')
   }
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleLogin(event: React.FormEvent) {
+    event.preventDefault()
     setLoading(true)
     setError('')
+    setNotice('')
 
     try {
       const supabase = createClient()
-
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: email.toLowerCase().trim(),
         password,
       })
 
       if (authError) {
-        setError(authError.message === 'Email not confirmed'
-          ? 'Email não confirmado. Tente cadastrar novamente.'
-          : 'Email ou senha invalidos.')
+        setError(mapLoginErrorMessage(authError.message))
         setLoading(false)
         return
       }
@@ -51,10 +62,11 @@ export default function LoginPage() {
     }
   }
 
-  async function handleRegister(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleRegister(event: React.FormEvent) {
+    event.preventDefault()
     setLoading(true)
     setError('')
+    setNotice('')
 
     if (password.length < 6) {
       setError('A senha deve ter pelo menos 6 caracteres.')
@@ -63,7 +75,7 @@ export default function LoginPage() {
     }
 
     if (password !== confirmPassword) {
-      setError('As senhas não coincidem.')
+      setError('As senhas nao coincidem.')
       setLoading(false)
       return
     }
@@ -72,7 +84,6 @@ export default function LoginPage() {
       const supabase = createClient()
       const trimmedEmail = email.toLowerCase().trim()
 
-      // Verifica se o email esta cadastrado na tabela de administradores
       const { data: admin, error: adminError } = await supabase
         .from('administradores')
         .select('id')
@@ -80,24 +91,26 @@ export default function LoginPage() {
         .single()
 
       if (adminError || !admin) {
-        setError('Email não autorizado. Contate o gestor.')
+        setError('Email nao autorizado. Contate o gestor.')
+        setLoading(false)
         return
       }
 
-      // Cria a conta no Supabase Auth
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: trimmedEmail,
         password,
       })
 
       if (signUpError) {
-        setError(signUpError.message === 'User already registered'
-          ? 'Este email já possui conta. Use o login normal.'
-          : signUpError.message)
+        setError(
+          signUpError.message === 'User already registered'
+            ? 'Este email ja possui conta. Use o login normal.'
+            : signUpError.message
+        )
+        setLoading(false)
         return
       }
 
-      // Vincula o auth_user_id ao registro do administrador
       if (signUpData.user) {
         await supabase
           .from('administradores')
@@ -105,20 +118,20 @@ export default function LoginPage() {
           .eq('id', admin.id)
       }
 
-      // Se signUp já retornou sessão, redireciona direto
       if (signUpData.session) {
         window.location.href = '/api/auth/landing'
         return
       }
 
-      // Fallback: faz login com as credenciais recem-criadas
       const { error: loginError } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password,
       })
 
       if (loginError) {
-        setError('Conta criada, mas não foi possível entrar automaticamente. Tente fazer login.')
+        setError(
+          'Conta criada, mas sem login automatico. Confirme o email e depois faca login.'
+        )
         setMode('login')
         setLoading(false)
         return
@@ -131,7 +144,39 @@ export default function LoginPage() {
     }
   }
 
-  const isLogin = mode === 'login'
+  async function handleResetPassword() {
+    setError('')
+    setNotice('')
+
+    const trimmedEmail = email.toLowerCase().trim()
+    if (!trimmedEmail) {
+      setError('Informe seu email para receber o link de redefinicao de senha.')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const supabase = createClient()
+      const redirectTo = `${window.location.origin}/api/auth/callback`
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo,
+      })
+
+      if (resetError) {
+        setError('Nao foi possivel enviar o email de redefinicao. Tente novamente.')
+        setLoading(false)
+        return
+      }
+
+      setNotice(
+        'Link de redefinicao enviado. Abra o email, clique no link e defina uma nova senha.'
+      )
+      setLoading(false)
+    } catch {
+      setError('Erro inesperado. Tente novamente.')
+      setLoading(false)
+    }
+  }
 
   return (
     <Card className="w-full max-w-sm">
@@ -157,11 +202,12 @@ export default function LoginPage() {
               type="email"
               placeholder="seu.email@bemol.com.br"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(event) => setEmail(event.target.value)}
               required
               autoFocus
             />
           </div>
+
           <div className="space-y-2">
             <label htmlFor="password" className="text-sm font-medium">
               Senha
@@ -171,49 +217,63 @@ export default function LoginPage() {
               type="password"
               placeholder={isLogin ? 'Digite sua senha' : 'Crie uma senha (min. 6 caracteres)'}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(event) => setPassword(event.target.value)}
               required
               minLength={6}
             />
           </div>
+
           {!isLogin && (
             <div className="space-y-2">
               <label htmlFor="confirm-password" className="text-sm font-medium">
-                Confirmar Senha
+                Confirmar senha
               </label>
               <Input
                 id="confirm-password"
                 type="password"
                 placeholder="Repita a senha"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(event) => setConfirmPassword(event.target.value)}
                 required
                 minLength={6}
               />
             </div>
           )}
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          {notice && <p className="text-sm text-emerald-700">{notice}</p>}
+
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 {isLogin ? 'Entrando...' : 'Cadastrando...'}
               </>
+            ) : isLogin ? (
+              'Entrar'
             ) : (
-              isLogin ? 'Entrar' : 'Cadastrar'
+              'Cadastrar'
             )}
           </Button>
         </form>
+
+        {isLogin && (
+          <button
+            type="button"
+            onClick={handleResetPassword}
+            className="mt-3 w-full text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+            disabled={loading}
+          >
+            Esqueci minha senha
+          </button>
+        )}
+
         <button
           type="button"
           onClick={switchMode}
-          className="mt-4 w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="mt-4 w-full text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          {isLogin
-            ? 'Primeiro acesso? Cadastre-se aqui'
-            : 'Já tem conta? Faca login'}
+          {isLogin ? 'Primeiro acesso? Cadastre-se aqui' : 'Ja tem conta? Faca login'}
         </button>
       </CardContent>
     </Card>
