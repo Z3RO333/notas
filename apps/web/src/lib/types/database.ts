@@ -8,6 +8,12 @@ export type NotaStatus =
   | 'concluida'
   | 'cancelada'
 
+export type NotaStatusOperacional =
+  | 'PENDENTE'
+  | 'EM_GERACAO'
+  | 'ALERTA'
+  | 'CONFIRMADA_VIROU_ORDEM'
+
 export type UserRole = 'admin' | 'gestor'
 export type OrderWindowFilter = 30 | 90 | 180
 export type OrderOwnerMode = 'atual' | 'origem'
@@ -136,6 +142,21 @@ export interface NotaHistorico {
   created_at: string
   // Joined
   administradores?: { nome: string } | null
+}
+
+export interface NotaOperacaoEstado {
+  nota_id: string
+  numero_nota: string
+  status_operacional: NotaStatusOperacional
+  em_geracao_por_admin_id: string | null
+  em_geracao_por_email: string | null
+  em_geracao_em: string | null
+  ultima_copia_em: string | null
+  ttl_minutos: number
+  numero_ordem_confirmada: string | null
+  confirmada_em: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface SyncLog {
@@ -460,7 +481,16 @@ export interface PerspectivaReatribuicaoAdmin30d {
 export type NotaPanelData = Pick<NotaManutencao,
   'id' | 'numero_nota' | 'descricao' | 'status' | 'administrador_id' |
   'prioridade' | 'centro' | 'data_criacao_sap' | 'created_at'
->
+> & {
+  status_operacional?: NotaStatusOperacional | null
+  em_geracao_por_admin_id?: string | null
+  em_geracao_por_email?: string | null
+  em_geracao_em?: string | null
+  ultima_copia_em?: string | null
+  ttl_minutos?: number | null
+  numero_ordem_confirmada?: string | null
+  confirmada_em?: string | null
+}
 
 export interface NotaResumo {
   id: string
