@@ -28,13 +28,68 @@ const UNIT_TO_FIXED_OWNER_KEY = {
   'CD FARMA TARUMA': 'adriano',
 } as const
 
-const ROUTING_UNITS = Object.keys(UNIT_TO_FIXED_OWNER_KEY)
-
 type FixedOwnerKey = keyof typeof FIXED_OWNER_EMAIL_BY_KEY
 
-type RoutingSupabase = SupabaseClient<any, 'public', any>
+type RoutingSupabase = SupabaseClient
 type RoutePage = 'PMOS' | 'PMPL'
 type RouteReason = 'pmpl' | 'refrigeracao' | 'cd' | 'none'
+
+type QueryError = {
+  code?: string
+  message?: string
+  details?: string | null
+  hint?: string | null
+} | null
+
+interface QueryResult<T> {
+  data: T[] | null
+  error: QueryError
+}
+
+interface RangeableRoutingQuery {
+  order: (
+    column: string,
+    options: { ascending: boolean }
+  ) => {
+    range: (from: number, to: number) => PromiseLike<QueryResult<RoutingCandidateRow>>
+  }
+}
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== 'object' || value === null) return null
+  return value as Record<string, unknown>
+}
+
+function extractQueryError(result: unknown): QueryError {
+  const record = toRecord(result)
+  if (!record) return { message: 'invalid query result' }
+
+  const rawError = record.error
+  if (rawError == null) return null
+
+  const errorRecord = toRecord(rawError)
+  if (!errorRecord) return { message: String(rawError) }
+
+  return {
+    code: typeof errorRecord.code === 'string' ? errorRecord.code : undefined,
+    message: typeof errorRecord.message === 'string' ? errorRecord.message : undefined,
+    details: typeof errorRecord.details === 'string' ? errorRecord.details : null,
+    hint: typeof errorRecord.hint === 'string' ? errorRecord.hint : null,
+  }
+}
+
+function extractQueryRows<T>(result: unknown): T[] {
+  const record = toRecord(result)
+  if (!record) return []
+  return Array.isArray(record.data) ? (record.data as T[]) : []
+}
+
+function asRangeableRoutingQuery(value: unknown): RangeableRoutingQuery | null {
+  const record = toRecord(value)
+  if (!record) return null
+  if (typeof record.order !== 'function') return null
+  return value as RangeableRoutingQuery
+}
 
 interface AdminRoutingRecord {
   id: string
@@ -286,23 +341,25 @@ function isMissingTipoOrdemColumn(
 
 async function fetchAdministradoresWithVacationFallback(
   supabase: RoutingSupabase,
-  buildQuery: (columns: string) => any
+  buildQuery: (columns: string) => unknown
 ): Promise<AdminRoutingRecord[]> {
   const fullColumns = 'id, nome, email, role, ativo, em_ferias, data_inicio_ferias, data_fim_ferias'
   const legacyColumns = 'id, nome, email, role, ativo, em_ferias'
 
-  const fullResult = await buildQuery(fullColumns)
-  if (fullResult.error && isMissingVacationColumns(fullResult.error)) {
-    const legacyResult = await buildQuery(legacyColumns)
-    if (legacyResult.error) throw legacyResult.error
-    return ((legacyResult.data ?? []) as Array<Partial<AdminRoutingRecord>>)
+  const fullResult = await Promise.resolve(buildQuery(fullColumns))
+  const fullError = extractQueryError(fullResult)
+  if (fullError && isMissingVacationColumns(fullError)) {
+    const legacyResult = await Promise.resolve(buildQuery(legacyColumns))
+    const legacyError = extractQueryError(legacyResult)
+    if (legacyError) throw legacyError
+    return extractQueryRows<Partial<AdminRoutingRecord>>(legacyResult)
       .map(asAdminRoutingRecord)
       .filter((item): item is AdminRoutingRecord => Boolean(item))
   }
 
-  if (fullResult.error) throw fullResult.error
+  if (fullError) throw fullError
 
-  return ((fullResult.data ?? []) as Array<Partial<AdminRoutingRecord>>)
+  return extractQueryRows<Partial<AdminRoutingRecord>>(fullResult)
     .map(asAdminRoutingRecord)
     .filter((item): item is AdminRoutingRecord => Boolean(item))
 }
@@ -382,21 +439,23 @@ async function fetchPmplConfig(supabase: RoutingSupabase): Promise<PmplConfigRow
 
 async function fetchAllRoutingRows(
   supabase: RoutingSupabase,
-  buildQuery: () => any
+  buildQuery: () => unknown
 ): Promise<RoutingCandidateRow[]> {
   const rows: RoutingCandidateRow[] = []
   let from = 0
 
   while (true) {
-    const query = buildQuery()
+    const query = asRangeableRoutingQuery(buildQuery())
+    if (!query) throw new Error('invalid routing query builder')
 
-    const { data, error } = await query
+    const result = await query
       .order('ordem_id', { ascending: true })
       .range(from, from + ROUTING_BATCH_SIZE - 1)
 
+    const error = extractQueryError(result)
     if (error) throw error
 
-    const batch = (data ?? []) as RoutingCandidateRow[]
+    const batch = extractQueryRows<RoutingCandidateRow>(result)
     rows.push(...batch)
 
     if (batch.length < ROUTING_BATCH_SIZE) break
