@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Wrench, ClipboardList, ListChecks, Shield, Sparkles, LogOut, Menu, X } from 'lucide-react'
+import { ThemeSelector } from '@/components/theme/theme-selector'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
@@ -77,6 +78,7 @@ export function TopNav({ userName, userRole }: TopNavProps) {
         <div className="flex-1 md:hidden" />
 
         <div className="flex items-center gap-3">
+          <ThemeSelector className="hidden md:flex" />
           {userName && (
             <span className="text-sm text-muted-foreground hidden sm:inline">
               {userName}
@@ -107,6 +109,10 @@ export function TopNav({ userName, userRole }: TopNavProps) {
       {/* Mobile dropdown */}
       {menuOpen && (
         <nav className="md:hidden border-t bg-background px-4 pb-3 pt-2 space-y-1">
+          <div className="mb-2 rounded-md border p-2">
+            <p className="mb-1 text-xs font-medium text-muted-foreground">Tema</p>
+            <ThemeSelector mobile />
+          </div>
           {links.map((link) => {
             const Icon = link.icon
             return (

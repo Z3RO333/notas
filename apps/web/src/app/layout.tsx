@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { TopNav } from '@/components/layout/top-nav'
+import { ThemeProvider } from '@/components/theme/theme-provider'
 import { ToastProvider } from '@/components/ui/toast'
 import { createClient } from '@/lib/supabase/server'
+import { buildThemeBootstrapScript } from '@/lib/theme/theme'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -53,17 +55,24 @@ export default async function RootLayout({
     }
   }
 
+  const themeBootstrapScript = buildThemeBootstrapScript()
+
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
+      </head>
       <body className={inter.className}>
-        <ToastProvider>
-          <div className="min-h-screen bg-background">
-            <TopNav userName={userName} userRole={userRole} />
-            <main className="mx-auto max-w-7xl px-6 py-6">
-              {children}
-            </main>
-          </div>
-        </ToastProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            <div className="min-h-screen bg-background">
+              <TopNav userName={userName} userRole={userRole} />
+              <main className="mx-auto max-w-7xl px-6 py-6">
+                {children}
+              </main>
+            </div>
+          </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
