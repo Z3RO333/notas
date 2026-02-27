@@ -10,7 +10,6 @@ test('debug - ver o que renderiza', async ({ page }) => {
   await page.waitForTimeout(3000)
   await page.screenshot({ path: path.join(DIR, 'debug-login.png'), fullPage: true })
 
-  const content = await page.content()
   console.log('URL atual:', page.url())
   console.log('Título:', await page.title())
   // verifica se tem inputs
