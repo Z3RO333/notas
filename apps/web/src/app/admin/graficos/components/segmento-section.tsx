@@ -1,10 +1,10 @@
-import { ShoppingBag, Pill, Warehouse } from 'lucide-react'
+import { ShoppingBag, Pill, Warehouse, type LucideIcon } from 'lucide-react'
 import type { GestaoEvolucaoMes, GestaoTopLoja, GestaoTopServico, TipoUnidade } from '@/lib/types/database'
 import { TopLojasChart } from './top-lojas-chart'
 import { TopServicosChart } from './top-servicos-chart'
 import { EvolucaoMensalChart } from './evolucao-mensal-chart'
 
-const SEGMENTO_CONFIG: Record<TipoUnidade, { label: string; cor: string; Icon: React.ComponentType<{ className?: string }> }> = {
+const SEGMENTO_CONFIG: Record<TipoUnidade, { label: string; cor: string; Icon: LucideIcon }> = {
   LOJA: { label: 'Lojas', cor: '#2563eb', Icon: ShoppingBag },
   FARMA: { label: 'Farmas', cor: '#16a34a', Icon: Pill },
   CD: { label: 'CDs', cor: '#d97706', Icon: Warehouse },
