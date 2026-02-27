@@ -984,6 +984,7 @@ def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]
             centro = _extract_centro(row_dict)
             data_entrada = _extract_data_entrada(row_dict)
             tipo_ordem = _as_clean_text(row_dict.get(PMPL_TIPO_ORDEM_COLUMN))
+            criado_por_sap_codigo = _as_clean_text(row_dict.get("CRIADOR_POR"))
             priority = STATUS_PRIORITY.get(status_raw, 0)
 
             current = best_by_order.get(ordem_codigo)
@@ -994,6 +995,7 @@ def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]
                     "centro": centro,
                     "data_entrada": data_entrada or (current.get("data_entrada") if current else None),
                     "tipo_ordem": tipo_ordem or (current.get("tipo_ordem") if current else None),
+                    "criado_por_sap_codigo": criado_por_sap_codigo or (current.get("criado_por_sap_codigo") if current else None),
                     "priority": priority,
                 }
             else:
@@ -1001,6 +1003,8 @@ def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]
                     current["data_entrada"] = data_entrada
                 if current.get("tipo_ordem") is None and tipo_ordem is not None:
                     current["tipo_ordem"] = tipo_ordem
+                if current.get("criado_por_sap_codigo") is None and criado_por_sap_codigo is not None:
+                    current["criado_por_sap_codigo"] = criado_por_sap_codigo
 
     updates = [
         {
@@ -1009,6 +1013,7 @@ def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]
             "centro": v["centro"],
             "data_entrada": v.get("data_entrada"),
             "tipo_ordem": v.get("tipo_ordem"),
+            "criado_por_sap_codigo": v.get("criado_por_sap_codigo"),
         }
         for v in best_by_order.values()
     ]
@@ -1128,6 +1133,7 @@ def read_standalone_pmpl_orders(
         centro = _extract_centro(row_dict)
         data_entrada = _extract_data_entrada(row_dict)
         tipo_ordem = _as_clean_text(row_dict.get(PMPL_TIPO_ORDEM_COLUMN)) or "PMPL"
+        criado_por_sap_codigo = _as_clean_text(row_dict.get("CRIADOR_POR"))
         priority = STATUS_PRIORITY.get(status_raw, 0)
 
         current = best_by_order.get(ordem_codigo)
@@ -1138,11 +1144,14 @@ def read_standalone_pmpl_orders(
                 "centro": centro,
                 "data_entrada": data_entrada or (current.get("data_entrada") if current else None),
                 "tipo_ordem": tipo_ordem,
+                "criado_por_sap_codigo": criado_por_sap_codigo or (current.get("criado_por_sap_codigo") if current else None),
                 "priority": priority,
             }
         else:
             if current.get("data_entrada") is None and data_entrada is not None:
                 current["data_entrada"] = data_entrada
+            if current.get("criado_por_sap_codigo") is None and criado_por_sap_codigo is not None:
+                current["criado_por_sap_codigo"] = criado_por_sap_codigo
 
     orders = [
         {
@@ -1151,6 +1160,7 @@ def read_standalone_pmpl_orders(
             "centro": v["centro"],
             "data_entrada": v.get("data_entrada"),
             "tipo_ordem": v.get("tipo_ordem") or "PMPL",
+            "criado_por_sap_codigo": v.get("criado_por_sap_codigo"),
         }
         for v in best_by_order.values()
     ]
@@ -1333,14 +1343,22 @@ def read_orders_maintenance_reference(
     )
 
     df = spark.sql(f"""
+        WITH pmpl_criado AS (
+          SELECT ORDEM AS PMPL_ORDEM, MAX(CRIADOR_POR) AS CRIADO_POR
+          FROM {PMPL_TABLE}
+          WHERE CRIADOR_POR IS NOT NULL
+          GROUP BY ORDEM
+        )
         SELECT
           {ORDERS_MAINTENANCE_ORDER_COLUMN} AS ORDEM,
           {ORDERS_MAINTENANCE_NOTE_COLUMN} AS NOTA,
           {ORDERS_MAINTENANCE_TYPE_COLUMN} AS TIPO_ORDEM,
           {ORDERS_MAINTENANCE_TEXT_COLUMN} AS TEXTO_BREVE,
           {ORDERS_MAINTENANCE_CENTER_COLUMN} AS CENTRO_LIBERACAO,
-          {ORDERS_MAINTENANCE_EXTRACTION_COLUMN} AS DATA_EXTRACAO
+          {data_extracao_expr} AS DATA_EXTRACAO,
+          pmpl_criado.CRIADO_POR AS CRIADO_POR
         FROM {ORDERS_MAINTENANCE_SOURCE_TABLE}
+        LEFT JOIN pmpl_criado ON pmpl_criado.PMPL_ORDEM = {ORDERS_MAINTENANCE_ORDER_COLUMN}
         WHERE {ORDERS_MAINTENANCE_ORDER_COLUMN} IS NOT NULL
           AND (
             {data_extracao_expr} >= date('{effective_start}')
@@ -1381,6 +1399,7 @@ def read_orders_maintenance_reference(
             "texto_breve": _as_clean_text(row_dict.get("TEXTO_BREVE")),
             "centro_liberacao": _normalize_centro(row_dict.get("CENTRO_LIBERACAO")),
             "data_extracao": _normalize_iso_datetime(row_dict.get("DATA_EXTRACAO")),
+            "criado_por_sap_codigo": _as_clean_text(row_dict.get("CRIADO_POR")),
         }
         candidate["completeness_score"] = _calculate_maintenance_reference_completeness(candidate)
 
@@ -1405,6 +1424,7 @@ def read_orders_maintenance_reference(
             "texto_breve": item.get("texto_breve"),
             "centro_liberacao": item.get("centro_liberacao"),
             "data_extracao": item.get("data_extracao"),
+            "criado_por_sap_codigo": item.get("criado_por_sap_codigo"),
         }
         for item in by_order.values()
     ]
@@ -1460,6 +1480,7 @@ def upsert_orders_maintenance_reference(sync_id: str, references: list[dict]) ->
             "texto_breve": item.get("texto_breve"),
             "centro_liberacao": item.get("centro_liberacao"),
             "data_extracao": item.get("data_extracao"),
+            "criado_por_sap_codigo": item.get("criado_por_sap_codigo"),
             "fonte": ORDERS_MAINTENANCE_SOURCE_TABLE,
             "last_sync_id": sync_id,
             "last_seen_at": now_iso,
@@ -1513,6 +1534,7 @@ def run_standalone_owner_assignment() -> dict:
     metrics = {
         "total_candidatas": int(row.get("total_candidatas") or 0),
         "responsaveis_preenchidos": int(row.get("responsaveis_preenchidos") or 0),
+        "atribuicoes_criado_por": int(row.get("atribuicoes_criado_por") or 0),
         "atribuicoes_refrigeracao": int(row.get("atribuicoes_refrigeracao") or 0),
         "atribuicoes_pmpl_config": int(row.get("atribuicoes_pmpl_config") or 0),
         "atribuicoes_fallback": int(row.get("atribuicoes_fallback") or 0),
@@ -1522,9 +1544,10 @@ def run_standalone_owner_assignment() -> dict:
     }
 
     logger.info(
-        "Standalone owner assignment -> candidatas=%s preenchidas=%s refrig=%s pmpl_cfg=%s fallback=%s sem_destino=%s",
+        "Standalone owner assignment -> candidatas=%s preenchidas=%s criado_por=%s refrig=%s pmpl_cfg=%s fallback=%s sem_destino=%s",
         metrics["total_candidatas"],
         metrics["responsaveis_preenchidos"],
+        metrics["atribuicoes_criado_por"],
         metrics["atribuicoes_refrigeracao"],
         metrics["atribuicoes_pmpl_config"],
         metrics["atribuicoes_fallback"],
@@ -1578,6 +1601,108 @@ def run_standalone_pmpl_owner_realign() -> dict:
         metrics["destino_id"],
     )
     return metrics
+
+
+def run_backfill_and_register_v2(sync_id: str) -> dict:
+    """Segunda passada: backfill ordem_sap de ordens_manutencao_referencia +
+    registra ordens detectadas + atualiza cockpit.
+    Resolve notas com ordens na referência silver que não vieram do qmel_clean.
+    Tolerante a falha — não derruba o sync.
+    """
+    metrics = {
+        "status": "not_run",
+        "backfill_notas_atualizadas": 0,
+        "ordens_detectadas": 0,
+        "notas_auto_concluidas": 0,
+        "cockpit_total_elegiveis": 0,
+        "error": None,
+    }
+    try:
+        # 1. Backfill: preenche ordem_sap de notas abertas com link na referência
+        bf = supabase.rpc("backfill_ordem_sap_de_referencia", {"p_sync_id": sync_id}).execute()
+        bf_raw = bf.data
+        if isinstance(bf_raw, list):
+            bf_raw = bf_raw[0] if bf_raw else {}
+        if not isinstance(bf_raw, dict):
+            bf_raw = {}
+        metrics["backfill_notas_atualizadas"] = int(bf_raw.get("notas_atualizadas") or 0)
+
+        # 2. Segunda passada de registrar_ordens_por_notas
+        reg = supabase.rpc("registrar_ordens_por_notas", {"p_sync_id": sync_id}).execute()
+        reg_raw = reg.data
+        if isinstance(reg_raw, list):
+            reg_raw = reg_raw[0] if reg_raw else {}
+        if not isinstance(reg_raw, dict):
+            reg_raw = {}
+        metrics["ordens_detectadas"] = int(reg_raw.get("ordens_detectadas") or 0)
+        metrics["notas_auto_concluidas"] = int(reg_raw.get("notas_auto_concluidas") or 0)
+
+        # 3. Atualiza cockpit com estado pós-conclusão
+        ck = supabase.rpc("sincronizar_cockpit_convergencia", {"p_sync_id": sync_id}).execute()
+        ck_raw = ck.data
+        if isinstance(ck_raw, list):
+            ck_raw = ck_raw[0] if ck_raw else {}
+        if not isinstance(ck_raw, dict):
+            ck_raw = {}
+        metrics["cockpit_total_elegiveis"] = int(ck_raw.get("total_elegiveis") or 0)
+
+        metrics["status"] = "success"
+        logger.info(
+            "Backfill v2 -> backfill=%s ordens_detectadas=%s auto_concluidas=%s cockpit_elegiveis=%s",
+            metrics["backfill_notas_atualizadas"],
+            metrics["ordens_detectadas"],
+            metrics["notas_auto_concluidas"],
+            metrics["cockpit_total_elegiveis"],
+        )
+    except Exception as exc:
+        metrics["status"] = "error_tolerated"
+        metrics["error"] = f"{type(exc).__name__}: {exc}"
+        logger.warning("Falha tolerada no backfill v2. erro=%s", metrics["error"])
+
+    return metrics
+
+
+def run_cockpit_convergencia_sync(sync_id: str) -> dict:
+    """Sincroniza notas_manutencao → notas_convergencia_cockpit via RPC.
+    Tolerante a falha: captura exceções sem derrubar o sync principal.
+    """
+    try:
+        result = supabase.rpc(
+            "sincronizar_cockpit_convergencia",
+            {"p_sync_id": sync_id},
+        ).execute()
+
+        raw = result.data
+        if isinstance(raw, list):
+            raw = raw[0] if raw else {}
+        if not isinstance(raw, dict):
+            raw = {}
+
+        metrics = {
+            "status": "success",
+            "inseridas": int(raw.get("inseridas") or 0),
+            "atualizadas": int(raw.get("atualizadas") or 0),
+            "total_elegiveis": int(raw.get("total_elegiveis") or 0),
+            "error": None,
+        }
+        logger.info(
+            "Cockpit convergencia sync -> inseridas=%s atualizadas=%s elegiveis=%s",
+            metrics["inseridas"],
+            metrics["atualizadas"],
+            metrics["total_elegiveis"],
+        )
+        return metrics
+
+    except Exception as exc:
+        error_msg = f"{type(exc).__name__}: {exc}"
+        logger.warning("Falha tolerada na sincronização do cockpit. erro=%s", error_msg)
+        return {
+            "status": "error_tolerated",
+            "inseridas": 0,
+            "atualizadas": 0,
+            "total_elegiveis": 0,
+            "error": error_msg,
+        }
 
 
 def finalize_sync_log(
@@ -1658,6 +1783,7 @@ def main():
     standalone_owner_metrics = {
         "total_candidatas": 0,
         "responsaveis_preenchidos": 0,
+        "atribuicoes_criado_por": 0,
         "atribuicoes_refrigeracao": 0,
         "atribuicoes_pmpl_config": 0,
         "atribuicoes_fallback": 0,
@@ -1679,6 +1805,21 @@ def main():
         "confirm_repaired": 0,
         "ttl_minutes": copy_intent_ttl_minutes,
         "confirm_repair_minutes": copy_intent_confirm_repair_minutes,
+    }
+    backfill_v2_metrics = {
+        "status": "not_run",
+        "backfill_notas_atualizadas": 0,
+        "ordens_detectadas": 0,
+        "notas_auto_concluidas": 0,
+        "cockpit_total_elegiveis": 0,
+        "error": None,
+    }
+    cockpit_sync_metrics = {
+        "status": "not_run",
+        "inseridas": 0,
+        "atualizadas": 0,
+        "total_elegiveis": 0,
+        "error": None,
     }
 
     try:
@@ -1714,6 +1855,8 @@ def main():
             )
 
         distributed = run_distribution(sync_id)
+
+        cockpit_sync_metrics = run_cockpit_convergencia_sync(sync_id)
 
         # Importa ordens PMPL standalone (sem nota correspondente) direto da fonte
         standalone_orders = read_standalone_pmpl_orders(
@@ -1801,6 +1944,10 @@ def main():
         standalone_owner_metrics = run_standalone_owner_assignment()
         standalone_pmpl_realign_metrics = run_standalone_pmpl_owner_realign()
 
+        # Segunda passada: backfill ordem_sap (referência silver) → registrar ordens → cockpit
+        # Resolve notas com ordens em selecao_ordens_manutencao que não vieram do qmel_clean
+        backfill_v2_metrics = run_backfill_and_register_v2(sync_id)
+
         metadata = {
             "window_days": window_days,
             "force_window": force_window,
@@ -1853,6 +2000,7 @@ def main():
             "orders_ref_v2_numero_nota_preenchidas": orders_ref_v2_enrichment_metrics["numero_nota_preenchidas"],
             "standalone_owner_total_candidatas": standalone_owner_metrics["total_candidatas"],
             "standalone_owner_preenchidos": standalone_owner_metrics["responsaveis_preenchidos"],
+            "standalone_owner_atribuicoes_criado_por": standalone_owner_metrics["atribuicoes_criado_por"],
             "standalone_owner_atribuicoes_refrigeracao": standalone_owner_metrics["atribuicoes_refrigeracao"],
             "standalone_owner_atribuicoes_pmpl_config": standalone_owner_metrics["atribuicoes_pmpl_config"],
             "standalone_owner_atribuicoes_fallback": standalone_owner_metrics["atribuicoes_fallback"],
@@ -1863,6 +2011,17 @@ def main():
             "standalone_pmpl_realign_total_candidatas": standalone_pmpl_realign_metrics["total_candidatas"],
             "standalone_pmpl_realign_reatribuicoes": standalone_pmpl_realign_metrics["reatribuicoes"],
             "standalone_pmpl_realign_destino_id": standalone_pmpl_realign_metrics["destino_id"],
+            "cockpit_sync_status": cockpit_sync_metrics["status"],
+            "cockpit_sync_inseridas": cockpit_sync_metrics["inseridas"],
+            "cockpit_sync_atualizadas": cockpit_sync_metrics["atualizadas"],
+            "cockpit_sync_total_elegiveis": cockpit_sync_metrics["total_elegiveis"],
+            "cockpit_sync_error": cockpit_sync_metrics["error"],
+            "backfill_v2_status": backfill_v2_metrics["status"],
+            "backfill_v2_notas_atualizadas": backfill_v2_metrics["backfill_notas_atualizadas"],
+            "backfill_v2_ordens_detectadas": backfill_v2_metrics["ordens_detectadas"],
+            "backfill_v2_auto_concluidas": backfill_v2_metrics["notas_auto_concluidas"],
+            "backfill_v2_cockpit_elegiveis": backfill_v2_metrics["cockpit_total_elegiveis"],
+            "backfill_v2_error": backfill_v2_metrics["error"],
         }
 
         finalize_sync_log(
@@ -1921,7 +2080,8 @@ def main():
                     "orders_ref_v2_numero_nota_preenchidas": orders_ref_v2_enrichment_metrics["numero_nota_preenchidas"],
                     "standalone_owner_total_candidatas": standalone_owner_metrics["total_candidatas"],
                     "standalone_owner_preenchidos": standalone_owner_metrics["responsaveis_preenchidos"],
-                    "standalone_owner_atribuicoes_refrigeracao": standalone_owner_metrics["atribuicoes_refrigeracao"],
+                    "standalone_owner_atribuicoes_criado_por": standalone_owner_metrics["atribuicoes_criado_por"],
+            "standalone_owner_atribuicoes_refrigeracao": standalone_owner_metrics["atribuicoes_refrigeracao"],
                     "standalone_owner_atribuicoes_pmpl_config": standalone_owner_metrics["atribuicoes_pmpl_config"],
                     "standalone_owner_atribuicoes_fallback": standalone_owner_metrics["atribuicoes_fallback"],
                     "standalone_owner_sem_destino": standalone_owner_metrics["sem_destino"],
@@ -1931,6 +2091,17 @@ def main():
                     "standalone_pmpl_realign_total_candidatas": standalone_pmpl_realign_metrics["total_candidatas"],
                     "standalone_pmpl_realign_reatribuicoes": standalone_pmpl_realign_metrics["reatribuicoes"],
                     "standalone_pmpl_realign_destino_id": standalone_pmpl_realign_metrics["destino_id"],
+                    "cockpit_sync_status": cockpit_sync_metrics["status"],
+                    "cockpit_sync_inseridas": cockpit_sync_metrics["inseridas"],
+                    "cockpit_sync_atualizadas": cockpit_sync_metrics["atualizadas"],
+                    "cockpit_sync_total_elegiveis": cockpit_sync_metrics["total_elegiveis"],
+                    "cockpit_sync_error": cockpit_sync_metrics["error"],
+                    "backfill_v2_status": backfill_v2_metrics["status"],
+                    "backfill_v2_notas_atualizadas": backfill_v2_metrics["backfill_notas_atualizadas"],
+                    "backfill_v2_ordens_detectadas": backfill_v2_metrics["ordens_detectadas"],
+                    "backfill_v2_auto_concluidas": backfill_v2_metrics["notas_auto_concluidas"],
+                    "backfill_v2_cockpit_elegiveis": backfill_v2_metrics["cockpit_total_elegiveis"],
+                    "backfill_v2_error": backfill_v2_metrics["error"],
                 },
                 error=str(e),
             )

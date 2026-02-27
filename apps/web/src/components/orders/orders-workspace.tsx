@@ -37,6 +37,12 @@ import {
   workspaceKpisToOrdemNotaKpis,
 } from '@/lib/orders/metrics'
 import {
+  UNASSIGNED_ORDER_OWNER_KEY,
+  buildVisibleOwnerSummary,
+  hasIndividualOwnerSelection,
+  toOrderOwnerKey,
+} from '@/lib/orders/owner-visibility'
+import {
   isGustavoOwnerName,
   normalizePersonName,
   resolveCargoPresentationFromOwner,
@@ -389,10 +395,13 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     () => resolveSmartSearch(filters.q, searchOwnerCandidates, filters.responsavel, currentUser.canViewGlobal),
     [filters.q, searchOwnerCandidates, filters.responsavel, currentUser.canViewGlobal]
   )
+  const hasSelectedOwnerFilter = hasIndividualOwnerSelection(currentUser.canViewGlobal, filters.responsavel)
+  const selectedOwnerKey = hasSelectedOwnerFilter ? filters.responsavel.trim() : null
 
   const ownerGroups = useMemo((): OrderOwnerGroup[] => {
     if (ownerCardsViewMode !== 'cards') return []
 
+    const shouldHideGustavo = filters.tipoOrdem !== 'PMPL'
     const scopedOwnerSummary = isPrivateScope
       ? ownerSummary.filter((item) => item.administrador_id === currentUser.adminId)
       : ownerSummary
@@ -400,7 +409,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     // Agrupar rows carregados por responsável (para a lista de itens)
     const rowsByOwner = new Map<string, OrdemNotaAcompanhamento[]>()
     for (const row of rows) {
-      const id = row.responsavel_atual_id ?? '__sem_atual__'
+      const id = toOrderOwnerKey(row.responsavel_atual_id)
       const bucket = rowsByOwner.get(id) ?? []
       bucket.push(row)
       rowsByOwner.set(id, bucket)
@@ -411,15 +420,16 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       .filter((s) => {
         if (s.total <= 0) return false
         // Gustavo deve aparecer na aba PMPL; em PMOS mantém regra legada de ocultar.
-        if (filters.tipoOrdem === 'PMPL') return true
-        return !isGustavoOwnerName(s.nome)
+        if (shouldHideGustavo && isGustavoOwnerName(s.nome)) return false
+        if (!selectedOwnerKey) return true
+        return toOrderOwnerKey(s.administrador_id) === selectedOwnerKey
       })
       .map((s) => ({
-        id: s.administrador_id ?? '__sem_atual__',
+        id: toOrderOwnerKey(s.administrador_id),
         nome: s.nome,
         avatar_url: s.avatar_url,
         especialidade: s.administrador_id ? (ownerEspecialidadeById.get(s.administrador_id) ?? null) : null,
-        rows: rowsByOwner.get(s.administrador_id ?? '__sem_atual__') ?? [],
+        rows: rowsByOwner.get(toOrderOwnerKey(s.administrador_id)) ?? [],
         recentes: s.recentes,
         atencao: s.atencao,
         atrasadas: s.atrasadas,
@@ -427,7 +437,16 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         total: s.total,
       }))
       .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, 'pt-BR'))
-  }, [rows, ownerCardsViewMode, ownerSummary, filters.tipoOrdem, ownerEspecialidadeById, isPrivateScope, currentUser.adminId])
+  }, [
+    rows,
+    ownerCardsViewMode,
+    ownerSummary,
+    filters.tipoOrdem,
+    ownerEspecialidadeById,
+    isPrivateScope,
+    currentUser.adminId,
+    selectedOwnerKey,
+  ])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -684,7 +703,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       })
 
       if (!filters.responsavel || filters.responsavel === 'todos') return updated
-      if (filters.responsavel === '__sem_atual__') {
+      if (filters.responsavel === UNASSIGNED_ORDER_OWNER_KEY) {
         return updated.filter((row) => {
           const notaId = getRowNotaId(row)
           if (!notaId) return true
@@ -709,45 +728,24 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     const options = ownerSummary
       .filter((item) => item.total > 0 || item.administrador_id !== null)
       .map((item) => ({
-        value: item.administrador_id ?? '__sem_atual__',
+        value: toOrderOwnerKey(item.administrador_id),
         label: item.nome,
       }))
     return options
   }, [ownerSummary])
 
   const visibleOwners = useMemo(() => {
-    const shouldPinFixedOwners = currentUser.canViewGlobal && filters.tipoOrdem !== 'PMPL'
-    const shouldHideGustavo = filters.tipoOrdem !== 'PMPL'
-    const scopedOwnerSummary = isPrivateScope
-      ? ownerSummary.filter((owner) => owner.administrador_id === currentUser.adminId)
-      : ownerSummary
-
-    const items = scopedOwnerSummary.filter((owner) => (
-      !(
-        shouldHideGustavo
-        && isGustavoOwnerName(owner.nome)
-      )
-      && (
-        owner.total > 0
-        || owner.administrador_id === null
-        || (shouldPinFixedOwners && getFixedOwnerCardRank(owner.nome) !== undefined)
-      )
-    ))
-
-    if (!shouldPinFixedOwners) {
-      return items.sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, 'pt-BR'))
-    }
-
-    return items.sort((a, b) => {
-      const aRank = getFixedOwnerCardRank(a.nome)
-      const bRank = getFixedOwnerCardRank(b.nome)
-
-      if (aRank !== undefined && bRank !== undefined) return aRank - bRank
-      if (aRank !== undefined) return -1
-      if (bRank !== undefined) return 1
-      return 0
+    return buildVisibleOwnerSummary({
+      ownerSummary,
+      canViewGlobal: currentUser.canViewGlobal,
+      isPrivateScope,
+      currentAdminId: currentUser.adminId,
+      tipoOrdem: filters.tipoOrdem,
+      responsavel: filters.responsavel,
+      isGustavoOwnerName,
+      getFixedOwnerCardRank,
     })
-  }, [ownerSummary, filters.tipoOrdem, currentUser.canViewGlobal, currentUser.adminId, isPrivateScope])
+  }, [ownerSummary, filters.tipoOrdem, filters.responsavel, currentUser.canViewGlobal, currentUser.adminId, isPrivateScope])
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
@@ -923,7 +921,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
               <button
                 type="button"
                 className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
-                onClick={() => setFilters((prev) => ({ ...prev, responsavel: '__sem_atual__' }))}
+                onClick={() => setFilters((prev) => ({ ...prev, responsavel: UNASSIGNED_ORDER_OWNER_KEY }))}
               >
                 Sem responsável: {formatNumber(kpis.sem_responsavel)}
               </button>
@@ -944,7 +942,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         {ownerCardsViewMode === 'list' ? (
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {visibleOwners.map((owner) => {
-              const ownerKey = owner.administrador_id ?? '__sem_atual__'
+              const ownerKey = toOrderOwnerKey(owner.administrador_id)
               const active = isPrivateScope ? false : filters.responsavel === ownerKey
               const ownerCargo = resolveCargoPresentationFromOwner({
                 administrador_id: owner.administrador_id,
