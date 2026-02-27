@@ -1,42 +1,52 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { authorizeSessionUser } from '@/lib/auth/server'
+import { createClient } from '@/lib/supabase/server'
+
+async function signOutAndRedirect(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  origin: string,
+  errorCode?: 'auth' | 'unauthorized' | 'inactive' | 'conflict'
+) {
+  await supabase.auth.signOut()
+  const redirectUrl = new URL('/login', origin)
+  if (errorCode) {
+    redirectUrl.searchParams.set('error', errorCode)
+  }
+  return NextResponse.redirect(redirectUrl)
+}
 
 export async function GET(request: Request) {
   const { origin } = new URL(request.url)
-  const cookieStore = await cookies()
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options as never)
-          )
-        },
-      },
-    }
-  )
+  const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user?.email) {
+  if (!user?.email || !user.id) {
     return NextResponse.redirect(`${origin}/login`)
   }
 
-  const { data: admin } = await supabase
-    .from('administradores')
-    .select('role')
-    .eq('email', user.email)
-    .single()
+  try {
+    const authorization = await authorizeSessionUser({
+      id: user.id,
+      email: user.email,
+    })
 
-  if (admin?.role === 'gestor') {
-    return NextResponse.redirect(`${origin}/admin`)
+    if (authorization.status !== 'authorized') {
+      const errorCode =
+        authorization.status === 'inactive'
+          ? 'inactive'
+          : authorization.status === 'conflict'
+            ? 'conflict'
+            : 'unauthorized'
+      return signOutAndRedirect(supabase, origin, errorCode)
+    }
+
+    if (authorization.admin.role === 'gestor') {
+      return NextResponse.redirect(`${origin}/admin`)
+    }
+
+    return NextResponse.redirect(`${origin}/`)
+  } catch (error) {
+    console.error('GET /api/auth/landing failed:', error)
+    return signOutAndRedirect(supabase, origin, 'auth')
   }
-
-  return NextResponse.redirect(`${origin}/`)
 }

@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { BEMOL_EMAIL_DOMAIN } from '@/lib/auth/shared'
 import { createClient } from '@/lib/supabase/server'
 import { applyAutomaticOrdersRouting } from '@/lib/orders/pmpl-routing'
 import type { Especialidade } from '@/lib/types/database'
@@ -281,6 +282,9 @@ export async function salvarPessoaAdmin(params: SalvarPessoaAdminParams) {
   const nome = params.nome.trim()
   const email = params.email.trim().toLowerCase()
   const role = params.role
+  if (email && !email.endsWith(BEMOL_EMAIL_DOMAIN)) {
+    throw new Error(`Email deve terminar com ${BEMOL_EMAIL_DOMAIN}`)
+  }
 
   if (!nome) throw new Error('Nome é obrigatório')
   if (!email) throw new Error('Email é obrigatório')

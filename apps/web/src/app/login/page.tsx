@@ -1,22 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Loader2, Wrench } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import {
+  mapLoginErrorMessage,
+  mapRedirectErrorMessage,
+  mapRegisterErrorMessage,
+  normalizeEmail,
+} from '@/lib/auth/shared'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-
-function mapLoginErrorMessage(rawMessage: string): string {
-  const message = rawMessage.toLowerCase()
-  if (message.includes('email not confirmed')) {
-    return 'Email nao confirmado. Clique no link de confirmacao enviado para sua caixa de entrada.'
-  }
-  if (message.includes('invalid login credentials')) {
-    return 'Email ou senha invalidos. Se voce pediu recuperacao, abra o link do email e redefina sua senha.'
-  }
-  return 'Nao foi possivel autenticar agora. Tente novamente.'
-}
 
 export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
@@ -26,8 +22,18 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const searchParams = useSearchParams()
+  const redirectErrorCode = searchParams.get('error')
 
   const isLogin = mode === 'login'
+
+  useEffect(() => {
+    const nextError = mapRedirectErrorMessage(redirectErrorCode)
+    if (nextError) {
+      setError(nextError)
+      setNotice('')
+    }
+  }, [redirectErrorCode])
 
   function switchMode() {
     setMode((current) => (current === 'login' ? 'register' : 'login'))
@@ -45,7 +51,7 @@ export default function LoginPage() {
     try {
       const supabase = createClient()
       const { error: authError } = await supabase.auth.signInWithPassword({
-        email: email.toLowerCase().trim(),
+        email: normalizeEmail(email),
         password,
       })
 
@@ -82,44 +88,30 @@ export default function LoginPage() {
 
     try {
       const supabase = createClient()
-      const trimmedEmail = email.toLowerCase().trim()
-
-      const { data: admin, error: adminError } = await supabase
-        .from('administradores')
-        .select('id')
-        .eq('email', trimmedEmail)
-        .single()
-
-      if (adminError || !admin) {
-        setError('Email nao autorizado. Contate o gestor.')
-        setLoading(false)
-        return
-      }
-
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: trimmedEmail,
-        password,
+      const trimmedEmail = normalizeEmail(email)
+      const registerResponse = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          password,
+          confirmPassword,
+        }),
       })
+      const registerPayload = (await registerResponse.json()) as {
+        ok?: boolean
+        code?: string
+      }
 
-      if (signUpError) {
-        setError(
-          signUpError.message === 'User already registered'
-            ? 'Este email ja possui conta. Use o login normal.'
-            : signUpError.message
-        )
+      if (!registerResponse.ok || !registerPayload.ok) {
+        setError(mapRegisterErrorMessage(registerPayload.code))
+        if (registerPayload.code === 'ACCOUNT_ALREADY_ACTIVE') {
+          setMode('login')
+          setConfirmPassword('')
+        }
         setLoading(false)
-        return
-      }
-
-      if (signUpData.user) {
-        await supabase
-          .from('administradores')
-          .update({ auth_user_id: signUpData.user.id })
-          .eq('id', admin.id)
-      }
-
-      if (signUpData.session) {
-        window.location.href = '/api/auth/landing'
         return
       }
 
@@ -129,10 +121,10 @@ export default function LoginPage() {
       })
 
       if (loginError) {
-        setError(
-          'Conta criada, mas sem login automatico. Confirme o email e depois faca login.'
-        )
+        setError('Conta criada, mas nao foi possivel entrar agora. Use o login normal.')
+        setNotice('')
         setMode('login')
+        setConfirmPassword('')
         setLoading(false)
         return
       }
@@ -148,7 +140,7 @@ export default function LoginPage() {
     setError('')
     setNotice('')
 
-    const trimmedEmail = email.toLowerCase().trim()
+    const trimmedEmail = normalizeEmail(email)
     if (!trimmedEmail) {
       setError('Informe seu email para receber o link de redefinicao de senha.')
       return
@@ -188,7 +180,7 @@ export default function LoginPage() {
         <CardDescription>
           {isLogin
             ? 'Entre com suas credenciais para acessar o sistema'
-            : 'Crie sua senha para acessar o sistema'}
+            : 'Primeiro acesso: crie sua senha para acessar o sistema'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -252,7 +244,7 @@ export default function LoginPage() {
             ) : isLogin ? (
               'Entrar'
             ) : (
-              'Cadastrar'
+              'Criar conta'
             )}
           </Button>
         </form>
@@ -273,7 +265,7 @@ export default function LoginPage() {
           onClick={switchMode}
           className="mt-4 w-full text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          {isLogin ? 'Primeiro acesso? Cadastre-se aqui' : 'Ja tem conta? Faca login'}
+          {isLogin ? 'Primeiro acesso? Crie sua senha' : 'Ja tem conta? Faca login'}
         </button>
       </CardContent>
     </Card>

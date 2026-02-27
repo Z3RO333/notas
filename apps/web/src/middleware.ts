@@ -1,10 +1,17 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isAllowedAuthRole, normalizeEmail } from '@/lib/auth/shared'
+
+function copySupabaseCookies(source: NextResponse, target: NextResponse) {
+  source.cookies.getAll().forEach(({ name, value, ...options }) => {
+    target.cookies.set(name, value, options)
+  })
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Rotas publicas de auth
+  // Public auth routes stay reachable without a session.
   if (pathname.startsWith('/api/auth')) {
     return NextResponse.next()
   }
@@ -20,9 +27,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          )
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options as never)
@@ -36,7 +41,6 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Sem sessão e não esta em /login → redireciona para login
   if (!user) {
     if (pathname === '/login') return NextResponse.next()
     const url = request.nextUrl.clone()
@@ -44,28 +48,66 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Usuario autenticado — buscar role uma unica vez
-  const needsRoleCheck = pathname === '/login' || pathname.startsWith('/admin')
-
-  let adminRole: string | null = null
-  if (needsRoleCheck && user.email) {
-    const { data: admin } = await supabase
-      .from('administradores')
-      .select('role')
-      .eq('email', user.email)
-      .single()
-    adminRole = admin?.role ?? null
+  const normalizedEmail = normalizeEmail(user.email ?? '')
+  if (!normalizedEmail) {
+    await supabase.auth.signOut()
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.searchParams.set('error', 'unauthorized')
+    const redirectResponse = NextResponse.redirect(url)
+    copySupabaseCookies(supabaseResponse, redirectResponse)
+    return redirectResponse
   }
 
-  // Já logado em /login → redirecionar para home
-  if (pathname === '/login') {
+  const { data: admin } = await supabase
+    .from('administradores')
+    .select('role, ativo, auth_user_id')
+    .eq('email', normalizedEmail)
+    .maybeSingle()
+
+  if (!admin || !isAllowedAuthRole(admin.role)) {
+    await supabase.auth.signOut()
     const url = request.nextUrl.clone()
-    url.pathname = adminRole === 'gestor' ? '/admin' : '/'
+    url.pathname = '/login'
+    url.searchParams.set('error', 'unauthorized')
+    const redirectResponse = NextResponse.redirect(url)
+    copySupabaseCookies(supabaseResponse, redirectResponse)
+    return redirectResponse
+  }
+
+  if (!admin.ativo) {
+    await supabase.auth.signOut()
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.searchParams.set('error', 'inactive')
+    const redirectResponse = NextResponse.redirect(url)
+    copySupabaseCookies(supabaseResponse, redirectResponse)
+    return redirectResponse
+  }
+
+  if (admin.auth_user_id && admin.auth_user_id !== user.id) {
+    await supabase.auth.signOut()
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.searchParams.set('error', 'conflict')
+    const redirectResponse = NextResponse.redirect(url)
+    copySupabaseCookies(supabaseResponse, redirectResponse)
+    return redirectResponse
+  }
+
+  if (!admin.auth_user_id && pathname !== '/api/auth/landing') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/api/auth/landing'
     return NextResponse.redirect(url)
   }
 
-  // Rotas /admin/* → verificar role = gestor
-  if (pathname.startsWith('/admin') && adminRole !== 'gestor') {
+  if (pathname === '/login') {
+    const url = request.nextUrl.clone()
+    url.pathname = admin.role === 'gestor' ? '/admin' : '/'
+    return NextResponse.redirect(url)
+  }
+
+  if (pathname.startsWith('/admin') && admin.role !== 'gestor') {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)
