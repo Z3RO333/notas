@@ -122,7 +122,11 @@ export default async function AdministracaoPage() {
         </p>
       </div>
 
-      <AdminPeopleManager people={people} />
+      <AdminPeopleManager
+        people={people}
+        pmplResponsavelId={pmplConfig?.responsavel_id ?? pmplResolution.configuredResponsavel?.id ?? null}
+        pmplSubstitutoId={pmplConfig?.substituto_id ?? pmplResolution.configuredSubstituto?.id ?? null}
+      />
 
       <AdminOrderTypeOwnerManager
         candidates={ownerCandidates}
