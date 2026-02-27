@@ -9,6 +9,8 @@
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
     --primary: 222.2 47.4% 11.2%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
@@ -19,6 +21,12 @@
     --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 20 14% 4%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
@@ -27,24 +35,61 @@
 
   .dark {
     color-scheme: dark;
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+
+    /* === Hierarquia de fundos ===
+     * background (#0b1424) → card (#10192e) → popover (#182336)
+     * Cada nível é ~4-5% L mais claro, criando profundidade real */
+    --background: 222 47% 7%;
+    --foreground: 210 35% 95%;
+
+    --card: 222 44% 11%;
+    --card-foreground: 210 35% 95%;
+
+    --popover: 220 42% 15%;
+    --popover-foreground: 210 35% 95%;
+
+    /* === Superfícies discretas === */
+    --muted: 220 36% 15%;
+    --muted-foreground: 215 22% 57%;
+
+    --secondary: 220 34% 18%;
+    --secondary-foreground: 210 35% 90%;
+
+    --accent: 220 32% 22%;
+    --accent-foreground: 210 35% 95%;
+
+    /* === Cores interativas === */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    /* === Estados semânticos === */
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 98%;
+
+    --success: 142 69% 42%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 20 14% 4%;
+
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+
+    /* === Bordas e inputs === */
+    --border: 220 32% 20%;
+    --input: 222 44% 11%;
+    --ring: 217 91% 60%;
+
+    --radius: 0.5rem;
   }
+}
+
+@layer base {
+  /* Sombras adaptadas para dark mode — preto puro é invisível em fundos escuros */
+  .dark .shadow-sm  { box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
+  .dark .shadow     { box-shadow: 0 4px 10px rgba(0, 0, 0, 0.55); }
+  .dark .shadow-md  { box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6); }
+  .dark .shadow-lg  { box-shadow: 0 12px 28px rgba(0, 0, 0, 0.65); }
 }
 
 @layer base {
@@ -53,6 +98,18 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  /* Elevação com borda-glow sutil — use em cards e painéis no dark mode */
+  .card-elevated {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05),
+                0 4px 12px rgba(0, 0, 0, 0.5);
+  }
+  .card-elevated-high {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08),
+                0 8px 24px rgba(0, 0, 0, 0.6);
   }
 }
 
