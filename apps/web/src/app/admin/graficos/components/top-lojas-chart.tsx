@@ -10,18 +10,34 @@ import {
   YAxis,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { GestaoTopLoja } from '@/lib/types/database'
+import type { GestaoTopLoja, TipoUnidade } from '@/lib/types/database'
+
+const TIPO_TITULO: Record<TipoUnidade, string> = {
+  LOJA: 'Top Lojas – Ordens Geradas',
+  FARMA: 'Top Farmas – Ordens Geradas',
+  CD: 'Top CDs – Ordens Geradas',
+}
+
+const TIPO_COR: Record<TipoUnidade, string> = {
+  LOJA: '#2563eb',
+  FARMA: '#16a34a',
+  CD: '#d97706',
+}
 
 interface TopLojasChartProps {
   data: GestaoTopLoja[]
+  tipoUnidade?: TipoUnidade
 }
 
-export function TopLojasChart({ data }: TopLojasChartProps) {
+export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
+  const titulo = tipoUnidade ? TIPO_TITULO[tipoUnidade] : 'Top Unidades – Ordens Geradas'
+  const cor = tipoUnidade ? TIPO_COR[tipoUnidade] : '#2563eb'
+
   if (data.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Top Lojas – Ordens Geradas</CardTitle>
+          <CardTitle className="text-base">{titulo}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground py-8 text-center">
@@ -32,14 +48,12 @@ export function TopLojasChart({ data }: TopLojasChartProps) {
     )
   }
 
-  // Recharts BarChart horizontal: layout="vertical"
-  // Ordenar do maior para o menor (de cima para baixo na leitura)
   const chartData = [...data].reverse()
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Top Lojas – Ordens Geradas</CardTitle>
+        <CardTitle className="text-base">{titulo}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-80">
@@ -54,13 +68,13 @@ export function TopLojasChart({ data }: TopLojasChartProps) {
               <YAxis
                 type="category"
                 dataKey="nome_loja"
-                width={120}
-                tick={{ fontSize: 12 }}
+                width={130}
+                tick={{ fontSize: 11 }}
               />
               <Tooltip
                 formatter={(value: number) => [value.toLocaleString('pt-BR'), 'Ordens']}
               />
-              <Bar dataKey="total_ordens" name="Ordens" fill="#2563eb" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="total_ordens" name="Ordens" fill={cor} radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

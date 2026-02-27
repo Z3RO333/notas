@@ -576,15 +576,27 @@ export interface ImportProgress {
 
 // --- Gráficos Gestão ---
 
+export type TipoUnidade = 'LOJA' | 'FARMA' | 'CD'
+
 export interface DashboardGestaoRow {
   nome_loja: string | null
   centro: string | null
   texto_breve: string
   tipo_ordem: string | null
+  tipo_unidade: TipoUnidade | null
   ano: number
   mes: number
   total_ordens: number
   total_notas: number
+}
+
+export interface GestaoSegmentoSummary {
+  tipo: TipoUnidade
+  label: string
+  total_ordens: number
+  total_notas: number
+  unidades: number
+  percentual_ordens: number
 }
 
 export interface GestaoTopLoja {

@@ -4,11 +4,15 @@ import type {
   GestaoEvolucaoMes,
   GestaoKpis,
   GestaoRecorrencia,
+  GestaoSegmentoSummary,
   GestaoTopLoja,
   GestaoTopServico,
+  TipoUnidade,
 } from '@/lib/types/database'
 import { GestaoFilters } from './components/gestao-filters'
 import { GestaoKpiStrip } from './components/gestao-kpi-strip'
+import { TipoUnidadeTabs } from './components/tipo-unidade-tabs'
+import { SegmentoSummary } from './components/segmento-summary'
 import { TopLojasChart } from './components/top-lojas-chart'
 import { TopServicosChart } from './components/top-servicos-chart'
 import { RecorrenciaTable } from './components/recorrencia-table'
@@ -22,6 +26,12 @@ const MES_LABELS: Record<number, string> = {
   7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez',
 }
 
+const TIPO_LABEL: Record<TipoUnidade, string> = {
+  LOJA: 'Lojas',
+  FARMA: 'Farmas',
+  CD: 'CDs',
+}
+
 interface GraficosPageProps {
   searchParams?: Promise<Record<string, string | undefined>>
 }
@@ -31,18 +41,22 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   const ano = params.ano ? parseInt(params.ano) : undefined
   const mes = params.mes ? parseInt(params.mes) : undefined
   const tipoOrdem = params.tipo_ordem ?? undefined
+  const tipoParam = params.tipo?.toUpperCase() as TipoUnidade | undefined
+  const tipoUnidade: TipoUnidade | undefined =
+    tipoParam && ['LOJA', 'FARMA', 'CD'].includes(tipoParam) ? tipoParam : undefined
 
   const supabase = await createClient()
 
-  // 5 queries paralelas
+  // 6 queries paralelas
   const [
     topLojasRes,
     topServicosRes,
     recorrenciaRes,
     evolucaoRes,
+    segmentosRes,
     opcoesRes,
   ] = await Promise.all([
-    // Q1 — Top 10 lojas por total_ordens
+    // Q1 — Top 10 unidades por total_ordens (dentro do segmento selecionado)
     (() => {
       let q = supabase
         .from('vw_dashboard_gestao_manutencao')
@@ -51,6 +65,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
       if (ano) q = q.eq('ano', ano)
       if (mes) q = q.eq('mes', mes)
       if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
+      if (tipoUnidade) q = q.eq('tipo_unidade', tipoUnidade)
       return q.order('total_ordens', { ascending: false }).limit(10)
     })(),
 
@@ -62,10 +77,11 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
       if (ano) q = q.eq('ano', ano)
       if (mes) q = q.eq('mes', mes)
       if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
+      if (tipoUnidade) q = q.eq('tipo_unidade', tipoUnidade)
       return q.order('total_notas', { ascending: false }).limit(15)
     })(),
 
-    // Q3 — Recorrência: loja × serviço top 30
+    // Q3 — Recorrência: unidade × serviço top 30
     (() => {
       let q = supabase
         .from('vw_dashboard_gestao_manutencao')
@@ -74,27 +90,41 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
       if (ano) q = q.eq('ano', ano)
       if (mes) q = q.eq('mes', mes)
       if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
+      if (tipoUnidade) q = q.eq('tipo_unidade', tipoUnidade)
       return q.order('total_notas', { ascending: false }).limit(30)
     })(),
 
-    // Q4 — Evolução mensal (todos os meses)
+    // Q4 — Evolução mensal
     (() => {
       let q = supabase
         .from('vw_dashboard_gestao_manutencao')
         .select('ano, mes, total_ordens, total_notas')
       if (ano) q = q.eq('ano', ano)
       if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
+      if (tipoUnidade) q = q.eq('tipo_unidade', tipoUnidade)
       return q.order('ano').order('mes')
     })(),
 
-    // Q5 — Opções de filtro (tipos de ordem e anos únicos)
+    // Q5 — Resumo por segmento (sempre sem filtro de tipo_unidade para mostrar todos)
+    (() => {
+      let q = supabase
+        .from('vw_dashboard_gestao_manutencao')
+        .select('tipo_unidade, nome_loja, total_ordens, total_notas')
+        .not('tipo_unidade', 'is', null)
+      if (ano) q = q.eq('ano', ano)
+      if (mes) q = q.eq('mes', mes)
+      if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
+      return q
+    })(),
+
+    // Q6 — Opções de filtro
     supabase
       .from('vw_dashboard_gestao_manutencao')
       .select('tipo_ordem, ano')
       .not('tipo_ordem', 'is', null),
   ])
 
-  // --- Top Lojas: agregar (a view pode ter linhas por descricao, precisamos somar) ---
+  // --- Top Lojas: agregar por nome_loja ---
   const topLojasRaw = (topLojasRes.data ?? []) as Pick<DashboardGestaoRow, 'nome_loja' | 'total_ordens'>[]
   const topLojasMap = new Map<string, number>()
   for (const row of topLojasRaw) {
@@ -122,11 +152,12 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
     .sort((a, b) => b.total_notas - a.total_notas)
     .slice(0, 15)
 
-  // --- Recorrência: já ordenado, apenas tipar ---
-  const recorrencia: GestaoRecorrencia[] = ((recorrenciaRes.data ?? []) as Pick<DashboardGestaoRow, 'nome_loja' | 'texto_breve' | 'total_notas'>[])
-    .filter((r): r is GestaoRecorrencia => r.nome_loja != null)
+  // --- Recorrência ---
+  const recorrencia: GestaoRecorrencia[] = (
+    (recorrenciaRes.data ?? []) as Pick<DashboardGestaoRow, 'nome_loja' | 'texto_breve' | 'total_notas'>[]
+  ).filter((r): r is GestaoRecorrencia => r.nome_loja != null)
 
-  // --- Evolução mensal: agregar por ano+mes ---
+  // --- Evolução mensal ---
   const evolucaoRaw = (evolucaoRes.data ?? []) as Pick<DashboardGestaoRow, 'ano' | 'mes' | 'total_ordens' | 'total_notas'>[]
   const evolucaoMap = new Map<string, { ano: number; mes: number; total_ordens: number; total_notas: number }>()
   for (const row of evolucaoRaw) {
@@ -146,7 +177,38 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
       label: `${MES_LABELS[v.mes] ?? v.mes}/${String(v.ano).slice(2)}`,
     }))
 
-  // --- KPIs totais ---
+  // --- Segmentos: summary por LOJA / FARMA / CD ---
+  type SegRaw = Pick<DashboardGestaoRow, 'tipo_unidade' | 'nome_loja' | 'total_ordens' | 'total_notas'>
+  const segRaw = (segmentosRes.data ?? []) as SegRaw[]
+  const segMap = new Map<TipoUnidade, { total_ordens: number; total_notas: number; unidades: Set<string> }>()
+  let grandTotalOrdens = 0
+  for (const row of segRaw) {
+    if (!row.tipo_unidade) continue
+    const t = row.tipo_unidade as TipoUnidade
+    if (!segMap.has(t)) segMap.set(t, { total_ordens: 0, total_notas: 0, unidades: new Set() })
+    const entry = segMap.get(t)!
+    entry.total_ordens += row.total_ordens
+    entry.total_notas += row.total_notas
+    if (row.nome_loja) entry.unidades.add(row.nome_loja)
+    grandTotalOrdens += row.total_ordens
+  }
+  const segmentos: GestaoSegmentoSummary[] = (['LOJA', 'FARMA', 'CD'] as TipoUnidade[])
+    .filter((t) => segMap.has(t))
+    .map((tipo) => {
+      const e = segMap.get(tipo)!
+      return {
+        tipo,
+        label: TIPO_LABEL[tipo],
+        total_ordens: e.total_ordens,
+        total_notas: e.total_notas,
+        unidades: e.unidades.size,
+        percentual_ordens: grandTotalOrdens > 0
+          ? parseFloat(((e.total_ordens / grandTotalOrdens) * 100).toFixed(1))
+          : 0,
+      }
+    })
+
+  // --- KPIs do segmento ativo ---
   const kpis: GestaoKpis = {
     total_ordens: topLojas.reduce((acc, l) => acc + l.total_ordens, 0),
     total_notas: topServicos.reduce((acc, s) => acc + s.total_notas, 0),
@@ -165,15 +227,26 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   const tiposOrdem = Array.from(tiposOrdemSet).sort()
   const anos = Array.from(anosSet).sort((a, b) => b - a)
 
+  const tabLabel = tipoUnidade ? TIPO_LABEL[tipoUnidade] : 'Todos os segmentos'
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Gráficos – Inteligência Gerencial</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Padrões, recorrência e ranking de demanda por loja e tipo de serviço.
+          Padrões, recorrência e ranking por segmento de unidade.
         </p>
       </div>
 
+      {/* Tabs de segmento */}
+      <TipoUnidadeTabs segmentos={segmentos} tipoAtivo={params.tipo} />
+
+      {/* Cards de resumo por segmento (só quando aba TODOS) */}
+      {!tipoUnidade && segmentos.length > 0 && (
+        <SegmentoSummary segmentos={segmentos} />
+      )}
+
+      {/* Filtros globais */}
       <GestaoFilters
         tiposOrdem={tiposOrdem}
         anos={anos}
@@ -182,14 +255,23 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
         tipoOrdemAtivo={tipoOrdem}
       />
 
-      <GestaoKpiStrip kpis={kpis} />
+      {/* KPIs do segmento ativo */}
+      <div>
+        {tipoUnidade && (
+          <p className="text-xs text-muted-foreground mb-3 uppercase tracking-widest font-medium">
+            {tabLabel}
+          </p>
+        )}
+        <GestaoKpiStrip kpis={kpis} tipoUnidade={tipoUnidade} />
+      </div>
 
+      {/* Gráficos principais */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <TopLojasChart data={topLojas} />
+        <TopLojasChart data={topLojas} tipoUnidade={tipoUnidade} />
         <TopServicosChart data={topServicos} />
       </div>
 
-      <RecorrenciaTable data={recorrencia} />
+      <RecorrenciaTable data={recorrencia} tipoUnidade={tipoUnidade} />
 
       <EvolucaoMensalChart data={evolucao} />
 
