@@ -391,6 +391,13 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     () => reassignTargets.map((target) => ({ id: target.id, nome: target.nome })),
     [reassignTargets]
   )
+  const hasListScopeFilters = Boolean(
+    filters.q
+    || (filters.status && filters.status !== 'todas')
+    || (filters.responsavel && filters.responsavel !== 'todos')
+    || filters.unidade
+    || (filters.prioridade && filters.prioridade !== 'todas')
+  )
   const smartSearch = useMemo(
     () => resolveSmartSearch(filters.q, searchOwnerCandidates, filters.responsavel, currentUser.canViewGlobal),
     [filters.q, searchOwnerCandidates, filters.responsavel, currentUser.canViewGlobal]
@@ -892,6 +899,12 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         criticality={getOrdersCriticalityLevel(kpis.total, kpis.atrasadas)}
         interactive={false}
       />
+
+      {hasListScopeFilters && (
+        <p className="text-xs text-muted-foreground">
+          Os KPIs acima mostram o total canonico do periodo e do tipo de ordem selecionado. Os filtros abaixo afetam a carteira, a listagem e a distribuicao por colaborador.
+        </p>
+      )}
 
       <div className="rounded-lg border p-3">
         <div className="mb-3 flex items-center justify-between gap-2">

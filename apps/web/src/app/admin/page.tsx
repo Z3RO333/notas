@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { DistributeButton } from '@/components/dashboard/distribute-button'
 import { DashboardHeaderActions } from '@/components/dashboard/dashboard-header-actions'
@@ -24,6 +25,7 @@ import {
   getOrdersCriticalityLevel,
   workspaceKpisToOrdemNotaKpis,
 } from '@/lib/orders/metrics'
+import { applyAutomaticOrdersRouting } from '@/lib/orders/pmpl-routing'
 import { resolveAvatarUrl } from '@/lib/collaborator/avatar-presentation'
 import type {
   CargaAdministrador,
@@ -94,6 +96,31 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
   const resolvedSearchParams = searchParams ? await searchParams : undefined
   const period = resolveAdminDashboardPeriod(resolvedSearchParams)
   const now = new Date()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user?.email) {
+    redirect('/login')
+  }
+
+  const { data: loggedAdmin, error: loggedAdminError } = await supabase
+    .from('administradores')
+    .select('id, role')
+    .eq('email', user.email)
+    .single()
+
+  if (loggedAdminError || !loggedAdmin || loggedAdmin.role !== 'gestor') {
+    redirect('/')
+  }
+
+  try {
+    await applyAutomaticOrdersRouting({
+      supabase,
+      gestorId: loggedAdmin.id,
+      motivo: 'Auto realocacao PMPL/Refrigeracao/CD (Painel Administrativo)',
+    })
+  } catch (error) {
+    console.error('[admin/orders/routing] falha ao aplicar realocacao automatica:', error)
+  }
 
   const [
     cargaResult,
@@ -255,7 +282,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
     canceladas: Number(rawOrderKpis.canceladas ?? 0),
     avaliadas: Number(rawOrderKpis.avaliadas ?? 0),
     atrasadas: Number(rawOrderKpis.atrasadas ?? 0),
-    sem_responsavel: 0,
+    sem_responsavel: Number(rawOrderKpis.sem_responsavel ?? 0),
   })
   const ordersCriticality = getOrdersCriticalityLevel(orderKpis.total_ordens_30d, orderKpis.qtd_antigas_7d_30d)
   const rawPmplKpis = (pmplKpisResult.data ?? {}) as Partial<OrdersWorkspaceKpis>
@@ -268,7 +295,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
     canceladas: Number(rawPmplKpis.canceladas ?? 0),
     avaliadas: Number(rawPmplKpis.avaliadas ?? 0),
     atrasadas: Number(rawPmplKpis.atrasadas ?? 0),
-    sem_responsavel: 0,
+    sem_responsavel: Number(rawPmplKpis.sem_responsavel ?? 0),
   })
   const pmplOrdersCriticality = getOrdersCriticalityLevel(pmplOrderKpis.total_ordens_30d, pmplOrderKpis.qtd_antigas_7d_30d)
   const pmplOrdensRows = (pmplRowsResult.data ?? []) as OrdemNotaAcompanhamento[]

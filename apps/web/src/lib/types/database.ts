@@ -573,3 +573,48 @@ export interface ImportProgress {
   skipped: number
   errors: ImportRowError[]
 }
+
+// --- Gráficos Gestão ---
+
+export interface DashboardGestaoRow {
+  nome_loja: string | null
+  centro: string | null
+  texto_breve: string
+  tipo_ordem: string | null
+  ano: number
+  mes: number
+  total_ordens: number
+  total_notas: number
+}
+
+export interface GestaoTopLoja {
+  nome_loja: string
+  total_ordens: number
+}
+
+export interface GestaoTopServico {
+  texto_breve: string
+  total_notas: number
+  percentual: number
+}
+
+export interface GestaoRecorrencia {
+  nome_loja: string
+  texto_breve: string
+  total_notas: number
+}
+
+export interface GestaoEvolucaoMes {
+  ano: number
+  mes: number
+  label: string
+  total_ordens: number
+  total_notas: number
+}
+
+export interface GestaoKpis {
+  total_ordens: number
+  total_notas: number
+  lojas_ativas: number
+  servicos_unicos: number
+}

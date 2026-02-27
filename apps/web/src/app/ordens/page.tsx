@@ -51,12 +51,22 @@ function parsePeriodMode(value: string | undefined): OrdersPeriodModeOperational
   return 'all'
 }
 
+function formatUtcYmd(date: Date): string {
+  const year = date.getUTCFullYear()
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(date.getUTCDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function parseInitialFilters(raw: Awaited<OrdersPageProps['searchParams']>): OrdersWorkspaceFilters {
   const now = new Date()
   const currentYear = now.getUTCFullYear()
   const currentMonth = now.getUTCMonth() + 1
+  const rawPeriodMode = firstParam(raw?.periodMode)
+  const defaultStartDate = `${currentYear}-01-01`
+  const defaultEndDate = formatUtcYmd(now)
 
-  const periodMode = parsePeriodMode(firstParam(raw?.periodMode))
+  const periodMode = rawPeriodMode ? parsePeriodMode(rawPeriodMode) : 'range'
   const year = parseOptionalInt(firstParam(raw?.year)) ?? currentYear
   const month = parseOptionalInt(firstParam(raw?.month)) ?? currentMonth
 
@@ -64,8 +74,8 @@ function parseInitialFilters(raw: Awaited<OrdersPageProps['searchParams']>): Ord
     periodMode,
     year,
     month,
-    startDate: parseDate(firstParam(raw?.startDate)),
-    endDate: parseDate(firstParam(raw?.endDate)),
+    startDate: parseDate(firstParam(raw?.startDate)) ?? (periodMode === 'range' ? defaultStartDate : null),
+    endDate: parseDate(firstParam(raw?.endDate)) ?? (periodMode === 'range' ? defaultEndDate : null),
     q: (firstParam(raw?.q) ?? '').trim(),
     status: (firstParam(raw?.status) ?? 'todas').trim() || 'todas',
     responsavel: (firstParam(raw?.responsavel) ?? 'todos').trim() || 'todos',
