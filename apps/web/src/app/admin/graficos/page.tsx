@@ -34,15 +34,6 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
 
   const supabase = await createClient()
 
-  // Query base com filtros de ano/mês/tipo
-  function applyFilters(query: ReturnType<typeof supabase.from>) {
-    let q = query
-    if (ano) q = (q as Parameters<typeof applyFilters>[0]).eq('ano', ano)
-    if (mes) q = (q as Parameters<typeof applyFilters>[0]).eq('mes', mes)
-    if (tipoOrdem) q = (q as Parameters<typeof applyFilters>[0]).eq('tipo_ordem', tipoOrdem)
-    return q
-  }
-
   // 5 queries paralelas
   const [
     topLojasRes,
