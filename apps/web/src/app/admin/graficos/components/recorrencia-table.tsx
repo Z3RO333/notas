@@ -1,9 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import type { GestaoRecorrencia } from '@/lib/types/database'
+import type { GestaoRecorrencia, TipoUnidade } from '@/lib/types/database'
+
+const TIPO_COLUNA: Record<TipoUnidade, string> = {
+  LOJA: 'Loja',
+  FARMA: 'Farma',
+  CD: 'CD',
+}
 
 interface RecorrenciaTableProps {
   data: GestaoRecorrencia[]
+  tipoUnidade?: TipoUnidade
 }
 
 function badgeVariant(qtd: number): 'default' | 'secondary' | 'destructive' {
@@ -12,12 +19,14 @@ function badgeVariant(qtd: number): 'default' | 'secondary' | 'destructive' {
   return 'default'
 }
 
-export function RecorrenciaTable({ data }: RecorrenciaTableProps) {
+export function RecorrenciaTable({ data, tipoUnidade }: RecorrenciaTableProps) {
+  const colunaLoja = tipoUnidade ? TIPO_COLUNA[tipoUnidade] : 'Unidade'
+
   if (data.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Recorrência por Loja × Serviço</CardTitle>
+          <CardTitle className="text-base">Recorrência — {colunaLoja} × Serviço</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground py-8 text-center">
@@ -32,9 +41,9 @@ export function RecorrenciaTable({ data }: RecorrenciaTableProps) {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">
-          Recorrência por Loja × Serviço
+          Recorrência — {colunaLoja} × Serviço
           <span className="ml-2 text-xs font-normal text-muted-foreground">
-            Lojas que mais repetem o mesmo tipo de serviço
+            Unidades que mais repetem o mesmo tipo de serviço
           </span>
         </CardTitle>
       </CardHeader>
@@ -44,7 +53,7 @@ export function RecorrenciaTable({ data }: RecorrenciaTableProps) {
             <thead>
               <tr className="border-b bg-muted/40">
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground w-8">#</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Loja</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">{colunaLoja}</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Serviço</th>
                 <th className="px-4 py-3 text-right font-medium text-muted-foreground">Qtd</th>
               </tr>
