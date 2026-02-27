@@ -8,8 +8,8 @@ export const COLLABORATOR_CARD_TOKENS = {
   dimmed: 'opacity-60 grayscale',
   accent: {
     none: '',
-    orange: 'border-orange-200 bg-orange-50/30',
-    red: 'border-red-200 bg-red-50/30',
+    orange: 'border-orange-200 bg-orange-50/30 dark:border-orange-900/50 dark:bg-orange-950/20',
+    red: 'border-red-200 bg-red-50/30 dark:border-red-900/50 dark:bg-red-950/20',
   },
   variant: {
     operational: {
@@ -34,11 +34,11 @@ export const COLLABORATOR_CARD_TOKENS = {
     },
   },
   cargoBadge: 'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
-  statusBadge: 'inline-flex items-center rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] font-medium text-gray-600',
+  statusBadge: 'inline-flex items-center rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300',
   primaryMetric: 'rounded-md px-2.5 py-2',
   metricGrid: 'grid gap-1.5',
   metricItem: 'rounded px-1.5 py-1 text-center',
-  summary: 'rounded bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-700',
+  summary: 'rounded bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-700 dark:bg-slate-800/50 dark:text-slate-300',
 } as const
 
 export const METRIC_TONE_STYLES: Record<CollaboratorMetricTone, {
@@ -48,33 +48,33 @@ export const METRIC_TONE_STYLES: Record<CollaboratorMetricTone, {
   icon: string
 }> = {
   neutral: {
-    container: 'bg-slate-100',
-    value: 'text-slate-700',
-    label: 'text-slate-600',
-    icon: 'text-slate-600',
+    container: 'bg-slate-100 dark:bg-slate-800/50',
+    value: 'text-slate-700 dark:text-slate-300',
+    label: 'text-slate-600 dark:text-slate-400',
+    icon: 'text-slate-600 dark:text-slate-400',
   },
   success: {
-    container: 'bg-emerald-50',
-    value: 'text-emerald-700',
-    label: 'text-emerald-700',
-    icon: 'text-emerald-700',
+    container: 'bg-emerald-50 dark:bg-emerald-950/40',
+    value: 'text-emerald-700 dark:text-emerald-300',
+    label: 'text-emerald-700 dark:text-emerald-400',
+    icon: 'text-emerald-700 dark:text-emerald-400',
   },
   warning: {
-    container: 'bg-amber-50',
-    value: 'text-amber-700',
-    label: 'text-amber-700',
-    icon: 'text-amber-700',
+    container: 'bg-amber-50 dark:bg-amber-950/40',
+    value: 'text-amber-700 dark:text-amber-300',
+    label: 'text-amber-700 dark:text-amber-400',
+    icon: 'text-amber-700 dark:text-amber-400',
   },
   danger: {
-    container: 'bg-red-50',
-    value: 'text-red-700',
-    label: 'text-red-700',
-    icon: 'text-red-700',
+    container: 'bg-red-50 dark:bg-red-950/40',
+    value: 'text-red-700 dark:text-red-300',
+    label: 'text-red-700 dark:text-red-400',
+    icon: 'text-red-700 dark:text-red-400',
   },
   info: {
-    container: 'bg-blue-50',
-    value: 'text-blue-700',
-    label: 'text-blue-700',
-    icon: 'text-blue-700',
+    container: 'bg-blue-50 dark:bg-blue-950/40',
+    value: 'text-blue-700 dark:text-blue-300',
+    label: 'text-blue-700 dark:text-blue-400',
+    icon: 'text-blue-700 dark:text-blue-400',
   },
 }

@@ -10,10 +10,10 @@ interface StatsCardsProps {
 
 export function StatsCards({ nova, emAndamento, encaminhada, concluida }: StatsCardsProps) {
   const cards = [
-    { label: 'Novas', value: nova, icon: ClipboardList, color: 'text-blue-600' },
-    { label: 'Em Andamento', value: emAndamento, icon: Clock, color: 'text-yellow-600' },
-    { label: 'Encaminhadas', value: encaminhada, icon: Send, color: 'text-purple-600' },
-    { label: 'Concluídas', value: concluida, icon: CheckCircle, color: 'text-green-600' },
+    { label: 'Novas', value: nova, icon: ClipboardList, color: 'text-blue-600 dark:text-blue-400' },
+    { label: 'Em Andamento', value: emAndamento, icon: Clock, color: 'text-yellow-600 dark:text-yellow-400' },
+    { label: 'Encaminhadas', value: encaminhada, icon: Send, color: 'text-purple-600 dark:text-purple-400' },
+    { label: 'Concluídas', value: concluida, icon: CheckCircle, color: 'text-green-600 dark:text-green-400' },
   ]
 
   return (

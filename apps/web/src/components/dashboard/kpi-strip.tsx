@@ -23,20 +23,20 @@ const iconByKpi: Record<DashboardKpiId, ComponentType<{ className?: string }>> =
 
 const toneClasses: Record<DashboardTone, { icon: string; value: string }> = {
   neutral: {
-    icon: 'text-slate-600',
+    icon: 'text-slate-600 dark:text-slate-400',
     value: 'text-foreground',
   },
   success: {
-    icon: 'text-green-600',
-    value: 'text-green-700',
+    icon: 'text-green-600 dark:text-green-400',
+    value: 'text-green-700 dark:text-green-300',
   },
   warning: {
-    icon: 'text-amber-600',
-    value: 'text-amber-700',
+    icon: 'text-amber-600 dark:text-amber-400',
+    value: 'text-amber-700 dark:text-amber-300',
   },
   danger: {
-    icon: 'text-red-600',
-    value: 'text-red-700',
+    icon: 'text-red-600 dark:text-red-400',
+    value: 'text-red-700 dark:text-red-300',
   },
 }
 

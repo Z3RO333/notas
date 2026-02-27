@@ -11,15 +11,15 @@ interface AuditTableProps {
 }
 
 const acaoLabels: Record<string, { label: string; color: string }> = {
-  ativar_distribuicao: { label: 'Ativou distribuição', color: 'text-green-700' },
-  desativar_distribuicao: { label: 'Desativou distribuição', color: 'text-red-700' },
-  marcar_ferias: { label: 'Marcou férias', color: 'text-amber-700' },
-  retornar_ferias: { label: 'Retornou de férias', color: 'text-green-700' },
-  alterar_max_notas: { label: 'Alterou limite de notas', color: 'text-blue-700' },
-  ativar_admin: { label: 'Ativou admin', color: 'text-green-700' },
-  desativar_admin: { label: 'Desativou admin', color: 'text-red-700' },
-  reatribuir_nota: { label: 'Reatribuiu nota', color: 'text-indigo-700' },
-  reatribuir_lote: { label: 'Reatribuiu em lote', color: 'text-indigo-700' },
+  ativar_distribuicao: { label: 'Ativou distribuição', color: 'text-green-700 dark:text-green-300' },
+  desativar_distribuicao: { label: 'Desativou distribuição', color: 'text-red-700 dark:text-red-300' },
+  marcar_ferias: { label: 'Marcou férias', color: 'text-amber-700 dark:text-amber-300' },
+  retornar_ferias: { label: 'Retornou de férias', color: 'text-green-700 dark:text-green-300' },
+  alterar_max_notas: { label: 'Alterou limite de notas', color: 'text-blue-700 dark:text-blue-300' },
+  ativar_admin: { label: 'Ativou admin', color: 'text-green-700 dark:text-green-300' },
+  desativar_admin: { label: 'Desativou admin', color: 'text-red-700 dark:text-red-300' },
+  reatribuir_nota: { label: 'Reatribuiu nota', color: 'text-indigo-700 dark:text-indigo-300' },
+  reatribuir_lote: { label: 'Reatribuiu em lote', color: 'text-indigo-700 dark:text-indigo-300' },
 }
 
 export function AuditTable({ logs, perspectiva }: AuditTableProps) {
