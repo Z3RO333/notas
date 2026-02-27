@@ -1,0 +1,12 @@
+-- 00093_criado_por_sap_codigo_da_ordem.sql
+-- Corrige criado_por: fonte correta é CRIADO_POR da ordem (pmpl_pmos / selecao_ordens_manutencao),
+-- não criado_por_sap da nota (que é o criador da notificação QM, não da ordem PM).
+--
+-- Mudanças:
+--   1. criado_por_sap_codigo TEXT em ordens_notas_acompanhamento e ordens_manutencao_referencia
+--   2. Limpa criado_por populado erroneamente na 00091 (era nota.criado_por_sap)
+--   3. Atualiza registrar_ordens_por_notas: remove lookup por nota.criado_por_sap
+--   4. Atualiza atualizar_status_ordens_pmpl_lote: aceita criado_por_sap_codigo, resolve criado_por
+--   5. Atualiza importar_ordens_pmpl_standalone: idem
+--   6. Atualiza enriquecer_ordens_por_referencia_manutencao: propaga criado_por da referência
+-- (ver apply_migration aplicado diretamente via MCP)
