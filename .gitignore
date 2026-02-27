@@ -44,3 +44,8 @@ __pycache__/
 
 # logs
 logs/
+
+# playwright
+apps/dark-mode-screenshots/
+apps/web/playwright-report/
+apps/web/test-results/

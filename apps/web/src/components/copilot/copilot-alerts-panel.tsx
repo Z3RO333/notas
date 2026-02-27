@@ -17,20 +17,20 @@ const LEVEL_CONFIG: Record<CopilotAlertLevel, {
   critical: {
     icon: AlertOctagon,
     border: 'border-l-red-500',
-    bg: 'bg-red-50',
-    iconColor: 'text-red-600',
+    bg: 'bg-red-50 dark:bg-red-950/30',
+    iconColor: 'text-red-600 dark:text-red-400',
   },
   warning: {
     icon: AlertTriangle,
     border: 'border-l-amber-500',
-    bg: 'bg-amber-50',
-    iconColor: 'text-amber-600',
+    bg: 'bg-amber-50 dark:bg-amber-950/30',
+    iconColor: 'text-amber-600 dark:text-amber-400',
   },
   info: {
     icon: CheckCircle2,
     border: 'border-l-emerald-500',
-    bg: 'bg-emerald-50',
-    iconColor: 'text-emerald-600',
+    bg: 'bg-emerald-50 dark:bg-emerald-950/30',
+    iconColor: 'text-emerald-600 dark:text-emerald-400',
   },
 }
 

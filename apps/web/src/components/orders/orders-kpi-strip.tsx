@@ -38,9 +38,9 @@ export function OrdersKpiStrip({
   }
 
   const frameClass = criticality === 'critico'
-    ? 'border-red-300 bg-red-50/30'
+    ? 'border-red-300 bg-red-50/30 dark:border-red-900/60 dark:bg-red-950/20'
     : criticality === 'atencao'
-      ? 'border-amber-300 bg-amber-50/30'
+      ? 'border-amber-300 bg-amber-50/30 dark:border-amber-900/60 dark:bg-amber-950/20'
       : 'border-border'
 
   const concluidasVal = getOrdersKpiValue(kpis, 'concluidas')
@@ -62,7 +62,7 @@ export function OrdersKpiStrip({
       value: fmt(getOrdersKpiValue(kpis, 'em_aberto')),
       helper: '',
       icon: BarChart3,
-      valueClass: 'text-sky-700',
+      valueClass: 'text-sky-700 dark:text-sky-300',
     },
     {
       id: 'em_execucao',
@@ -71,7 +71,7 @@ export function OrdersKpiStrip({
       value: fmt(getOrdersKpiValue(kpis, 'em_execucao')),
       helper: '',
       icon: LoaderCircle,
-      valueClass: 'text-indigo-700',
+      valueClass: 'text-indigo-700 dark:text-indigo-300',
     },
     {
       id: 'em_avaliacao',
@@ -80,7 +80,7 @@ export function OrdersKpiStrip({
       value: fmt(getOrdersKpiValue(kpis, 'em_avaliacao')),
       helper: '',
       icon: ShieldCheck,
-      valueClass: 'text-emerald-700',
+      valueClass: 'text-emerald-700 dark:text-emerald-300',
     },
     {
       id: 'avaliadas',
@@ -89,7 +89,7 @@ export function OrdersKpiStrip({
       value: fmt(getOrdersKpiValue(kpis, 'avaliadas')),
       helper: '',
       icon: ClipboardCheck,
-      valueClass: 'text-amber-700',
+      valueClass: 'text-amber-700 dark:text-amber-300',
     },
     {
       id: 'atrasadas',
@@ -98,7 +98,7 @@ export function OrdersKpiStrip({
       value: fmt(getOrdersKpiValue(kpis, 'atrasadas')),
       helper: '',
       icon: AlertTriangle,
-      valueClass: 'text-red-700',
+      valueClass: 'text-red-700 dark:text-red-300',
     },
   ]
 

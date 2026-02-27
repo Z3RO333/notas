@@ -233,7 +233,7 @@ export default function LoginPage() {
           )}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
-          {notice && <p className="text-sm text-emerald-700">{notice}</p>}
+          {notice && <p className="text-sm text-emerald-700 dark:text-emerald-400">{notice}</p>}
 
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? (
