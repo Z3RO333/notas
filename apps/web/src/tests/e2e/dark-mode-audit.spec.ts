@@ -1,4 +1,4 @@
-import { test } from '@playwright/test'
+import { test, type Page } from '@playwright/test'
 import path from 'path'
 import fs from 'fs'
 
@@ -10,7 +10,7 @@ test.beforeAll(() => {
   }
 })
 
-async function goto(page: any, url: string) {
+async function goto(page: Page, url: string) {
   await page.goto(url, { waitUntil: 'domcontentloaded' })
   // Ensure dark class is applied after any client-side redirects settle
   await page.waitForLoadState('networkidle').catch(() => {})
@@ -21,7 +21,7 @@ async function goto(page: any, url: string) {
   await page.waitForTimeout(400)
 }
 
-async function screenshot(page: any, name: string) {
+async function screenshot(page: Page, name: string) {
   await page.screenshot({
     path: path.join(SCREENSHOTS_DIR, `${name}.png`),
     fullPage: true,
