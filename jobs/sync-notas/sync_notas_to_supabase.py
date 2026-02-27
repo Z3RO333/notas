@@ -3,20 +3,20 @@ Databricks Job: Sync notas de manutencao do streaming para o Supabase.
 Roda a cada 5 minutos via Databricks Jobs scheduler.
 
 Fluxo:
-  1. Le notas novas/atualizadas de qmel_clean
+  1. Le notas novas/atualizadas de notas_qm
   2. Upsert no Supabase (tabela notas_manutencao)
   3. Registra ordens derivadas de notas (SAP + manual)
-  4. Distribui apenas notas pendentes sem ordem
-  5. Enriquecimento de status de ordens via PMPL (D0 por padrao)
-  6. Registra resultado no sync_log
+  4. Enriquecimento de referencias/ordens para evitar distribuicao indevida
+  5. Distribui apenas notas pendentes sem ordem
+  6. Sincroniza o cockpit e registra observabilidade do ciclo
 """
 
 import subprocess
 subprocess.check_call(["pip", "install", "supabase"])
 
-import json
 import logging
 import re
+from decimal import Decimal
 from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -27,7 +27,7 @@ from supabase import Client, create_client
 # Secrets armazenados no Databricks scope "cockpit"
 SUPABASE_URL = dbutils.secrets.get(scope="cockpit", key="SUPABASE_URL")
 SUPABASE_SERVICE_KEY = dbutils.secrets.get(scope="cockpit", key="SUPABASE_SERVICE_ROLE_KEY")
-STREAMING_TABLE = "manutencao.streaming.qmel_clean"
+STREAMING_TABLE = "manutencao.streaming.notas_qm"
 PMPL_TABLE = "manutencao.gold.pmpl_pmos"
 ORDERS_DOCUMENT_SOURCE_TABLE = "manutencao.silver.mestre_dados_ordem"
 ORDERS_MAINTENANCE_SOURCE_TABLE = "manutencao.silver.selecao_ordens_manutencao"
@@ -84,9 +84,15 @@ STATUS_COLUMNS_CANDIDATES = [
 ]
 
 NOTA_CENTRO_COLUMNS_CANDIDATES = [
+    "CENTRO_PARA_CENTRO_TRAB",
     "CENTRO_MATERIAL",
     "CENTRO_LOCALIZACAO",
     "CENTRO",
+]
+
+NOTA_UPDATED_AT_COLUMNS_CANDIDATES = [
+    "__timestamp",
+    "DATA_ATUALIZACAO",
 ]
 
 PMPL_CENTRO_COLUMN = "CENTRO_LOCALIZACAO"
@@ -225,6 +231,46 @@ def _normalize_iso_datetime(value) -> str | None:
         parsed = parsed.astimezone(timezone.utc)
 
     return parsed.isoformat()
+
+
+def _to_json_serializable(value):
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+
+    if isinstance(value, Decimal):
+        return str(value)
+
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+
+    if isinstance(value, dict):
+        return {str(key): _to_json_serializable(item) for key, item in value.items()}
+
+    if isinstance(value, (list, tuple, set)):
+        return [_to_json_serializable(item) for item in value]
+
+    return str(value)
+
+
+def _extract_note_source_timestamp(row_dict: dict) -> str | None:
+    for col in NOTA_UPDATED_AT_COLUMNS_CANDIDATES:
+        normalized = _normalize_iso_datetime(row_dict.get(col))
+        if normalized:
+            return normalized
+    return None
+
+
+def _summarize_note_source_columns(spark: SparkSession) -> dict:
+    columns = spark.table(STREAMING_TABLE).columns
+    upper_columns = {col.upper() for col in columns}
+    return {
+        "source_columns_total": len(columns),
+        "source_has_centro_para_centro_trab": "CENTRO_PARA_CENTRO_TRAB" in upper_columns,
+        "source_has_data_atualizacao": "DATA_ATUALIZACAO" in upper_columns,
+        "source_has_status": "STATUS" in upper_columns,
+        "source_has_status_obj_admin": "STATUS_OBJ_ADMIN" in upper_columns,
+        "source_has_ordem": "ORDEM" in upper_columns,
+    }
 
 
 def _is_statement_timeout_error(error: Exception) -> bool:
@@ -642,7 +688,7 @@ def read_new_notes(
     ignore_watermark: bool,
     sync_start_date: str,
     full_bootstrap: bool,
-) -> list[dict]:
+) -> tuple[list[dict], dict]:
     """Le notas do streaming table. Usa watermark, com opcao de forcar janela."""
     watermark = get_watermark()
     logger.info(
@@ -656,6 +702,7 @@ def read_new_notes(
     )
 
     data_criacao_expr = _build_data_criacao_date_expr(spark)
+    source_metrics = _summarize_note_source_columns(spark)
 
     if full_bootstrap:
         logger.info(
@@ -725,16 +772,54 @@ def read_new_notes(
 
     notes: list[dict] = []
     missing_centro = 0
+    skipped_sem_numero = 0
+    notes_with_ordem_sap = 0
+    notes_with_data_conclusao = 0
+    notes_with_data_atualizacao = 0
+    notes_with_status_obj_admin = 0
+    notes_with_modificador_responsavel = 0
+    notes_with_solicitante = 0
+    notes_with_streaming_timestamp = 0
+    distinct_centros: set[str] = set()
 
     for row in rows:
         row_dict = row.asDict()
         numero = _as_clean_text(row_dict.get("NUMERO_NOTA"))
         if not numero:
+            skipped_sem_numero += 1
             continue
 
         centro = _extract_centro_from_candidates(row_dict, NOTA_CENTRO_COLUMNS_CANDIDATES)
         if not centro:
             missing_centro += 1
+        else:
+            distinct_centros.add(centro)
+
+        ordem_sap = _as_clean_text(row_dict.get("ORDEM"))
+        if ordem_sap:
+            notes_with_ordem_sap += 1
+
+        data_conclusao = _normalize_iso_date(row_dict.get("DATA_CONCLUSAO"))
+        if data_conclusao:
+            notes_with_data_conclusao += 1
+
+        data_atualizacao = _normalize_iso_datetime(row_dict.get("DATA_ATUALIZACAO"))
+        if data_atualizacao:
+            notes_with_data_atualizacao += 1
+
+        status_sap = _as_clean_text(row_dict.get("STATUS_OBJ_ADMIN"))
+        if status_sap:
+            notes_with_status_obj_admin += 1
+
+        if _as_clean_text(row_dict.get("MODIFICADOR_RESPONSAVEL")):
+            notes_with_modificador_responsavel += 1
+
+        if _as_clean_text(row_dict.get("SOLICITANTE")):
+            notes_with_solicitante += 1
+
+        streaming_timestamp = _extract_note_source_timestamp(row_dict)
+        if streaming_timestamp:
+            notes_with_streaming_timestamp += 1
 
         notes.append({
             "numero_nota": numero,
@@ -748,18 +833,52 @@ def read_new_notes(
             "data_criacao_sap": str(row_dict["DATA_CRIACAO"]) if row_dict.get("DATA_CRIACAO") else None,
             "data_nota": str(row_dict["DATA_NOTA"]) if row_dict.get("DATA_NOTA") else None,
             "hora_nota": row_dict.get("HORA_NOTA"),
-            "ordem_sap": _as_clean_text(row_dict.get("ORDEM")),
+            "ordem_sap": ordem_sap,
             "centro": centro,
-            "status_sap": _as_clean_text(row_dict.get("STATUS_OBJ_ADMIN")),
+            "status_sap": status_sap,
             "conta_fornecedor": row_dict.get("N_CONTA_FORNECEDOR"),
             "autor_nota": row_dict.get("AUTOR_NOTA_QM_PM"),
-            "raw_data": json.dumps(row_dict, default=str),
+            "streaming_timestamp": streaming_timestamp,
+            "raw_data": _to_json_serializable(row_dict),
         })
 
     if missing_centro > 0:
         logger.warning("Notas sem centro no lote lido: %s", missing_centro)
 
-    return notes
+    batch_metrics = {
+        **source_metrics,
+        "source_rows_read": len(rows),
+        "source_notes_valid": len(notes),
+        "source_notes_skipped_missing_numero": skipped_sem_numero,
+        "source_notes_missing_centro": missing_centro,
+        "source_notes_with_ordem_sap": notes_with_ordem_sap,
+        "source_notes_without_ordem_sap": max(len(notes) - notes_with_ordem_sap, 0),
+        "source_notes_with_data_conclusao": notes_with_data_conclusao,
+        "source_notes_with_data_atualizacao": notes_with_data_atualizacao,
+        "source_notes_with_status_obj_admin": notes_with_status_obj_admin,
+        "source_notes_with_modificador_responsavel": notes_with_modificador_responsavel,
+        "source_notes_with_solicitante": notes_with_solicitante,
+        "source_notes_with_streaming_timestamp": notes_with_streaming_timestamp,
+        "source_distinct_centros": len(distinct_centros),
+        "source_effective_start": effective_start,
+        "source_watermark_raw": watermark,
+        "source_data_criacao_expr": data_criacao_expr,
+        "source_raw_data_payload_mode": "object",
+        "source_raw_data_payload_object_count": len(notes),
+    }
+
+    logger.info(
+        "Lote notas_qm -> rows=%s validas=%s sem_numero=%s sem_centro=%s com_ordem=%s com_data_atualizacao=%s centros=%s",
+        batch_metrics["source_rows_read"],
+        batch_metrics["source_notes_valid"],
+        batch_metrics["source_notes_skipped_missing_numero"],
+        batch_metrics["source_notes_missing_centro"],
+        batch_metrics["source_notes_with_ordem_sap"],
+        batch_metrics["source_notes_with_data_atualizacao"],
+        batch_metrics["source_distinct_centros"],
+    )
+
+    return notes, batch_metrics
 
 
 def upsert_notes(notes: list[dict], sync_id: str) -> tuple[int, int]:
@@ -811,6 +930,7 @@ def upsert_notes(notes: list[dict], sync_id: str) -> tuple[int, int]:
         "tipo_prioridade", "criado_por_sap", "solicitante",
         "data_criacao_sap", "data_nota", "hora_nota", "ordem_sap",
         "centro", "status_sap", "conta_fornecedor", "autor_nota",
+        "streaming_timestamp",
         "raw_data", "sync_id",
     ]
 
@@ -1605,8 +1725,8 @@ def run_standalone_pmpl_owner_realign() -> dict:
 
 def run_backfill_and_register_v2(sync_id: str) -> dict:
     """Segunda passada: backfill ordem_sap de ordens_manutencao_referencia +
-    registra ordens detectadas + atualiza cockpit.
-    Resolve notas com ordens na referência silver que não vieram do qmel_clean.
+    registra ordens detectadas.
+    Resolve notas com ordens na referência silver que não vieram da fonte de notas.
     Tolerante a falha — não derruba o sync.
     """
     metrics = {
@@ -1614,7 +1734,6 @@ def run_backfill_and_register_v2(sync_id: str) -> dict:
         "backfill_notas_atualizadas": 0,
         "ordens_detectadas": 0,
         "notas_auto_concluidas": 0,
-        "cockpit_total_elegiveis": 0,
         "error": None,
     }
     try:
@@ -1637,22 +1756,12 @@ def run_backfill_and_register_v2(sync_id: str) -> dict:
         metrics["ordens_detectadas"] = int(reg_raw.get("ordens_detectadas") or 0)
         metrics["notas_auto_concluidas"] = int(reg_raw.get("notas_auto_concluidas") or 0)
 
-        # 3. Atualiza cockpit com estado pós-conclusão
-        ck = supabase.rpc("sincronizar_cockpit_convergencia", {"p_sync_id": sync_id}).execute()
-        ck_raw = ck.data
-        if isinstance(ck_raw, list):
-            ck_raw = ck_raw[0] if ck_raw else {}
-        if not isinstance(ck_raw, dict):
-            ck_raw = {}
-        metrics["cockpit_total_elegiveis"] = int(ck_raw.get("total_elegiveis") or 0)
-
         metrics["status"] = "success"
         logger.info(
-            "Backfill v2 -> backfill=%s ordens_detectadas=%s auto_concluidas=%s cockpit_elegiveis=%s",
+            "Backfill v2 -> backfill=%s ordens_detectadas=%s auto_concluidas=%s",
             metrics["backfill_notas_atualizadas"],
             metrics["ordens_detectadas"],
             metrics["notas_auto_concluidas"],
-            metrics["cockpit_total_elegiveis"],
         )
     except Exception as exc:
         metrics["status"] = "error_tolerated"
@@ -1758,6 +1867,7 @@ def main():
 
     sync_id = create_sync_log(spark)
     logger.info("Sync iniciado: %s", sync_id)
+    logger.info("Fonte de notas configurada: %s", STREAMING_TABLE)
 
     orders_ref_v2_status = "not_run"
     orders_ref_v2_failure_streak = 0
@@ -1811,7 +1921,6 @@ def main():
         "backfill_notas_atualizadas": 0,
         "ordens_detectadas": 0,
         "notas_auto_concluidas": 0,
-        "cockpit_total_elegiveis": 0,
         "error": None,
     }
     cockpit_sync_metrics = {
@@ -1821,10 +1930,36 @@ def main():
         "total_elegiveis": 0,
         "error": None,
     }
+    note_batch_metrics = {
+        "source_columns_total": 0,
+        "source_has_centro_para_centro_trab": False,
+        "source_has_data_atualizacao": False,
+        "source_has_status": False,
+        "source_has_status_obj_admin": False,
+        "source_has_ordem": False,
+        "source_rows_read": 0,
+        "source_notes_valid": 0,
+        "source_notes_skipped_missing_numero": 0,
+        "source_notes_missing_centro": 0,
+        "source_notes_with_ordem_sap": 0,
+        "source_notes_without_ordem_sap": 0,
+        "source_notes_with_data_conclusao": 0,
+        "source_notes_with_data_atualizacao": 0,
+        "source_notes_with_status_obj_admin": 0,
+        "source_notes_with_modificador_responsavel": 0,
+        "source_notes_with_solicitante": 0,
+        "source_notes_with_streaming_timestamp": 0,
+        "source_distinct_centros": 0,
+        "source_effective_start": None,
+        "source_watermark_raw": None,
+        "source_data_criacao_expr": None,
+        "source_raw_data_payload_mode": "object",
+        "source_raw_data_payload_object_count": 0,
+    }
 
     try:
         full_bootstrap = should_run_full_bootstrap(bootstrap_mode, sync_start_date)
-        notes = read_new_notes(
+        notes, note_batch_metrics = read_new_notes(
             spark,
             window_days=window_days,
             force_window=force_window,
@@ -1832,7 +1967,7 @@ def main():
             sync_start_date=sync_start_date,
             full_bootstrap=full_bootstrap,
         )
-        logger.info("Lidas: %s notas do streaming", len(notes))
+        logger.info("Lidas: %s notas da fonte %s", len(notes), STREAMING_TABLE)
 
         inserted, updated = upsert_notes(notes, sync_id)
 
@@ -1854,10 +1989,6 @@ def main():
                 copy_reconcile_error,
             )
 
-        distributed = run_distribution(sync_id)
-
-        cockpit_sync_metrics = run_cockpit_convergencia_sync(sync_id)
-
         # Importa ordens PMPL standalone (sem nota correspondente) direto da fonte
         standalone_orders = read_standalone_pmpl_orders(
             spark,
@@ -1877,7 +2008,7 @@ def main():
             orders_document_reference,
         )
 
-        # Enriquece tipo_ordem para ordens sem tipo (vinculadas a notas via qmel_clean)
+        # Enriquece tipo_ordem para ordens sem tipo vinculadas à fonte principal de notas.
         result_enrich = supabase.rpc("enriquecer_tipo_ordem_por_referencia", {}).execute()
         enrich_data = result_enrich.data
         if isinstance(enrich_data, list):
@@ -1944,9 +2075,13 @@ def main():
         standalone_owner_metrics = run_standalone_owner_assignment()
         standalone_pmpl_realign_metrics = run_standalone_pmpl_owner_realign()
 
-        # Segunda passada: backfill ordem_sap (referência silver) → registrar ordens → cockpit
-        # Resolve notas com ordens em selecao_ordens_manutencao que não vieram do qmel_clean
+        # Segunda passada: backfill ordem_sap (referência silver) → registrar ordens.
+        # Resolve notas com ordens em selecao_ordens_manutencao que não vieram da fonte de notas.
         backfill_v2_metrics = run_backfill_and_register_v2(sync_id)
+
+        distributed = run_distribution(sync_id)
+
+        cockpit_sync_metrics = run_cockpit_convergencia_sync(sync_id)
 
         metadata = {
             "window_days": window_days,
@@ -1954,6 +2089,7 @@ def main():
             "ignore_watermark": ignore_watermark,
             "sync_start_date": sync_start_date,
             "streaming_table": STREAMING_TABLE,
+            **note_batch_metrics,
             "bootstrap_mode": bootstrap_mode,
             "full_bootstrap": full_bootstrap,
             "pmpl_min_age_days": pmpl_min_age_days,
@@ -2020,7 +2156,6 @@ def main():
             "backfill_v2_notas_atualizadas": backfill_v2_metrics["backfill_notas_atualizadas"],
             "backfill_v2_ordens_detectadas": backfill_v2_metrics["ordens_detectadas"],
             "backfill_v2_auto_concluidas": backfill_v2_metrics["notas_auto_concluidas"],
-            "backfill_v2_cockpit_elegiveis": backfill_v2_metrics["cockpit_total_elegiveis"],
             "backfill_v2_error": backfill_v2_metrics["error"],
         }
 
@@ -2050,6 +2185,7 @@ def main():
                     "ignore_watermark": ignore_watermark,
                     "sync_start_date": sync_start_date,
                     "streaming_table": STREAMING_TABLE,
+                    **note_batch_metrics,
                     "bootstrap_mode": bootstrap_mode,
                     "pmpl_min_age_days": pmpl_min_age_days,
                     "pmpl_standalone_window_days": pmpl_standalone_window_days,
@@ -2100,7 +2236,6 @@ def main():
                     "backfill_v2_notas_atualizadas": backfill_v2_metrics["backfill_notas_atualizadas"],
                     "backfill_v2_ordens_detectadas": backfill_v2_metrics["ordens_detectadas"],
                     "backfill_v2_auto_concluidas": backfill_v2_metrics["notas_auto_concluidas"],
-                    "backfill_v2_cockpit_elegiveis": backfill_v2_metrics["cockpit_total_elegiveis"],
                     "backfill_v2_error": backfill_v2_metrics["error"],
                 },
                 error=str(e),

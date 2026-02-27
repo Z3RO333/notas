@@ -155,13 +155,11 @@ export function NotaCard({ nota }: NotaCardProps) {
     const marked = await callCopyIntent(false)
     if (!marked) {
       setOperacaoLocal(previousState)
+      setCopyLoading(false)
+      return
     }
-    setCopyLoading(false)
 
-    toast({
-      title: `NOTA ${nota.numero_nota} copiada`,
-      variant: 'success',
-    })
+    setCopyLoading(false)
   }
 
   function handleConcluirClick(e: React.MouseEvent) {

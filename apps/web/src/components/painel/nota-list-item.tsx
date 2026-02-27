@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ExternalLink } from 'lucide-react'
 import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
@@ -49,6 +49,7 @@ export function NotaListItem({ nota }: NotaListItemProps) {
   const [overrideOpen, setOverrideOpen] = useState(false)
   const [conflictOwnerEmail, setConflictOwnerEmail] = useState<string | null>(null)
   const [operacaoLocal, setOperacaoLocal] = useState<NotaOperacaoEstado | null>(null)
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const estadoOperacional = operacaoLocal ?? buildCurrentStateFromNota(nota)
   const aging = isOpenStatus(nota.status)
@@ -61,6 +62,12 @@ export function NotaListItem({ nota }: NotaListItemProps) {
   const createdLabel = nota.data_criacao_sap
     ? format(new Date(`${nota.data_criacao_sap}T00:00:00`), 'dd/MM')
     : format(new Date(nota.created_at), 'dd/MM')
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+    }
+  }, [])
 
   async function callCopyIntent(forceOverride: boolean) {
     const result = await marcarNotaEmGeracao({ notaId: nota.id, forceOverride })
@@ -143,16 +150,20 @@ export function NotaListItem({ nota }: NotaListItemProps) {
     const marked = await callCopyIntent(false)
     if (!marked) {
       setOperacaoLocal(previousState)
+      setCopyLoading(false)
+      return
     }
 
     setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+    copiedTimerRef.current = setTimeout(() => setCopied(false), 1500)
     setCopyLoading(false)
+  }
 
-    toast({
-      title: `NOTA ${nota.numero_nota} copiada`,
-      variant: 'success',
-    })
+  function handleRowKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    e.preventDefault()
+    void handleCopyAction()
   }
 
   async function handleOverrideConfirm() {
@@ -174,7 +185,7 @@ export function NotaListItem({ nota }: NotaListItemProps) {
         role="button"
         tabIndex={0}
         onClick={() => { void handleCopyAction() }}
-        onKeyDown={(e) => e.key === 'Enter' && void handleCopyAction()}
+        onKeyDown={handleRowKeyDown}
         className="flex cursor-pointer select-none items-center justify-between gap-3 rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/40"
         title={`Clique para copiar #${nota.numero_nota}`}
       >
