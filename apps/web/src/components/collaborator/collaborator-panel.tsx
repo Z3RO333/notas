@@ -251,11 +251,11 @@ export function CollaboratorPanel({
   }, [notasState])
 
   const destinationsByAdmin = useMemo(() => {
-    const map = new Map<string, Array<{ id: string; nome: string }>>()
+    const map = new Map<string, Array<{ id: string; nome: string; qtd_abertas: number }>>()
     for (const admin of collaborators) {
       const dests = collaborators
         .filter((item) => item.id !== admin.id && item.ativo && !item.em_ferias)
-        .map((item) => ({ id: item.id, nome: item.nome }))
+        .map((item) => ({ id: item.id, nome: item.nome, qtd_abertas: item.qtd_abertas }))
       map.set(admin.id, dests)
     }
     return map

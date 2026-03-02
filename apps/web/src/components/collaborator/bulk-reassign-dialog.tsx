@@ -23,6 +23,7 @@ type BulkMode = 'destino_unico' | 'round_robin'
 interface DestinationOption {
   id: string
   nome: string
+  qtd_abertas: number
 }
 
 interface BulkReassignDialogProps {
@@ -112,6 +113,9 @@ export function BulkReassignDialog({
                   {destinoOptions.map((admin) => (
                     <SelectItem key={admin.id} value={admin.id}>
                       {admin.nome}
+                      <span className="ml-1.5 text-xs text-muted-foreground">
+                        ({admin.qtd_abertas} {admin.qtd_abertas === 1 ? 'nota' : 'notas'})
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>

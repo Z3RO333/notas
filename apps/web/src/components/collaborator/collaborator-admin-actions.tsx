@@ -14,7 +14,7 @@ import type { CollaboratorData } from '@/lib/types/collaborator'
 
 interface CollaboratorAdminActionsProps {
   admin: CollaboratorData
-  destinations: Array<{ id: string; nome: string }>
+  destinations: Array<{ id: string; nome: string; qtd_abertas: number }>
 }
 
 type ToggleKind = 'ativo' | 'distribuicao' | 'ferias'
