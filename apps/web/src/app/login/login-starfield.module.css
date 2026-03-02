@@ -1,0 +1,80 @@
+.shell {
+  position: relative;
+  left: 50%;
+  display: flex;
+  min-height: calc(100vh - 3.5rem);
+  width: 100vw;
+  transform: translateX(-50%);
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 3.5rem 1.5rem;
+  isolation: isolate;
+}
+
+.background {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(98, 160, 255, 0.14), transparent 30%),
+    radial-gradient(circle at 80% 30%, rgba(133, 219, 255, 0.1), transparent 28%),
+    radial-gradient(circle at 50% 80%, rgba(147, 197, 253, 0.08), transparent 36%),
+    radial-gradient(ellipse at bottom, #162131 0%, #090b10 100%);
+}
+
+.background::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(9, 11, 16, 0.1) 0%, rgba(9, 11, 16, 0.34) 100%);
+}
+
+.stars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--star-size);
+  height: var(--star-size);
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: var(--star-shadow);
+  opacity: var(--star-opacity);
+  animation: drift var(--star-duration) linear infinite;
+  will-change: transform;
+}
+
+.stars::after {
+  content: "";
+  position: absolute;
+  top: 2000px;
+  left: 0;
+  width: var(--star-size);
+  height: var(--star-size);
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: var(--star-shadow);
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+@keyframes drift {
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(-2000px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stars {
+    animation: none;
+  }
+}

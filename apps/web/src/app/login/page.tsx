@@ -171,7 +171,7 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm animate-fade-in-up dark:bg-transparent dark:backdrop-blur-xl dark:border-white/[0.06] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_20px_60px_rgba(0,0,0,0.5)]">
+    <Card className="w-full max-w-sm animate-fade-in-up border-white/10 bg-background/92 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.34)] dark:bg-slate-950/55 dark:border-white/[0.06] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_20px_60px_rgba(0,0,0,0.5)]">
       <CardHeader className="text-center">
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary dark:shadow-lg dark:shadow-primary/30">
           <Wrench className="h-6 w-6 text-primary-foreground" />

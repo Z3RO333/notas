@@ -3,7 +3,7 @@ import { Inter } from 'next/font/google'
 import { TopNav } from '@/components/layout/top-nav'
 import { ThemeProvider } from '@/components/theme/theme-provider'
 import { ToastProvider } from '@/components/ui/toast'
-import { createClient } from '@/lib/supabase/server'
+import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { buildThemeBootstrapScript } from '@/lib/theme/theme'
 import './globals.css'
 
@@ -28,27 +28,9 @@ export default async function RootLayout({
   let userRole: string | null = null
 
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-    if (userError) {
-      console.error('RootLayout auth.getUser failed:', userError.message)
-    }
-
-    if (user?.email) {
-      const { data: admin, error: adminError } = await supabase
-        .from('administradores')
-        .select('nome, role')
-        .eq('email', user.email)
-        .maybeSingle()
-
-      if (adminError) {
-        console.error('RootLayout administradores query failed:', adminError.message)
-      }
-
-      userName = admin?.nome ?? user.email
-      userRole = admin?.role ?? null
-    }
+    const currentAdminContext = await getCurrentAdminContext()
+    userName = currentAdminContext.userName
+    userRole = currentAdminContext.role
   } catch (error) {
     if (!isDynamicServerUsageError(error)) {
       console.error('RootLayout failed to load session context:', error)

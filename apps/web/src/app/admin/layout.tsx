@@ -1,26 +1,19 @@
 import { redirect } from 'next/navigation'
 import { AdminNav } from '@/components/admin/admin-nav'
-import { createClient } from '@/lib/supabase/server'
+import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const currentAdminContext = await getCurrentAdminContext()
 
-  if (!user?.email) {
+  if (!currentAdminContext.isAuthenticated) {
     redirect('/login')
   }
 
-  const { data: admin } = await supabase
-    .from('administradores')
-    .select('role')
-    .eq('email', user.email)
-    .single()
-
-  if (!admin || admin.role !== 'gestor') {
+  if (!currentAdminContext.isGestor) {
     redirect('/')
   }
 

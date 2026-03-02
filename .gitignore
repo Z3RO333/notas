@@ -49,3 +49,5 @@ logs/
 apps/dark-mode-screenshots/
 apps/web/playwright-report/
 apps/web/test-results/
+docs/plans/2026-03-02-carga-real-distribuicao-ordens.md
+docs/plans/2026-03-02-melhorias-distribuicao-notas.md

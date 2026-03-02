@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { OrdersWorkspace } from '@/components/orders/orders-workspace'
 import { LastSyncBadge } from '@/components/shared/last-sync-badge'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
@@ -87,26 +88,20 @@ function parseInitialFilters(raw: Awaited<OrdersPageProps['searchParams']>): Ord
 
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const supabase = await createClient()
+  const currentAdminContext = await getCurrentAdminContext()
   const resolvedSearchParams = searchParams ? await searchParams : undefined
   const initialFilters = parseInitialFilters(resolvedSearchParams)
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user?.email) {
+  if (!currentAdminContext.isAuthenticated || !currentAdminContext.email) {
     redirect('/login')
   }
 
-  const { data: loggedAdmin, error: loggedAdminError } = await supabase
-    .from('administradores')
-    .select('id, role')
-    .eq('email', user.email)
-    .single()
-
-  if (loggedAdminError || !loggedAdmin) {
+  if (!currentAdminContext.adminId || !currentAdminContext.role) {
     redirect('/login')
   }
 
-  const role = loggedAdmin.role as UserRole
-  const canViewGlobal = role === 'gestor'
+  const role = currentAdminContext.role as UserRole
+  const canViewGlobal = currentAdminContext.canViewGlobal
 
   let canAccessPmpl = canViewGlobal
   if (!canViewGlobal) {
@@ -114,7 +109,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       const pmplResolution = await resolveCurrentPmplOwner(supabase)
       canAccessPmpl = canAccessPmplTab({
         role,
-        loggedAdminId: loggedAdmin.id,
+        loggedAdminId: currentAdminContext.adminId,
         pmplResolution,
       })
     } catch {
@@ -135,10 +130,10 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
 
   const initialUser = {
     role,
-    adminId: loggedAdmin.id,
+    adminId: currentAdminContext.adminId,
     canViewGlobal,
     canAccessPmpl,
-    userEmail: user.email,
+    userEmail: currentAdminContext.email,
   }
 
   return (
