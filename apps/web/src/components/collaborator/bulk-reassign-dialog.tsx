@@ -111,7 +111,7 @@ export function BulkReassignDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {destinoOptions.map((admin) => (
-                    <SelectItem key={admin.id} value={admin.id}>
+                    <SelectItem key={admin.id} value={admin.id} textValue={admin.nome}>
                       {admin.nome}
                       <span className="ml-1.5 text-xs text-muted-foreground">
                         ({admin.qtd_abertas} {admin.qtd_abertas === 1 ? 'nota' : 'notas'})
