@@ -1,5 +1,6 @@
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { LastSyncGhost } from '@/components/shared/last-sync-ghost'
 
 interface LastSyncBadgeProps {
   timestamp?: string | null
@@ -25,7 +26,8 @@ export function LastSyncBadge({ timestamp, status }: LastSyncBadgeProps) {
     : 'border-emerald-200 bg-emerald-50 text-emerald-700'
 
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-1 text-xs ${tone}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs ${tone}`}>
+      <LastSyncGhost />
       Atualizado {label}
     </span>
   )

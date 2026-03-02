@@ -1,0 +1,174 @@
+.wrap {
+  position: relative;
+  display: inline-flex;
+  height: 18px;
+  width: 18px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.ghost {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: scale(0.16);
+  transform-origin: center;
+}
+
+.body {
+  position: relative;
+  height: 140px;
+  width: 140px;
+  animation: bob 0.8s ease-in-out infinite;
+}
+
+.pixel {
+  position: absolute;
+  height: 10px;
+  width: 10px;
+  background: hsl(var(--ghost-color, 0 84% 60%));
+}
+
+.flashA {
+  animation: flickerA 0.55s steps(1) infinite;
+}
+
+.flashB {
+  animation: flickerB 0.55s steps(1) infinite;
+}
+
+.eye {
+  position: absolute;
+  top: 31px;
+  height: 50px;
+  width: 40px;
+}
+
+.eye::before,
+.eye::after {
+  content: "";
+  position: absolute;
+  background: white;
+}
+
+.eye::before {
+  left: 10px;
+  height: 50px;
+  width: 20px;
+}
+
+.eye::after {
+  top: 10px;
+  height: 30px;
+  width: 40px;
+}
+
+.eyeLeft {
+  left: 10px;
+}
+
+.eyeRight {
+  right: 30px;
+}
+
+.pupil {
+  position: absolute;
+  top: 50px;
+  z-index: 1;
+  height: 20px;
+  width: 20px;
+  background: hsl(var(--ghost-eye, 221 83% 53%));
+  animation: look 3s ease-in-out infinite;
+}
+
+.pupilLeft {
+  left: 10px;
+}
+
+.pupilRight {
+  right: 50px;
+}
+
+.shadow {
+  position: absolute;
+  top: 118px;
+  left: 12px;
+  height: 24px;
+  width: 116px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  filter: blur(9px);
+  transform: rotateX(80deg);
+  animation: shadowPulse 0.8s ease-in-out infinite;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-9px);
+  }
+}
+
+@keyframes shadowPulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+
+  50% {
+    opacity: 0.15;
+  }
+}
+
+@keyframes look {
+  0%,
+  45%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50%,
+  90% {
+    transform: translateX(10px);
+  }
+}
+
+@keyframes flickerA {
+  0%,
+  49% {
+    opacity: 1;
+  }
+
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes flickerB {
+  0%,
+  49% {
+    opacity: 0;
+  }
+
+  50%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .body,
+  .pupil,
+  .flashA,
+  .flashB,
+  .shadow {
+    animation: none;
+  }
+}
