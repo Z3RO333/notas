@@ -68,7 +68,7 @@ function toCargaCollaboratorData(c: CargaAdministrador, notas: NotaPanelData[]):
     qtd_2_mais: aging.qtd_2_mais,
     qtd_abertas: c.qtd_abertas,
     qtd_concluidas: c.qtd_concluidas,
-    qtd_acompanhamento_ordens: 0,
+    qtd_acompanhamento_ordens: c.qtd_ordens_ativas ?? 0,
   }
 }
 
@@ -98,7 +98,7 @@ export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
   const activeNotesKpi = (VALID_NOTES_KPI.includes(kpiRaw as NotesKpiFilter) ? kpiRaw : '') as NotesKpiFilter | ''
 
   const [cargaResult, adminsResult, latestSyncResult] = await Promise.all([
-    supabase.from('vw_carga_administradores').select('*').order('nome'),
+    supabase.from('vw_carga_real_administradores').select('*').order('nome'),
     supabase
       .from('administradores')
       .select('id, nome')

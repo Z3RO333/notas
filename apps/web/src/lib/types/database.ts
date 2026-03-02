@@ -191,6 +191,7 @@ export interface CargaAdministrador {
   qtd_abertas: number
   qtd_concluidas: number
   qtd_canceladas: number
+  qtd_ordens_ativas?: number
 }
 
 export interface ProdutividadeMensal {
