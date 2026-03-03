@@ -20,7 +20,6 @@ import { OrdersDetailDrawer } from '@/components/orders/orders-detail-drawer'
 import { OrdersKpiStrip } from '@/components/orders/orders-kpi-strip'
 import { OrdersOwnerFullCard } from '@/components/orders/orders-owner-full-card'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
 import {
@@ -42,12 +41,10 @@ import {
   hasIndividualOwnerSelection,
   toOrderOwnerKey,
 } from '@/lib/orders/owner-visibility'
-import {
-  isGustavoOwnerName,
-  normalizePersonName,
-  resolveCargoPresentationFromOwner,
-} from '@/lib/collaborator/cargo-presentation'
+import { shouldHideOwnerOutsidePmpl } from '@/lib/admin/admin-identity-catalog'
+import { resolveCargoPresentationFromOwner } from '@/lib/collaborator/cargo-presentation'
 import { copyToClipboard } from '@/lib/orders/copy'
+import { buildWorkspaceParams } from '@/lib/orders/workspace-query'
 import type {
   Especialidade,
   OrderOwnerGroup,
@@ -117,16 +114,6 @@ const PRIORIDADE_OPTIONS = [
 ]
 
 const OWNER_CARDS_VIEW_MODE_STORAGE_KEY = 'cockpit:ordens:owner-cards:view-mode'
-const FIXED_OWNER_CARD_ORDER_BY_NORMALIZED_NAME: Record<string, number> = {
-  'brenda': 0,
-  'brenda rodrigues': 0,
-  'adriano': 1,
-  'adriano bezerra': 1,
-}
-
-function getFixedOwnerCardRank(ownerName: string): number | undefined {
-  return FIXED_OWNER_CARD_ORDER_BY_NORMALIZED_NAME[normalizePersonName(ownerName)]
-}
 
 function sanitizeText(value: string): string {
   return value.trim()
@@ -240,22 +227,6 @@ function exportOrdersToXlsx(rows: OrdemNotaAcompanhamento[]) {
   XLSX.writeFile(wb, filename)
 }
 
-
-function toIsoStart(dateInput: string | null): string | null {
-  if (!dateInput) return null
-  const date = new Date(`${dateInput}T00:00:00.000Z`)
-  if (Number.isNaN(date.getTime())) return null
-  return date.toISOString()
-}
-
-function toIsoEndExclusive(dateInput: string | null): string | null {
-  if (!dateInput) return null
-  const date = new Date(`${dateInput}T00:00:00.000Z`)
-  if (Number.isNaN(date.getTime())) return null
-  date.setUTCDate(date.getUTCDate() + 1)
-  return date.toISOString()
-}
-
 function makeYearOptions(): number[] {
   const current = new Date().getUTCFullYear()
   return Array.from({ length: 12 }, (_, idx) => current - idx)
@@ -269,31 +240,6 @@ function normalizeNotaId(value: string | null | undefined): string | null {
 
 function getRowNotaId(row: OrdemNotaAcompanhamento): string | null {
   return normalizeNotaId(row.nota_id)
-}
-
-function buildWorkspaceParams(filters: OrdersWorkspaceFilters, cursor: OrdersWorkspaceCursor | null, limit: number): URLSearchParams {
-  const params = new URLSearchParams()
-  params.set('periodMode', filters.periodMode)
-
-  if (filters.year) params.set('year', String(filters.year))
-  if (filters.month) params.set('month', String(filters.month))
-  if (filters.startDate) params.set('startIso', toIsoStart(filters.startDate) ?? '')
-  if (filters.endDate) params.set('endExclusiveIso', toIsoEndExclusive(filters.endDate) ?? '')
-
-  if (filters.q) params.set('q', filters.q)
-  if (filters.status && filters.status !== 'todas') params.set('status', filters.status)
-  if (filters.responsavel && filters.responsavel !== 'todos') params.set('responsavel', filters.responsavel)
-  if (filters.unidade) params.set('unidade', filters.unidade)
-  if (filters.prioridade && filters.prioridade !== 'todas') params.set('prioridade', filters.prioridade)
-  if (filters.tipoOrdem) params.set('tipoOrdem', filters.tipoOrdem)
-
-  if (cursor) {
-    params.set('cursorDetectada', cursor.ordem_detectada_em)
-    params.set('cursorOrdemId', cursor.ordem_id)
-  }
-
-  params.set('limit', String(limit))
-  return params
 }
 
 function syncFiltersToUrl(filters: OrdersWorkspaceFilters) {
@@ -408,7 +354,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   const ownerGroups = useMemo((): OrderOwnerGroup[] => {
     if (ownerCardsViewMode !== 'cards') return []
 
-    const shouldHideGustavo = filters.tipoOrdem !== 'PMPL'
     const scopedOwnerSummary = isPrivateScope
       ? ownerSummary.filter((item) => item.administrador_id === currentUser.adminId)
       : ownerSummary
@@ -430,7 +375,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       .filter((s) => {
         if (s.total <= 0) return false
         // Gustavo deve aparecer na aba PMPL; em PMOS mantém regra legada de ocultar.
-        if (shouldHideGustavo && isGustavoOwnerName(s.nome)) return false
+        if (filters.tipoOrdem !== 'PMPL' && shouldHideOwnerOutsidePmpl(s.nome)) return false
         if (!selectedOwnerKey) return true
         return toOrderOwnerKey(s.administrador_id) === selectedOwnerKey
       })
@@ -510,7 +455,10 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     setFilters((prev) => (prev.responsavel === 'todos' ? prev : { ...prev, responsavel: 'todos' }))
   }, [isPrivateScope, filters.responsavel])
 
-  const fetchWorkspace = useCallback(async (reset: boolean) => {
+  const fetchWorkspace = useCallback(async (
+    reset: boolean,
+    cursor: OrdersWorkspaceCursor | null = null,
+  ) => {
     fetchAbortRef.current?.abort()
     const controller = new AbortController()
     fetchAbortRef.current = controller
@@ -528,6 +476,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       q: smartSearch.effectiveQ,
       responsavel: smartSearch.derivedResponsavel ?? filters.responsavel,
     }
+    const pageCursor = reset ? null : cursor
 
     console.debug(`[ordens:fetch:start] reqId=${reqId} reset=${reset}`, {
       filtros: {
@@ -535,11 +484,11 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         q: effectiveFilters.q ? '***' : '',
         searchMode: smartSearch.mode,
       },
-      cursor: reset ? null : nextCursor,
+      cursor: pageCursor,
     })
 
     try {
-      const params = buildWorkspaceParams(effectiveFilters, reset ? null : nextCursor, batchSize)
+      const params = buildWorkspaceParams(effectiveFilters, pageCursor, batchSize)
       const response = await fetch(`/api/ordens/workspace?${params.toString()}`, {
         signal: controller.signal,
         cache: 'no-store',
@@ -635,28 +584,14 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       if (reset) setLoadingInitial(false)
       setLoadingMore(false)
     }
-  }, [filters, nextCursor, smartSearch.effectiveQ, smartSearch.derivedResponsavel, smartSearch.mode, toast])
+  }, [filters, smartSearch.effectiveQ, smartSearch.derivedResponsavel, smartSearch.mode, toast])
 
   useEffect(() => {
     setNextCursor(null)
     parentRef.current?.scrollTo({ top: 0 })
     fetchWorkspace(true)
     return () => fetchAbortRef.current?.abort()
-  }, [
-    filters.periodMode,
-    filters.year,
-    filters.month,
-    filters.startDate,
-    filters.endDate,
-    filters.q,
-    filters.status,
-    filters.responsavel,
-    filters.unidade,
-    filters.prioridade,
-    filters.tipoOrdem,
-    smartSearch.effectiveQ,
-    smartSearch.derivedResponsavel,
-  ])
+  }, [fetchWorkspace])
 
   const rowsWithLinkedNote = useMemo(
     () => rows.filter((row) => Boolean(getRowNotaId(row))),
@@ -752,8 +687,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       currentAdminId: currentUser.adminId,
       tipoOrdem: filters.tipoOrdem,
       responsavel: filters.responsavel,
-      isGustavoOwnerName,
-      getFixedOwnerCardRank,
     })
   }, [ownerSummary, filters.tipoOrdem, filters.responsavel, currentUser.canViewGlobal, currentUser.adminId, isPrivateScope])
 
@@ -771,7 +704,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     if (loadingInitial || loadingMore) return
     if (!nextCursor) return
     if (last.index < rows.length - 20) return
-    fetchWorkspace(false)
+    fetchWorkspace(false, nextCursor)
   }, [virtualRows, loadingInitial, loadingMore, nextCursor, rows.length, fetchWorkspace])
 
   // Em modo "cards completos", não há scroll da lista para disparar o load-more.
@@ -780,7 +713,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     if (ownerCardsViewMode !== 'cards') return
     if (!nextCursor) return
     if (loadingInitial || loadingMore) return
-    fetchWorkspace(false)
+    fetchWorkspace(false, nextCursor)
   }, [ownerCardsViewMode, nextCursor, loadingInitial, loadingMore, fetchWorkspace])
 
   function handleTabChange(tipo: string) {

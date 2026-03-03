@@ -2,109 +2,22 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Pencil } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { salvarPessoaAdmin } from '@/lib/actions/admin-actions'
+import { AdminPersonDialog } from '@/components/admin/admin-person-dialog'
+import { AdminPeopleTable } from '@/components/admin/admin-people-table'
+import type {
+  AdminPeopleManagerProps,
+  AdminPerson,
+  PersonFormState,
+} from '@/components/admin/admin-people-types'
+import {
+  EMPTY_PERSON_FORM,
+  toPersonFormState,
+} from '@/components/admin/admin-people-utils'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { useToast } from '@/components/ui/toast'
 import type { Especialidade } from '@/lib/types/database'
-
-const ESPECIALIDADE_OPTIONS: { value: Especialidade; label: string }[] = [
-  { value: 'geral', label: 'Geral' },
-  { value: 'refrigeracao', label: 'Refrigeração' },
-  { value: 'elevadores', label: 'Elevadores' },
-  { value: 'cd_manaus', label: 'CD Manaus' },
-  { value: 'cd_taruma', label: 'CD Tarumã' },
-]
-
-function especialidadeLabel(value: string): string {
-  return ESPECIALIDADE_OPTIONS.find((o) => o.value === value)?.label ?? value
-}
-
-interface AdminPerson {
-  id: string
-  nome: string
-  email: string
-  role: 'admin' | 'gestor'
-  especialidade: string
-  ativo: boolean
-  em_ferias: boolean
-  data_inicio_ferias: string | null
-  data_fim_ferias: string | null
-}
-
-interface PersonFormState {
-  id?: string
-  nome: string
-  email: string
-  role: 'admin' | 'gestor'
-  especialidade: Especialidade
-  ativo: boolean
-  emFerias: boolean
-  dataInicioFerias: string
-  dataFimFerias: string
-}
-
-interface AdminPeopleManagerProps {
-  people: AdminPerson[]
-  pmplResponsavelId?: string | null
-  pmplSubstitutoId?: string | null
-}
-
-const EMPTY_FORM: PersonFormState = {
-  nome: '',
-  email: '',
-  role: 'admin',
-  especialidade: 'geral',
-  ativo: true,
-  emFerias: false,
-  dataInicioFerias: '',
-  dataFimFerias: '',
-}
-
-function toForm(person: AdminPerson): PersonFormState {
-  return {
-    id: person.id,
-    nome: person.nome,
-    email: person.email,
-    role: person.role,
-    especialidade: (person.especialidade as Especialidade) ?? 'geral',
-    ativo: person.ativo,
-    emFerias: person.em_ferias,
-    dataInicioFerias: person.data_inicio_ferias ?? '',
-    dataFimFerias: person.data_fim_ferias ?? '',
-  }
-}
-
-type PmplAssignment = 'responsavel' | 'substituto' | null
-
-function resolvePmplAssignment(params: {
-  personId: string
-  pmplResponsavelId?: string | null
-  pmplSubstitutoId?: string | null
-}): PmplAssignment {
-  const responsavelId = (params.pmplResponsavelId ?? '').trim()
-  const substitutoId = (params.pmplSubstitutoId ?? '').trim()
-
-  if (responsavelId && params.personId === responsavelId) return 'responsavel'
-  if (substitutoId && params.personId === substitutoId) return 'substituto'
-  return null
-}
 
 export function AdminPeopleManager({
   people,
@@ -115,7 +28,7 @@ export function AdminPeopleManager({
   const { toast } = useToast()
   const [isPending, startTransition] = useTransition()
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [form, setForm] = useState<PersonFormState>(EMPTY_FORM)
+  const [form, setForm] = useState<PersonFormState>(EMPTY_PERSON_FORM)
 
   const sortedPeople = useMemo(
     () => [...people].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
@@ -123,12 +36,12 @@ export function AdminPeopleManager({
   )
 
   function openForCreate() {
-    setForm(EMPTY_FORM)
+    setForm(EMPTY_PERSON_FORM)
     setDialogOpen(true)
   }
 
   function openForEdit(person: AdminPerson) {
-    setForm(toForm(person))
+    setForm(toPersonFormState(person))
     setDialogOpen(true)
   }
 
@@ -196,7 +109,7 @@ export function AdminPeopleManager({
         <div>
           <h3 className="text-base font-semibold">Pessoas</h3>
           <p className="text-sm text-muted-foreground">
-            Cadastre e edite pessoas que podem atuar no módulo de ordens.
+            Cadastre e edite pessoas que podem atuar no modulo de ordens.
           </p>
         </div>
         <Button type="button" onClick={openForCreate} disabled={isPending}>
@@ -205,214 +118,25 @@ export function AdminPeopleManager({
         </Button>
       </div>
 
-      <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/40">
-              <th className="px-3 py-2 text-left font-medium">Nome</th>
-              <th className="px-3 py-2 text-left font-medium">Email</th>
-              <th className="px-3 py-2 text-left font-medium">Cargo</th>
-              <th className="px-3 py-2 text-left font-medium">Função</th>
-              <th className="px-3 py-2 text-left font-medium">Ativo</th>
-              <th className="px-3 py-2 text-left font-medium">Em férias</th>
-              <th className="px-3 py-2 text-left font-medium">Período</th>
-              <th className="px-3 py-2 text-right font-medium">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedPeople.map((person) => (
-              <tr key={person.id} className="border-b last:border-0">
-                <td className="px-3 py-2 font-medium">{person.nome}</td>
-                <td className="px-3 py-2 text-muted-foreground">{person.email}</td>
-                <td className="px-3 py-2 uppercase">{person.role}</td>
-                <td className="px-3 py-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span>{especialidadeLabel(person.especialidade)}</span>
-                    {resolvePmplAssignment({
-                      personId: person.id,
-                      pmplResponsavelId,
-                      pmplSubstitutoId,
-                    }) === 'responsavel' && (
-                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
-                        PMPL Responsavel
-                      </span>
-                    )}
-                    {resolvePmplAssignment({
-                      personId: person.id,
-                      pmplResponsavelId,
-                      pmplSubstitutoId,
-                    }) === 'substituto' && (
-                      <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300">
-                        PMPL Substituto
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-3 py-2">
-                  <Switch
-                    checked={person.ativo}
-                    onCheckedChange={(checked) => handleQuickUpdate(person, { ativo: checked })}
-                    disabled={isPending}
-                  />
-                </td>
-                <td className="px-3 py-2">
-                  <Switch
-                    checked={person.em_ferias}
-                    onCheckedChange={(checked) => handleQuickUpdate(person, { emFerias: checked })}
-                    disabled={isPending}
-                  />
-                </td>
-                <td className="px-3 py-2 text-xs text-muted-foreground">
-                  {person.data_inicio_ferias || person.data_fim_ferias
-                    ? `${person.data_inicio_ferias ?? '—'} até ${person.data_fim_ferias ?? '—'}`
-                    : '—'}
-                </td>
-                <td className="px-3 py-2 text-right">
-                  <Button type="button" size="sm" variant="outline" onClick={() => openForEdit(person)} disabled={isPending}>
-                    <Pencil className="mr-2 h-3.5 w-3.5" />
-                    Editar
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <AdminPeopleTable
+        people={sortedPeople}
+        isPending={isPending}
+        pmplResponsavelId={pmplResponsavelId}
+        pmplSubstitutoId={pmplSubstitutoId}
+        onEdit={openForEdit}
+        onQuickUpdate={handleQuickUpdate}
+      />
 
-      <Dialog open={dialogOpen} onOpenChange={(open) => !isPending && setDialogOpen(open)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{form.id ? 'Editar pessoa' : 'Adicionar pessoa'}</DialogTitle>
-            <DialogDescription>
-              Defina dados de acesso operacional e disponibilidade para roteamento.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="admin-person-nome" className="text-sm font-medium">Nome</label>
-              <Input
-                id="admin-person-nome"
-                value={form.nome}
-                onChange={(event) => setForm((prev) => ({ ...prev, nome: event.target.value }))}
-                placeholder="Nome completo"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="admin-person-email" className="text-sm font-medium">Email</label>
-              <Input
-                id="admin-person-email"
-                type="email"
-                value={form.email}
-                onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
-                placeholder="pessoa@bemol.com.br"
-              />
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Cargo</label>
-                <Select value={form.role} onValueChange={(value) => setForm((prev) => ({ ...prev, role: value as 'admin' | 'gestor' }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o cargo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="gestor">Gestor</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Especialidade / Função</label>
-                <Select
-                  value={form.especialidade}
-                  onValueChange={(value) => setForm((prev) => ({ ...prev, especialidade: value as Especialidade }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a função" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ESPECIALIDADE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {form.id && resolvePmplAssignment({
-                  personId: form.id,
-                  pmplResponsavelId,
-                  pmplSubstitutoId,
-                }) === 'responsavel' && (
-                  <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                    Esta pessoa esta configurada como PMPL Responsavel.
-                  </p>
-                )}
-                {form.id && resolvePmplAssignment({
-                  personId: form.id,
-                  pmplResponsavelId,
-                  pmplSubstitutoId,
-                }) === 'substituto' && (
-                  <p className="text-xs text-blue-700 dark:text-blue-300">
-                    Esta pessoa esta configurada como PMPL Substituto.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                <span>Ativo</span>
-                <Switch
-                  checked={form.ativo}
-                  onCheckedChange={(checked) => setForm((prev) => ({ ...prev, ativo: checked }))}
-                />
-              </label>
-
-              <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                <span>Em férias</span>
-                <Switch
-                  checked={form.emFerias}
-                  onCheckedChange={(checked) => setForm((prev) => ({ ...prev, emFerias: checked }))}
-                />
-              </label>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label htmlFor="admin-person-data-inicio" className="text-sm font-medium">Data início férias</label>
-                <Input
-                  id="admin-person-data-inicio"
-                  type="date"
-                  value={form.dataInicioFerias}
-                  onChange={(event) => setForm((prev) => ({ ...prev, dataInicioFerias: event.target.value }))}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="admin-person-data-fim" className="text-sm font-medium">Data fim férias</label>
-                <Input
-                  id="admin-person-data-fim"
-                  type="date"
-                  value={form.dataFimFerias}
-                  onChange={(event) => setForm((prev) => ({ ...prev, dataFimFerias: event.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" disabled={isPending} onClick={() => setDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="button" disabled={isPending} onClick={handleSave}>
-                {isPending ? 'Salvando...' : 'Salvar'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AdminPersonDialog
+        open={dialogOpen}
+        isPending={isPending}
+        form={form}
+        pmplResponsavelId={pmplResponsavelId}
+        pmplSubstitutoId={pmplSubstitutoId}
+        onOpenChange={setDialogOpen}
+        onFormChange={(next) => setForm((prev) => typeof next === 'function' ? next(prev) : next)}
+        onSave={handleSave}
+      />
     </div>
   )
 }

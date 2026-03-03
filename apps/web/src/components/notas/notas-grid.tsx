@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowUpDown, Copy, ExternalLink } from 'lucide-react'
@@ -194,11 +194,11 @@ export function NotasGrid({
     { id: sort.field, desc: sort.direction === 'desc' },
   ], [sort])
 
-  function replaceQuery(updates: Record<string, string | number | null | undefined>) {
+  const replaceQuery = useCallback((updates: Record<string, string | number | null | undefined>) => {
     const next = updateSearchParams(new URLSearchParams(searchParams.toString()), updates)
     const queryString = next.toString()
     router.replace(queryString ? `${pathname}?${queryString}` : pathname)
-  }
+  }, [pathname, router, searchParams])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -208,7 +208,7 @@ export function NotasGrid({
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [searchInput, q])
+  }, [searchInput, q, replaceQuery])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -236,7 +236,7 @@ export function NotasGrid({
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [rows])
+  }, [rows, router])
 
   const columns = useMemo<ColumnDef<NotaGridRow, unknown>[]>(() => [
     {

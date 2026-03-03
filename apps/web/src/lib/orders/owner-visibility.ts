@@ -1,3 +1,4 @@
+import { getFixedOwnerCardRank, shouldHideOwnerOutsidePmpl } from '@/lib/admin/admin-identity-catalog'
 import type { OrdersOwnerSummary } from '@/lib/types/database'
 
 export const UNASSIGNED_ORDER_OWNER_KEY = '__sem_atual__'
@@ -23,8 +24,6 @@ interface BuildVisibleOwnerSummaryParams {
   currentAdminId: string
   tipoOrdem: string
   responsavel: string | null | undefined
-  isGustavoOwnerName: (ownerName: string) => boolean
-  getFixedOwnerCardRank: (ownerName: string) => number | undefined
 }
 
 function compareByTotalAndName(
@@ -39,14 +38,14 @@ export function buildVisibleOwnerSummary(params: BuildVisibleOwnerSummaryParams)
   const selectionActive = hasIndividualOwnerSelection(params.canViewGlobal, params.responsavel)
   const selectedOwnerKey = selectionActive ? (params.responsavel ?? '').trim() : null
   const shouldPinFixedOwners = params.canViewGlobal && params.tipoOrdem !== 'PMPL' && !selectionActive
-  const shouldHideGustavo = params.tipoOrdem !== 'PMPL'
+  const shouldHideOwner = params.tipoOrdem !== 'PMPL'
 
   const scopedOwnerSummary = params.isPrivateScope
     ? params.ownerSummary.filter((owner) => owner.administrador_id === params.currentAdminId)
     : params.ownerSummary
 
   const filtered = scopedOwnerSummary.filter((owner) => {
-    if (shouldHideGustavo && params.isGustavoOwnerName(owner.nome)) return false
+    if (shouldHideOwner && shouldHideOwnerOutsidePmpl(owner.nome)) return false
 
     if (selectedOwnerKey) {
       return toOrderOwnerKey(owner.administrador_id) === selectedOwnerKey
@@ -55,7 +54,7 @@ export function buildVisibleOwnerSummary(params: BuildVisibleOwnerSummaryParams)
     return (
       owner.total > 0
       || owner.administrador_id === null
-      || (shouldPinFixedOwners && params.getFixedOwnerCardRank(owner.nome) !== undefined)
+      || (shouldPinFixedOwners && getFixedOwnerCardRank(owner.nome) !== undefined)
     )
   })
 
@@ -64,8 +63,8 @@ export function buildVisibleOwnerSummary(params: BuildVisibleOwnerSummaryParams)
   }
 
   return [...filtered].sort((a, b) => {
-    const aRank = params.getFixedOwnerCardRank(a.nome)
-    const bRank = params.getFixedOwnerCardRank(b.nome)
+    const aRank = getFixedOwnerCardRank(a.nome)
+    const bRank = getFixedOwnerCardRank(b.nome)
 
     if (aRank !== undefined && bRank !== undefined && aRank !== bRank) return aRank - bRank
     if (aRank !== undefined) return -1

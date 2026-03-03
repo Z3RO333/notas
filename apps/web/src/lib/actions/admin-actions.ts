@@ -1,9 +1,13 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { BEMOL_EMAIL_DOMAIN } from '@/lib/auth/shared'
-import { createClient } from '@/lib/supabase/server'
-import { applyAutomaticOrdersRouting } from '@/lib/orders/pmpl-routing'
+import {
+  getGestorActionContext,
+  isMissingRpcFunctionError,
+  revalidateCockpitPaths,
+  runBestEffortAutomaticOrdersRouting,
+  writeAdminAuditLog,
+} from '@/lib/actions/admin-action-support'
 import type { Especialidade } from '@/lib/types/database'
 
 type BulkReassignMode = 'destino_unico' | 'round_robin'
@@ -30,31 +34,6 @@ interface SalvarConfigResponsavelPmplParams {
   substitutoId?: string | null
 }
 
-async function getGestorContext() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user?.email) throw new Error('Não autenticado')
-
-  const { data: admin } = await supabase
-    .from('administradores')
-    .select('id, role')
-    .eq('email', user.email)
-    .single()
-
-  if (!admin || admin.role !== 'gestor') throw new Error('Sem permissao')
-  return { supabase, gestorId: admin.id }
-}
-
-function revalidateCockpitPaths() {
-  revalidatePath('/')
-  revalidatePath('/ordens')
-  revalidatePath('/admin')
-  revalidatePath('/admin/administracao')
-  revalidatePath('/admin/distribuicao')
-  revalidatePath('/admin/pessoas')
-  revalidatePath('/admin/auditoria')
-}
-
 function normalizeDateInput(value: string | null | undefined): string | null {
   if (!value) return null
   const trimmed = value.trim()
@@ -62,38 +41,8 @@ function normalizeDateInput(value: string | null | undefined): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null
 }
 
-function isMissingRpcFunctionError(
-  error: { code?: string; message?: string; details?: string | null; hint?: string | null } | null | undefined,
-  functionName: string
-): boolean {
-  if (!error) return false
-  if (error.code === 'PGRST202' || error.code === '42883') return true
-  const haystack = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase()
-  return haystack.includes(functionName.toLowerCase()) && (haystack.includes('not found') || haystack.includes('does not exist'))
-}
-
-async function logAudit(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  gestorId: string,
-  acao: string,
-  alvoId: string | null,
-  detalhes?: Record<string, unknown>
-) {
-  const { error } = await supabase.from('admin_audit_log').insert({
-    gestor_id: gestorId,
-    acao,
-    alvo_id: alvoId,
-    detalhes: detalhes ?? null,
-  })
-
-  // Auditoria não deve interromper o fluxo principal da operação.
-  if (error) {
-    console.error('Falha ao gravar admin_audit_log:', error.message)
-  }
-}
-
 export async function toggleDistribuicao(adminId: string, valor: boolean, motivo?: string) {
-  const { supabase, gestorId } = await getGestorContext()
+  const { supabase, admin } = await getGestorActionContext()
 
   const { data: targetAdmin, error: targetAdminError } = await supabase
     .from('administradores')
@@ -101,9 +50,9 @@ export async function toggleDistribuicao(adminId: string, valor: boolean, motivo
     .eq('id', adminId)
     .single()
 
-  if (targetAdminError || !targetAdmin) throw new Error(targetAdminError?.message ?? 'Colaborador não encontrado')
+  if (targetAdminError || !targetAdmin) throw new Error(targetAdminError?.message ?? 'Colaborador nao encontrado')
   if (targetAdmin.role === 'gestor' && valor) {
-    throw new Error('Gestor não pode receber distribuição')
+    throw new Error('Gestor nao pode receber distribuicao')
   }
 
   const { error } = await supabase
@@ -117,13 +66,19 @@ export async function toggleDistribuicao(adminId: string, valor: boolean, motivo
 
   if (error) throw new Error(error.message)
 
-  await logAudit(supabase, gestorId, valor ? 'ativar_distribuicao' : 'desativar_distribuicao', adminId, { motivo })
+  await writeAdminAuditLog({
+    supabase,
+    gestorId: admin.id,
+    acao: valor ? 'ativar_distribuicao' : 'desativar_distribuicao',
+    alvoId: adminId,
+    detalhes: { motivo },
+  })
 
   revalidateCockpitPaths()
 }
 
 export async function toggleFerias(adminId: string, valor: boolean, motivo?: string) {
-  const { supabase, gestorId } = await getGestorContext()
+  const { supabase, admin } = await getGestorActionContext()
 
   const { error } = await supabase
     .from('administradores')
@@ -135,24 +90,26 @@ export async function toggleFerias(adminId: string, valor: boolean, motivo?: str
 
   if (error) throw new Error(error.message)
 
-  await logAudit(supabase, gestorId, valor ? 'marcar_ferias' : 'retornar_ferias', adminId, { motivo })
+  await writeAdminAuditLog({
+    supabase,
+    gestorId: admin.id,
+    acao: valor ? 'marcar_ferias' : 'retornar_ferias',
+    alvoId: adminId,
+    detalhes: { motivo },
+  })
 
-  try {
-    await applyAutomaticOrdersRouting({
-      supabase,
-      gestorId,
-      debug: process.env.DEBUG_ORDERS_ROUTING === '1' || process.env.DEBUG_ORDERS_CD_ROUTING === '1',
-      motivo: 'Auto realocação PMPL/CD após alteração de férias',
-    })
-  } catch (routingError) {
-    console.error('Falha ao aplicar auto realocação após férias:', routingError)
-  }
+  await runBestEffortAutomaticOrdersRouting({
+    supabase,
+    gestorId: admin.id,
+    motivo: 'Auto realocacao PMPL/CD apos alteracao de ferias',
+    errorPrefix: 'Falha ao aplicar auto realocacao apos ferias:',
+  })
 
   revalidateCockpitPaths()
 }
 
 export async function toggleAtivo(adminId: string, valor: boolean, motivo?: string) {
-  const { supabase, gestorId } = await getGestorContext()
+  const { supabase, admin } = await getGestorActionContext()
 
   const { error } = await supabase
     .from('administradores')
@@ -165,7 +122,13 @@ export async function toggleAtivo(adminId: string, valor: boolean, motivo?: stri
 
   if (error) throw new Error(error.message)
 
-  await logAudit(supabase, gestorId, valor ? 'ativar_admin' : 'desativar_admin', adminId, { motivo })
+  await writeAdminAuditLog({
+    supabase,
+    gestorId: admin.id,
+    acao: valor ? 'ativar_admin' : 'desativar_admin',
+    alvoId: adminId,
+    detalhes: { motivo },
+  })
 
   revalidateCockpitPaths()
 }
@@ -176,11 +139,11 @@ export async function reatribuirNotasLote(params: {
   adminDestinoId?: string
   motivo?: string
 }) {
-  const { supabase, gestorId } = await getGestorContext()
+  const { supabase, admin } = await getGestorActionContext()
 
   const { data, error } = await supabase.rpc('reatribuir_notas_lote', {
     p_admin_origem: params.adminOrigemId,
-    p_gestor_id: gestorId,
+    p_gestor_id: admin.id,
     p_modo: params.modo,
     p_admin_destino: params.adminDestinoId ?? null,
     p_motivo: params.motivo ?? null,
@@ -190,11 +153,17 @@ export async function reatribuirNotasLote(params: {
 
   const movedCount = data?.length ?? 0
 
-  await logAudit(supabase, gestorId, 'reatribuir_lote', params.adminOrigemId, {
-    modo: params.modo,
-    admin_destino_id: params.adminDestinoId ?? null,
-    motivo: params.motivo ?? null,
-    notas_reatribuidas: movedCount,
+  await writeAdminAuditLog({
+    supabase,
+    gestorId: admin.id,
+    acao: 'reatribuir_lote',
+    alvoId: params.adminOrigemId,
+    detalhes: {
+      modo: params.modo,
+      admin_destino_id: params.adminDestinoId ?? null,
+      motivo: params.motivo ?? null,
+      notas_reatribuidas: movedCount,
+    },
   })
 
   revalidateCockpitPaths()
@@ -207,7 +176,7 @@ export async function reatribuirOrdensSelecionadas(params: {
   adminDestinoId?: string
   motivo?: string
 }) {
-  const { supabase, gestorId } = await getGestorContext()
+  const { supabase, admin } = await getGestorActionContext()
   const uniqueNotaIds = Array.from(
     new Set((params.notaIds ?? []).filter((id): id is string => Boolean(id && id.trim())))
   )
@@ -222,7 +191,7 @@ export async function reatribuirOrdensSelecionadas(params: {
 
   const { data, error } = await supabase.rpc('reatribuir_ordens_selecionadas', {
     p_nota_ids: uniqueNotaIds,
-    p_gestor_id: gestorId,
+    p_gestor_id: admin.id,
     p_modo: params.modo,
     p_admin_destino: params.adminDestinoId ?? null,
     p_motivo: params.motivo ?? null,
@@ -234,16 +203,12 @@ export async function reatribuirOrdensSelecionadas(params: {
   const movedCount = movedRows.length
   const skippedCount = Math.max(uniqueNotaIds.length - movedCount, 0)
 
-  try {
-    await applyAutomaticOrdersRouting({
-      supabase,
-      gestorId,
-      debug: process.env.DEBUG_ORDERS_ROUTING === '1' || process.env.DEBUG_ORDERS_CD_ROUTING === '1',
-      motivo: params.motivo ?? 'Realinhamento automático pós-redistribuição manual de ordens',
-    })
-  } catch (routingError) {
-    console.error('Falha ao aplicar auto realocação após redistribuição manual de ordens:', routingError)
-  }
+  await runBestEffortAutomaticOrdersRouting({
+    supabase,
+    gestorId: admin.id,
+    motivo: params.motivo ?? 'Realinhamento automatico pos-redistribuicao manual de ordens',
+    errorPrefix: 'Falha ao aplicar auto realocacao apos redistribuicao manual de ordens:',
+  })
 
   const { data: finalAssignmentsData, error: finalAssignmentsError } = await supabase
     .from('notas_manutencao')
@@ -259,14 +224,20 @@ export async function reatribuirOrdensSelecionadas(params: {
       administrador_destino_id: row.administrador_id as string,
     }))
 
-  await logAudit(supabase, gestorId, 'reatribuir_ordens_lote_checkbox', null, {
-    modo: params.modo,
-    motivo: params.motivo ?? null,
-    admin_destino_id: params.adminDestinoId ?? null,
-    notas_selecionadas: uniqueNotaIds.length,
-    notas_reatribuidas: movedCount,
-    notas_puladas: skippedCount,
-    nota_ids_amostra: uniqueNotaIds.slice(0, 200),
+  await writeAdminAuditLog({
+    supabase,
+    gestorId: admin.id,
+    acao: 'reatribuir_ordens_lote_checkbox',
+    alvoId: null,
+    detalhes: {
+      modo: params.modo,
+      motivo: params.motivo ?? null,
+      admin_destino_id: params.adminDestinoId ?? null,
+      notas_selecionadas: uniqueNotaIds.length,
+      notas_reatribuidas: movedCount,
+      notas_puladas: skippedCount,
+      nota_ids_amostra: uniqueNotaIds.slice(0, 200),
+    },
   })
 
   revalidateCockpitPaths()
@@ -278,7 +249,7 @@ export async function reatribuirOrdensSelecionadas(params: {
 }
 
 export async function salvarPessoaAdmin(params: SalvarPessoaAdminParams) {
-  const { supabase, gestorId } = await getGestorContext()
+  const { supabase, admin } = await getGestorActionContext()
   const nome = params.nome.trim()
   const email = params.email.trim().toLowerCase()
   const role = params.role
@@ -286,14 +257,14 @@ export async function salvarPessoaAdmin(params: SalvarPessoaAdminParams) {
     throw new Error(`Email deve terminar com ${BEMOL_EMAIL_DOMAIN}`)
   }
 
-  if (!nome) throw new Error('Nome é obrigatório')
-  if (!email) throw new Error('Email é obrigatório')
-  if (role !== 'admin' && role !== 'gestor') throw new Error('Cargo inválido')
+  if (!nome) throw new Error('Nome e obrigatorio')
+  if (!email) throw new Error('Email e obrigatorio')
+  if (role !== 'admin' && role !== 'gestor') throw new Error('Cargo invalido')
 
   const dataInicioFerias = normalizeDateInput(params.dataInicioFerias)
   const dataFimFerias = normalizeDateInput(params.dataFimFerias)
   if (dataInicioFerias && dataFimFerias && dataFimFerias < dataInicioFerias) {
-    throw new Error('Data fim de férias não pode ser menor que a data início')
+    throw new Error('Data fim de ferias nao pode ser menor que a data inicio')
   }
 
   const payload = {
@@ -338,40 +309,42 @@ export async function salvarPessoaAdmin(params: SalvarPessoaAdminParams) {
     targetId = data.id
   }
 
-  await logAudit(supabase, gestorId, 'salvar_pessoa_admin', targetId, {
-    nome,
-    email,
-    role,
-    especialidade: params.especialidade,
-    ativo: params.ativo,
-    em_ferias: params.emFerias,
-    data_inicio_ferias: dataInicioFerias,
-    data_fim_ferias: dataFimFerias,
+  await writeAdminAuditLog({
+    supabase,
+    gestorId: admin.id,
+    acao: 'salvar_pessoa_admin',
+    alvoId: targetId,
+    detalhes: {
+      nome,
+      email,
+      role,
+      especialidade: params.especialidade,
+      ativo: params.ativo,
+      em_ferias: params.emFerias,
+      data_inicio_ferias: dataInicioFerias,
+      data_fim_ferias: dataFimFerias,
+    },
   })
 
-  try {
-    await applyAutomaticOrdersRouting({
-      supabase,
-      gestorId,
-      debug: process.env.DEBUG_ORDERS_ROUTING === '1' || process.env.DEBUG_ORDERS_CD_ROUTING === '1',
-      motivo: 'Auto realocação PMPL/CD após atualização de pessoa',
-    })
-  } catch (routingError) {
-    console.error('Falha ao aplicar auto realocação após salvar pessoa:', routingError)
-  }
+  await runBestEffortAutomaticOrdersRouting({
+    supabase,
+    gestorId: admin.id,
+    motivo: 'Auto realocacao PMPL/CD apos atualizacao de pessoa',
+    errorPrefix: 'Falha ao aplicar auto realocacao apos salvar pessoa:',
+  })
 
   revalidateCockpitPaths()
   return { id: targetId }
 }
 
 export async function salvarConfigResponsavelPmpl(params: SalvarConfigResponsavelPmplParams) {
-  const { supabase, gestorId } = await getGestorContext()
+  const { supabase, admin } = await getGestorActionContext()
   const responsavelId = params.responsavelId?.trim()
   const substitutoId = params.substitutoId?.trim() || null
 
-  if (!responsavelId) throw new Error('Responsável PMPL é obrigatório')
+  if (!responsavelId) throw new Error('Responsavel PMPL e obrigatorio')
   if (substitutoId && substitutoId === responsavelId) {
-    throw new Error('Substituto deve ser diferente do responsável')
+    throw new Error('Substituto deve ser diferente do responsavel')
   }
 
   const ids = [responsavelId, substitutoId].filter((item): item is string => Boolean(item))
@@ -384,12 +357,12 @@ export async function salvarConfigResponsavelPmpl(params: SalvarConfigResponsave
 
   const adminById = new Map((admins ?? []).map((item) => [item.id, item]))
   const responsavel = adminById.get(responsavelId)
-  if (!responsavel) throw new Error('Responsável PMPL não encontrado')
-  if (!responsavel.ativo) throw new Error('Responsável PMPL precisa estar ativo')
+  if (!responsavel) throw new Error('Responsavel PMPL nao encontrado')
+  if (!responsavel.ativo) throw new Error('Responsavel PMPL precisa estar ativo')
 
   if (substitutoId) {
     const substituto = adminById.get(substitutoId)
-    if (!substituto) throw new Error('Substituto PMPL não encontrado')
+    if (!substituto) throw new Error('Substituto PMPL nao encontrado')
     if (!substituto.ativo) throw new Error('Substituto PMPL precisa estar ativo')
   }
 
@@ -409,7 +382,7 @@ export async function salvarConfigResponsavelPmpl(params: SalvarConfigResponsave
       tipo_ordem: 'PMPL',
       responsavel_id: responsavelId,
       substituto_id: substitutoId,
-      atualizado_por: gestorId,
+      atualizado_por: admin.id,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'tipo_ordem' })
     .select('tipo_ordem, responsavel_id, substituto_id')
@@ -423,33 +396,35 @@ export async function salvarConfigResponsavelPmpl(params: SalvarConfigResponsave
       tipo: 'responsaveis_tipo_ordem_pmpl',
       antes: beforeData ?? null,
       depois: afterData ?? null,
-      atualizado_por: gestorId,
+      atualizado_por: admin.id,
     })
 
   if (auditConfigError) {
     console.error('Falha ao gravar auditoria_config:', auditConfigError.message)
   }
 
-  await logAudit(supabase, gestorId, 'salvar_responsavel_pmpl', responsavelId, {
-    antes: beforeData ?? null,
-    depois: afterData ?? null,
+  await writeAdminAuditLog({
+    supabase,
+    gestorId: admin.id,
+    acao: 'salvar_responsavel_pmpl',
+    alvoId: responsavelId,
+    detalhes: {
+      antes: beforeData ?? null,
+      depois: afterData ?? null,
+    },
   })
 
-  try {
-    await applyAutomaticOrdersRouting({
-      supabase,
-      gestorId,
-      debug: process.env.DEBUG_ORDERS_ROUTING === '1' || process.env.DEBUG_ORDERS_CD_ROUTING === '1',
-      motivo: 'Auto realocação PMPL/CD após atualização da configuração PMPL',
-    })
-  } catch (routingError) {
-    console.error('Falha ao aplicar auto realocação após salvar configuração PMPL:', routingError)
-  }
+  await runBestEffortAutomaticOrdersRouting({
+    supabase,
+    gestorId: admin.id,
+    motivo: 'Auto realocacao PMPL/CD apos atualizacao da configuracao PMPL',
+    errorPrefix: 'Falha ao aplicar auto realocacao apos salvar configuracao PMPL:',
+  })
 
   try {
     const { error: realignError } = await supabase.rpc('realinhar_responsavel_pmpl_standalone')
     if (realignError && !isMissingRpcFunctionError(realignError, 'realinhar_responsavel_pmpl_standalone')) {
-      console.error('Falha ao realinhar PMPL standalone após salvar configuração PMPL:', realignError.message)
+      console.error('Falha ao realinhar PMPL standalone apos salvar configuracao PMPL:', realignError.message)
     }
   } catch (realignError) {
     console.error('Falha ao executar RPC de realinhamento PMPL standalone:', realignError)

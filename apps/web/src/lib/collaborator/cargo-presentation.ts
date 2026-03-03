@@ -1,12 +1,21 @@
+import {
+  isPmplExceptionOwnerName,
+  normalizeAdminIdentityName,
+  resolveFixedOwnerKeyByName,
+  resolveKnownOwnerCargoLabel,
+} from '@/lib/admin/admin-identity-catalog'
 import type { Especialidade } from '@/lib/types/database'
+
+const REFRIGERACAO_LABEL = 'REFRIGERA\u00c7\u00c3O'
+const SEM_RESPONSAVEL_LABEL = 'SEM RESPONS\u00c1VEL'
 
 export type CollaboratorCargoLabel =
   | 'PREVENTIVAS'
-  | 'REFRIGERAÇÃO'
+  | typeof REFRIGERACAO_LABEL
   | 'CD MANAUS'
   | 'CD TURISMO'
   | 'GERAL'
-  | 'SEM RESPONSÁVEL'
+  | typeof SEM_RESPONSAVEL_LABEL
 
 export type CollaboratorCargoIconKey =
   | 'wrench'
@@ -27,7 +36,7 @@ const CARGO_PRESENTATION_BY_LABEL: Record<CollaboratorCargoLabel, Omit<Collabora
     badgeClassName: 'bg-lime-100 text-lime-800',
     iconKey: 'wrench',
   },
-  'REFRIGERAÇÃO': {
+  [REFRIGERACAO_LABEL]: {
     badgeClassName: 'bg-cyan-100 text-cyan-800',
     iconKey: 'snowflake',
   },
@@ -43,13 +52,11 @@ const CARGO_PRESENTATION_BY_LABEL: Record<CollaboratorCargoLabel, Omit<Collabora
     badgeClassName: 'bg-gray-100 text-gray-800',
     iconKey: 'users',
   },
-  'SEM RESPONSÁVEL': {
+  [SEM_RESPONSAVEL_LABEL]: {
     badgeClassName: 'bg-orange-100 text-orange-800',
     iconKey: 'user-x',
   },
 }
-
-const GUSTAVO_OWNER_NAME = 'gustavo andrade'
 
 function normalizeEspecialidade(value: string | null | undefined): Especialidade | 'unknown' {
   if (
@@ -65,12 +72,22 @@ function normalizeEspecialidade(value: string | null | undefined): Especialidade
   return 'unknown'
 }
 
+function toCollaboratorCargoLabel(value: string | null): CollaboratorCargoLabel | null {
+  switch (value) {
+    case 'REFRIGERACAO':
+      return REFRIGERACAO_LABEL
+    case 'PREVENTIVAS':
+    case 'CD MANAUS':
+    case 'CD TURISMO':
+    case 'GERAL':
+      return value
+    default:
+      return null
+  }
+}
+
 export function normalizePersonName(value: string | null | undefined): string {
-  return (value ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim()
+  return normalizeAdminIdentityName(value)
 }
 
 export function isSyntheticUnassignedOwnerId(ownerId: string | null | undefined): boolean {
@@ -80,9 +97,7 @@ export function isSyntheticUnassignedOwnerId(ownerId: string | null | undefined)
 }
 
 export function isGustavoOwnerName(ownerName: string | null | undefined): boolean {
-  const normalizedName = normalizePersonName(ownerName)
-  if (!normalizedName) return false
-  return normalizedName === GUSTAVO_OWNER_NAME || normalizedName.includes('gustavo')
+  return isPmplExceptionOwnerName(ownerName)
 }
 
 function isUnassignedOwnerName(ownerName: string | null | undefined): boolean {
@@ -104,7 +119,7 @@ export function resolveCargoLabelFromEspecialidade(especialidade: string | null 
   const normalizedEspecialidade = normalizeEspecialidade(especialidade)
   switch (normalizedEspecialidade) {
     case 'refrigeracao':
-      return 'REFRIGERAÇÃO'
+      return REFRIGERACAO_LABEL
     case 'elevadores':
       return 'PREVENTIVAS'
     case 'cd_manaus':
@@ -132,18 +147,18 @@ export interface OwnerCargoInput {
 
 export function resolveCargoLabelFromOwner(owner: OwnerCargoInput): CollaboratorCargoLabel {
   if (isSyntheticUnassignedOwnerId(owner.administrador_id) || isUnassignedOwnerName(owner.nome)) {
-    return 'SEM RESPONSÁVEL'
+    return SEM_RESPONSAVEL_LABEL
   }
 
   const fromEspecialidade = resolveCargoLabelFromEspecialidade(owner.especialidade)
   if (fromEspecialidade !== 'GERAL') return fromEspecialidade
 
-  const normalizedName = normalizePersonName(owner.nome)
-  if (isGustavoOwnerName(normalizedName)) return 'PREVENTIVAS'
-  if (normalizedName.includes('adriano')) return 'CD TURISMO'
-  if (normalizedName.includes('brenda')) return 'CD MANAUS'
-  if (normalizedName.includes('suelem')) return 'REFRIGERAÇÃO'
-  if (normalizedName.includes('paula')) return 'GERAL'
+  const fixedOwnerKey = resolveFixedOwnerKeyByName(owner.nome)
+  if (fixedOwnerKey === 'brenda') return 'CD MANAUS'
+  if (fixedOwnerKey === 'adriano') return 'CD TURISMO'
+
+  const knownLabel = toCollaboratorCargoLabel(resolveKnownOwnerCargoLabel(owner.nome))
+  if (knownLabel) return knownLabel
 
   return 'GERAL'
 }

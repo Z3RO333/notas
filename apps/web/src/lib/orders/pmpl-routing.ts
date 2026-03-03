@@ -1,32 +1,21 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  FIXED_OWNER_EMAIL_BY_KEY,
+  FIXED_OWNER_LABEL_BY_KEY,
+  PMPL_FALLBACK_OWNER_EMAIL,
+  REFRIGERACAO_FALLBACK_GESTOR_EMAILS,
+  REFRIGERACAO_PRIMARY_OWNER_EMAIL,
+  isPmplFallbackOwnerEmail,
+  isRefrigeracaoFallbackGestorEmail,
+  normalizeAdminEmail,
+  resolveFixedOwnerKeyByUnit,
+} from '@/lib/admin/admin-identity-catalog'
 import type { UserRole } from '@/lib/types/database'
 
 const ROUTING_BATCH_SIZE = 1000
 const REASSIGN_CHUNK_SIZE = 200
 const PMPL_CONFIG_TYPE = 'PMPL'
 const REFRIGERACAO_ESPECIALIDADE = 'refrigeracao'
-const SUELEM_EMAIL = 'suelemsilva@bemol.com.br'
-const GUSTAVO_EMAIL = 'gustavoandrade@bemol.com.br'
-const REFRIGERACAO_FALLBACK_GESTOR_EMAILS = [
-  'walterrodrigues@bemol.com.br',
-  'danieldamasceno@bemol.com.br',
-] as const
-
-const FIXED_OWNER_EMAIL_BY_KEY = {
-  brenda: 'brendafonseca@bemol.com.br',
-  adriano: 'adrianobezerra@bemol.com.br',
-} as const
-
-export const FIXED_OWNER_LABEL_BY_KEY = {
-  brenda: 'Brenda Rodrigues',
-  adriano: 'Adriano Bezerra',
-} as const
-
-const UNIT_TO_FIXED_OWNER_KEY = {
-  'CD MANAUS': 'brenda',
-  'CD TARUMA': 'adriano',
-  'CD FARMA TARUMA': 'adriano',
-} as const
 
 type FixedOwnerKey = keyof typeof FIXED_OWNER_EMAIL_BY_KEY
 
@@ -181,10 +170,6 @@ function normalizeTextForMatch(value: string | null | undefined): string {
     .toUpperCase()
 }
 
-function normalizeEmail(value: string | null | undefined): string {
-  return (value ?? '').trim().toLowerCase()
-}
-
 function parseDateStart(value: string | null | undefined): Date | null {
   if (!value) return null
   const parsed = new Date(`${value}T00:00:00.000Z`)
@@ -213,8 +198,7 @@ function isPmplOwnerAssignable(admin: AdminRoutingRecord | null): admin is Admin
   if (!admin.ativo) return false
   if (isVacationActive(admin)) return false
 
-  const email = normalizeEmail(admin.email)
-  return admin.role === 'admin' || email === GUSTAVO_EMAIL
+  return admin.role === 'admin' || isPmplFallbackOwnerEmail(admin.email)
 }
 
 function isRefrigeracaoFallbackGestor(admin: AdminRoutingRecord | null): admin is AdminRoutingRecord {
@@ -223,8 +207,7 @@ function isRefrigeracaoFallbackGestor(admin: AdminRoutingRecord | null): admin i
   if (admin.role !== 'gestor') return false
   if (isVacationActive(admin)) return false
 
-  const email = normalizeEmail(admin.email)
-  return REFRIGERACAO_FALLBACK_GESTOR_EMAILS.some((candidate) => candidate === email)
+  return isRefrigeracaoFallbackGestorEmail(admin.email)
 }
 
 function asAdminRoutingRecord(row: Partial<AdminRoutingRecord>): AdminRoutingRecord | null {
@@ -252,12 +235,6 @@ function chunkArray<T>(items: T[], size: number): T[][] {
     chunks.push(items.slice(index, index + size))
   }
   return chunks
-}
-
-function resolveFixedOwnerKeyByUnit(value: string | null | undefined): FixedOwnerKey | null {
-  const normalized = normalizeUnit(value)
-  if (!normalized) return null
-  return UNIT_TO_FIXED_OWNER_KEY[normalized as keyof typeof UNIT_TO_FIXED_OWNER_KEY] ?? null
 }
 
 function isPmplType(value: string | null | undefined): boolean {
@@ -467,8 +444,8 @@ async function fetchAllRoutingRows(
 
 async function resolveFixedCdOwnersByKey(supabase: RoutingSupabase): Promise<Partial<Record<FixedOwnerKey, AdminRoutingRecord>>> {
   const fixedOwnerKeyByEmail: Record<string, FixedOwnerKey> = {
-    [normalizeEmail(FIXED_OWNER_EMAIL_BY_KEY.brenda)]: 'brenda',
-    [normalizeEmail(FIXED_OWNER_EMAIL_BY_KEY.adriano)]: 'adriano',
+    [normalizeAdminEmail(FIXED_OWNER_EMAIL_BY_KEY.brenda)]: 'brenda',
+    [normalizeAdminEmail(FIXED_OWNER_EMAIL_BY_KEY.adriano)]: 'adriano',
   }
 
   const data = await fetchAdministradoresWithVacationFallback(supabase, (columns) => (
@@ -482,7 +459,7 @@ async function resolveFixedCdOwnersByKey(supabase: RoutingSupabase): Promise<Par
 
   for (const record of data) {
 
-    const key = fixedOwnerKeyByEmail[normalizeEmail(record.email)]
+    const key = fixedOwnerKeyByEmail[normalizeAdminEmail(record.email)]
     if (!key) continue
     if (record.role !== 'admin') continue
     if (!isAssignable(record)) continue
@@ -542,7 +519,7 @@ export async function resolveCurrentPmplOwner(supabase: RoutingSupabase): Promis
   } else if (isPmplOwnerAssignable(configuredSubstituto)) {
     currentOwner = configuredSubstituto
   } else {
-    const gustavo = await fetchAdminByEmail(supabase, GUSTAVO_EMAIL)
+    const gustavo = await fetchAdminByEmail(supabase, PMPL_FALLBACK_OWNER_EMAIL)
     if (isPmplOwnerAssignable(gustavo)) {
       currentOwner = gustavo
       fallbackGestor = gustavo
@@ -587,7 +564,7 @@ export async function applyAutomaticOrdersRouting({
   }
 
   const pmplResolution = await resolveCurrentPmplOwner(supabase)
-  const suelemAdmin = await fetchAdminByEmail(supabase, SUELEM_EMAIL)
+  const suelemAdmin = await fetchAdminByEmail(supabase, REFRIGERACAO_PRIMARY_OWNER_EMAIL)
   const refrigeracaoFallbackGestor = await fetchFirstEligibleGestorByEmailPriority(
     supabase,
     REFRIGERACAO_FALLBACK_GESTOR_EMAILS

@@ -17,7 +17,6 @@ interface OrdersOwnerFullCardProps {
 export function OrdersOwnerFullCard({
   group,
   canReassign,
-  reassignTargets: _reassignTargets,
   selectedNotaIds,
   onToggleRowSelection,
 }: OrdersOwnerFullCardProps) {

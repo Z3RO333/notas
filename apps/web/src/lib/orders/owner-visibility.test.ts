@@ -60,16 +60,6 @@ const OWNER_SUMMARY_FIXTURE: OrdersOwnerSummary[] = [
   },
 ]
 
-function getFixedOwnerCardRank(ownerName: string): number | undefined {
-  if (ownerName === 'Brenda Rodrigues') return 0
-  if (ownerName === 'Adriano Bezerra') return 1
-  return undefined
-}
-
-function isGustavoOwnerName(ownerName: string): boolean {
-  return ownerName.toLowerCase().includes('gustavo')
-}
-
 function toOwnerKeys(rows: OrdersOwnerSummary[]): string[] {
   return rows.map((item) => toOrderOwnerKey(item.administrador_id))
 }
@@ -89,8 +79,6 @@ describe('owner-visibility', () => {
       currentAdminId: 'gestor-id',
       tipoOrdem: 'PMOS',
       responsavel: 'todos',
-      isGustavoOwnerName,
-      getFixedOwnerCardRank,
     })
 
     expect(toOwnerKeys(visible)).toEqual([
@@ -109,8 +97,6 @@ describe('owner-visibility', () => {
       currentAdminId: 'gestor-id',
       tipoOrdem: 'PMOS',
       responsavel: 'owner-carlos',
-      isGustavoOwnerName,
-      getFixedOwnerCardRank,
     })
 
     expect(toOwnerKeys(visible)).toEqual(['owner-carlos'])
@@ -124,8 +110,6 @@ describe('owner-visibility', () => {
       currentAdminId: 'gestor-id',
       tipoOrdem: 'PMOS',
       responsavel: 'owner-brenda',
-      isGustavoOwnerName,
-      getFixedOwnerCardRank,
     })
 
     expect(toOwnerKeys(visible)).toEqual(['owner-brenda'])
@@ -139,8 +123,6 @@ describe('owner-visibility', () => {
       currentAdminId: 'gestor-id',
       tipoOrdem: 'PMPL',
       responsavel: 'todos',
-      isGustavoOwnerName,
-      getFixedOwnerCardRank,
     })
 
     expect(toOwnerKeys(visible)).toEqual([
@@ -158,8 +140,6 @@ describe('owner-visibility', () => {
       currentAdminId: 'owner-carlos',
       tipoOrdem: 'PMOS',
       responsavel: 'todos',
-      isGustavoOwnerName,
-      getFixedOwnerCardRank,
     })
 
     expect(toOwnerKeys(visible)).toEqual(['owner-carlos'])

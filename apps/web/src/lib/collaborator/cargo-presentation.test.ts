@@ -20,7 +20,7 @@ describe('cargo-presentation', () => {
     expect(resolveCargoLabelFromEspecialidade(null)).toBe('GERAL')
   })
 
-  it('resolves SEM RESPONSÁVEL when owner is missing', () => {
+  it('resolves SEM RESPONSAVEL when owner is missing', () => {
     expect(resolveCargoLabelFromOwner({ administrador_id: null, nome: null })).toBe('SEM RESPONSÁVEL')
     expect(resolveCargoLabelFromOwner({ administrador_id: '__sem_atual__', nome: 'Sem responsável atual' })).toBe('SEM RESPONSÁVEL')
   })

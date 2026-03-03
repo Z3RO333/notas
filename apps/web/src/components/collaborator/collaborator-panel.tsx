@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { LayoutGrid, Rows3, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -178,12 +178,12 @@ export function CollaboratorPanel({
     }
   }, [])
 
-  function replaceQuery(updates: Record<string, string | number | null | undefined>) {
+  const replaceQuery = useCallback((updates: Record<string, string | number | null | undefined>) => {
     if (!syncWithUrl) return
     const next = updateSearchParams(new URLSearchParams(searchParams.toString()), updates)
     const queryString = next.toString()
     router.replace(queryString ? `${pathname}?${queryString}` : pathname)
-  }
+  }, [pathname, router, searchParams, syncWithUrl])
 
   useEffect(() => {
     if (!syncWithUrl) return
@@ -194,7 +194,7 @@ export function CollaboratorPanel({
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [search, initialSearch, syncWithUrl])
+  }, [search, initialSearch, syncWithUrl, replaceQuery])
 
   function handleViewModeChange(value: string) {
     const next = value === 'cards' ? 'cards' : 'list'
@@ -261,7 +261,7 @@ export function CollaboratorPanel({
     return map
   }, [collaborators])
 
-  function filterNotas(list: NotaPanelData[]) {
+  const filterNotas = useCallback((list: NotaPanelData[]) => {
     let filtered = list
 
     if (statusFilter === 'abertas') {
@@ -294,11 +294,11 @@ export function CollaboratorPanel({
     }
 
     return filtered
-  }
+  }, [activeNotesKpi, search, statusFilter, statusScope, unidadeFilter])
 
   const filteredNotasSemAtribuir = useMemo(
     () => filterNotas(notasSemAtribuirState),
-    [notasSemAtribuirState, statusFilter, unidadeFilter, activeNotesKpi, search]
+    [notasSemAtribuirState, filterNotas]
   )
 
   const visibleCollaborators = useMemo(() => {
@@ -334,6 +334,7 @@ export function CollaboratorPanel({
     unidadeFilter,
     activeNotesKpi,
     notasByAdmin,
+    filterNotas,
   ])
 
   function handleCardClick(id: string) {

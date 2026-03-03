@@ -1,38 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { CollaboratorPanel } from '@/components/collaborator/collaborator-panel'
-import { buildAgingCounts } from '@/lib/collaborator/metrics'
-import { resolveAvatarUrl } from '@/lib/collaborator/avatar-presentation'
+import { toCollaboratorData } from '@/lib/collaborator/to-collaborator-data'
 import type { CargaAdministrador, NotaPanelData } from '@/lib/types/database'
-import type { CollaboratorData } from '@/lib/types/collaborator'
 
 export const dynamic = 'force-dynamic'
 
 const NOTA_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, data_criacao_sap, created_at' as const
-
-function toCargaCollaboratorData(c: CargaAdministrador, notas: NotaPanelData[]): CollaboratorData {
-  const adminNotas = notas.filter((n) => n.administrador_id === c.id)
-  const aging = buildAgingCounts(adminNotas)
-
-  return {
-    id: c.id,
-    nome: c.nome,
-    ativo: c.ativo,
-    max_notas: c.max_notas,
-    avatar_url: resolveAvatarUrl({ name: c.nome, avatarUrl: c.avatar_url }),
-    especialidade: c.especialidade,
-    recebe_distribuicao: c.recebe_distribuicao,
-    em_ferias: c.em_ferias,
-    qtd_nova: c.qtd_nova,
-    qtd_em_andamento: c.qtd_em_andamento,
-    qtd_encaminhada: c.qtd_encaminhada,
-    qtd_novo: aging.qtd_novo,
-    qtd_1_dia: aging.qtd_1_dia,
-    qtd_2_mais: aging.qtd_2_mais,
-    qtd_abertas: c.qtd_abertas,
-    qtd_concluidas: c.qtd_concluidas,
-    qtd_acompanhamento_ordens: 0,
-  }
-}
 
 export default async function PessoasPage() {
   const supabase = await createClient()
@@ -70,7 +43,7 @@ export default async function PessoasPage() {
     return 0
   })
 
-  const collaborators = sorted.map((item) => toCargaCollaboratorData(item, notas))
+  const collaborators = sorted.map((item) => toCollaboratorData(item, notas, { qtdAcompanhamentoOrdens: 0 }))
 
   const totalAtivos = carga.filter((admin) => admin.ativo).length
   const recebendo = carga.filter((admin) => admin.ativo && admin.recebe_distribuicao && !admin.em_ferias).length

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, ClipboardCheck, Copy, LayoutGrid, Rows3 } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -200,11 +200,11 @@ export function OrdersOwnerPanel({
     window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode)
   }, [viewMode])
 
-  function replaceQuery(updates: Record<string, string | number | null | undefined>) {
+  const replaceQuery = useCallback((updates: Record<string, string | number | null | undefined>) => {
     const next = updateSearchParams(new URLSearchParams(searchParams.toString()), updates)
     const queryString = next.toString()
     router.replace(queryString ? `${pathname}?${queryString}` : pathname)
-  }
+  }, [pathname, router, searchParams])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -214,7 +214,7 @@ export function OrdersOwnerPanel({
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [searchInput, q])
+  }, [searchInput, q, replaceQuery])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -239,7 +239,7 @@ export function OrdersOwnerPanel({
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [rows])
+  }, [rows, router])
 
   const groups = useMemo(() => buildGroups(rows, ownerMode, avatarById), [rows, ownerMode, avatarById])
 

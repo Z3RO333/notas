@@ -83,7 +83,6 @@ export function OrderCompactCard({
   const notaNumero = (row.numero_nota ?? '').trim() || 'Sem nota'
   const ordemCodigo = row.ordem_codigo?.trim() ?? ''
   const hasOrderCode = Boolean(ordemCodigo)
-  const ordemText = hasOrderCode ? ordemCodigo : 'Sem ordem'
   const unidadeText = row.unidade?.trim() ? row.unidade : 'Sem unidade'
   const responsavelText = row.responsavel_atual_nome?.trim() ? row.responsavel_atual_nome : 'Sem responsável'
   const diasText = `Há ${row.dias_em_aberto} dia(s)`

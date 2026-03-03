@@ -1,8 +1,10 @@
 import 'server-only'
 
+import { isPmplFallbackOwnerEmail } from '@/lib/admin/admin-identity-catalog'
 import type { CurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { buildAgingCounts } from '@/lib/collaborator/metrics'
 import { isOpenStatus } from '@/lib/collaborator/aging'
+import { toCollaboratorData } from '@/lib/collaborator/to-collaborator-data'
 import { normalizeTextParam, readFirstParam } from '@/lib/grid/query'
 import {
   applyOperationalStateToNota,
@@ -22,7 +24,6 @@ const EMPTY_UUID = '00000000-0000-0000-0000-000000000000'
 const NOTA_OPERATIONAL_FIELDS = 'nota_id, numero_nota, status_operacional, em_geracao_por_admin_id, em_geracao_por_email, em_geracao_em, ultima_copia_em, ttl_minutos, numero_ordem_confirmada, confirmada_em, created_at, updated_at' as const
 const VALID_NOTES_KPI: NotesKpiFilter[] = ['notas', 'novas', 'um_dia', 'dois_mais']
 const OPEN_NOTES_STATUS_FILTERS = new Set(['abertas', 'nova', 'em_andamento', 'encaminhada_fornecedor'])
-const GUSTAVO_EMAIL = 'gustavoandrade@bemol.com.br'
 const OPERATIONAL_STATE_BATCH_SIZE = 500
 const OPERATIONAL_STATE_PARALLELISM = 4
 
@@ -66,31 +67,6 @@ function normalizeNotesPanelStatusFilter(value: string): 'abertas' | 'nova' | 'e
     return value as 'abertas' | 'nova' | 'em_andamento' | 'encaminhada_fornecedor'
   }
   return 'abertas'
-}
-
-function toCargaCollaboratorData(c: CargaAdministrador, notas: NotaPanelData[]): CollaboratorData {
-  const adminNotas = notas.filter((n) => n.administrador_id === c.id)
-  const aging = buildAgingCounts(adminNotas)
-
-  return {
-    id: c.id,
-    nome: c.nome,
-    ativo: c.ativo,
-    max_notas: c.max_notas,
-    avatar_url: c.avatar_url,
-    especialidade: c.especialidade,
-    recebe_distribuicao: c.recebe_distribuicao,
-    em_ferias: c.em_ferias,
-    qtd_nova: c.qtd_nova,
-    qtd_em_andamento: c.qtd_em_andamento,
-    qtd_encaminhada: c.qtd_encaminhada,
-    qtd_novo: aging.qtd_novo,
-    qtd_1_dia: aging.qtd_1_dia,
-    qtd_2_mais: aging.qtd_2_mais,
-    qtd_abertas: c.qtd_abertas,
-    qtd_concluidas: c.qtd_concluidas,
-    qtd_acompanhamento_ordens: c.qtd_ordens_ativas ?? 0,
-  }
 }
 
 function chunkArray<T>(items: T[], size: number): T[][] {
@@ -232,7 +208,7 @@ export async function getNotesPanelData(params: {
       || admin.em_ferias
       || admin.qtd_abertas > 0
       || notaAdminIds.has(admin.id)
-    ) && admin.email !== GUSTAVO_EMAIL
+    ) && !isPmplFallbackOwnerEmail(admin.email)
   })
 
   const collaborators = [...carga]
@@ -243,7 +219,7 @@ export async function getNotesPanelData(params: {
       if (!aOk && bOk) return 1
       return a.nome.localeCompare(b.nome, 'pt-BR')
     })
-    .map((item) => toCargaCollaboratorData(item, notasAtribuidas))
+    .map((item) => toCollaboratorData(item, notasAtribuidas))
 
   const baseOpenNotas = notasFiltradas.filter((nota) => isOpenStatus(nota.status))
   const aging = buildAgingCounts(baseOpenNotas)
