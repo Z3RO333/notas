@@ -414,8 +414,11 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       : ownerSummary
 
     // Agrupar rows carregados por responsável (para a lista de itens)
+    // Exclui concluídas/canceladas: o card conta apenas ordens ativas,
+    // e a lista deve refletir o mesmo conjunto.
     const rowsByOwner = new Map<string, OrdemNotaAcompanhamento[]>()
     for (const row of rows) {
+      if (row.status_ordem === 'concluida' || row.status_ordem === 'cancelada') continue
       const id = toOrderOwnerKey(row.responsavel_atual_id)
       const bucket = rowsByOwner.get(id) ?? []
       bucket.push(row)
