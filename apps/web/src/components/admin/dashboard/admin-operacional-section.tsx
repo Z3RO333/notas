@@ -181,9 +181,9 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Operacionais Ativos" value={kpis.total_operacionais} sub="com ordens no período" />
-        <KpiCard label="Ordens Atendidas" value={kpis.ordens_atendidas} sub="status concluída" />
-        <KpiCard label="Ordens em Aberto" value={kpis.ordens_em_aberto} sub="abertas + em tratativa" />
-        <KpiCard label="Lojas Atendidas" value={kpis.lojas_atendidas} sub="unidades com conclusão" />
+        <KpiCard label="Ordens Atendidas" value={kpis.ordens_atendidas} sub="status oficial: concluído" />
+        <KpiCard label="Ordens em Aberto" value={kpis.ordens_em_aberto} sub="status oficial: aberto" />
+        <KpiCard label="Lojas Atendidas" value={kpis.lojas_atendidas} sub="unidades com status oficial concluído" />
       </div>
 
       {/* Tabela + Serviços */}
