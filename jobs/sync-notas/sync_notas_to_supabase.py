@@ -11,14 +11,16 @@ Fluxo:
   6. Sincroniza o cockpit e registra observabilidade do ciclo
 """
 
-import subprocess
-subprocess.check_call(["pip", "install", "supabase"])
-
+# Imports stdlib primeiro (antes do pip install) para evitar NameError em ambientes
+# Databricks onde o subprocess.check_call pode resetar o kernel Python.
 import logging
 import re
+import subprocess
 from decimal import Decimal
 from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
+
+subprocess.check_call(["pip", "install", "supabase"])
 
 from pyspark.sql import SparkSession
 from supabase import Client, create_client
