@@ -2,6 +2,15 @@
 -- Ajusta metricas do painel Operacional para usar status_ordem_raw oficial.
 -- Escopo: somente RPCs do modulo /admin/operacional.
 
+-- Remove versões antigas de 2/3 parâmetros para evitar ambiguidade
+DROP FUNCTION IF EXISTS public.calcular_kpis_operacionais(TIMESTAMPTZ, TIMESTAMPTZ);
+DROP FUNCTION IF EXISTS public.calcular_produtividade_operacionais(TIMESTAMPTZ, TIMESTAMPTZ, INTEGER);
+DROP FUNCTION IF EXISTS public.calcular_servicos_mais_feitos(TIMESTAMPTZ, TIMESTAMPTZ, INTEGER);
+DROP FUNCTION IF EXISTS public.calcular_lojas_por_operacional(TIMESTAMPTZ, TIMESTAMPTZ);
+DROP FUNCTION IF EXISTS public.calcular_ordens_abertas_por_loja(TIMESTAMPTZ, TIMESTAMPTZ, INTEGER);
+DROP FUNCTION IF EXISTS public.calcular_evolucao_mensal_operacionais(TIMESTAMPTZ, TIMESTAMPTZ);
+DROP FUNCTION IF EXISTS public.calcular_produtividade_por_loja(TIMESTAMPTZ, TIMESTAMPTZ, INTEGER);
+
 CREATE OR REPLACE FUNCTION public.calcular_kpis_operacionais(
   p_data_inicio        TIMESTAMPTZ,
   p_data_fim           TIMESTAMPTZ,
