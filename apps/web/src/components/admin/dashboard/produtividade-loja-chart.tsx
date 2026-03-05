@@ -1,0 +1,79 @@
+'use client'
+
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import type { ProdutividadeLoja } from '@/lib/types/database'
+
+interface ProdutividadeLojaChartProps {
+  rows: ProdutividadeLoja[]
+  periodLabel: string
+}
+
+function getBarColor(pct: number): string {
+  if (pct >= 80) return '#16a34a'
+  if (pct >= 50) return '#f59e0b'
+  return '#ef4444'
+}
+
+export function ProdutividadeLojaChart({ rows, periodLabel }: ProdutividadeLojaChartProps) {
+  if (rows.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Produtividade por Loja</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Nenhum dado no período.</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const data = [...rows]
+    .sort((a, b) => a.pct_conclusao - b.pct_conclusao)
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">
+          Produtividade por Loja
+          <span className="ml-2 text-xs font-normal text-muted-foreground">
+            ({periodLabel}) — % conclusão
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="h-80">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            layout="vertical"
+            data={data}
+            margin={{ top: 4, right: 40, bottom: 4, left: 8 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+            <XAxis
+              type="number"
+              domain={[0, 100]}
+              tickFormatter={(v) => `${v}%`}
+              tick={{ fontSize: 11 }}
+            />
+            <YAxis type="category" dataKey="unidade" width={130} tick={{ fontSize: 11 }} />
+            <Tooltip
+              formatter={(value: number, _name: string, props) => {
+                const { atendidas, em_aberto, total_ordens } = props.payload as ProdutividadeLoja
+                return [
+                  `${value.toFixed(1)}% (${atendidas} de ${total_ordens} · ${em_aberto} em aberto)`,
+                  '% Conclusão',
+                ]
+              }}
+            />
+            <Bar dataKey="pct_conclusao" radius={[0, 4, 4, 0]}>
+              {data.map((entry, index) => (
+                <Cell key={index} fill={getBarColor(entry.pct_conclusao)} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  )
+}

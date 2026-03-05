@@ -664,3 +664,24 @@ export interface LojaPorOperacional {
   unidade: string
   qtd_atendidas: number
 }
+
+export interface OrdensAbertasLoja {
+  unidade: string
+  total_abertas: number
+}
+
+export interface EvolucaoMensalOperacional {
+  ano: number
+  mes: number
+  label: string
+  concluidas: number
+  em_aberto: number
+}
+
+export interface ProdutividadeLoja {
+  unidade: string
+  total_ordens: number
+  atendidas: number
+  em_aberto: number
+  pct_conclusao: number
+}

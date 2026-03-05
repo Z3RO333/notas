@@ -1,8 +1,20 @@
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { AdminDashboardPeriod } from '@/lib/dashboard/period'
-import type { OperacionalKpis, ProdutividadeOperacional, ServicoMaisFeito, LojaPorOperacional } from '@/lib/types/database'
+import type {
+  OperacionalKpis,
+  ProdutividadeOperacional,
+  ServicoMaisFeito,
+  LojaPorOperacional,
+  OrdensAbertasLoja,
+  EvolucaoMensalOperacional,
+  ProdutividadeLoja,
+} from '@/lib/types/database'
 import { ProdutividadeTable } from './produtividade-table'
+import { StatusBarChart } from './status-bar-chart'
+import { OrdensAbertasLojaChart } from './ordens-abertas-loja-chart'
+import { EvolucaoMensalOperacionalChart } from './evolucao-mensal-operacional-chart'
+import { ProdutividadeLojaChart } from './produtividade-loja-chart'
 
 interface AdminOperacionalSectionProps {
   period: AdminDashboardPeriod
@@ -69,7 +81,15 @@ function ServicosTopList({ rows, periodLabel }: { rows: ServicoMaisFeito[]; peri
 export async function AdminOperacionalSection({ period }: AdminOperacionalSectionProps) {
   const supabase = await createClient()
 
-  const [kpisResult, produtividadeResult, servicosResult, lojasResult] = await Promise.all([
+  const [
+    kpisResult,
+    produtividadeResult,
+    servicosResult,
+    lojasResult,
+    abertasLojaResult,
+    evolucaoResult,
+    produtividadeLojaResult,
+  ] = await Promise.all([
     supabase.rpc('calcular_kpis_operacionais', {
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
@@ -88,9 +108,31 @@ export async function AdminOperacionalSection({ period }: AdminOperacionalSectio
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
     }),
+    supabase.rpc('calcular_ordens_abertas_por_loja', {
+      p_data_inicio: period.startIso,
+      p_data_fim: period.endExclusiveIso,
+      p_limit: 15,
+    }),
+    supabase.rpc('calcular_evolucao_mensal_operacionais', {
+      p_data_inicio: period.startIso,
+      p_data_fim: period.endExclusiveIso,
+    }),
+    supabase.rpc('calcular_produtividade_por_loja', {
+      p_data_inicio: period.startIso,
+      p_data_fim: period.endExclusiveIso,
+      p_limit: 15,
+    }),
   ])
 
-  const firstError = [kpisResult.error, produtividadeResult.error, servicosResult.error, lojasResult.error].find(Boolean)
+  const firstError = [
+    kpisResult.error,
+    produtividadeResult.error,
+    servicosResult.error,
+    lojasResult.error,
+    abertasLojaResult.error,
+    evolucaoResult.error,
+    produtividadeLojaResult.error,
+  ].find(Boolean)
   if (firstError) throw firstError
 
   const kpisRaw = (kpisResult.data ?? [{}])[0] as Partial<OperacionalKpis>
@@ -102,6 +144,9 @@ export async function AdminOperacionalSection({ period }: AdminOperacionalSectio
   }
   const produtividade = (produtividadeResult.data ?? []) as ProdutividadeOperacional[]
   const servicos = (servicosResult.data ?? []) as ServicoMaisFeito[]
+  const abertasLoja = (abertasLojaResult.data ?? []) as OrdensAbertasLoja[]
+  const evolucao = (evolucaoResult.data ?? []) as EvolucaoMensalOperacional[]
+  const produtividadeLoja = (produtividadeLojaResult.data ?? []) as ProdutividadeLoja[]
 
   const lojasRaw = (lojasResult.data ?? []) as LojaPorOperacional[]
   const lojasMap: Record<string, LojaPorOperacional[]> = {}
@@ -111,7 +156,7 @@ export async function AdminOperacionalSection({ period }: AdminOperacionalSectio
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Operacional</h2>
@@ -124,6 +169,7 @@ export async function AdminOperacionalSection({ period }: AdminOperacionalSectio
         </span>
       </div>
 
+      {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Operacionais Ativos" value={kpis.total_operacionais} sub="com ordens no período" />
         <KpiCard label="Ordens Atendidas" value={kpis.ordens_atendidas} sub="status concluída" />
@@ -131,11 +177,20 @@ export async function AdminOperacionalSection({ period }: AdminOperacionalSectio
         <KpiCard label="Lojas Atendidas" value={kpis.lojas_atendidas} sub="unidades com conclusão" />
       </div>
 
+      {/* Tabela + Serviços */}
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <ProdutividadeTable rows={produtividade} lojasMap={lojasMap} periodLabel={period.periodLabel} />
         </div>
         <ServicosTopList rows={servicos} periodLabel={period.periodLabel} />
+      </div>
+
+      {/* Gráficos */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <StatusBarChart rows={produtividade} periodLabel={period.periodLabel} />
+        <OrdensAbertasLojaChart rows={abertasLoja} periodLabel={period.periodLabel} />
+        <EvolucaoMensalOperacionalChart rows={evolucao} periodLabel={period.periodLabel} />
+        <ProdutividadeLojaChart rows={produtividadeLoja} periodLabel={period.periodLabel} />
       </div>
     </section>
   )
