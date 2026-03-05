@@ -18,6 +18,7 @@ import { ProdutividadeLojaChart } from './produtividade-loja-chart'
 
 interface AdminOperacionalSectionProps {
   period: AdminDashboardPeriod
+  fornecedorCodigo?: string | null
 }
 
 function KpiCard({ label, value, sub }: { label: string; value: number; sub?: string }) {
@@ -78,8 +79,9 @@ function ServicosTopList({ rows, periodLabel }: { rows: ServicoMaisFeito[]; peri
   )
 }
 
-export async function AdminOperacionalSection({ period }: AdminOperacionalSectionProps) {
+export async function AdminOperacionalSection({ period, fornecedorCodigo }: AdminOperacionalSectionProps) {
   const supabase = await createClient()
+  const filtro = fornecedorCodigo ?? undefined
 
   const [
     kpisResult,
@@ -93,34 +95,41 @@ export async function AdminOperacionalSection({ period }: AdminOperacionalSectio
     supabase.rpc('calcular_kpis_operacionais', {
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
+      p_fornecedor_codigo: filtro,
     }),
     supabase.rpc('calcular_produtividade_operacionais', {
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
       p_limit: 50,
+      p_fornecedor_codigo: filtro,
     }),
     supabase.rpc('calcular_servicos_mais_feitos', {
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
       p_limit: 10,
+      p_fornecedor_codigo: filtro,
     }),
     supabase.rpc('calcular_lojas_por_operacional', {
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
+      p_fornecedor_codigo: filtro,
     }),
     supabase.rpc('calcular_ordens_abertas_por_loja', {
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
       p_limit: 15,
+      p_fornecedor_codigo: filtro,
     }),
     supabase.rpc('calcular_evolucao_mensal_operacionais', {
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
+      p_fornecedor_codigo: filtro,
     }),
     supabase.rpc('calcular_produtividade_por_loja', {
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
       p_limit: 15,
+      p_fornecedor_codigo: filtro,
     }),
   ])
 
