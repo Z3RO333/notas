@@ -631,3 +631,30 @@ export interface GestaoKpis {
   lojas_ativas: number
   servicos_unicos: number
 }
+
+// ============================================================
+// Operacional (Fornecedores)
+// ============================================================
+
+export interface OperacionalKpis {
+  total_operacionais: number
+  ordens_atendidas: number
+  ordens_em_aberto: number
+  lojas_atendidas: number
+}
+
+export interface ProdutividadeOperacional {
+  fornecedor_codigo: string
+  fornecedor_nome: string | null
+  total_ordens: number
+  atendidas: number
+  em_aberto: number
+  lojas_atendidas: number
+  pct_conclusao: number
+}
+
+export interface ServicoMaisFeito {
+  texto_breve: string
+  quantidade: number
+  pct_total: number
+}

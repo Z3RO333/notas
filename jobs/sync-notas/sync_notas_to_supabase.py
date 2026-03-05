@@ -97,6 +97,12 @@ NOTA_UPDATED_AT_COLUMNS_CANDIDATES = [
 
 PMPL_CENTRO_COLUMN = "CENTRO_LOCALIZACAO"
 PMPL_TIPO_ORDEM_COLUMN = "TIPO_ORDEM"
+# Coluna de código do fornecedor/operacional na tabela pmpl_pmos.
+# Confirmar nome exato no Databricks caso a coluna tenha nome diferente.
+PMPL_FORNECEDOR_CODIGO_COLUMN = "FORNECEDOR"
+# O nome do operacional NÃO existe na fonte pmpl_pmos — resolvido via lookup dim_operacionais no Supabase.
+# Coluna de texto breve da ordem na tabela pmpl_pmos (opcional, pode não existir).
+PMPL_TEXTO_BREVE_COLUMNS_CANDIDATES = ["TEXTO_BREVE", "TEXTO_ORDEM", "DESCRICAO_ORDEM"]
 ORDERS_DOCUMENT_ORDER_COLUMN = "ORDEM"
 ORDERS_DOCUMENT_TYPE_COLUMN = "TIPO_DOCUMENTO_VENDAS"
 ORDERS_MAINTENANCE_ORDER_COLUMN = "ORDEM"
@@ -1254,6 +1260,14 @@ def read_standalone_pmpl_orders(
         data_entrada = _extract_data_entrada(row_dict)
         tipo_ordem = _as_clean_text(row_dict.get(PMPL_TIPO_ORDEM_COLUMN)) or "PMPL"
         criado_por_sap_codigo = _as_clean_text(row_dict.get("CRIADOR_POR"))
+        fornecedor_codigo = _as_clean_text(row_dict.get(PMPL_FORNECEDOR_CODIGO_COLUMN))
+        # Nome resolvido via lookup dim_operacionais no Supabase (não existe na fonte).
+        # Tenta as colunas candidatas para texto breve
+        texto_breve = None
+        for col in PMPL_TEXTO_BREVE_COLUMNS_CANDIDATES:
+            texto_breve = _as_clean_text(row_dict.get(col))
+            if texto_breve:
+                break
         priority = STATUS_PRIORITY.get(status_raw, 0)
 
         current = best_by_order.get(ordem_codigo)
@@ -1265,6 +1279,8 @@ def read_standalone_pmpl_orders(
                 "data_entrada": data_entrada or (current.get("data_entrada") if current else None),
                 "tipo_ordem": tipo_ordem,
                 "criado_por_sap_codigo": criado_por_sap_codigo or (current.get("criado_por_sap_codigo") if current else None),
+                "fornecedor_codigo": fornecedor_codigo or (current.get("fornecedor_codigo") if current else None),
+                "texto_breve": texto_breve or (current.get("texto_breve") if current else None),
                 "priority": priority,
             }
         else:
@@ -1272,6 +1288,10 @@ def read_standalone_pmpl_orders(
                 current["data_entrada"] = data_entrada
             if current.get("criado_por_sap_codigo") is None and criado_por_sap_codigo is not None:
                 current["criado_por_sap_codigo"] = criado_por_sap_codigo
+            if current.get("fornecedor_codigo") is None and fornecedor_codigo is not None:
+                current["fornecedor_codigo"] = fornecedor_codigo
+            if current.get("texto_breve") is None and texto_breve is not None:
+                current["texto_breve"] = texto_breve
 
     orders = [
         {
@@ -1281,6 +1301,8 @@ def read_standalone_pmpl_orders(
             "data_entrada": v.get("data_entrada"),
             "tipo_ordem": v.get("tipo_ordem") or "PMPL",
             "criado_por_sap_codigo": v.get("criado_por_sap_codigo"),
+            "fornecedor_codigo": v.get("fornecedor_codigo"),
+            "texto_breve": v.get("texto_breve"),
         }
         for v in best_by_order.values()
     ]

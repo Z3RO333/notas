@@ -8,6 +8,7 @@ import { AdminNotesSectionSkeleton } from '@/components/admin/dashboard/admin-no
 import { AdminOrdersSectionSkeleton } from '@/components/admin/dashboard/admin-orders-section-skeleton'
 import { AdminPmosSection } from '@/components/admin/dashboard/admin-pmos-section'
 import { AdminPmplSection } from '@/components/admin/dashboard/admin-pmpl-section'
+import { AdminOperacionalSection } from '@/components/admin/dashboard/admin-operacional-section'
 import { DistributeButton } from '@/components/dashboard/distribute-button'
 import { DashboardHeaderActions } from '@/components/dashboard/dashboard-header-actions'
 import { RealtimeListener } from '@/components/notas/realtime-listener'
@@ -72,6 +73,10 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
 
       <Suspense fallback={<AdminOrdersSectionSkeleton title="Acompanhamento PMPL" />}>
         <AdminPmplSection period={period} reassignTargets={reassignTargets} />
+      </Suspense>
+
+      <Suspense fallback={<AdminOrdersSectionSkeleton title="Operacional" />}>
+        <AdminOperacionalSection period={period} />
       </Suspense>
 
       <RealtimeListener />
