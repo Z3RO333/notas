@@ -658,3 +658,9 @@ export interface ServicoMaisFeito {
   quantidade: number
   pct_total: number
 }
+
+export interface LojaPorOperacional {
+  fornecedor_codigo: string
+  unidade: string
+  qtd_atendidas: number
+}

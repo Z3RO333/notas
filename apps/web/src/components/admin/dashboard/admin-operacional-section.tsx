@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { AdminDashboardPeriod } from '@/lib/dashboard/period'
-import type { OperacionalKpis, ProdutividadeOperacional, ServicoMaisFeito } from '@/lib/types/database'
+import type { OperacionalKpis, ProdutividadeOperacional, ServicoMaisFeito, LojaPorOperacional } from '@/lib/types/database'
+import { ProdutividadeTable } from './produtividade-table'
 
 interface AdminOperacionalSectionProps {
   period: AdminDashboardPeriod
@@ -14,83 +15,6 @@ function KpiCard({ label, value, sub }: { label: string; value: number; sub?: st
         <p className="text-sm text-muted-foreground">{label}</p>
         <p className="mt-1 text-3xl font-bold tabular-nums">{value.toLocaleString('pt-BR')}</p>
         {sub && <p className="mt-1 text-xs text-muted-foreground">{sub}</p>}
-      </CardContent>
-    </Card>
-  )
-}
-
-function ProdutividadeTable({ rows, periodLabel }: { rows: ProdutividadeOperacional[]; periodLabel: string }) {
-  if (rows.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Produtividade por Colaborador</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">Nenhum operacional encontrado no período.</p>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">
-          Produtividade por Colaborador
-          <span className="ml-2 text-xs font-normal text-muted-foreground">({periodLabel})</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/40 text-xs text-muted-foreground">
-                <th className="px-4 py-2 text-left font-medium">Operacional</th>
-                <th className="px-4 py-2 text-right font-medium">Atendidas</th>
-                <th className="px-4 py-2 text-right font-medium">Em Aberto</th>
-                <th className="px-4 py-2 text-right font-medium">Lojas</th>
-                <th className="px-4 py-2 text-right font-medium">% Conclusão</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.fornecedor_codigo} className="border-b last:border-0 hover:bg-muted/20">
-                  <td className="px-4 py-2.5">
-                    <span className="font-medium">{row.fornecedor_nome || row.fornecedor_codigo}</span>
-                    {row.fornecedor_nome && (
-                      <span className="ml-1.5 text-xs text-muted-foreground">({row.fornecedor_codigo})</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">
-                    <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                      {row.atendidas.toLocaleString('pt-BR')}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">
-                    <span className={row.em_aberto > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}>
-                      {row.em_aberto.toLocaleString('pt-BR')}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">{row.lojas_atendidas.toLocaleString('pt-BR')}</td>
-                  <td className="px-4 py-2.5 text-right">
-                    <span
-                      className={
-                        row.pct_conclusao >= 80
-                          ? 'font-medium text-emerald-600 dark:text-emerald-400'
-                          : row.pct_conclusao >= 50
-                            ? 'font-medium text-amber-600 dark:text-amber-400'
-                            : 'font-medium text-red-600 dark:text-red-400'
-                      }
-                    >
-                      {row.pct_conclusao.toFixed(1)}%
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </CardContent>
     </Card>
   )
@@ -145,7 +69,7 @@ function ServicosTopList({ rows, periodLabel }: { rows: ServicoMaisFeito[]; peri
 export async function AdminOperacionalSection({ period }: AdminOperacionalSectionProps) {
   const supabase = await createClient()
 
-  const [kpisResult, produtividadeResult, servicosResult] = await Promise.all([
+  const [kpisResult, produtividadeResult, servicosResult, lojasResult] = await Promise.all([
     supabase.rpc('calcular_kpis_operacionais', {
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
@@ -160,9 +84,13 @@ export async function AdminOperacionalSection({ period }: AdminOperacionalSectio
       p_data_fim: period.endExclusiveIso,
       p_limit: 10,
     }),
+    supabase.rpc('calcular_lojas_por_operacional', {
+      p_data_inicio: period.startIso,
+      p_data_fim: period.endExclusiveIso,
+    }),
   ])
 
-  const firstError = [kpisResult.error, produtividadeResult.error, servicosResult.error].find(Boolean)
+  const firstError = [kpisResult.error, produtividadeResult.error, servicosResult.error, lojasResult.error].find(Boolean)
   if (firstError) throw firstError
 
   const kpisRaw = (kpisResult.data ?? [{}])[0] as Partial<OperacionalKpis>
@@ -174,6 +102,13 @@ export async function AdminOperacionalSection({ period }: AdminOperacionalSectio
   }
   const produtividade = (produtividadeResult.data ?? []) as ProdutividadeOperacional[]
   const servicos = (servicosResult.data ?? []) as ServicoMaisFeito[]
+
+  const lojasRaw = (lojasResult.data ?? []) as LojaPorOperacional[]
+  const lojasMap: Record<string, LojaPorOperacional[]> = {}
+  for (const loja of lojasRaw) {
+    if (!lojasMap[loja.fornecedor_codigo]) lojasMap[loja.fornecedor_codigo] = []
+    lojasMap[loja.fornecedor_codigo].push(loja)
+  }
 
   return (
     <section className="space-y-4">
@@ -198,7 +133,7 @@ export async function AdminOperacionalSection({ period }: AdminOperacionalSectio
 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2">
-          <ProdutividadeTable rows={produtividade} periodLabel={period.periodLabel} />
+          <ProdutividadeTable rows={produtividade} lojasMap={lojasMap} periodLabel={period.periodLabel} />
         </div>
         <ServicosTopList rows={servicos} periodLabel={period.periodLabel} />
       </div>
