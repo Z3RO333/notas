@@ -159,8 +159,7 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
     lojas_atendidas: Number(kpisRaw.lojas_atendidas ?? 0),
   }
   const kpisGlobalRaw = (kpisGlobalResult.data ?? [{}])[0] as Partial<OperacionalKpis>
-  const totalOrdensGeralPeriodo =
-    Number(kpisGlobalRaw.ordens_atendidas ?? 0) + Number(kpisGlobalRaw.ordens_em_aberto ?? 0)
+  const totalAtendidasGeralPeriodo = Number(kpisGlobalRaw.ordens_atendidas ?? 0)
 
   const produtividade = (produtividadeResult.data ?? []) as ProdutividadeOperacional[]
   const servicos = (servicosResult.data ?? []) as ServicoMaisFeito[]
@@ -204,7 +203,7 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
             rows={produtividade}
             lojasMap={lojasMap}
             periodLabel={period.periodLabel}
-            totalOrdensGeralPeriodo={totalOrdensGeralPeriodo}
+            totalAtendidasGeralPeriodo={totalAtendidasGeralPeriodo}
           />
         </div>
         <ServicosTopList rows={servicos} periodLabel={period.periodLabel} />
