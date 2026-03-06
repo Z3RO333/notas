@@ -359,15 +359,16 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       : ownerSummary
 
     // Agrupar rows carregados por responsável (para a lista de itens)
+    // Exclui concluídas/canceladas — o card exibe apenas ordens ativas.
     const rowsByOwner = new Map<string, OrdemNotaAcompanhamento[]>()
     for (const row of rows) {
+      if (row.status_ordem === 'concluida' || row.status_ordem === 'cancelada') continue
       const id = toOrderOwnerKey(row.responsavel_atual_id)
       const bucket = rowsByOwner.get(id) ?? []
       bucket.push(row)
       rowsByOwner.set(id, bucket)
     }
 
-    // Usar ownerSummary para os totais corretos (dados completos da API)
     return scopedOwnerSummary
       .filter((s) => {
         if (s.total <= 0) return false
@@ -376,18 +377,22 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         if (!selectedOwnerKey) return true
         return toOrderOwnerKey(s.administrador_id) === selectedOwnerKey
       })
-      .map((s) => ({
-        id: toOrderOwnerKey(s.administrador_id),
-        nome: s.nome,
-        avatar_url: s.avatar_url,
-        especialidade: s.administrador_id ? (ownerEspecialidadeById.get(s.administrador_id) ?? null) : null,
-        rows: rowsByOwner.get(toOrderOwnerKey(s.administrador_id)) ?? [],
-        recentes: s.recentes,
-        atencao: s.atencao,
-        atrasadas: s.atrasadas,
-        abertas: s.abertas,
-        total: s.total,
-      }))
+      .map((s) => {
+        const ownerRows = rowsByOwner.get(toOrderOwnerKey(s.administrador_id)) ?? []
+        return {
+          id: toOrderOwnerKey(s.administrador_id),
+          nome: s.nome,
+          avatar_url: s.avatar_url,
+          especialidade: s.administrador_id ? (ownerEspecialidadeById.get(s.administrador_id) ?? null) : null,
+          rows: ownerRows,
+          recentes: s.recentes,
+          atencao: s.atencao,
+          atrasadas: s.atrasadas,
+          abertas: s.abertas,
+          total: ownerRows.length,
+        }
+      })
+      .filter((g) => g.total > 0)
       .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, 'pt-BR'))
   }, [
     rows,
