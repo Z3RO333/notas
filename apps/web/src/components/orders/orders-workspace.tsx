@@ -359,11 +359,8 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       : ownerSummary
 
     // Agrupar rows carregados por responsável (para a lista de itens)
-    // Exclui concluídas/canceladas: o card conta apenas ordens ativas,
-    // e a lista deve refletir o mesmo conjunto.
     const rowsByOwner = new Map<string, OrdemNotaAcompanhamento[]>()
     for (const row of rows) {
-      if (row.status_ordem === 'concluida' || row.status_ordem === 'cancelada') continue
       const id = toOrderOwnerKey(row.responsavel_atual_id)
       const bucket = rowsByOwner.get(id) ?? []
       bucket.push(row)
@@ -1204,12 +1201,18 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         )}
       </div>
 
-      {loadingMore && (
-        <div className="flex items-center justify-center text-sm text-muted-foreground">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Carregando mais ordens...
-        </div>
-      )}
+      <div className="flex items-center justify-center text-xs text-muted-foreground py-1">
+        {loadingMore ? (
+          <>
+            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+            Carregando mais ordens... ({rows.length} carregadas)
+          </>
+        ) : nextCursor ? (
+          <span>{rows.length} ordens carregadas — role para ver mais</span>
+        ) : rows.length > 0 ? (
+          <span>{rows.length} ordens carregadas</span>
+        ) : null}
+      </div>
 
       <OrdersDetailDrawer
         open={Boolean(detailRow)}
