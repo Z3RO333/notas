@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import { AdminPeriodFilter } from '@/components/dashboard/admin-period-filter'
 import { AlertsPanel } from '@/components/dashboard/alerts-panel'
 import { KpiStrip } from '@/components/dashboard/kpi-strip'
 import { ProductivityRanking } from '@/components/dashboard/productivity-ranking'
@@ -103,20 +102,6 @@ export async function AdminNotesSection({ period }: AdminNotesSectionProps) {
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">Notas</h2>
-          <p className="text-sm text-muted-foreground">
-            Entrada, conversão e fechamento no período selecionado.
-          </p>
-        </div>
-        <AdminPeriodFilter
-          periodPreset={period.preset}
-          startDate={period.startDate}
-          endDate={period.endDate}
-        />
-      </div>
-
       <KpiStrip items={kpis} />
 
       <div className="grid gap-6 xl:grid-cols-3">

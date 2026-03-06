@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { AdminDashboardRoutingBootstrap } from '@/components/admin/admin-dashboard-routing-bootstrap'
 import { AdminNotesSection } from '@/components/admin/dashboard/admin-notes-section'
+import { AdminPeriodFilter } from '@/components/dashboard/admin-period-filter'
 import { AdminNotesSectionSkeleton } from '@/components/admin/dashboard/admin-notes-section-skeleton'
 import { AdminOrdersSectionSkeleton } from '@/components/admin/dashboard/admin-orders-section-skeleton'
 import { AdminPmosSection } from '@/components/admin/dashboard/admin-pmos-section'
@@ -61,6 +62,20 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
       </div>
 
       <AdminDashboardRoutingBootstrap />
+
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Notas</h2>
+          <p className="text-sm text-muted-foreground">
+            Entrada, conversão e fechamento no período selecionado.
+          </p>
+        </div>
+        <AdminPeriodFilter
+          periodPreset={period.preset}
+          startDate={period.startDate}
+          endDate={period.endDate}
+        />
+      </div>
 
       <Suspense fallback={<AdminNotesSectionSkeleton />}>
         <AdminNotesSection period={period} />
