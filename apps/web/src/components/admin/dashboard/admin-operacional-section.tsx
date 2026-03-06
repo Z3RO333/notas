@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { OperacionalDashboardPeriod } from '@/lib/dashboard/operacional-period'
 import type {
   OperacionalKpis,
+  OrdersWorkspaceKpis,
   ProdutividadeOperacional,
   ServicoMaisFeito,
   LojaPorOperacional,
@@ -85,7 +86,7 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
 
   const [
     kpisResult,
-    kpisGlobalResult,
+    kpisOrdensGlobalPmosResult,
     produtividadeResult,
     servicosResult,
     lojasResult,
@@ -98,10 +99,19 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
       p_data_fim: period.endExclusiveIso,
       p_fornecedor_codigo: filtro,
     }),
-    supabase.rpc('calcular_kpis_operacionais', {
-      p_data_inicio: period.startIso,
-      p_data_fim: period.endExclusiveIso,
-      p_fornecedor_codigo: null,
+    supabase.rpc('calcular_kpis_ordens_operacional', {
+      p_period_mode: 'range',
+      p_year: null,
+      p_month: null,
+      p_start_iso: period.startIso,
+      p_end_exclusive_iso: period.endExclusiveIso,
+      p_status: null,
+      p_unidade: null,
+      p_responsavel: null,
+      p_prioridade: null,
+      p_q: null,
+      p_admin_scope: null,
+      p_tipo_ordem: 'PMOS',
     }),
     supabase.rpc('calcular_produtividade_operacionais', {
       p_data_inicio: period.startIso,
@@ -141,7 +151,7 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
 
   const firstError = [
     kpisResult.error,
-    kpisGlobalResult.error,
+    kpisOrdensGlobalPmosResult.error,
     produtividadeResult.error,
     servicosResult.error,
     lojasResult.error,
@@ -158,8 +168,16 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
     ordens_em_aberto: Number(kpisRaw.ordens_em_aberto ?? 0),
     lojas_atendidas: Number(kpisRaw.lojas_atendidas ?? 0),
   }
-  const kpisGlobalRaw = (kpisGlobalResult.data ?? [{}])[0] as Partial<OperacionalKpis>
-  const totalAtendidasGeralPeriodo = Number(kpisGlobalRaw.ordens_atendidas ?? 0)
+  const kpisOrdensGlobalPmosData = kpisOrdensGlobalPmosResult.data
+  const kpisOrdensGlobalPmosRaw = (
+    Array.isArray(kpisOrdensGlobalPmosData)
+      ? (kpisOrdensGlobalPmosData[0] ?? {})
+      : (kpisOrdensGlobalPmosData ?? {})
+  ) as Partial<OrdersWorkspaceKpis>
+  const totalOrdensGeralPmosPeriodo = Number(kpisOrdensGlobalPmosRaw.total ?? 0)
+  const pctAtendidasVsGeral = totalOrdensGeralPmosPeriodo > 0
+    ? (kpis.ordens_atendidas / totalOrdensGeralPmosPeriodo) * 100
+    : 0
 
   const produtividade = (produtividadeResult.data ?? []) as ProdutividadeOperacional[]
   const servicos = (servicosResult.data ?? []) as ServicoMaisFeito[]
@@ -191,7 +209,11 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Operacionais Ativos" value={kpis.total_operacionais} />
-        <KpiCard label="Ordens Atendidas" value={kpis.ordens_atendidas} />
+        <KpiCard
+          label="Ordens Atendidas"
+          value={kpis.ordens_atendidas}
+          sub={`${pctAtendidasVsGeral.toFixed(1)}% do percentual geral (${totalOrdensGeralPmosPeriodo.toLocaleString('pt-BR')} ordens PMOS)`}
+        />
         <KpiCard label="Ordens em Aberto" value={kpis.ordens_em_aberto} />
         <KpiCard label="Lojas Atendidas" value={kpis.lojas_atendidas} />
       </div>
@@ -203,7 +225,7 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
             rows={produtividade}
             lojasMap={lojasMap}
             periodLabel={period.periodLabel}
-            totalAtendidasGeralPeriodo={totalAtendidasGeralPeriodo}
+            totalOrdensGeralPmosPeriodo={totalOrdensGeralPmosPeriodo}
           />
         </div>
         <ServicosTopList rows={servicos} periodLabel={period.periodLabel} />

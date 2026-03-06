@@ -9,14 +9,14 @@ interface ProdutividadeTableProps {
   rows: ProdutividadeOperacional[]
   lojasMap: Record<string, LojaPorOperacional[]>
   periodLabel: string
-  totalAtendidasGeralPeriodo: number
+  totalOrdensGeralPmosPeriodo: number
 }
 
 export function ProdutividadeTable({
   rows,
   lojasMap,
   periodLabel,
-  totalAtendidasGeralPeriodo,
+  totalOrdensGeralPmosPeriodo,
 }: ProdutividadeTableProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
@@ -64,7 +64,7 @@ export function ProdutividadeTable({
                 <th className="px-4 py-2 text-right font-medium">Em Aberto</th>
                 <th className="px-4 py-2 text-right font-medium">Lojas</th>
                 <th className="px-4 py-2 text-right font-medium">% Conclusao</th>
-                <th className="px-4 py-2 text-right font-medium">% das Atendidas Gerais</th>
+                <th className="px-4 py-2 text-right font-medium">% do Total Geral (PMOS)</th>
               </tr>
             </thead>
             <tbody>
@@ -72,8 +72,8 @@ export function ProdutividadeTable({
                 const lojas = lojasMap[row.fornecedor_codigo] ?? []
                 const isExpanded = expanded.has(row.fornecedor_codigo)
                 const hasLojas = lojas.length > 0
-                const pctTotalGeral = totalAtendidasGeralPeriodo > 0
-                  ? (row.atendidas / totalAtendidasGeralPeriodo) * 100
+                const pctTotalGeral = totalOrdensGeralPmosPeriodo > 0
+                  ? (row.atendidas / totalOrdensGeralPmosPeriodo) * 100
                   : 0
 
                 return (
