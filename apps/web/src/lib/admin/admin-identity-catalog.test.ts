@@ -33,6 +33,10 @@ describe('admin-identity-catalog', () => {
   it('normalizes names and resolves fixed owners', () => {
     expect(normalizeAdminIdentityName('  Br\u00eanda Rodr\u00edgues  ')).toBe('brenda rodrigues')
     expect(resolveFixedOwnerKeyByUnit('cd manaus')).toBe('brenda')
+    expect(resolveFixedOwnerKeyByUnit('CD MANAUS NORTE')).toBe('brenda')
+    expect(resolveFixedOwnerKeyByUnit('CD TARUMÃ')).toBe('adriano')
+    expect(resolveFixedOwnerKeyByUnit('CD TURISMO')).toBe('adriano')
+    expect(resolveFixedOwnerKeyByUnit('LOJA CENTRAL')).toBe(null)
     expect(resolveFixedOwnerLabelByName('Adriano')).toBe('Adriano Bezerra')
     expect(resolveFixedOwnerAvatarByName('Brenda Rodrigues')).toBe('/avatars/BRENDA.jpg')
     expect(getFixedOwnerCardRank('Brenda Rodrigues')).toBe(0)

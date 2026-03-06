@@ -76,7 +76,15 @@ export function isRefrigeracaoFallbackGestorEmail(value: string | null | undefin
 export function resolveFixedOwnerKeyByUnit(value: string | null | undefined): FixedOwnerKey | null {
   const normalizedUnit = (value ?? '').trim().toUpperCase()
   if (!normalizedUnit) return null
-  return UNIT_TO_FIXED_OWNER_KEY[normalizedUnit] ?? null
+
+  const exactMatch = UNIT_TO_FIXED_OWNER_KEY[normalizedUnit]
+  if (exactMatch) return exactMatch
+
+  const deaccentedUnit = normalizedUnit.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  if (deaccentedUnit.includes('MANAUS')) return 'brenda'
+  if (deaccentedUnit.includes('TARUMA') || deaccentedUnit.includes('TURISMO')) return 'adriano'
+
+  return null
 }
 
 export function resolveFixedOwnerKeyByName(value: string | null | undefined): FixedOwnerKey | null {
