@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { OrderReassignDialog } from '@/components/orders/order-reassign-dialog'
 import { OrdersBulkReassignBar } from '@/components/orders/orders-bulk-reassign-bar'
 import {
-  getOrderStatusClass,
-  getOrderStatusLabel,
+  getRawStatusClass,
+  getRawStatusLabel,
   getSemaforoClass,
   getSemaforoLabel,
   sortOrdersByPriority,
@@ -148,8 +148,8 @@ export function OrdersAgingTable({
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${getSemaforoClass(row.semaforo_atraso)}`}>
                         {getSemaforoLabel(row.semaforo_atraso)}
                       </span>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${getOrderStatusClass(row.status_ordem)}`}>
-                        {getOrderStatusLabel(row.status_ordem)}
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${getRawStatusClass(row.status_ordem_raw)}`}>
+                        {getRawStatusLabel(row.status_ordem_raw)}
                       </span>
                       {canShowReassign && (
                         <OrderReassignDialog

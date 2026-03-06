@@ -50,7 +50,7 @@ export function OrdersOwnerAccordion({
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-base">{group.nome}</h3>
               <span className="text-sm text-muted-foreground">
-                {group.total} ordens
+                {group.total} ordens ativas
                 {group.atrasadas > 0 && (
                   <span className="ml-1 text-red-600">({group.atrasadas} atrasada{group.atrasadas !== 1 ? 's' : ''})</span>
                 )}

@@ -24,6 +24,7 @@ import { GridToolbar } from '@/components/data-grid/grid-toolbar'
 import { buildSortParam, updateSearchParams } from '@/lib/grid/query'
 import { buildCopyPayload, copyToClipboard } from '@/lib/orders/copy'
 import { buscarCodigosAvaliadas } from '@/lib/actions/nota-actions'
+import { isRawOrderActive, isRawOrderEmAberto } from '@/lib/orders/status-raw'
 import type {
   GridSortState,
   OrderOwnerGroup,
@@ -109,6 +110,7 @@ function buildGroups(
   const map = new Map<string, OrderOwnerGroup>()
 
   for (const row of rows) {
+    if (!isRawOrderActive(row.status_ordem_raw)) continue
     const owner = resolveOwner(row, mode)
     const current = map.get(owner.id) ?? {
       id: owner.id,
@@ -127,7 +129,7 @@ function buildGroups(
     if (row.semaforo_atraso === 'verde') current.recentes += 1
     if (row.semaforo_atraso === 'amarelo') current.atencao += 1
     if (row.semaforo_atraso === 'vermelho') current.atrasadas += 1
-    if (row.status_ordem === 'aberta') current.abertas += 1
+    if (isRawOrderEmAberto(row.status_ordem_raw)) current.abertas += 1
 
     map.set(owner.id, current)
   }

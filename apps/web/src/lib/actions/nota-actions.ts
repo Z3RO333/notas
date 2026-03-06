@@ -106,7 +106,7 @@ export async function buscarCodigosAvaliadas(params: {
   adminId?: string | null
 }): Promise<string[]> {
   const supabase = await createClient()
-  const AVALIADAS_RAW_STATUS = 'EXECUCAO_SATISFATORIO'
+  const AVALIADAS_RAW_STATUS = ['EXECUCAO_SATISFATORIO', 'EXECUCAO_SATISFATORIA']
   const PAGE_SIZE = 1000
 
   const codes: string[] = []
@@ -116,7 +116,7 @@ export async function buscarCodigosAvaliadas(params: {
       .select('ordem_codigo')
       .gte('ordem_detectada_em', params.startIso)
       .lt('ordem_detectada_em', params.endExclusiveIso)
-      .eq('status_ordem_raw', AVALIADAS_RAW_STATUS)
+      .in('status_ordem_raw', AVALIADAS_RAW_STATUS)
       .order('ordem_codigo', { ascending: true })
       .range(offset, offset + PAGE_SIZE - 1)
 

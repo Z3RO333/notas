@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { deriveOrdemStatusFromRaw } from '@/lib/orders/status-raw'
 import type {
   ImportBatchResult,
   ImportMode,
@@ -12,30 +13,10 @@ import type {
 // Status normalization
 // ---------------------------------------------------------------------------
 
-const STATUS_MAP: Record<string, 'aberta' | 'em_tratativa' | 'concluida' | 'cancelada'> = {
-  aberta: 'aberta',
-  aberto: 'aberta',
-  nova: 'aberta',
-  novo: 'aberta',
-  em_tratativa: 'em_tratativa',
-  em_andamento: 'em_tratativa',
-  em_execucao: 'em_tratativa',
-  concluida: 'concluida',
-  concluido: 'concluida',
-  fechado: 'concluida',
-  fechada: 'concluida',
-  encerrada: 'concluida',
-  encerrado: 'concluida',
-  cancelada: 'cancelada',
-  cancelado: 'cancelada',
-}
-
 function normalizeStatus(
   raw: string | null,
 ): 'aberta' | 'em_tratativa' | 'concluida' | 'cancelada' | 'desconhecido' {
-  if (!raw) return 'desconhecido'
-  const key = raw.trim().toLowerCase().replace(/[\s-]/g, '_')
-  return STATUS_MAP[key] ?? 'desconhecido'
+  return deriveOrdemStatusFromRaw(raw)
 }
 
 // ---------------------------------------------------------------------------

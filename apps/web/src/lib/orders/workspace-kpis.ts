@@ -1,7 +1,15 @@
 import type { OrdemNotaAcompanhamento, OrdersWorkspaceKpis } from '@/lib/types/database'
-
-const RAW_STATUS_EM_AVALIACAO = new Set(['AVALIACAO_DA_EXECUCAO', 'AVALIACAO_DE_EXECUCAO'])
-const RAW_STATUS_AVALIADA = new Set(['EXECUCAO_SATISFATORIO', 'EXECUCAO_SATISFATORIA'])
+import {
+  isRawOrderActive,
+  isRawOrderAvaliada,
+  isRawOrderCancelada,
+  isRawOrderConcluida,
+  isRawOrderEmAberto,
+  isRawOrderEmAvaliacao,
+  isRawOrderEmExecucao,
+  isRawOrderNaoRealizada,
+  normalizeRawStatus,
+} from '@/lib/orders/status-raw'
 
 export function emptyWorkspaceKpis(): OrdersWorkspaceKpis {
   return {
@@ -18,46 +26,41 @@ export function emptyWorkspaceKpis(): OrdersWorkspaceKpis {
 }
 
 export function normalizeWorkspaceRawStatus(value: string | null | undefined): string {
-  return (value ?? '').trim().toUpperCase()
+  return normalizeRawStatus(value)
 }
 
 export function isWorkspaceOrderEmAvaliacao(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
-  return RAW_STATUS_EM_AVALIACAO.has(normalizeWorkspaceRawStatus(row.status_ordem_raw))
+  return isRawOrderEmAvaliacao(row.status_ordem_raw)
 }
 
 export function isWorkspaceOrderAvaliada(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
-  return RAW_STATUS_AVALIADA.has(normalizeWorkspaceRawStatus(row.status_ordem_raw))
+  return isRawOrderAvaliada(row.status_ordem_raw)
 }
 
 export function isWorkspaceOrderNaoRealizada(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
-  return normalizeWorkspaceRawStatus(row.status_ordem_raw) === 'EXECUCAO_NAO_REALIZADA'
+  return isRawOrderNaoRealizada(row.status_ordem_raw)
 }
 
 export function isWorkspaceOrderEmProcessamento(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
-  return normalizeWorkspaceRawStatus(row.status_ordem_raw) === 'EM_PROCESSAMENTO'
+  return normalizeRawStatus(row.status_ordem_raw) === 'EM_PROCESSAMENTO'
 }
 
 export function isWorkspaceOrderEmExecucao(
-  row: Pick<OrdemNotaAcompanhamento, 'status_ordem' | 'status_ordem_raw'>
+  row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>
 ): boolean {
-  const inExecutionStatus = row.status_ordem === 'em_tratativa' || row.status_ordem === 'desconhecido'
-  if (!inExecutionStatus) return false
-  return !isWorkspaceOrderEmAvaliacao(row) && !isWorkspaceOrderNaoRealizada(row) && !isWorkspaceOrderEmProcessamento(row)
+  return isRawOrderEmExecucao(row.status_ordem_raw)
 }
 
 export function recomputeWorkspaceKpisFromRows(rows: OrdemNotaAcompanhamento[]): OrdersWorkspaceKpis {
   return {
     total: rows.length,
-    abertas: rows.filter((row) => row.status_ordem === 'aberta').length,
+    abertas: rows.filter((row) => isRawOrderEmAberto(row.status_ordem_raw)).length,
     em_tratativa: rows.filter((row) => isWorkspaceOrderEmExecucao(row)).length,
     em_avaliacao: rows.filter((row) => isWorkspaceOrderEmAvaliacao(row)).length,
-    concluidas: rows.filter((row) => row.status_ordem === 'concluida' && !isWorkspaceOrderAvaliada(row)).length,
-    canceladas: rows.filter((row) => row.status_ordem === 'cancelada').length,
+    concluidas: rows.filter((row) => isRawOrderConcluida(row.status_ordem_raw)).length,
+    canceladas: rows.filter((row) => isRawOrderCancelada(row.status_ordem_raw)).length,
     avaliadas: rows.filter((row) => isWorkspaceOrderAvaliada(row)).length,
-    atrasadas: rows.filter((row) => (
-      row.semaforo_atraso === 'vermelho'
-      && (row.status_ordem === 'aberta' || isWorkspaceOrderEmExecucao(row) || isWorkspaceOrderEmAvaliacao(row))
-    )).length,
-    sem_responsavel: rows.filter((row) => !row.responsavel_atual_id).length,
+    atrasadas: rows.filter((row) => row.semaforo_atraso === 'vermelho' && isRawOrderActive(row.status_ordem_raw)).length,
+    sem_responsavel: rows.filter((row) => !row.responsavel_atual_id && isRawOrderActive(row.status_ordem_raw)).length,
   }
 }

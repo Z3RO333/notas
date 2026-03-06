@@ -54,7 +54,7 @@ export function OrdersOwnerMiniCard({
       summary={(
         <>
           <span className="text-base font-bold text-foreground">{group.total}</span>
-          <span> de ordens</span>
+          <span> de ordens ativas</span>
         </>
       )}
     />

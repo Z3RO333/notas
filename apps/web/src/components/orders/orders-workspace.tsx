@@ -44,6 +44,7 @@ import {
 import { shouldHideOwnerOutsidePmpl } from '@/lib/admin/admin-identity-catalog'
 import { resolveCargoPresentationFromOwner } from '@/lib/collaborator/cargo-presentation'
 import { copyToClipboard } from '@/lib/orders/copy'
+import { isRawOrderActive } from '@/lib/orders/status-raw'
 import { buildWorkspaceParams } from '@/lib/orders/workspace-query'
 import type {
   Especialidade,
@@ -362,7 +363,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     // Exclui concluídas/canceladas — o card exibe apenas ordens ativas.
     const rowsByOwner = new Map<string, OrdemNotaAcompanhamento[]>()
     for (const row of rows) {
-      if (row.status_ordem === 'concluida' || row.status_ordem === 'cancelada') continue
+      if (!isRawOrderActive(row.status_ordem_raw)) continue
       const id = toOrderOwnerKey(row.responsavel_atual_id)
       const bucket = rowsByOwner.get(id) ?? []
       bucket.push(row)
@@ -389,7 +390,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           atencao: s.atencao,
           atrasadas: s.atrasadas,
           abertas: s.abertas,
-          total: ownerRows.length,
+          total: s.total,
         }
       })
       .filter((g) => g.total > 0)
@@ -936,7 +937,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                   summary={(
                     <>
                       <span className="text-base font-bold text-foreground">{formatNumber(owner.total)}</span>
-                      <span> de ordens</span>
+                      <span> de ordens ativas</span>
                     </>
                   )}
                 />

@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { getRawStatusLabel } from '@/lib/orders/status-raw'
 
 function toCsvCell(value: unknown): string {
   const text = value === null || value === undefined ? '' : String(value)
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabase
     .from('vw_ordens_notas_painel')
-    .select('numero_nota, ordem_codigo, unidade, responsavel_atual_nome, administrador_nome, status_ordem, dias_em_aberto, ordem_detectada_em')
+    .select('numero_nota, ordem_codigo, unidade, responsavel_atual_nome, administrador_nome, status_ordem_raw, dias_em_aberto, ordem_detectada_em')
     .gte('ordem_detectada_em', cutoff.toISOString())
     .order('ordem_detectada_em', { ascending: false })
     .limit(10000)
@@ -73,7 +74,8 @@ export async function GET(request: Request) {
     'unidade',
     'responsavel_atual',
     'responsavel_origem',
-    'status_ordem',
+    'status_ordem_raw',
+    'status_label',
     'dias_em_aberto',
     'ordem_detectada_em',
   ]
@@ -87,7 +89,8 @@ export async function GET(request: Request) {
       toCsvCell(row.unidade),
       toCsvCell(row.responsavel_atual_nome),
       toCsvCell(row.administrador_nome),
-      toCsvCell(row.status_ordem),
+      toCsvCell(row.status_ordem_raw),
+      toCsvCell(getRawStatusLabel(row.status_ordem_raw)),
       toCsvCell(row.dias_em_aberto),
       toCsvCell(row.ordem_detectada_em),
     ].join(','))

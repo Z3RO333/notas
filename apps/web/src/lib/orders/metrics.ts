@@ -10,12 +10,20 @@ import type {
   OrdemStatusAcomp,
   OrdersWorkspaceKpis,
 } from '@/lib/types/database'
-
-const FINAL_STATUS = new Set<OrdemStatusAcomp>(['concluida', 'cancelada'])
-// Valores canônicos + variantes que a fonte SAP/PMPL pode gravar
-const RAW_EM_AVALIACAO = new Set(['AVALIACAO_DA_EXECUCAO', 'AVALIACAO_DE_EXECUCAO'])
-const RAW_AVALIADA = new Set(['EXECUCAO_SATISFATORIO', 'EXECUCAO_SATISFATORIA'])
-const RAW_NAO_REALIZADA = 'EXECUCAO_NAO_REALIZADA'
+import {
+  getRawStatusClass as getRawStatusClassFromRaw,
+  getRawStatusLabel as getRawStatusLabelFromRaw,
+  isRawOrderActive,
+  isRawOrderAvaliada,
+  isRawOrderCancelada,
+  isRawOrderConcluida,
+  isRawOrderEmAberto,
+  isRawOrderEmAvaliacao,
+  isRawOrderEmExecucao,
+  isRawOrderFinal,
+  isRawOrderNaoRealizada,
+  normalizeRawStatus,
+} from '@/lib/orders/status-raw'
 
 function toWindow(value: unknown): number {
   const parsed = Number(value)
@@ -30,16 +38,13 @@ export function parseOrderWindow(value: unknown): OrderWindowFilter {
 
 export function buildOrderKpis(rows: OrdemNotaAcompanhamento[]): OrdemNotaKpis {
   const total = rows.length
-  const abertas = rows.filter((row) => row.status_ordem === 'aberta').length
+  const abertas = rows.filter((row) => isRawOrderEmAberto(row.status_ordem_raw)).length
   const emTratativa = rows.filter((row) => isEmExecucao(row)).length
   const emAvaliacao = rows.filter((row) => isEmAvaliacao(row)).length
-  const concluidas = rows.filter((row) => row.status_ordem === 'concluida' && !isAvaliada(row)).length
-  const canceladas = rows.filter((row) => row.status_ordem === 'cancelada').length
+  const concluidas = rows.filter((row) => isRawOrderConcluida(row.status_ordem_raw)).length
+  const canceladas = rows.filter((row) => isRawOrderCancelada(row.status_ordem_raw)).length
   const avaliadas = rows.filter((row) => isAvaliada(row)).length
-  const antigas = rows.filter((row) => (
-    row.semaforo_atraso === 'vermelho'
-    && (row.status_ordem === 'aberta' || isEmExecucao(row) || isEmAvaliacao(row))
-  )).length
+  const antigas = rows.filter((row) => row.semaforo_atraso === 'vermelho' && isRawOrderActive(row.status_ordem_raw)).length
 
   const tempos = rows
     .map((row) => row.dias_para_gerar_ordem)
@@ -76,30 +81,24 @@ export function buildOrderKpisFromRpc(rpc: OrdemKpisRpc): OrdemNotaKpis {
   }
 }
 
-function normalizeRawStatus(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): string {
-  return (row.status_ordem_raw ?? '').trim().toUpperCase()
-}
-
 export function isEmAvaliacao(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
-  return RAW_EM_AVALIACAO.has(normalizeRawStatus(row))
+  return isRawOrderEmAvaliacao(row.status_ordem_raw)
 }
 
 export function isAvaliada(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
-  return RAW_AVALIADA.has(normalizeRawStatus(row))
+  return isRawOrderAvaliada(row.status_ordem_raw)
 }
 
 export function isNaoRealizada(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
-  return normalizeRawStatus(row) === RAW_NAO_REALIZADA
+  return isRawOrderNaoRealizada(row.status_ordem_raw)
 }
 
 export function isEmProcessamento(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
-  return normalizeRawStatus(row) === 'EM_PROCESSAMENTO'
+  return normalizeRawStatus(row.status_ordem_raw) === 'EM_PROCESSAMENTO'
 }
 
-function isEmExecucao(row: Pick<OrdemNotaAcompanhamento, 'status_ordem' | 'status_ordem_raw'>): boolean {
-  const inExecutionStatus = row.status_ordem === 'em_tratativa' || row.status_ordem === 'desconhecido'
-  if (!inExecutionStatus) return false
-  return !isEmAvaliacao(row) && !isNaoRealizada(row) && !isEmProcessamento(row)
+function isEmExecucao(row: Pick<OrdemNotaAcompanhamento, 'status_ordem_raw'>): boolean {
+  return isRawOrderEmExecucao(row.status_ordem_raw)
 }
 
 export function getOrdersCriticalityLevel(total: number, criticalCount: number): CriticalityLevel {
@@ -124,16 +123,11 @@ export function getOrdersKpiValue(kpis: OrdemNotaKpis, key: OrdersKpiFilter): nu
 
 export function matchOrdersKpi(row: OrdemNotaAcompanhamento, key: OrdersKpiFilter): boolean {
   if (key === 'em_execucao') return isEmExecucao(row)
-  if (key === 'em_aberto') return row.status_ordem === 'aberta' || isEmProcessamento(row)
+  if (key === 'em_aberto') return isRawOrderEmAberto(row.status_ordem_raw)
   if (key === 'em_avaliacao') return isEmAvaliacao(row)
   if (key === 'avaliadas') return isAvaliada(row)
-  if (key === 'atrasadas') {
-    return row.semaforo_atraso === 'vermelho'
-      && (row.status_ordem === 'aberta' || isEmExecucao(row) || isEmAvaliacao(row))
-  }
-  if (key === 'concluidas') {
-    return (row.status_ordem === 'concluida' && !isAvaliada(row)) || row.status_ordem === 'cancelada'
-  }
+  if (key === 'atrasadas') return row.semaforo_atraso === 'vermelho' && isRawOrderActive(row.status_ordem_raw)
+  if (key === 'concluidas') return isRawOrderConcluida(row.status_ordem_raw) || isRawOrderCancelada(row.status_ordem_raw)
   return true
 }
 
@@ -156,11 +150,11 @@ export function buildOrderRankingAdmin(rows: OrdemNotaAcompanhamento[]): OrdemNo
     }
 
     current.qtd_ordens_30d += 1
-    if (row.status_ordem === 'aberta') current.qtd_abertas_30d += 1
-    if (row.status_ordem === 'em_tratativa') current.qtd_em_tratativa_30d += 1
-    if (row.status_ordem === 'concluida') current.qtd_concluidas_30d += 1
-    if (row.status_ordem === 'cancelada') current.qtd_canceladas_30d += 1
-    if (row.semaforo_atraso === 'vermelho') current.qtd_antigas_7d_30d += 1
+    if (isRawOrderEmAberto(row.status_ordem_raw)) current.qtd_abertas_30d += 1
+    if (isRawOrderEmExecucao(row.status_ordem_raw)) current.qtd_em_tratativa_30d += 1
+    if (isRawOrderConcluida(row.status_ordem_raw)) current.qtd_concluidas_30d += 1
+    if (isRawOrderCancelada(row.status_ordem_raw)) current.qtd_canceladas_30d += 1
+    if (row.semaforo_atraso === 'vermelho' && isRawOrderActive(row.status_ordem_raw)) current.qtd_antigas_7d_30d += 1
 
     grouped.set(row.administrador_id, current)
   }
@@ -200,9 +194,9 @@ export function buildOrderRankingUnidade(rows: OrdemNotaAcompanhamento[]): Ordem
     }
 
     current.qtd_ordens_30d += 1
-    if (row.status_ordem === 'aberta') current.qtd_abertas_30d += 1
-    if (row.status_ordem === 'em_tratativa') current.qtd_em_tratativa_30d += 1
-    if (row.semaforo_atraso === 'vermelho') current.qtd_antigas_7d_30d += 1
+    if (isRawOrderEmAberto(row.status_ordem_raw)) current.qtd_abertas_30d += 1
+    if (isRawOrderEmExecucao(row.status_ordem_raw)) current.qtd_em_tratativa_30d += 1
+    if (row.semaforo_atraso === 'vermelho' && isRawOrderActive(row.status_ordem_raw)) current.qtd_antigas_7d_30d += 1
 
     grouped.set(unidade, current)
   }
@@ -240,8 +234,8 @@ export function sortOrdersByPriority(rows: OrdemNotaAcompanhamento[]): OrdemNota
       return scoreBySemaforo[b.semaforo_atraso] - scoreBySemaforo[a.semaforo_atraso]
     }
 
-    const aOpen = FINAL_STATUS.has(a.status_ordem) ? 0 : 1
-    const bOpen = FINAL_STATUS.has(b.status_ordem) ? 0 : 1
+    const aOpen = isRawOrderFinal(a.status_ordem_raw) ? 0 : 1
+    const bOpen = isRawOrderFinal(b.status_ordem_raw) ? 0 : 1
     if (aOpen !== bOpen) return bOpen - aOpen
 
     const aDate = Date.parse(a.ordem_detectada_em)
@@ -285,90 +279,23 @@ export function getSemaforoLabel(semaforo: OrdemNotaAcompanhamento['semaforo_atr
 }
 
 export function getRawStatusLabel(raw: string | null | undefined): string {
-  const key = (raw ?? '').trim().toUpperCase()
-  switch (key) {
-    case 'ABERTO':
-    case 'ABERTA':
-      return 'Aberta'
-    case 'EM_EXECUCAO':
-      return 'Em execução'
-    case 'EQUIPAMENTO_EM_CONSERTO':
-      return 'Equipamento em conserto'
-    case 'EXECUCAO_NAO_REALIZADA':
-      return 'Não realizada'
-    case 'EM_PROCESSAMENTO':
-      return 'Em processamento'
-    case 'AGUARDANDO_APROVACAO':
-      return 'Aguardando aprovação'
-    case 'AGUARDANDO_MATERIAL':
-      return 'Aguardando material'
-    case 'AGUARDANDO_LIBERACAO':
-      return 'Aguardando liberação'
-    case 'AVALIACAO_DA_EXECUCAO':
-    case 'AVALIACAO_DE_EXECUCAO':
-      return 'Em avaliação'
-    case 'EXECUCAO_SATISFATORIO':
-    case 'EXECUCAO_SATISFATORIA':
-      return 'Avaliada'
-    case 'AGUARDANDO_FATURAMENTO_NF':
-      return 'Aguardando NF'
-    case 'CONCLUIDO':
-    case 'CONCLUIDA':
-      return 'Concluída'
-    case 'CANCELADO':
-    case 'CANCELADA':
-      return 'Cancelada'
-    default:
-      return key.length > 0 ? key : 'Desconhecido'
-  }
+  return getRawStatusLabelFromRaw(raw)
 }
 
 export function getRawStatusClass(raw: string | null | undefined): string {
-  const key = (raw ?? '').trim().toUpperCase()
-  switch (key) {
-    case 'ABERTO':
-    case 'ABERTA':
-      return 'bg-sky-100 text-sky-700'
-    case 'EM_EXECUCAO':
-      return 'bg-indigo-100 text-indigo-700'
-    case 'EQUIPAMENTO_EM_CONSERTO':
-      return 'bg-orange-100 text-orange-700'
-    case 'EXECUCAO_NAO_REALIZADA':
-      return 'bg-red-100 text-red-700'
-    case 'EM_PROCESSAMENTO':
-    case 'AGUARDANDO_APROVACAO':
-    case 'AGUARDANDO_MATERIAL':
-    case 'AGUARDANDO_LIBERACAO':
-      return 'bg-amber-100 text-amber-700'
-    case 'AVALIACAO_DA_EXECUCAO':
-    case 'AVALIACAO_DE_EXECUCAO':
-      return 'bg-violet-100 text-violet-700'
-    case 'EXECUCAO_SATISFATORIO':
-    case 'EXECUCAO_SATISFATORIA':
-      return 'bg-emerald-100 text-emerald-700'
-    case 'AGUARDANDO_FATURAMENTO_NF':
-      return 'bg-teal-100 text-teal-700'
-    case 'CONCLUIDO':
-    case 'CONCLUIDA':
-      return 'bg-emerald-100 text-emerald-700'
-    case 'CANCELADO':
-    case 'CANCELADA':
-      return 'bg-slate-100 text-slate-600'
-    default:
-      return 'bg-zinc-100 text-zinc-600'
-  }
+  return getRawStatusClassFromRaw(raw)
 }
 
 export function workspaceKpisToOrdemNotaKpis(kpis: OrdersWorkspaceKpis): OrdemNotaKpis {
   return {
-    total_ordens_30d:             kpis.total,
-    qtd_abertas_30d:              kpis.abertas,
-    qtd_em_tratativa_30d:         kpis.em_tratativa,
-    qtd_em_avaliacao_30d:         kpis.em_avaliacao,
-    qtd_concluidas_30d:           kpis.concluidas,
-    qtd_canceladas_30d:           kpis.canceladas,
-    qtd_avaliadas_30d:            kpis.avaliadas,
-    qtd_antigas_7d_30d:           kpis.atrasadas,
+    total_ordens_30d: kpis.total,
+    qtd_abertas_30d: kpis.abertas,
+    qtd_em_tratativa_30d: kpis.em_tratativa,
+    qtd_em_avaliacao_30d: kpis.em_avaliacao,
+    qtd_concluidas_30d: kpis.concluidas,
+    qtd_canceladas_30d: kpis.canceladas,
+    qtd_avaliadas_30d: kpis.avaliadas,
+    qtd_antigas_7d_30d: kpis.atrasadas,
     tempo_medio_geracao_dias_30d: null,
   }
 }
