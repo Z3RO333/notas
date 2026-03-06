@@ -58,7 +58,7 @@ export function OrdersKpiStrip({
     {
       id: 'em_aberto',
       kpi: 'em_aberto' as const,
-      label: 'Em processamento',
+      label: 'Em aberto',
       value: fmt(getOrdersKpiValue(kpis, 'em_aberto')),
       helper: '',
       icon: BarChart3,

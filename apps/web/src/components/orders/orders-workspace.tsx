@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/select'
 import {
   getOrdersCriticalityLevel,
-  getOrderStatusLabel,
+  getRawStatusLabel,
   getSemaforoLabel,
   workspaceKpisToOrdemNotaKpis,
 } from '@/lib/orders/metrics'
@@ -209,7 +209,7 @@ function exportOrdersToXlsx(rows: OrdemNotaAcompanhamento[]) {
   const data = rows.map((row) => ({
     'Ordem': row.ordem_codigo,
     'Nota': row.numero_nota,
-    'Status': getOrderStatusLabel(row.status_ordem),
+    'Status': getRawStatusLabel(row.status_ordem_raw),
     'Status RAW': row.status_ordem_raw ?? '',
     'Centro': row.centro ?? '',
     'Unidade': row.unidade ?? '',
@@ -838,7 +838,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
       {hasListScopeFilters && (
         <p className="text-xs text-muted-foreground">
-          Os KPIs acima mostram o total canonico do periodo e do tipo de ordem selecionado. Os filtros abaixo afetam a carteira, a listagem e a distribuicao por colaborador.
+          Os KPIs acima mostram o total canônico do período e do tipo de ordem selecionado. Os filtros abaixo afetam a carteira, a listagem e a distribuição por colaborador.
         </p>
       )}
 

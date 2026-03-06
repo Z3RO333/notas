@@ -284,6 +284,81 @@ export function getSemaforoLabel(semaforo: OrdemNotaAcompanhamento['semaforo_atr
   return 'Neutro'
 }
 
+export function getRawStatusLabel(raw: string | null | undefined): string {
+  const key = (raw ?? '').trim().toUpperCase()
+  switch (key) {
+    case 'ABERTO':
+    case 'ABERTA':
+      return 'Aberta'
+    case 'EM_EXECUCAO':
+      return 'Em execução'
+    case 'EQUIPAMENTO_EM_CONSERTO':
+      return 'Equipamento em conserto'
+    case 'EXECUCAO_NAO_REALIZADA':
+      return 'Não realizada'
+    case 'EM_PROCESSAMENTO':
+      return 'Em processamento'
+    case 'AGUARDANDO_APROVACAO':
+      return 'Aguardando aprovação'
+    case 'AGUARDANDO_MATERIAL':
+      return 'Aguardando material'
+    case 'AGUARDANDO_LIBERACAO':
+      return 'Aguardando liberação'
+    case 'AVALIACAO_DA_EXECUCAO':
+    case 'AVALIACAO_DE_EXECUCAO':
+      return 'Em avaliação'
+    case 'EXECUCAO_SATISFATORIO':
+    case 'EXECUCAO_SATISFATORIA':
+      return 'Avaliada'
+    case 'AGUARDANDO_FATURAMENTO_NF':
+      return 'Aguardando NF'
+    case 'CONCLUIDO':
+    case 'CONCLUIDA':
+      return 'Concluída'
+    case 'CANCELADO':
+    case 'CANCELADA':
+      return 'Cancelada'
+    default:
+      return key.length > 0 ? key : 'Desconhecido'
+  }
+}
+
+export function getRawStatusClass(raw: string | null | undefined): string {
+  const key = (raw ?? '').trim().toUpperCase()
+  switch (key) {
+    case 'ABERTO':
+    case 'ABERTA':
+      return 'bg-sky-100 text-sky-700'
+    case 'EM_EXECUCAO':
+      return 'bg-indigo-100 text-indigo-700'
+    case 'EQUIPAMENTO_EM_CONSERTO':
+      return 'bg-orange-100 text-orange-700'
+    case 'EXECUCAO_NAO_REALIZADA':
+      return 'bg-red-100 text-red-700'
+    case 'EM_PROCESSAMENTO':
+    case 'AGUARDANDO_APROVACAO':
+    case 'AGUARDANDO_MATERIAL':
+    case 'AGUARDANDO_LIBERACAO':
+      return 'bg-amber-100 text-amber-700'
+    case 'AVALIACAO_DA_EXECUCAO':
+    case 'AVALIACAO_DE_EXECUCAO':
+      return 'bg-violet-100 text-violet-700'
+    case 'EXECUCAO_SATISFATORIO':
+    case 'EXECUCAO_SATISFATORIA':
+      return 'bg-emerald-100 text-emerald-700'
+    case 'AGUARDANDO_FATURAMENTO_NF':
+      return 'bg-teal-100 text-teal-700'
+    case 'CONCLUIDO':
+    case 'CONCLUIDA':
+      return 'bg-emerald-100 text-emerald-700'
+    case 'CANCELADO':
+    case 'CANCELADA':
+      return 'bg-slate-100 text-slate-600'
+    default:
+      return 'bg-zinc-100 text-zinc-600'
+  }
+}
+
 export function workspaceKpisToOrdemNotaKpis(kpis: OrdersWorkspaceKpis): OrdemNotaKpis {
   return {
     total_ordens_30d:             kpis.total,

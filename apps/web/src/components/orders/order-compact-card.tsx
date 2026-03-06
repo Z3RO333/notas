@@ -85,7 +85,7 @@ export function OrderCompactCard({
   const hasOrderCode = Boolean(ordemCodigo)
   const unidadeText = row.unidade?.trim() ? row.unidade : 'Sem unidade'
   const responsavelText = row.responsavel_atual_nome?.trim() ? row.responsavel_atual_nome : 'Sem responsável'
-  const diasText = `Há ${row.dias_em_aberto} dia(s)`
+  const diasText = row.dias_em_aberto === 1 ? 'Há 1 dia' : `Há ${row.dias_em_aberto} dias`
   const dataText = row.ordem_detectada_em
     ? format(new Date(row.ordem_detectada_em), 'dd/MM/yyyy')
     : null

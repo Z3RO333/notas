@@ -432,7 +432,7 @@ export function OrdersOwnerPanel({
         />
 
         <GridFilters
-          label="Ordenacao"
+          label="Ordenação"
           value={buildSortParam(sort)}
           onChange={(value) => replaceQuery({ sort: value, page: 1 })}
           options={[

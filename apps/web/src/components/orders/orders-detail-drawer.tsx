@@ -7,8 +7,8 @@ import { DrawerDetalhes } from '@/components/shared/drawer-detalhes'
 import { Button } from '@/components/ui/button'
 import { OrderReassignDialog } from '@/components/orders/order-reassign-dialog'
 import {
-  getOrderStatusClass,
-  getOrderStatusLabel,
+  getRawStatusClass,
+  getRawStatusLabel,
   getSemaforoClass,
   getSemaforoLabel,
 } from '@/lib/orders/metrics'
@@ -57,7 +57,11 @@ export function OrdersDetailDrawer({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      setData(null)
+      setError(null)
+      return
+    }
     const safeOrdemId = ordemId?.trim() || null
     const safeNotaId = normalizeNoteId(notaId)
     if (!safeOrdemId && !safeNotaId) return
@@ -126,8 +130,8 @@ export function OrdersDetailDrawer({
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-lg border p-3">
               <p className="text-xs text-muted-foreground">Status</p>
-              <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${getOrderStatusClass(current.status_ordem)}`}>
-                {getOrderStatusLabel(current.status_ordem)}
+              <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${getRawStatusClass(current.status_ordem_raw)}`}>
+                {getRawStatusLabel(current.status_ordem_raw)}
               </span>
             </div>
 
