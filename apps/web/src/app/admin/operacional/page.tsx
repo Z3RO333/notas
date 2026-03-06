@@ -4,7 +4,11 @@ import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { createClient } from '@/lib/supabase/server'
 import { AdminOperacionalSection } from '@/components/admin/dashboard/admin-operacional-section'
 import { AdminOrdersSectionSkeleton } from '@/components/admin/dashboard/admin-orders-section-skeleton'
-import { resolveAdminDashboardPeriod, type AdminDashboardSearchParams } from '@/lib/dashboard/period'
+import {
+  buildOperacionalYearOptions,
+  resolveOperacionalDashboardPeriod,
+  type OperacionalDashboardSearchParams,
+} from '@/lib/dashboard/operacional-period'
 import { DashboardHeaderActions } from '@/components/dashboard/dashboard-header-actions'
 import { OperacionalFilter } from '@/components/admin/dashboard/operacional-filter'
 import { readFirstParam } from '@/lib/grid/query'
@@ -12,14 +16,15 @@ import { readFirstParam } from '@/lib/grid/query'
 export const dynamic = 'force-dynamic'
 
 interface OperacionalPageProps {
-  searchParams?: Promise<AdminDashboardSearchParams & { fornecedor?: string | string[] }>
+  searchParams?: Promise<OperacionalDashboardSearchParams & { fornecedor?: string | string[] }>
 }
 
 export default async function OperacionalPage({ searchParams }: OperacionalPageProps) {
   const currentAdminContext = await getCurrentAdminContext()
   const resolvedSearchParams = searchParams ? await searchParams : undefined
-  const period = resolveAdminDashboardPeriod(resolvedSearchParams)
+  const period = resolveOperacionalDashboardPeriod(resolvedSearchParams)
   const fornecedorCodigo = readFirstParam(resolvedSearchParams?.fornecedor) ?? null
+  const yearOptions = buildOperacionalYearOptions()
 
   if (!currentAdminContext.isAuthenticated) {
     redirect('/login')
@@ -48,7 +53,10 @@ export default async function OperacionalPage({ searchParams }: OperacionalPageP
         <div className="flex items-center gap-3">
           <OperacionalFilter
             operacionais={operacionais ?? []}
-            selected={fornecedorCodigo}
+            selectedFornecedor={fornecedorCodigo}
+            selectedYear={period.year}
+            selectedMonth={period.month}
+            yearOptions={yearOptions}
           />
           <DashboardHeaderActions />
         </div>

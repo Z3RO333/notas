@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { AdminDashboardPeriod } from '@/lib/dashboard/period'
+import type { OperacionalDashboardPeriod } from '@/lib/dashboard/operacional-period'
 import type {
   OperacionalKpis,
   ProdutividadeOperacional,
@@ -17,7 +17,7 @@ import { EvolucaoMensalOperacionalChart } from './evolucao-mensal-operacional-ch
 import { ProdutividadeLojaChart } from './produtividade-loja-chart'
 
 interface AdminOperacionalSectionProps {
-  period: AdminDashboardPeriod
+  period: OperacionalDashboardPeriod
   fornecedorCodigo?: string | null
 }
 
@@ -85,6 +85,7 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
 
   const [
     kpisResult,
+    kpisGlobalResult,
     produtividadeResult,
     servicosResult,
     lojasResult,
@@ -96,6 +97,11 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
       p_fornecedor_codigo: filtro,
+    }),
+    supabase.rpc('calcular_kpis_operacionais', {
+      p_data_inicio: period.startIso,
+      p_data_fim: period.endExclusiveIso,
+      p_fornecedor_codigo: null,
     }),
     supabase.rpc('calcular_produtividade_operacionais', {
       p_data_inicio: period.startIso,
@@ -135,6 +141,7 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
 
   const firstError = [
     kpisResult.error,
+    kpisGlobalResult.error,
     produtividadeResult.error,
     servicosResult.error,
     lojasResult.error,
@@ -151,6 +158,10 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
     ordens_em_aberto: Number(kpisRaw.ordens_em_aberto ?? 0),
     lojas_atendidas: Number(kpisRaw.lojas_atendidas ?? 0),
   }
+  const kpisGlobalRaw = (kpisGlobalResult.data ?? [{}])[0] as Partial<OperacionalKpis>
+  const totalOrdensGeralPeriodo =
+    Number(kpisGlobalRaw.ordens_atendidas ?? 0) + Number(kpisGlobalRaw.ordens_em_aberto ?? 0)
+
   const produtividade = (produtividadeResult.data ?? []) as ProdutividadeOperacional[]
   const servicos = (servicosResult.data ?? []) as ServicoMaisFeito[]
   const abertasLoja = (abertasLojaResult.data ?? []) as OrdensAbertasLoja[]
@@ -189,7 +200,12 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
       {/* Tabela + Serviços */}
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2">
-          <ProdutividadeTable rows={produtividade} lojasMap={lojasMap} periodLabel={period.periodLabel} />
+          <ProdutividadeTable
+            rows={produtividade}
+            lojasMap={lojasMap}
+            periodLabel={period.periodLabel}
+            totalOrdensGeralPeriodo={totalOrdensGeralPeriodo}
+          />
         </div>
         <ServicosTopList rows={servicos} periodLabel={period.periodLabel} />
       </div>

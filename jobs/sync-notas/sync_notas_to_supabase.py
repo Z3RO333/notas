@@ -16,6 +16,7 @@ Fluxo:
 import logging
 import re
 import subprocess
+import unicodedata
 from decimal import Decimal
 from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
@@ -56,6 +57,74 @@ ORDERS_REF_V2_RUNTIME_STATE_TABLE = "sync_job_runtime_state"
 ORDERS_REF_V2_LOOKBACK_DAYS = 2
 COPY_INTENT_TTL_MINUTES = 60
 COPY_INTENT_CONFIRM_REPAIR_MINUTES = 15
+SAP_STATUS_AUX_BATCH_SIZE = 500
+SAP_STATUS_AUX_REFRESH_MINUTES = 24 * 60
+SAP_STATUS_AUX_DEFAULT_FORMAT = "auto"
+SAP_STATUS_AUX_SUPPORTED_FORMATS = {"auto", "csv", "xlsx"}
+SAP_STATUS_AUX_CANONICAL_PRIORITY = {
+    "VIROU_ORDEM": 4,
+    "CANCELADA": 3,
+    "ABERTA": 2,
+    "INDEFINIDA": 1,
+}
+SAP_STATUS_AUX_NOTA_COLUMNS_CANDIDATES = [
+    "NOTA",
+    "NUMERO_NOTA",
+    "NUMERO_DA_NOTA",
+    "NUM_NOTA",
+    "NOTIFICACAO",
+    "NOTIFICACAO_QM",
+    "QMNUM",
+]
+SAP_STATUS_AUX_STATUS_COLUMNS_CANDIDATES = [
+    "STATUS",
+    "STATUS_SISTEMA",
+    "STATUS_NOTA",
+    "STATUS_SAP",
+    "SITUACAO",
+    "SITUACAO_NOTA",
+    "STATUS_OBJ_ADMIN",
+]
+SAP_STATUS_AUX_EXPORT_DATE_COLUMNS_CANDIDATES = [
+    "DATA_EXPORTACAO",
+    "DATA_EXTRACAO",
+    "DATA_STATUS",
+    "DATA_ATUALIZACAO",
+    "DATA",
+]
+SAP_STATUS_AUX_CANCEL_KEYWORDS = (
+    "CANCEL",
+    "ENCERR",
+    "CONCLU",
+    "FECH",
+    "ANUL",
+    "REJEIT",
+)
+SAP_STATUS_AUX_OPEN_KEYWORDS = (
+    "ABERT",
+    "OPEN",
+    "PENDEN",
+    "ANDAM",
+    "TRAT",
+    "ENCAMINH",
+    "EM_ANALISE",
+    "EM_PROCESS",
+    "NOVA",
+)
+SAP_STATUS_AUX_EXACT_STATUS_MAP = {
+    "MSPN": "ABERTA",
+    "MSEN": "CANCELADA",
+    "MSPR_ORDA": "VIROU_ORDEM",
+    "MSEN_ORDA": "VIROU_ORDEM",
+    "MSIM_MSPR_ORDA": "VIROU_ORDEM",
+}
+SAP_STATUS_AUX_CANCEL_CODE_HINTS = (
+    "NOCO",
+    "DLFL",
+    "LOEK",
+    "CANC",
+    "REJE",
+)
 
 OPEN_STATUS = {"aberta", "em_tratativa", "desconhecido"}
 
@@ -133,6 +202,22 @@ def _as_clean_text(value) -> str | None:
         return None
     text = str(value).strip()
     return text if text else None
+
+
+def _as_bool(value, default: bool = False) -> bool:
+    if value is None:
+        return default
+    normalized = str(value).strip().lower()
+    if not normalized:
+        return default
+    return normalized in {"1", "true", "yes", "y", "on"}
+
+
+def _normalize_text_token(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    without_accents = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    collapsed = re.sub(r"[^A-Za-z0-9]+", "_", without_accents).strip("_")
+    return collapsed.upper()
 
 
 def _normalize_centro(value) -> str | None:
@@ -540,6 +625,70 @@ def get_copy_intent_confirm_repair_minutes(spark: SparkSession) -> int:
     return max(parsed, 1)
 
 
+def get_sap_status_aux_enabled(spark: SparkSession) -> bool:
+    raw = spark.conf.get("cockpit.sync.sap_status_aux.enabled", "false")
+    return _as_bool(raw, default=False)
+
+
+def get_sap_status_aux_required(spark: SparkSession) -> bool:
+    raw = spark.conf.get("cockpit.sync.sap_status_aux.required", "false")
+    return _as_bool(raw, default=False)
+
+
+def get_sap_status_aux_path(spark: SparkSession) -> str | None:
+    return _as_clean_text(spark.conf.get("cockpit.sync.sap_status_aux.path", ""))
+
+
+def get_sap_status_aux_format(spark: SparkSession) -> str:
+    raw = _as_clean_text(spark.conf.get("cockpit.sync.sap_status_aux.format", SAP_STATUS_AUX_DEFAULT_FORMAT))
+    parsed = (raw or SAP_STATUS_AUX_DEFAULT_FORMAT).lower()
+    if parsed not in SAP_STATUS_AUX_SUPPORTED_FORMATS:
+        logger.warning(
+            "Formato inválido em cockpit.sync.sap_status_aux.format=%s. Usando %s.",
+            raw,
+            SAP_STATUS_AUX_DEFAULT_FORMAT,
+        )
+        return SAP_STATUS_AUX_DEFAULT_FORMAT
+    return parsed
+
+
+def get_sap_status_aux_csv_delimiter(spark: SparkSession) -> str:
+    raw = _as_clean_text(spark.conf.get("cockpit.sync.sap_status_aux.csv_delimiter", ";"))
+    if not raw:
+        return ";"
+    return raw[0]
+
+
+def get_sap_status_aux_xlsx_sheet(spark: SparkSession) -> str | None:
+    return _as_clean_text(spark.conf.get("cockpit.sync.sap_status_aux.xlsx_sheet", ""))
+
+
+def get_sap_status_aux_refresh_minutes(spark: SparkSession) -> int:
+    raw = spark.conf.get("cockpit.sync.sap_status_aux.refresh_minutes", str(SAP_STATUS_AUX_REFRESH_MINUTES))
+    try:
+        parsed = int(raw)
+    except ValueError:
+        logger.warning(
+            "Valor inválido em cockpit.sync.sap_status_aux.refresh_minutes=%s. Usando %s.",
+            raw,
+            SAP_STATUS_AUX_REFRESH_MINUTES,
+        )
+        return SAP_STATUS_AUX_REFRESH_MINUTES
+    return max(parsed, 0)
+
+
+def get_sap_status_aux_nota_column_override(spark: SparkSession) -> str | None:
+    return _as_clean_text(spark.conf.get("cockpit.sync.sap_status_aux.nota_column", ""))
+
+
+def get_sap_status_aux_status_column_override(spark: SparkSession) -> str | None:
+    return _as_clean_text(spark.conf.get("cockpit.sync.sap_status_aux.status_column", ""))
+
+
+def get_sap_status_aux_export_date_column_override(spark: SparkSession) -> str | None:
+    return _as_clean_text(spark.conf.get("cockpit.sync.sap_status_aux.export_date_column", ""))
+
+
 def create_sync_log(spark: SparkSession) -> str:
     """Cria entrada no sync_log e retorna o ID."""
     sync_id = str(uuid4())
@@ -644,6 +793,432 @@ def should_run_full_bootstrap(bootstrap_mode: str, sync_start_date: str) -> bool
         sync_start_date,
     )
     return True
+
+
+def _infer_sap_status_aux_format(path: str, configured_format: str) -> str:
+    if configured_format != "auto":
+        return configured_format
+
+    lowered = path.lower()
+    if lowered.endswith(".xlsx") or lowered.endswith(".xlsm"):
+        return "xlsx"
+    return "csv"
+
+
+def _to_local_dbfs_path(path: str) -> str:
+    lowered = path.lower()
+    if lowered.startswith("dbfs:/"):
+        suffix = path[6:].lstrip("/")
+        return f"/dbfs/{suffix}"
+    return path
+
+
+def _normalize_column_name(value: str) -> str:
+    return _normalize_text_token(value)
+
+
+def _resolve_source_column(
+    available_columns: list[str],
+    override: str | None,
+    candidates: list[str],
+    label: str,
+    required: bool = True,
+) -> str | None:
+    normalized_map: dict[str, str] = {}
+    for column in available_columns:
+        normalized_map.setdefault(_normalize_column_name(column), column)
+
+    if override:
+        override_key = _normalize_column_name(override)
+        resolved = normalized_map.get(override_key)
+        if resolved:
+            return resolved
+        raise ValueError(
+            f"Coluna override de {label} não encontrada: {override}. Disponíveis: {available_columns}"
+        )
+
+    for candidate in candidates:
+        resolved = normalized_map.get(_normalize_column_name(candidate))
+        if resolved:
+            return resolved
+
+    if required:
+        raise ValueError(
+            f"Nenhuma coluna de {label} encontrada. Candidatas={candidates} disponíveis={available_columns}"
+        )
+    return None
+
+
+def _normalize_sap_status_aux_raw(value) -> str | None:
+    text = _as_clean_text(value)
+    if not text:
+        return None
+    return _normalize_text_token(text)
+
+
+def _to_sap_status_aux_canonico(status_raw) -> str:
+    normalized = _normalize_sap_status_aux_raw(status_raw)
+    if not normalized:
+        return "INDEFINIDA"
+
+    mapped = SAP_STATUS_AUX_EXACT_STATUS_MAP.get(normalized)
+    if mapped:
+        return mapped
+
+    if "ORDA" in normalized:
+        return "VIROU_ORDEM"
+
+    if any(hint in normalized for hint in SAP_STATUS_AUX_CANCEL_CODE_HINTS):
+        return "CANCELADA"
+
+    if any(keyword in normalized for keyword in SAP_STATUS_AUX_CANCEL_KEYWORDS):
+        return "CANCELADA"
+
+    if any(keyword in normalized for keyword in SAP_STATUS_AUX_OPEN_KEYWORDS):
+        return "ABERTA"
+
+    return "INDEFINIDA"
+
+
+def _read_sap_status_aux_rows(
+    spark: SparkSession,
+    path: str,
+    file_format: str,
+    csv_delimiter: str,
+    xlsx_sheet: str | None,
+) -> list[dict]:
+    if file_format == "csv":
+        df = (
+            spark.read
+            .option("header", "true")
+            .option("inferSchema", "false")
+            .option("sep", csv_delimiter)
+            .csv(path)
+        )
+        return [row.asDict() for row in df.collect()]
+
+    local_path = _to_local_dbfs_path(path)
+    try:
+        import pandas as pd
+    except Exception:
+        subprocess.check_call(["pip", "install", "pandas", "openpyxl"])
+        import pandas as pd
+
+    sheet = xlsx_sheet if xlsx_sheet else 0
+    frame = pd.read_excel(local_path, sheet_name=sheet, dtype=str)
+    if hasattr(frame, "where"):
+        frame = frame.where(frame.notna(), None)
+    return frame.to_dict(orient="records")
+
+
+def read_sap_status_aux_source(
+    spark: SparkSession,
+    path: str,
+    file_format: str,
+    csv_delimiter: str,
+    xlsx_sheet: str | None,
+    nota_column_override: str | None,
+    status_column_override: str | None,
+    export_date_column_override: str | None,
+) -> tuple[list[dict], dict]:
+    rows = _read_sap_status_aux_rows(
+        spark=spark,
+        path=path,
+        file_format=file_format,
+        csv_delimiter=csv_delimiter,
+        xlsx_sheet=xlsx_sheet,
+    )
+
+    metrics = {
+        "status": "success",
+        "path": path,
+        "format": file_format,
+        "rows_read": len(rows),
+        "rows_valid": 0,
+        "rows_missing_nota": 0,
+        "rows_missing_status": 0,
+        "rows_invalid_nota": 0,
+        "rows_dedup_discarded": 0,
+        "rows_conflicting_status": 0,
+        "nota_column": None,
+        "status_column": None,
+        "export_date_column": None,
+    }
+
+    if not rows:
+        return [], metrics
+
+    available_columns = list((rows[0] or {}).keys())
+    nota_column = _resolve_source_column(
+        available_columns=available_columns,
+        override=nota_column_override,
+        candidates=SAP_STATUS_AUX_NOTA_COLUMNS_CANDIDATES,
+        label="nota",
+        required=True,
+    )
+    status_column = _resolve_source_column(
+        available_columns=available_columns,
+        override=status_column_override,
+        candidates=SAP_STATUS_AUX_STATUS_COLUMNS_CANDIDATES,
+        label="status",
+        required=True,
+    )
+    export_date_column = _resolve_source_column(
+        available_columns=available_columns,
+        override=export_date_column_override,
+        candidates=SAP_STATUS_AUX_EXPORT_DATE_COLUMNS_CANDIDATES,
+        label="data_exportacao",
+        required=False,
+    )
+
+    metrics["nota_column"] = nota_column
+    metrics["status_column"] = status_column
+    metrics["export_date_column"] = export_date_column
+
+    best_by_nota: dict[str, dict] = {}
+
+    for row in rows:
+        row_dict = row or {}
+        numero_original = _as_clean_text(row_dict.get(nota_column))
+        if not numero_original:
+            metrics["rows_missing_nota"] += 1
+            continue
+
+        numero_norm = _normalize_numero_nota(numero_original)
+        if not numero_norm:
+            metrics["rows_invalid_nota"] += 1
+            continue
+
+        status_raw = _as_clean_text(row_dict.get(status_column))
+        if not status_raw:
+            metrics["rows_missing_status"] += 1
+            continue
+
+        status_canonico = _to_sap_status_aux_canonico(status_raw)
+        data_exportacao = _normalize_iso_date(row_dict.get(export_date_column)) if export_date_column else None
+
+        candidate = {
+            "numero_nota_norm": numero_norm,
+            "numero_nota_original": numero_original,
+            "status_raw": status_raw,
+            "status_canonico": status_canonico,
+            "data_exportacao": data_exportacao,
+        }
+
+        current = best_by_nota.get(numero_norm)
+        if current is None:
+            best_by_nota[numero_norm] = candidate
+            continue
+
+        metrics["rows_dedup_discarded"] += 1
+        if current.get("status_canonico") != status_canonico:
+            metrics["rows_conflicting_status"] += 1
+
+        current_rank = SAP_STATUS_AUX_CANONICAL_PRIORITY.get(current.get("status_canonico") or "", 0)
+        candidate_rank = SAP_STATUS_AUX_CANONICAL_PRIORITY.get(status_canonico, 0)
+        if candidate_rank >= current_rank:
+            best_by_nota[numero_norm] = candidate
+
+    records = list(best_by_nota.values())
+    metrics["rows_valid"] = len(records)
+    return records, metrics
+
+
+def get_latest_sap_status_aux_imported_at() -> str | None:
+    result = (
+        supabase.table("notas_status_sap_aux")
+        .select("importado_em")
+        .order("importado_em", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if result.data and result.data[0].get("importado_em"):
+        return result.data[0]["importado_em"]
+    return None
+
+
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    normalized = _normalize_iso_datetime(value)
+    if not normalized:
+        return None
+    try:
+        return datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+
+
+def upsert_sap_status_aux_records(
+    records: list[dict],
+    sync_id: str,
+    path: str,
+    lote_id: str,
+) -> tuple[int, int]:
+    if not records:
+        return 0, 0
+
+    existing_numbers: set[str] = set()
+    numero_notas = [r["numero_nota_norm"] for r in records]
+    for i in range(0, len(numero_notas), BATCH_SIZE):
+        chunk = numero_notas[i:i + BATCH_SIZE]
+        result = (
+            supabase.table("notas_status_sap_aux")
+            .select("numero_nota_norm")
+            .in_("numero_nota_norm", chunk)
+            .execute()
+        )
+        existing_numbers.update(item["numero_nota_norm"] for item in (result.data or []))
+
+    imported_at = datetime.now(timezone.utc).isoformat()
+    payload = [
+        {
+            "numero_nota_norm": record["numero_nota_norm"],
+            "numero_nota_original": record["numero_nota_original"],
+            "status_raw": record["status_raw"],
+            "status_canonico": record["status_canonico"],
+            "data_exportacao": record.get("data_exportacao"),
+            "arquivo_origem": path,
+            "lote_id": lote_id,
+            "sync_id": sync_id,
+            "importado_em": imported_at,
+        }
+        for record in records
+    ]
+
+    for i in range(0, len(payload), SAP_STATUS_AUX_BATCH_SIZE):
+        batch = payload[i:i + SAP_STATUS_AUX_BATCH_SIZE]
+        (
+            supabase.table("notas_status_sap_aux")
+            .upsert(batch, on_conflict="numero_nota_norm")
+            .execute()
+        )
+
+    inserted = sum(1 for record in records if record["numero_nota_norm"] not in existing_numbers)
+    updated = len(records) - inserted
+    return inserted, updated
+
+
+def run_sap_status_aux_sync(spark: SparkSession, sync_id: str) -> dict:
+    metrics = {
+        "status": "not_configured",
+        "enabled": False,
+        "required": False,
+        "path": None,
+        "format": None,
+        "refresh_minutes": None,
+        "csv_delimiter": None,
+        "xlsx_sheet": None,
+        "rows_read": 0,
+        "rows_valid": 0,
+        "rows_missing_nota": 0,
+        "rows_missing_status": 0,
+        "rows_invalid_nota": 0,
+        "rows_dedup_discarded": 0,
+        "rows_conflicting_status": 0,
+        "nota_column": None,
+        "status_column": None,
+        "export_date_column": None,
+        "inseridas": 0,
+        "atualizadas": 0,
+        "lote_id": None,
+        "last_imported_at": None,
+        "minutes_since_last_import": None,
+        "error": None,
+    }
+
+    enabled = get_sap_status_aux_enabled(spark)
+    required = get_sap_status_aux_required(spark)
+    path = get_sap_status_aux_path(spark)
+    refresh_minutes = get_sap_status_aux_refresh_minutes(spark)
+    csv_delimiter = get_sap_status_aux_csv_delimiter(spark)
+    xlsx_sheet = get_sap_status_aux_xlsx_sheet(spark)
+    nota_column_override = get_sap_status_aux_nota_column_override(spark)
+    status_column_override = get_sap_status_aux_status_column_override(spark)
+    export_date_column_override = get_sap_status_aux_export_date_column_override(spark)
+    configured_format = get_sap_status_aux_format(spark)
+
+    metrics["enabled"] = enabled
+    metrics["required"] = required
+    metrics["path"] = path
+    metrics["refresh_minutes"] = refresh_minutes
+    metrics["csv_delimiter"] = csv_delimiter
+    metrics["xlsx_sheet"] = xlsx_sheet
+
+    if not enabled:
+        metrics["status"] = "disabled"
+        if required:
+            metrics["error"] = "Status SAP auxiliar marcado como obrigatório, mas está desabilitado."
+            raise ValueError(metrics["error"])
+        return metrics
+
+    if not path:
+        metrics["status"] = "missing_path"
+        metrics["error"] = "Parâmetro cockpit.sync.sap_status_aux.path não configurado."
+        if required:
+            raise ValueError(metrics["error"])
+        return metrics
+
+    resolved_format = _infer_sap_status_aux_format(path, configured_format)
+    metrics["format"] = resolved_format
+
+    try:
+        latest_imported_at = get_latest_sap_status_aux_imported_at()
+    except Exception:
+        latest_imported_at = None
+
+    metrics["last_imported_at"] = latest_imported_at
+    if refresh_minutes > 0 and latest_imported_at:
+        last_import_dt = _parse_iso_datetime(latest_imported_at)
+        if last_import_dt:
+            delta_minutes = int((datetime.now(timezone.utc) - last_import_dt).total_seconds() // 60)
+            metrics["minutes_since_last_import"] = max(delta_minutes, 0)
+            if delta_minutes < refresh_minutes:
+                metrics["status"] = "skipped_recent"
+                return metrics
+
+    records, read_metrics = read_sap_status_aux_source(
+        spark=spark,
+        path=path,
+        file_format=resolved_format,
+        csv_delimiter=csv_delimiter,
+        xlsx_sheet=xlsx_sheet,
+        nota_column_override=nota_column_override,
+        status_column_override=status_column_override,
+        export_date_column_override=export_date_column_override,
+    )
+    metrics.update(read_metrics)
+
+    if required and metrics["rows_valid"] <= 0:
+        metrics["status"] = "empty_required"
+        metrics["error"] = "Carga auxiliar SAP obrigatória retornou zero linhas válidas."
+        raise ValueError(metrics["error"])
+    if metrics["rows_valid"] <= 0:
+        metrics["status"] = "empty_source"
+        return metrics
+
+    lote_id = str(uuid4())
+    metrics["lote_id"] = lote_id
+
+    inserted, updated = upsert_sap_status_aux_records(
+        records=records,
+        sync_id=sync_id,
+        path=path,
+        lote_id=lote_id,
+    )
+    metrics["inseridas"] = inserted
+    metrics["atualizadas"] = updated
+    metrics["status"] = "success"
+    logger.info(
+        "Status SAP auxiliar -> status=%s rows_read=%s valid=%s inseridas=%s atualizadas=%s lote=%s",
+        metrics["status"],
+        metrics["rows_read"],
+        metrics["rows_valid"],
+        metrics["inseridas"],
+        metrics["atualizadas"],
+        lote_id,
+    )
+    return metrics
 
 
 def _build_orders_maintenance_data_extracao_expr(spark: SparkSession) -> str:
@@ -1879,6 +2454,7 @@ def main():
     orders_ref_v2_lookback_days = get_orders_ref_v2_lookback_days(spark)
     copy_intent_ttl_minutes = get_copy_intent_ttl_minutes(spark)
     copy_intent_confirm_repair_minutes = get_copy_intent_confirm_repair_minutes(spark)
+    sap_status_aux_required = get_sap_status_aux_required(spark)
 
     try:
         supabase.table("sync_log").select("id").limit(1).execute()
@@ -1954,6 +2530,32 @@ def main():
         "total_elegiveis": 0,
         "error": None,
     }
+    sap_status_aux_metrics = {
+        "status": "not_configured",
+        "enabled": False,
+        "required": sap_status_aux_required,
+        "path": None,
+        "format": None,
+        "refresh_minutes": None,
+        "csv_delimiter": None,
+        "xlsx_sheet": None,
+        "rows_read": 0,
+        "rows_valid": 0,
+        "rows_missing_nota": 0,
+        "rows_missing_status": 0,
+        "rows_invalid_nota": 0,
+        "rows_dedup_discarded": 0,
+        "rows_conflicting_status": 0,
+        "nota_column": None,
+        "status_column": None,
+        "export_date_column": None,
+        "inseridas": 0,
+        "atualizadas": 0,
+        "lote_id": None,
+        "last_imported_at": None,
+        "minutes_since_last_import": None,
+        "error": None,
+    }
     note_batch_metrics = {
         "source_columns_total": 0,
         "source_has_centro_para_centro_trab": False,
@@ -1994,6 +2596,19 @@ def main():
         logger.info("Lidas: %s notas da fonte %s", len(notes), STREAMING_TABLE)
 
         inserted, updated = upsert_notes(notes, sync_id)
+
+        try:
+            sap_status_aux_metrics = run_sap_status_aux_sync(spark, sync_id)
+        except Exception as sap_status_aux_exc:
+            sap_status_aux_metrics["status"] = "error_required" if sap_status_aux_required else "error_tolerated"
+            sap_status_aux_metrics["error"] = f"{type(sap_status_aux_exc).__name__}: {sap_status_aux_exc}"
+            logger.warning(
+                "Falha na carga auxiliar de status SAP. required=%s erro=%s",
+                sap_status_aux_required,
+                sap_status_aux_metrics["error"],
+            )
+            if sap_status_aux_required:
+                raise
 
         ordens_detectadas, notas_auto_concluidas = run_register_orders(sync_id)
 
@@ -2181,6 +2796,30 @@ def main():
             "backfill_v2_ordens_detectadas": backfill_v2_metrics["ordens_detectadas"],
             "backfill_v2_auto_concluidas": backfill_v2_metrics["notas_auto_concluidas"],
             "backfill_v2_error": backfill_v2_metrics["error"],
+            "sap_status_aux_status": sap_status_aux_metrics["status"],
+            "sap_status_aux_enabled": sap_status_aux_metrics["enabled"],
+            "sap_status_aux_required": sap_status_aux_metrics["required"],
+            "sap_status_aux_path": sap_status_aux_metrics["path"],
+            "sap_status_aux_format": sap_status_aux_metrics["format"],
+            "sap_status_aux_refresh_minutes": sap_status_aux_metrics["refresh_minutes"],
+            "sap_status_aux_csv_delimiter": sap_status_aux_metrics["csv_delimiter"],
+            "sap_status_aux_xlsx_sheet": sap_status_aux_metrics["xlsx_sheet"],
+            "sap_status_aux_rows_read": sap_status_aux_metrics["rows_read"],
+            "sap_status_aux_rows_valid": sap_status_aux_metrics["rows_valid"],
+            "sap_status_aux_rows_missing_nota": sap_status_aux_metrics["rows_missing_nota"],
+            "sap_status_aux_rows_missing_status": sap_status_aux_metrics["rows_missing_status"],
+            "sap_status_aux_rows_invalid_nota": sap_status_aux_metrics["rows_invalid_nota"],
+            "sap_status_aux_rows_dedup_discarded": sap_status_aux_metrics["rows_dedup_discarded"],
+            "sap_status_aux_rows_conflicting_status": sap_status_aux_metrics["rows_conflicting_status"],
+            "sap_status_aux_nota_column": sap_status_aux_metrics["nota_column"],
+            "sap_status_aux_status_column": sap_status_aux_metrics["status_column"],
+            "sap_status_aux_export_date_column": sap_status_aux_metrics["export_date_column"],
+            "sap_status_aux_inseridas": sap_status_aux_metrics["inseridas"],
+            "sap_status_aux_atualizadas": sap_status_aux_metrics["atualizadas"],
+            "sap_status_aux_lote_id": sap_status_aux_metrics["lote_id"],
+            "sap_status_aux_last_imported_at": sap_status_aux_metrics["last_imported_at"],
+            "sap_status_aux_minutes_since_last_import": sap_status_aux_metrics["minutes_since_last_import"],
+            "sap_status_aux_error": sap_status_aux_metrics["error"],
         }
 
         finalize_sync_log(
@@ -2261,6 +2900,30 @@ def main():
                     "backfill_v2_ordens_detectadas": backfill_v2_metrics["ordens_detectadas"],
                     "backfill_v2_auto_concluidas": backfill_v2_metrics["notas_auto_concluidas"],
                     "backfill_v2_error": backfill_v2_metrics["error"],
+                    "sap_status_aux_status": sap_status_aux_metrics["status"],
+                    "sap_status_aux_enabled": sap_status_aux_metrics["enabled"],
+                    "sap_status_aux_required": sap_status_aux_metrics["required"],
+                    "sap_status_aux_path": sap_status_aux_metrics["path"],
+                    "sap_status_aux_format": sap_status_aux_metrics["format"],
+                    "sap_status_aux_refresh_minutes": sap_status_aux_metrics["refresh_minutes"],
+                    "sap_status_aux_csv_delimiter": sap_status_aux_metrics["csv_delimiter"],
+                    "sap_status_aux_xlsx_sheet": sap_status_aux_metrics["xlsx_sheet"],
+                    "sap_status_aux_rows_read": sap_status_aux_metrics["rows_read"],
+                    "sap_status_aux_rows_valid": sap_status_aux_metrics["rows_valid"],
+                    "sap_status_aux_rows_missing_nota": sap_status_aux_metrics["rows_missing_nota"],
+                    "sap_status_aux_rows_missing_status": sap_status_aux_metrics["rows_missing_status"],
+                    "sap_status_aux_rows_invalid_nota": sap_status_aux_metrics["rows_invalid_nota"],
+                    "sap_status_aux_rows_dedup_discarded": sap_status_aux_metrics["rows_dedup_discarded"],
+                    "sap_status_aux_rows_conflicting_status": sap_status_aux_metrics["rows_conflicting_status"],
+                    "sap_status_aux_nota_column": sap_status_aux_metrics["nota_column"],
+                    "sap_status_aux_status_column": sap_status_aux_metrics["status_column"],
+                    "sap_status_aux_export_date_column": sap_status_aux_metrics["export_date_column"],
+                    "sap_status_aux_inseridas": sap_status_aux_metrics["inseridas"],
+                    "sap_status_aux_atualizadas": sap_status_aux_metrics["atualizadas"],
+                    "sap_status_aux_lote_id": sap_status_aux_metrics["lote_id"],
+                    "sap_status_aux_last_imported_at": sap_status_aux_metrics["last_imported_at"],
+                    "sap_status_aux_minutes_since_last_import": sap_status_aux_metrics["minutes_since_last_import"],
+                    "sap_status_aux_error": sap_status_aux_metrics["error"],
                 },
                 error=str(e),
             )

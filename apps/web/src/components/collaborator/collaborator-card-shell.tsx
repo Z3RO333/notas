@@ -2,6 +2,7 @@ import type { ComponentType, ReactNode } from 'react'
 import {
   BarChart3,
   Building2,
+  Ghost,
   Snowflake,
   UserX,
   Users,
@@ -114,7 +115,8 @@ export function CollaboratorCardShell({
 }: CollaboratorCardShellProps) {
   const variantTokens = COLLABORATOR_CARD_TOKENS.variant[variant]
   const CargoIcon = CARGO_ICON_BY_KEY[cargo.iconKey]
-  const resolvedAccent = cargo.label === 'SEM RESPONSÁVEL' ? 'orange' : accent
+  const isSemResponsavel = cargo.label === 'SEM RESPONSÁVEL'
+  const resolvedAccent = isSemResponsavel ? 'orange' : accent
 
   return (
     <Card
@@ -131,7 +133,12 @@ export function CollaboratorCardShell({
     >
       <div className={cn('flex items-start justify-between', variantTokens.headerGap)}>
         <div className={cn('flex min-w-0 flex-1 items-center', variantTokens.headerGap)}>
-          <Avatar src={avatarUrl} nome={name} size={avatarSize ?? variantTokens.avatarSize} />
+          <Avatar
+            src={avatarUrl}
+            nome={name}
+            size={avatarSize ?? variantTokens.avatarSize}
+            fallbackIcon={isSemResponsavel ? Ghost : undefined}
+          />
 
           <div className="min-w-0">
             <p className={cn('truncate', variantTokens.name)}>{name}</p>

@@ -1,4 +1,4 @@
-import { AlertTriangle, ClipboardList, Clock3, Sparkles, StickyNote } from 'lucide-react'
+import { AlertTriangle, Clock3, Sparkles, StickyNote } from 'lucide-react'
 import { CollaboratorCardShell } from '@/components/collaborator/collaborator-card-shell'
 import { COLLABORATOR_CARD_TOKENS } from '@/components/collaborator/collaborator-card-tokens'
 import {
@@ -75,13 +75,6 @@ export function CollaboratorMiniCard({
           tone: 'danger',
           icon: AlertTriangle,
         },
-        ...(collaborator.qtd_acompanhamento_ordens > 0 ? [{
-          id: 'ordens',
-          label: 'Ordens',
-          value: collaborator.qtd_acompanhamento_ordens,
-          tone: 'info' as const,
-          icon: ClipboardList,
-        }] : []),
       ]}
     />
   )

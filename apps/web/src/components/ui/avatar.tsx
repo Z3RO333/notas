@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 
@@ -6,6 +7,7 @@ interface AvatarProps {
   nome: string
   size?: 'sm' | 'md' | 'lg' | 'xl'
   className?: string
+  fallbackIcon?: ComponentType<{ className?: string }>
 }
 
 const sizeMap = {
@@ -32,7 +34,7 @@ function getInitials(nome: string): string {
     .toUpperCase()
 }
 
-export function Avatar({ src, nome, size = 'md', className }: AvatarProps) {
+export function Avatar({ src, nome, size = 'md', className, fallbackIcon: FallbackIcon }: AvatarProps) {
   const sizeClass = sizeMap[size]
   const px = pixelMap[size]
 
@@ -46,6 +48,20 @@ export function Avatar({ src, nome, size = 'md', className }: AvatarProps) {
           height={px}
           className="h-full w-full object-cover object-top"
         />
+      </div>
+    )
+  }
+
+  if (FallbackIcon) {
+    return (
+      <div
+        className={cn(
+          'flex items-center justify-center rounded-full bg-muted font-semibold text-muted-foreground',
+          sizeClass,
+          className
+        )}
+      >
+        <FallbackIcon className="h-1/2 w-1/2" />
       </div>
     )
   }

@@ -1,17 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { ChevronDown, ChevronRight, MapPin } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { ProdutividadeOperacional, LojaPorOperacional } from '@/lib/types/database'
+import type { LojaPorOperacional, ProdutividadeOperacional } from '@/lib/types/database'
 
 interface ProdutividadeTableProps {
   rows: ProdutividadeOperacional[]
   lojasMap: Record<string, LojaPorOperacional[]>
   periodLabel: string
+  totalOrdensGeralPeriodo: number
 }
 
-export function ProdutividadeTable({ rows, lojasMap, periodLabel }: ProdutividadeTableProps) {
+export function ProdutividadeTable({
+  rows,
+  lojasMap,
+  periodLabel,
+  totalOrdensGeralPeriodo,
+}: ProdutividadeTableProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   function toggle(codigo: string) {
@@ -33,7 +39,7 @@ export function ProdutividadeTable({ rows, lojasMap, periodLabel }: Produtividad
           <CardTitle className="text-base">Produtividade por Colaborador</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Nenhum operacional encontrado no período.</p>
+          <p className="text-sm text-muted-foreground">Nenhum operacional encontrado no periodo.</p>
         </CardContent>
       </Card>
     )
@@ -57,7 +63,8 @@ export function ProdutividadeTable({ rows, lojasMap, periodLabel }: Produtividad
                 <th className="px-4 py-2 text-right font-medium">Atendidas</th>
                 <th className="px-4 py-2 text-right font-medium">Em Aberto</th>
                 <th className="px-4 py-2 text-right font-medium">Lojas</th>
-                <th className="px-4 py-2 text-right font-medium">% Conclusão</th>
+                <th className="px-4 py-2 text-right font-medium">% Conclusao</th>
+                <th className="px-4 py-2 text-right font-medium">% do Total Geral</th>
               </tr>
             </thead>
             <tbody>
@@ -65,11 +72,13 @@ export function ProdutividadeTable({ rows, lojasMap, periodLabel }: Produtividad
                 const lojas = lojasMap[row.fornecedor_codigo] ?? []
                 const isExpanded = expanded.has(row.fornecedor_codigo)
                 const hasLojas = lojas.length > 0
+                const pctTotalGeral = totalOrdensGeralPeriodo > 0
+                  ? (row.atendidas / totalOrdensGeralPeriodo) * 100
+                  : 0
 
                 return (
-                  <>
+                  <Fragment key={row.fornecedor_codigo}>
                     <tr
-                      key={row.fornecedor_codigo}
                       className={`border-b last:border-0 transition-colors ${hasLojas ? 'cursor-pointer hover:bg-muted/20' : ''}`}
                       onClick={hasLojas ? () => toggle(row.fornecedor_codigo) : undefined}
                     >
@@ -112,11 +121,16 @@ export function ProdutividadeTable({ rows, lojasMap, periodLabel }: Produtividad
                           {row.pct_conclusao.toFixed(1)}%
                         </span>
                       </td>
+                      <td className="px-4 py-2.5 text-right">
+                        <span className="font-medium text-sky-600 dark:text-sky-400">
+                          {pctTotalGeral.toFixed(1)}%
+                        </span>
+                      </td>
                     </tr>
                     {isExpanded && lojas.length > 0 && (
-                      <tr key={`${row.fornecedor_codigo}-lojas`} className="border-b bg-muted/10 last:border-0">
+                      <tr className="border-b bg-muted/10 last:border-0">
                         <td />
-                        <td colSpan={5} className="px-4 py-3">
+                        <td colSpan={6} className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
                             {lojas.map((loja) => (
                               <span
@@ -125,14 +139,14 @@ export function ProdutividadeTable({ rows, lojasMap, periodLabel }: Produtividad
                               >
                                 <MapPin className="h-3 w-3 text-muted-foreground" />
                                 <span className="font-medium">{loja.unidade}</span>
-                                <span className="text-muted-foreground">×{loja.qtd_atendidas}</span>
+                                <span className="text-muted-foreground">x{loja.qtd_atendidas}</span>
                               </span>
                             ))}
                           </div>
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 )
               })}
             </tbody>
