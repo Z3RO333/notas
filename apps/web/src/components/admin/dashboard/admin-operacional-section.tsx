@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { OperacionalDashboardPeriod } from '@/lib/dashboard/operacional-period'
@@ -22,7 +23,7 @@ interface AdminOperacionalSectionProps {
   fornecedorCodigo?: string | null
 }
 
-function KpiCard({ label, value, sub }: { label: string; value: number; sub?: string }) {
+function KpiCard({ label, value, sub }: { label: string; value: number; sub?: ReactNode }) {
   return (
     <Card>
       <CardContent className="p-6">
@@ -212,7 +213,11 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
         <KpiCard
           label="Ordens Atendidas"
           value={kpis.ordens_atendidas}
-          sub={`${pctAtendidasVsGeral.toFixed(1)}% do percentual geral (${totalOrdensGeralPmosPeriodo.toLocaleString('pt-BR')} ordens PMOS)`}
+          sub={(
+            <span className="font-medium text-emerald-600 dark:text-emerald-400">
+              {pctAtendidasVsGeral.toFixed(1)}% do percentual geral
+            </span>
+          )}
         />
         <KpiCard label="Ordens em Aberto" value={kpis.ordens_em_aberto} />
         <KpiCard label="Lojas Atendidas" value={kpis.lojas_atendidas} />
