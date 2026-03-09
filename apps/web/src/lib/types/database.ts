@@ -192,6 +192,9 @@ export interface CargaAdministrador {
   qtd_concluidas: number
   qtd_canceladas: number
   qtd_ordens_ativas?: number
+  meta_semanal: number
+  notas_recebidas_7d: number
+  ordens_recebidas_7d: number
 }
 
 export interface ProdutividadeMensal {
