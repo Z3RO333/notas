@@ -66,7 +66,7 @@ export function CollaboratorAdminActions({ admin, destinations }: CollaboratorAd
   async function handleBulkConfirm(params: { modo: 'destino_unico' | 'round_robin'; adminDestinoId?: string; motivo?: string }) {
     if (!pendingToggle) return
 
-    await reatribuirNotasLote({
+    const movedCount = await reatribuirNotasLote({
       adminOrigemId: admin.id,
       modo: params.modo,
       adminDestinoId: params.adminDestinoId,
@@ -76,7 +76,7 @@ export function CollaboratorAdminActions({ admin, destinations }: CollaboratorAd
 
     toast({
       title: 'Reatribuição concluída',
-      description: `${admin.qtd_abertas} nota(s) reatribuídas antes de atualizar ${pendingToggle.label.toLowerCase()}.`,
+      description: `${movedCount} nota(s) reatribuídas antes de atualizar ${pendingToggle.label.toLowerCase()}.`,
       variant: 'success',
     })
 
@@ -96,7 +96,7 @@ export function CollaboratorAdminActions({ admin, destinations }: CollaboratorAd
         </div>
 
         <div className="flex items-center gap-2">
-          <label htmlFor={`distrib-${admin.id}`}>Distribuicao</label>
+          <label htmlFor={`distrib-${admin.id}`}>Distribuição</label>
           <Switch
             id={`distrib-${admin.id}`}
             checked={admin.recebe_distribuicao}
