@@ -641,6 +641,7 @@ export interface OperacionalKpis {
   ordens_atendidas: number
   ordens_em_aberto: number
   lojas_atendidas: number
+  total_ordens: number
 }
 
 export interface ProdutividadeOperacional {

@@ -168,6 +168,7 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
     ordens_atendidas: Number(kpisRaw.ordens_atendidas ?? 0),
     ordens_em_aberto: Number(kpisRaw.ordens_em_aberto ?? 0),
     lojas_atendidas: Number(kpisRaw.lojas_atendidas ?? 0),
+    total_ordens: Number(kpisRaw.total_ordens ?? 0),
   }
   const kpisOrdensGlobalPmosData = kpisOrdensGlobalPmosResult.data
   const kpisOrdensGlobalPmosRaw = (
@@ -208,7 +209,7 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
       </div>
 
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <KpiCard label="Operacionais Ativos" value={kpis.total_operacionais} />
         <KpiCard
           label="Ordens Atendidas"
@@ -220,6 +221,7 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
           )}
         />
         <KpiCard label="Ordens em Aberto" value={kpis.ordens_em_aberto} />
+        <KpiCard label="Total de Ordens" value={kpis.total_ordens} />
         <KpiCard label="Lojas Atendidas" value={kpis.lojas_atendidas} />
       </div>
 

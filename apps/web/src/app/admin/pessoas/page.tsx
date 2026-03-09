@@ -11,9 +11,9 @@ export default async function PessoasPage() {
   const supabase = await createClient()
 
   const [cargaResult, notasResult, adminsResult] = await Promise.all([
-    supabase.from('vw_carga_administradores').select('*').order('nome'),
+    supabase.from('vw_carga_real_administradores').select('*').order('nome'),
     supabase
-      .from('notas_manutencao')
+      .from('vw_notas_sem_ordem')
       .select(NOTA_FIELDS)
       .not('administrador_id', 'is', null)
       .in('status', ['nova', 'em_andamento', 'encaminhada_fornecedor'])

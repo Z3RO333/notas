@@ -23,6 +23,7 @@ import {
   clearOperationalStateFromNota,
   toNotaOperacaoEstado,
 } from '@/lib/notes/operational-state'
+import { withCollaboratorDisplayMetrics } from '@/lib/collaborator/display-metrics'
 import type {
   CollaboratorData,
   NotesViewMode,
@@ -261,6 +262,11 @@ export function CollaboratorPanel({
     return map
   }, [collaborators])
 
+  const collaboratorById = useMemo(
+    () => new Map(collaborators.map((collaborator) => [collaborator.id, collaborator])),
+    [collaborators]
+  )
+
   const filterNotas = useCallback((list: NotaPanelData[]) => {
     let filtered = list
 
@@ -301,8 +307,23 @@ export function CollaboratorPanel({
     [notasSemAtribuirState, filterNotas]
   )
 
+  const filteredNotasByAdmin = useMemo(() => {
+    const map = new Map<string, NotaPanelData[]>()
+    for (const collaborator of collaborators) {
+      map.set(collaborator.id, filterNotas(notasByAdmin.get(collaborator.id) ?? []))
+    }
+    return map
+  }, [collaborators, notasByAdmin, filterNotas])
+
+  const displayCollaborators = useMemo(
+    () => collaborators.map((collaborator) => (
+      withCollaboratorDisplayMetrics(collaborator, filteredNotasByAdmin.get(collaborator.id) ?? [])
+    )),
+    [collaborators, filteredNotasByAdmin]
+  )
+
   const visibleCollaborators = useMemo(() => {
-    let list = collaborators
+    let list = displayCollaborators
 
     if (showResponsavelFilter && responsavelFilter && responsavelFilter !== 'todos') {
       if (responsavelFilter === 'sem_atribuir') {
@@ -321,20 +342,19 @@ export function CollaboratorPanel({
     )
 
     if (hasActiveFilter) {
-      list = list.filter((collaborator) => filterNotas(notasByAdmin.get(collaborator.id) ?? []).length > 0)
+      list = list.filter((collaborator) => (filteredNotasByAdmin.get(collaborator.id) ?? []).length > 0)
     }
 
     return list
   }, [
-    collaborators,
+    displayCollaborators,
     responsavelFilter,
     showResponsavelFilter,
     search,
     statusFilter,
     unidadeFilter,
     activeNotesKpi,
-    notasByAdmin,
-    filterNotas,
+    filteredNotasByAdmin,
   ])
 
   function handleCardClick(id: string) {
@@ -552,7 +572,8 @@ export function CollaboratorPanel({
           </div>
 
           {visibleCollaborators.map((c) => {
-            const filtered = filterNotas(notasByAdmin.get(c.id) ?? [])
+            const filtered = filteredNotasByAdmin.get(c.id) ?? []
+            const admin = collaboratorById.get(c.id) ?? c
             const tracking = showInsideTracking && c.id === currentAdminId ? ordensAcompanhamento : undefined
             return (
               <CollaboratorAccordion
@@ -563,7 +584,7 @@ export function CollaboratorPanel({
                 viewMode="list"
                 adminActions={mode === 'admin' ? (
                   <CollaboratorAdminActions
-                    admin={c}
+                    admin={admin}
                     destinations={destinationsByAdmin.get(c.id) ?? []}
                   />
                 ) : undefined}
@@ -584,7 +605,8 @@ export function CollaboratorPanel({
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {visibleCollaborators.map((c) => {
-            const filtered = filterNotas(notasByAdmin.get(c.id) ?? [])
+            const filtered = filteredNotasByAdmin.get(c.id) ?? []
+            const admin = collaboratorById.get(c.id) ?? c
             const tracking = showInsideTracking && c.id === currentAdminId ? ordensAcompanhamento : undefined
             return (
               <CollaboratorFullCard
@@ -593,7 +615,7 @@ export function CollaboratorPanel({
                 notas={filtered}
                 adminActions={mode === 'admin' ? (
                   <CollaboratorAdminActions
-                    admin={c}
+                    admin={admin}
                     destinations={destinationsByAdmin.get(c.id) ?? []}
                   />
                 ) : undefined}

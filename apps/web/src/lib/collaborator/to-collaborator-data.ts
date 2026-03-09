@@ -1,4 +1,4 @@
-import { buildAgingCounts } from '@/lib/collaborator/metrics'
+import { withCollaboratorDisplayMetrics } from '@/lib/collaborator/display-metrics'
 import { resolveAvatarUrl } from '@/lib/collaborator/avatar-presentation'
 import type { CargaAdministrador, NotaPanelData } from '@/lib/types/database'
 import type { CollaboratorData } from '@/lib/types/collaborator'
@@ -13,9 +13,7 @@ export function toCollaboratorData(
   options: ToCollaboratorDataOptions = {}
 ): CollaboratorData {
   const adminNotas = notas.filter((nota) => nota.administrador_id === carga.id)
-  const aging = buildAgingCounts(adminNotas)
-
-  return {
+  return withCollaboratorDisplayMetrics({
     id: carga.id,
     nome: carga.nome,
     ativo: carga.ativo,
@@ -27,11 +25,11 @@ export function toCollaboratorData(
     qtd_nova: carga.qtd_nova,
     qtd_em_andamento: carga.qtd_em_andamento,
     qtd_encaminhada: carga.qtd_encaminhada,
-    qtd_novo: aging.qtd_novo,
-    qtd_1_dia: aging.qtd_1_dia,
-    qtd_2_mais: aging.qtd_2_mais,
+    qtd_novo: 0,
+    qtd_1_dia: 0,
+    qtd_2_mais: 0,
     qtd_abertas: carga.qtd_abertas,
     qtd_concluidas: carga.qtd_concluidas,
     qtd_acompanhamento_ordens: options.qtdAcompanhamentoOrdens ?? (carga.qtd_ordens_ativas ?? 0),
-  }
+  }, adminNotas)
 }
