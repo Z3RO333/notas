@@ -156,7 +156,7 @@ RETURNS TABLE(
   id               UUID,
   ordem_codigo     TEXT,
   status_ordem_raw TEXT,
-  data_entrada     DATE,
+  data_entrada     TIMESTAMPTZ,
   tipo_ordem       TEXT,
   descricao        TEXT,
   centro           TEXT
