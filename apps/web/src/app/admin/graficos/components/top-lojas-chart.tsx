@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect, useMemo } from 'react'
 import {
   Bar,
   BarChart,
@@ -13,6 +14,12 @@ import {
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   CHART_AXIS_TICK,
   CHART_CATEGORY_TICK,
   CHART_GRID_STROKE,
@@ -20,6 +27,7 @@ import {
 } from '@/components/charts/chart-theme'
 import type { GestaoTopLoja, TipoUnidade } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
+import { createClient } from '@/lib/supabase/client'
 
 const TIPO_TITULO: Record<TipoUnidade, string> = {
   LOJA: 'Top Lojas - Ordens Geradas',
@@ -30,13 +38,142 @@ const TIPO_TITULO: Record<TipoUnidade, string> = {
 const INSIDE_LIGHT_LABEL = { fontSize: 10, fill: '#ffffff', fontWeight: 600 } as const
 const INSIDE_DARK_LABEL = { fontSize: 10, fill: '#111827', fontWeight: 700 } as const
 
+const STATUS_LABEL: Record<string, string> = {
+  CANCELADO: 'Cancelado',
+  CONCLUIDO: 'Concluído',
+  AGUARDANDO_FATURAMENTO_NF: 'Ag. Fat. NF',
+  EXECUCAO_SATISFATORIO: 'Exec. Satisfatório',
+  EXECUCAO_SATISFATORIA: 'Exec. Satisfatória',
+  AVALIACAO_DA_EXECUCAO: 'Aval. Execução',
+  AVALIACAO_DE_EXECUCAO: 'Aval. Execução',
+  ABERTO: 'Aberto',
+  ABERTA: 'Aberta',
+  EM_EXECUCAO: 'Em Execução',
+  EQUIPAMENTO_EM_CONSERTO: 'Equip. Conserto',
+  EXECUCAO_NAO_REALIZADA: 'Exec. Não Real.',
+  ENVIAR_EMAIL_PFORNECEDOR: 'Email Fornecedor',
+  EM_PROCESSAMENTO: 'Em Processamento',
+  EXECUCAO_INSATISFATORIO: 'Exec. Insatisfatório',
+}
+
+type OrdemRow = {
+  id: string
+  ordem_codigo: string | null
+  status_ordem_raw: string | null
+  data_entrada: string | null
+  tipo_ordem: string | null
+  notas_manutencao: { descricao: string | null; centro: string | null } | null
+}
+
+interface OrdensDialogProps {
+  nomeLoja: string
+  ano?: number
+  mes?: number
+  tipoOrdem?: string
+  open: boolean
+  onClose: () => void
+}
+
+function OrdensDialog({ nomeLoja, ano, mes, tipoOrdem, open, onClose }: OrdensDialogProps) {
+  const [ordens, setOrdens] = useState<OrdemRow[]>([])
+  const [loading, setLoading] = useState(false)
+  const supabase = useMemo(() => createClient(), [])
+
+  useEffect(() => {
+    if (!open) return
+    setLoading(true)
+
+    let q = supabase
+      .from('ordens_notas_acompanhamento')
+      .select('id, ordem_codigo, status_ordem_raw, data_entrada, tipo_ordem, notas_manutencao!nota_id(descricao, centro)')
+      .eq('denominacao_unidade', nomeLoja)
+      .order('data_entrada', { ascending: false })
+      .limit(200)
+
+    if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
+    if (mes && ano) {
+      const pad = String(mes).padStart(2, '0')
+      const lastDay = new Date(ano, mes, 0).getDate()
+      q = q.filter('data_entrada', 'gte', `${ano}-${pad}-01`)
+           .filter('data_entrada', 'lte', `${ano}-${pad}-${lastDay}`)
+    } else if (ano) {
+      q = q.filter('data_entrada', 'gte', `${ano}-01-01`)
+           .filter('data_entrada', 'lte', `${ano}-12-31`)
+    }
+
+    q.then(({ data }) => {
+      setOrdens((data as OrdemRow[]) ?? [])
+      setLoading(false)
+    })
+  }, [open, nomeLoja, ano, mes, tipoOrdem, supabase])
+
+  const formatDate = (d: string | null) => {
+    if (!d) return '—'
+    const [y, m, day] = d.split('-')
+    return `${day}/${m}/${y}`
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+      <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="text-base">{nomeLoja}</DialogTitle>
+        </DialogHeader>
+
+        {loading ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Carregando ordens…</p>
+        ) : ordens.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma ordem encontrada.</p>
+        ) : (
+          <div className="overflow-auto flex-1">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-background border-b">
+                <tr>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Ordem</th>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Tipo</th>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Status</th>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Data Entrada</th>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Serviço</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ordens.map((row) => (
+                  <tr key={row.id} className="border-b last:border-0 hover:bg-muted/40">
+                    <td className="py-1.5 px-3 font-mono">{row.ordem_codigo ?? '—'}</td>
+                    <td className="py-1.5 px-3">{row.tipo_ordem ?? '—'}</td>
+                    <td className="py-1.5 px-3 whitespace-nowrap">
+                      {STATUS_LABEL[row.status_ordem_raw ?? ''] ?? row.status_ordem_raw ?? '—'}
+                    </td>
+                    <td className="py-1.5 px-3 whitespace-nowrap">{formatDate(row.data_entrada)}</td>
+                    <td className="py-1.5 px-3 max-w-[240px] truncate">
+                      {row.notas_manutencao?.descricao ?? '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-xs text-muted-foreground text-right pt-2 px-3">
+              {ordens.length} ordem{ordens.length !== 1 ? 's' : ''}
+              {ordens.length === 200 ? ' (limite 200)' : ''}
+            </p>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 interface TopLojasChartProps {
   data: GestaoTopLoja[]
   tipoUnidade?: TipoUnidade
+  ano?: number
+  mes?: number
+  tipoOrdem?: string
 }
 
-export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
+export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem }: TopLojasChartProps) {
   const { showLabels } = useChartLabels()
+  const [selectedLoja, setSelectedLoja] = useState<string | null>(null)
   const titulo = tipoUnidade ? TIPO_TITULO[tipoUnidade] : 'Top Unidades - Ordens Geradas'
 
   if (data.length === 0) {
@@ -60,59 +197,93 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
   }))
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{titulo}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="h-96">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              layout="vertical"
-              data={chartData}
-              margin={{ top: 4, right: 24, bottom: 4, left: 8 }}
-            >
-              <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" allowDecimals={false} tick={CHART_AXIS_TICK} />
-              <YAxis type="category" dataKey="nome_loja" width={180} tick={CHART_CATEGORY_TICK} />
-              <Tooltip
-                formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
-              />
-              <Legend wrapperStyle={CHART_LEGEND_STYLE} />
-              <Bar dataKey="concluidas" name="Concluidas" stackId="a" fill="#16a34a">
-                {showLabels && (
-                  <LabelList
-                    dataKey="concluidas"
-                    position="center"
-                    style={INSIDE_LIGHT_LABEL}
-                    formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
-                  />
-                )}
-              </Bar>
-              <Bar dataKey="em_aberto" name="Em Aberto" stackId="a" fill="#f59e0b">
-                {showLabels && (
-                  <LabelList
-                    dataKey="em_aberto"
-                    position="center"
-                    style={INSIDE_DARK_LABEL}
-                    formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
-                  />
-                )}
-              </Bar>
-              <Bar dataKey="outros" name="Outros" stackId="a" fill="#6b7280" radius={[0, 4, 4, 0]}>
-                {showLabels && (
-                  <LabelList
-                    dataKey="outros"
-                    position="center"
-                    style={INSIDE_LIGHT_LABEL}
-                    formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
-                  />
-                )}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </CardContent>
-    </Card>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{titulo}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-xs text-muted-foreground mb-2">Clique em uma barra para ver as ordens</p>
+          <div className="h-96">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                layout="vertical"
+                data={chartData}
+                margin={{ top: 4, right: 24, bottom: 4, left: 8 }}
+                style={{ cursor: 'pointer' }}
+              >
+                <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" allowDecimals={false} tick={CHART_AXIS_TICK} />
+                <YAxis type="category" dataKey="nome_loja" width={180} tick={CHART_CATEGORY_TICK} />
+                <Tooltip
+                  formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
+                />
+                <Legend wrapperStyle={CHART_LEGEND_STYLE} />
+                <Bar
+                  dataKey="concluidas"
+                  name="Concluidas"
+                  stackId="a"
+                  fill="#16a34a"
+                  onClick={(entry) => setSelectedLoja(entry.nome_loja)}
+                >
+                  {showLabels && (
+                    <LabelList
+                      dataKey="concluidas"
+                      position="center"
+                      style={INSIDE_LIGHT_LABEL}
+                      formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
+                    />
+                  )}
+                </Bar>
+                <Bar
+                  dataKey="em_aberto"
+                  name="Em Aberto"
+                  stackId="a"
+                  fill="#f59e0b"
+                  onClick={(entry) => setSelectedLoja(entry.nome_loja)}
+                >
+                  {showLabels && (
+                    <LabelList
+                      dataKey="em_aberto"
+                      position="center"
+                      style={INSIDE_DARK_LABEL}
+                      formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
+                    />
+                  )}
+                </Bar>
+                <Bar
+                  dataKey="outros"
+                  name="Outros"
+                  stackId="a"
+                  fill="#6b7280"
+                  radius={[0, 4, 4, 0]}
+                  onClick={(entry) => setSelectedLoja(entry.nome_loja)}
+                >
+                  {showLabels && (
+                    <LabelList
+                      dataKey="outros"
+                      position="center"
+                      style={INSIDE_LIGHT_LABEL}
+                      formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
+                    />
+                  )}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {selectedLoja && (
+        <OrdensDialog
+          nomeLoja={selectedLoja}
+          ano={ano}
+          mes={mes}
+          tipoOrdem={tipoOrdem}
+          open={!!selectedLoja}
+          onClose={() => setSelectedLoja(null)}
+        />
+      )}
+    </>
   )
 }

@@ -259,6 +259,9 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
               topLojas={topLojasBySegmento[tipo] ?? []}
               topServicos={topServBySegmento[tipo] ?? []}
               evolucao={evolucaoBySegmento[tipo] ?? []}
+              ano={ano}
+              mes={mes}
+              tipoOrdem={tipoOrdem}
             />
           ))}
         </div>

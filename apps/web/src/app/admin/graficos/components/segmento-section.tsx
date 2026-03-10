@@ -15,9 +15,12 @@ interface SegmentoSectionProps {
   topLojas: GestaoTopLoja[]
   topServicos: GestaoTopServico[]
   evolucao: GestaoEvolucaoMes[]
+  ano?: number
+  mes?: number
+  tipoOrdem?: string
 }
 
-export function SegmentoSection({ tipo, topLojas, topServicos, evolucao }: SegmentoSectionProps) {
+export function SegmentoSection({ tipo, topLojas, topServicos, evolucao, ano, mes, tipoOrdem }: SegmentoSectionProps) {
   const { label, cor, Icon } = SEGMENTO_CONFIG[tipo]
 
   return (
@@ -31,7 +34,7 @@ export function SegmentoSection({ tipo, topLojas, topServicos, evolucao }: Segme
 
       {/* Top Unidades + Top Serviços lado a lado */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <TopLojasChart data={topLojas} tipoUnidade={tipo} />
+        <TopLojasChart data={topLojas} tipoUnidade={tipo} ano={ano} mes={mes} tipoOrdem={tipoOrdem} />
         <TopServicosChart data={topServicos} />
       </div>
 
