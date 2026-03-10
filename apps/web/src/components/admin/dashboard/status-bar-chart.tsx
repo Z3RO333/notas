@@ -1,8 +1,9 @@
 'use client'
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, ResponsiveContainer } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { ProdutividadeOperacional } from '@/lib/types/database'
+import { useChartLabels } from '@/components/charts/chart-labels-context'
 
 interface StatusBarChartProps {
   rows: ProdutividadeOperacional[]
@@ -10,6 +11,8 @@ interface StatusBarChartProps {
 }
 
 export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
+  const { showLabels } = useChartLabels()
+
   if (rows.length === 0) {
     return (
       <Card>
@@ -44,7 +47,7 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
           <BarChart
             layout="vertical"
             data={data}
-            margin={{ top: 4, right: 24, bottom: 4, left: 8 }}
+            margin={{ top: 4, right: showLabels ? 52 : 24, bottom: 4, left: 8 }}
           >
             <CartesianGrid strokeDasharray="3 3" horizontal={false} />
             <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
@@ -53,8 +56,26 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
               formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="Atendidas" stackId="a" fill="#16a34a" radius={[0, 0, 0, 0]} />
-            <Bar dataKey="Em Aberto" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+            <Bar dataKey="Atendidas" stackId="a" fill="#16a34a" radius={[0, 0, 0, 0]}>
+              {showLabels && (
+                <LabelList
+                  dataKey="Atendidas"
+                  position="center"
+                  style={{ fontSize: 10, fill: 'white', fontWeight: 600 }}
+                  formatter={(v: number) => v > 0 ? v.toLocaleString('pt-BR') : ''}
+                />
+              )}
+            </Bar>
+            <Bar dataKey="Em Aberto" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]}>
+              {showLabels && (
+                <LabelList
+                  dataKey="Em Aberto"
+                  position="right"
+                  style={{ fontSize: 10 }}
+                  formatter={(v: number) => v > 0 ? v.toLocaleString('pt-BR') : ''}
+                />
+              )}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

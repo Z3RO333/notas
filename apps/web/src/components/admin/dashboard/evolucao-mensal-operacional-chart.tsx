@@ -8,10 +8,12 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  LabelList,
   ResponsiveContainer,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { EvolucaoMensalOperacional } from '@/lib/types/database'
+import { useChartLabels } from '@/components/charts/chart-labels-context'
 
 interface EvolucaoMensalOperacionalChartProps {
   rows: EvolucaoMensalOperacional[]
@@ -19,6 +21,8 @@ interface EvolucaoMensalOperacionalChartProps {
 }
 
 export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMensalOperacionalChartProps) {
+  const { showLabels } = useChartLabels()
+
   if (rows.length === 0) {
     return (
       <Card>
@@ -42,7 +46,7 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
       </CardHeader>
       <CardContent className="h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={rows} margin={{ top: 4, right: 24, bottom: 4, left: 0 }}>
+          <LineChart data={rows} margin={{ top: showLabels ? 20 : 4, right: 24, bottom: 4, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={20} />
             <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
@@ -56,8 +60,17 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
               name="Concluídas"
               stroke="#16a34a"
               strokeWidth={2}
-              dot={{ r: 3 }}
-            />
+              dot={{ r: showLabels ? 3 : 3 }}
+            >
+              {showLabels && (
+                <LabelList
+                  dataKey="concluidas"
+                  position="top"
+                  style={{ fontSize: 10 }}
+                  formatter={(v: number) => v.toLocaleString('pt-BR')}
+                />
+              )}
+            </Line>
             <Line
               type="monotone"
               dataKey="em_aberto"
@@ -66,7 +79,16 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
               strokeWidth={2}
               dot={{ r: 3 }}
               strokeDasharray="4 2"
-            />
+            >
+              {showLabels && (
+                <LabelList
+                  dataKey="em_aberto"
+                  position="top"
+                  style={{ fontSize: 10 }}
+                  formatter={(v: number) => v.toLocaleString('pt-BR')}
+                />
+              )}
+            </Line>
           </LineChart>
         </ResponsiveContainer>
       </CardContent>

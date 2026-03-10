@@ -4,6 +4,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  LabelList,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -11,6 +12,7 @@ import {
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { GestaoTopLoja, TipoUnidade } from '@/lib/types/database'
+import { useChartLabels } from '@/components/charts/chart-labels-context'
 
 const TIPO_TITULO: Record<TipoUnidade, string> = {
   LOJA: 'Top Lojas – Ordens Geradas',
@@ -30,6 +32,7 @@ interface TopLojasChartProps {
 }
 
 export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
+  const { showLabels } = useChartLabels()
   const titulo = tipoUnidade ? TIPO_TITULO[tipoUnidade] : 'Top Unidades – Ordens Geradas'
   const cor = tipoUnidade ? TIPO_COR[tipoUnidade] : '#2563eb'
 
@@ -61,7 +64,7 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
             <BarChart
               layout="vertical"
               data={chartData}
-              margin={{ top: 4, right: 24, bottom: 4, left: 8 }}
+              margin={{ top: 4, right: showLabels ? 52 : 24, bottom: 4, left: 8 }}
             >
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
               <XAxis type="number" allowDecimals={false} />
@@ -74,7 +77,16 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
               <Tooltip
                 formatter={(value: number) => [value.toLocaleString('pt-BR'), 'Ordens']}
               />
-              <Bar dataKey="total_ordens" name="Ordens" fill={cor} radius={[0, 4, 4, 0]} />
+              <Bar dataKey="total_ordens" name="Ordens" fill={cor} radius={[0, 4, 4, 0]}>
+                {showLabels && (
+                  <LabelList
+                    dataKey="total_ordens"
+                    position="right"
+                    style={{ fontSize: 11 }}
+                    formatter={(v: number) => v.toLocaleString('pt-BR')}
+                  />
+                )}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>

@@ -2,6 +2,7 @@
 
 import {
   CartesianGrid,
+  LabelList,
   Legend,
   Line,
   LineChart,
@@ -12,12 +13,15 @@ import {
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { GestaoEvolucaoMes } from '@/lib/types/database'
+import { useChartLabels } from '@/components/charts/chart-labels-context'
 
 interface EvolucaoMensalChartProps {
   data: GestaoEvolucaoMes[]
 }
 
 export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
+  const { showLabels } = useChartLabels()
+
   if (data.length === 0) {
     return (
       <Card>
@@ -41,7 +45,7 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data}>
+            <LineChart data={data} margin={{ top: showLabels ? 20 : 4, right: 16, bottom: 4, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" minTickGap={20} tick={{ fontSize: 12 }} />
               <YAxis allowDecimals={false} />
@@ -69,16 +73,34 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
                 name="total_ordens"
                 stroke="#2563eb"
                 strokeWidth={2}
-                dot={false}
-              />
+                dot={showLabels}
+              >
+                {showLabels && (
+                  <LabelList
+                    dataKey="total_ordens"
+                    position="top"
+                    style={{ fontSize: 10 }}
+                    formatter={(v: number) => v.toLocaleString('pt-BR')}
+                  />
+                )}
+              </Line>
               <Line
                 type="monotone"
                 dataKey="total_notas"
                 name="total_notas"
                 stroke="#16a34a"
                 strokeWidth={2}
-                dot={false}
-              />
+                dot={showLabels}
+              >
+                {showLabels && (
+                  <LabelList
+                    dataKey="total_notas"
+                    position="top"
+                    style={{ fontSize: 10 }}
+                    formatter={(v: number) => v.toLocaleString('pt-BR')}
+                  />
+                )}
+              </Line>
             </LineChart>
           </ResponsiveContainer>
         </div>

@@ -11,6 +11,8 @@ import { GestaoFilters } from './components/gestao-filters'
 import { SegmentoSummary } from './components/segmento-summary'
 import { SegmentoSection } from './components/segmento-section'
 import { FinanceiroBlock } from './components/financeiro-block'
+import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
+import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
 
 export const dynamic = 'force-dynamic'
 
@@ -239,17 +241,22 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
       />
 
       {/* Seções separadas por segmento */}
-      <div className="space-y-10">
-        {TIPOS.map((tipo) => (
-          <SegmentoSection
-            key={tipo}
-            tipo={tipo}
-            topLojas={topLojasBySegmento[tipo] ?? []}
-            topServicos={topServBySegmento[tipo] ?? []}
-            evolucao={evolucaoBySegmento[tipo] ?? []}
-          />
-        ))}
-      </div>
+      <ChartLabelsProvider>
+        <div className="flex justify-end">
+          <ChartLabelsToggle />
+        </div>
+        <div className="space-y-10">
+          {TIPOS.map((tipo) => (
+            <SegmentoSection
+              key={tipo}
+              tipo={tipo}
+              topLojas={topLojasBySegmento[tipo] ?? []}
+              topServicos={topServBySegmento[tipo] ?? []}
+              evolucao={evolucaoBySegmento[tipo] ?? []}
+            />
+          ))}
+        </div>
+      </ChartLabelsProvider>
 
       <FinanceiroBlock />
     </div>

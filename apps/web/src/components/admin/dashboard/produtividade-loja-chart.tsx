@@ -1,8 +1,9 @@
 'use client'
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LabelList, ResponsiveContainer, Cell } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { ProdutividadeLoja } from '@/lib/types/database'
+import { useChartLabels } from '@/components/charts/chart-labels-context'
 
 interface ProdutividadeLojaChartProps {
   rows: ProdutividadeLoja[]
@@ -16,6 +17,8 @@ function getBarColor(pct: number): string {
 }
 
 export function ProdutividadeLojaChart({ rows, periodLabel }: ProdutividadeLojaChartProps) {
+  const { showLabels } = useChartLabels()
+
   if (rows.length === 0) {
     return (
       <Card>
@@ -47,7 +50,7 @@ export function ProdutividadeLojaChart({ rows, periodLabel }: ProdutividadeLojaC
           <BarChart
             layout="vertical"
             data={data}
-            margin={{ top: 4, right: 40, bottom: 4, left: 8 }}
+            margin={{ top: 4, right: showLabels ? 60 : 40, bottom: 4, left: 8 }}
           >
             <CartesianGrid strokeDasharray="3 3" horizontal={false} />
             <XAxis
@@ -70,6 +73,14 @@ export function ProdutividadeLojaChart({ rows, periodLabel }: ProdutividadeLojaC
               {data.map((entry, index) => (
                 <Cell key={index} fill={getBarColor(entry.pct_conclusao)} />
               ))}
+              {showLabels && (
+                <LabelList
+                  dataKey="pct_conclusao"
+                  position="right"
+                  style={{ fontSize: 11 }}
+                  formatter={(v: number) => `${v.toFixed(1)}%`}
+                />
+              )}
             </Bar>
           </BarChart>
         </ResponsiveContainer>

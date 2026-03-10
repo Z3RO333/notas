@@ -17,6 +17,8 @@ import { StatusBarChart } from './status-bar-chart'
 import { OrdensAbertasLojaChart } from './ordens-abertas-loja-chart'
 import { EvolucaoMensalOperacionalChart } from './evolucao-mensal-operacional-chart'
 import { ProdutividadeLojaChart } from './produtividade-loja-chart'
+import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
+import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
 
 interface AdminOperacionalSectionProps {
   period: OperacionalDashboardPeriod
@@ -239,12 +241,17 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
       </div>
 
       {/* Gráficos */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <StatusBarChart rows={produtividade} periodLabel={period.periodLabel} />
-        <OrdensAbertasLojaChart rows={abertasLoja} periodLabel={period.periodLabel} />
-        <EvolucaoMensalOperacionalChart rows={evolucao} periodLabel={period.periodLabel} />
-        <ProdutividadeLojaChart rows={produtividadeLoja} periodLabel={period.periodLabel} />
-      </div>
+      <ChartLabelsProvider>
+        <div className="flex justify-end">
+          <ChartLabelsToggle />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <StatusBarChart rows={produtividade} periodLabel={period.periodLabel} />
+          <OrdensAbertasLojaChart rows={abertasLoja} periodLabel={period.periodLabel} />
+          <EvolucaoMensalOperacionalChart rows={evolucao} periodLabel={period.periodLabel} />
+          <ProdutividadeLojaChart rows={produtividadeLoja} periodLabel={period.periodLabel} />
+        </div>
+      </ChartLabelsProvider>
     </section>
   )
 }

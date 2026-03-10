@@ -1,8 +1,9 @@
 'use client'
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LabelList, ResponsiveContainer, Cell } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { OrdensAbertasLoja } from '@/lib/types/database'
+import { useChartLabels } from '@/components/charts/chart-labels-context'
 
 interface OrdensAbertasLojaChartProps {
   rows: OrdensAbertasLoja[]
@@ -10,6 +11,8 @@ interface OrdensAbertasLojaChartProps {
 }
 
 export function OrdensAbertasLojaChart({ rows, periodLabel }: OrdensAbertasLojaChartProps) {
+  const { showLabels } = useChartLabels()
+
   if (rows.length === 0) {
     return (
       <Card>
@@ -39,7 +42,7 @@ export function OrdensAbertasLojaChart({ rows, periodLabel }: OrdensAbertasLojaC
           <BarChart
             layout="vertical"
             data={data}
-            margin={{ top: 4, right: 24, bottom: 4, left: 8 }}
+            margin={{ top: 4, right: showLabels ? 36 : 24, bottom: 4, left: 8 }}
           >
             <CartesianGrid strokeDasharray="3 3" horizontal={false} />
             <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
@@ -53,6 +56,14 @@ export function OrdensAbertasLojaChart({ rows, periodLabel }: OrdensAbertasLojaC
                 const opacity = 0.4 + intensity * 0.6
                 return <Cell key={index} fill={`rgba(239, 68, 68, ${opacity})`} />
               })}
+              {showLabels && (
+                <LabelList
+                  dataKey="total_abertas"
+                  position="right"
+                  style={{ fontSize: 11 }}
+                  formatter={(v: number) => v.toLocaleString('pt-BR')}
+                />
+              )}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
