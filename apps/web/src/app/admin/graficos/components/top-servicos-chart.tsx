@@ -78,7 +78,7 @@ export function TopServicosChart({ data }: TopServicosChartProps) {
                   <LabelList
                     dataKey="total_notas"
                     position="right"
-                    style={{ fontSize: 11 }}
+                    style={{ fontSize: 11, fill: '#e5e7eb' }}
                     formatter={(v: number) => v.toLocaleString('pt-BR')}
                   />
                 )}

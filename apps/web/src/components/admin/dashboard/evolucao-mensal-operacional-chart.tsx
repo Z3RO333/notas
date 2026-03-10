@@ -66,7 +66,7 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
                 <LabelList
                   dataKey="concluidas"
                   position="top"
-                  style={{ fontSize: 10 }}
+                  style={{ fontSize: 10, fill: '#e5e7eb' }}
                   formatter={(v: number) => v.toLocaleString('pt-BR')}
                 />
               )}
@@ -84,7 +84,7 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
                 <LabelList
                   dataKey="em_aberto"
                   position="top"
-                  style={{ fontSize: 10 }}
+                  style={{ fontSize: 10, fill: '#e5e7eb' }}
                   formatter={(v: number) => v.toLocaleString('pt-BR')}
                 />
               )}

@@ -79,7 +79,7 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
                   <LabelList
                     dataKey="total_ordens"
                     position="top"
-                    style={{ fontSize: 10 }}
+                    style={{ fontSize: 10, fill: '#e5e7eb' }}
                     formatter={(v: number) => v.toLocaleString('pt-BR')}
                   />
                 )}
@@ -96,7 +96,7 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
                   <LabelList
                     dataKey="total_notas"
                     position="top"
-                    style={{ fontSize: 10 }}
+                    style={{ fontSize: 10, fill: '#e5e7eb' }}
                     formatter={(v: number) => v.toLocaleString('pt-BR')}
                   />
                 )}

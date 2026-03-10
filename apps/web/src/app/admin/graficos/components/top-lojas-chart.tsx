@@ -53,12 +53,12 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
         <CardTitle className="text-base">{titulo}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-80">
+        <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               layout="vertical"
               data={chartData}
-              margin={{ top: 4, right: showLabels ? 52 : 24, bottom: 4, left: 8 }}
+              margin={{ top: 4, right: showLabels ? 56 : 24, bottom: 4, left: 8 }}
             >
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
               <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
@@ -80,7 +80,7 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
                   <LabelList
                     dataKey="concluidas"
                     position="center"
-                    style={{ fontSize: 10, fill: 'white' }}
+                    style={{ fontSize: 10, fill: '#ffffff' }}
                     formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
                   />
                 )}
@@ -90,7 +90,7 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
                   <LabelList
                     dataKey="em_aberto"
                     position="right"
-                    style={{ fontSize: 11 }}
+                    style={{ fontSize: 11, fill: '#e5e7eb' }}
                     formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
                   />
                 )}

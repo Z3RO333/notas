@@ -71,7 +71,7 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
                 <LabelList
                   dataKey="Em Aberto"
                   position="right"
-                  style={{ fontSize: 10 }}
+                  style={{ fontSize: 10, fill: '#e5e7eb' }}
                   formatter={(v: number) => v > 0 ? v.toLocaleString('pt-BR') : ''}
                 />
               )}

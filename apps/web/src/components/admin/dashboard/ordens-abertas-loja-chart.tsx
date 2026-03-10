@@ -60,7 +60,7 @@ export function OrdensAbertasLojaChart({ rows, periodLabel }: OrdensAbertasLojaC
                 <LabelList
                   dataKey="total_abertas"
                   position="right"
-                  style={{ fontSize: 11 }}
+                  style={{ fontSize: 11, fill: '#e5e7eb' }}
                   formatter={(v: number) => v.toLocaleString('pt-BR')}
                 />
               )}

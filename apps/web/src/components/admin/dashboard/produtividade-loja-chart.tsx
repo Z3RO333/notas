@@ -77,7 +77,7 @@ export function ProdutividadeLojaChart({ rows, periodLabel }: ProdutividadeLojaC
                 <LabelList
                   dataKey="pct_conclusao"
                   position="right"
-                  style={{ fontSize: 11 }}
+                  style={{ fontSize: 11, fill: '#e5e7eb' }}
                   formatter={(v: number) => `${v.toFixed(1)}%`}
                 />
               )}
