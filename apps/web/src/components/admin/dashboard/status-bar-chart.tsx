@@ -19,13 +19,13 @@ import {
   CHART_LEGEND_STYLE,
 } from '@/components/charts/chart-theme'
 import {
-  createInsideBarLabelRenderer,
+  createAdaptiveBarLabelRenderer,
   getPositiveDomainMax,
 } from '@/components/charts/stacked-bar-label'
 import type { ProdutividadeOperacional } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 
-const INSIDE_LIGHT_LABEL = createInsideBarLabelRenderer({
+const INSIDE_LIGHT_LABEL = createAdaptiveBarLabelRenderer({
   fill: '#ffffff',
   fontSize: 10,
   fontWeight: 600,
@@ -39,7 +39,7 @@ const INSIDE_LIGHT_LABEL = createInsideBarLabelRenderer({
   },
 })
 
-const INSIDE_DARK_LABEL = createInsideBarLabelRenderer({
+const INSIDE_DARK_LABEL = createAdaptiveBarLabelRenderer({
   fill: '#111827',
   fontSize: 10,
   fontWeight: 700,
@@ -53,7 +53,7 @@ const INSIDE_DARK_LABEL = createInsideBarLabelRenderer({
   },
 })
 
-const INSIDE_MUTED_LABEL = createInsideBarLabelRenderer({
+const INSIDE_MUTED_LABEL = createAdaptiveBarLabelRenderer({
   fill: '#ffffff',
   fontSize: 10,
   fontWeight: 600,
