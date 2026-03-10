@@ -215,7 +215,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
 
   const chartData = [...data].reverse().map((row) => ({
     ...row,
-    outros: Math.max(0, row.total_ordens - row.concluidas - row.em_aberto),
+    total_exibido: row.concluidas + row.em_aberto,
   }))
 
   return (
@@ -239,6 +239,18 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
                 <YAxis type="category" dataKey="nome_loja" width={180} tick={CHART_CATEGORY_TICK} />
                 <Tooltip
                   formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null
+                    const d = payload[0].payload
+                    return (
+                      <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
+                        <p className="font-medium mb-1">{label}</p>
+                        <p>Concluidas: <span className="font-semibold text-green-600">{d.concluidas.toLocaleString('pt-BR')}</span></p>
+                        <p>Em Aberto: <span className="font-semibold text-amber-500">{d.em_aberto.toLocaleString('pt-BR')}</span></p>
+                        <p className="mt-1 border-t pt-1">Total: <span className="font-semibold">{(d.concluidas + d.em_aberto).toLocaleString('pt-BR')}</span></p>
+                      </div>
+                    )
+                  }}
                 />
                 <Legend wrapperStyle={CHART_LEGEND_STYLE} />
                 <Bar
@@ -262,6 +274,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
                   name="Em Aberto"
                   stackId="a"
                   fill="#f59e0b"
+                  radius={[0, 4, 4, 0]}
                   onClick={(entry) => setSelectedLoja(entry.nome_loja)}
                 >
                   {showLabels && (
@@ -269,23 +282,6 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
                       dataKey="em_aberto"
                       position="center"
                       style={INSIDE_DARK_LABEL}
-                      formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
-                    />
-                  )}
-                </Bar>
-                <Bar
-                  dataKey="outros"
-                  name="Outros"
-                  stackId="a"
-                  fill="#6b7280"
-                  radius={[0, 4, 4, 0]}
-                  onClick={(entry) => setSelectedLoja(entry.nome_loja)}
-                >
-                  {showLabels && (
-                    <LabelList
-                      dataKey="outros"
-                      position="center"
-                      style={INSIDE_LIGHT_LABEL}
                       formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
                     />
                   )}
