@@ -1,0 +1,102 @@
+.logo {
+  --logo-base: #1f4fcc;
+  --logo-base-dark: #0d2f8d;
+  --logo-highlight: #5a8fff;
+  position: relative;
+  display: block;
+  width: 84px;
+  height: 92px;
+  filter: drop-shadow(0 14px 18px rgba(5, 15, 48, 0.24));
+}
+
+.shellShadow,
+.shell,
+.brimShadow,
+.brim,
+.baseShadow,
+.base {
+  position: absolute;
+  display: block;
+}
+
+.shellShadow,
+.shell {
+  top: 8px;
+  left: 8px;
+  width: 68px;
+  height: 46px;
+  clip-path: polygon(
+    0% 100%,
+    0% 64%,
+    12% 30%,
+    25% 10%,
+    39% 0%,
+    39% 26%,
+    61% 26%,
+    61% 0%,
+    75% 10%,
+    88% 30%,
+    100% 64%,
+    100% 100%
+  );
+}
+
+.shellShadow {
+  background: var(--logo-base-dark);
+}
+
+.shell {
+  top: 11px;
+  left: 11px;
+  width: 62px;
+  height: 42px;
+  background:
+    radial-gradient(circle at 28% 18%, rgba(255, 255, 255, 0.2), transparent 24%),
+    linear-gradient(180deg, var(--logo-highlight) 0%, var(--logo-base) 62%, #163ea4 100%);
+}
+
+.brimShadow,
+.brim {
+  top: 48px;
+  left: 2px;
+  height: 14px;
+  border-radius: 999px;
+}
+
+.brimShadow {
+  width: 80px;
+  background: var(--logo-base-dark);
+}
+
+.brim {
+  top: 50px;
+  left: 5px;
+  width: 74px;
+  height: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 46%),
+    linear-gradient(180deg, #2c63ea 0%, #1c4dca 100%);
+}
+
+.baseShadow,
+.base {
+  box-sizing: border-box;
+  border-top: 0;
+  border-radius: 0 0 999px 999px;
+}
+
+.baseShadow {
+  top: 46px;
+  left: 18px;
+  width: 48px;
+  height: 38px;
+  border: 13px solid var(--logo-base-dark);
+}
+
+.base {
+  top: 49px;
+  left: 21px;
+  width: 42px;
+  height: 32px;
+  border: 11px solid var(--logo-base);
+}
