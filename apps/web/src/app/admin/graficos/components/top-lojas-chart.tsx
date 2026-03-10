@@ -102,7 +102,7 @@ function OrdensDialog({ nomeLoja, ano, mes, tipoOrdem, open, onClose }: OrdensDi
     }
 
     q.then(({ data }) => {
-      setOrdens((data as OrdemRow[]) ?? [])
+      setOrdens((data as unknown as OrdemRow[]) ?? [])
       setLoading(false)
     })
   }, [open, nomeLoja, ano, mes, tipoOrdem, supabase])
