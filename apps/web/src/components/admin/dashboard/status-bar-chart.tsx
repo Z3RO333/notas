@@ -32,6 +32,8 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
       : r.fornecedor_codigo,
     Atendidas: r.atendidas,
     'Em Aberto': r.em_aberto,
+    Outros: Math.max(0, r.total_ordens - r.atendidas - r.em_aberto),
+    total_ordens: r.total_ordens,
   }))
 
   return (
@@ -56,7 +58,7 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
               formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="Atendidas" stackId="a" fill="#16a34a" radius={[0, 0, 0, 0]}>
+            <Bar dataKey="Atendidas" stackId="a" fill="#16a34a">
               {showLabels && (
                 <LabelList
                   dataKey="Atendidas"
@@ -66,10 +68,11 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
                 />
               )}
             </Bar>
-            <Bar dataKey="Em Aberto" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]}>
+            <Bar dataKey="Em Aberto" stackId="a" fill="#f59e0b" />
+            <Bar dataKey="Outros" stackId="a" fill="#6b7280" radius={[0, 4, 4, 0]}>
               {showLabels && (
                 <LabelList
-                  dataKey="Em Aberto"
+                  dataKey="total_ordens"
                   position="right"
                   style={{ fontSize: 10, fill: '#e5e7eb' }}
                   formatter={(v: number) => v > 0 ? v.toLocaleString('pt-BR') : ''}

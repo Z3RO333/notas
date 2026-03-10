@@ -54,7 +54,8 @@ BEGIN
     FROM public.notas_manutencao n
     JOIN public.ordens_notas_acompanhamento ona ON ona.nota_id = n.id
     WHERE
-      ona.unidade IS NOT NULL
+      BTRIM(n.descricao) <> ''
+      AND ona.unidade IS NOT NULL
       AND BTRIM(ona.unidade) <> ''
       AND (p_ano IS NULL OR EXTRACT(YEAR  FROM COALESCE(n.data_criacao_sap, n.created_at::date))::int = p_ano)
       AND (p_mes IS NULL OR EXTRACT(MONTH FROM COALESCE(n.data_criacao_sap, n.created_at::date))::int = p_mes)

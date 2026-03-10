@@ -79,16 +79,17 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
       return q.order('ano').order('mes')
     })(),
 
-    // Q4 — Resumo por segmento
+    // Q4 — total_notas por segmento (usado só para o card de resumo)
+    // limit alto para evitar truncagem do PostgREST (default 1000 linhas)
     (() => {
       let q = supabase
         .from('vw_dashboard_gestao_manutencao')
-        .select('tipo_unidade, nome_loja, total_ordens, total_notas')
+        .select('tipo_unidade, nome_loja, total_notas')
         .not('tipo_unidade', 'is', null)
       if (ano) q = q.eq('ano', ano)
       if (mes) q = q.eq('mes', mes)
       if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
-      return q
+      return q.limit(10000)
     })(),
 
     // Q5 — Opções de filtro
@@ -165,20 +166,36 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   ) as Record<TipoUnidade, GestaoEvolucaoMes[]>
 
   // --- Segmentos: summary por LOJA / FARMA / CD ---
-  type SegRaw = Pick<DashboardGestaoRow, 'tipo_unidade' | 'nome_loja' | 'total_ordens' | 'total_notas'>
+  // total_ordens e unidades vêm do Q1 RPC (sem risco de truncagem, 1 linha por unidade)
+  // total_notas vem do Q4 view (com limit 10000)
+  type SegRaw = Pick<DashboardGestaoRow, 'tipo_unidade' | 'nome_loja' | 'total_notas'>
   const segRaw = (segmentosRes.data ?? []) as SegRaw[]
-  const segMap = new Map<TipoUnidade, { total_ordens: number; total_notas: number; unidades: Set<string> }>()
-  let grandTotalOrdens = 0
+
+  const segMap = new Map<TipoUnidade, { total_ordens: number; total_notas: number; unidades: number }>()
+
+  // total_ordens e contagem de unidades — fonte: Q1 RPC (preciso)
+  for (const row of topLojasRaw) {
+    if (!row.tipo_unidade) continue
+    const t = row.tipo_unidade as TipoUnidade
+    if (!segMap.has(t)) segMap.set(t, { total_ordens: 0, total_notas: 0, unidades: 0 })
+    const entry = segMap.get(t)!
+    entry.total_ordens += row.total_ordens
+    entry.unidades += 1
+  }
+
+  // total_notas — fonte: Q4 view
+  const notasMap = new Map<TipoUnidade, number>()
   for (const row of segRaw) {
     if (!row.tipo_unidade) continue
     const t = row.tipo_unidade as TipoUnidade
-    if (!segMap.has(t)) segMap.set(t, { total_ordens: 0, total_notas: 0, unidades: new Set() })
-    const entry = segMap.get(t)!
-    entry.total_ordens += row.total_ordens
-    entry.total_notas += row.total_notas
-    if (row.nome_loja) entry.unidades.add(row.nome_loja)
-    grandTotalOrdens += row.total_ordens
+    notasMap.set(t, (notasMap.get(t) ?? 0) + row.total_notas)
   }
+  for (const [t, notas] of notasMap) {
+    const entry = segMap.get(t)
+    if (entry) entry.total_notas = notas
+  }
+
+  const grandTotalOrdens = Array.from(segMap.values()).reduce((s, e) => s + e.total_ordens, 0)
   const segmentos: GestaoSegmentoSummary[] = TIPOS
     .filter((t) => segMap.has(t))
     .map((tipo) => {
@@ -188,7 +205,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
         label: TIPO_LABEL[tipo],
         total_ordens: e.total_ordens,
         total_notas: e.total_notas,
-        unidades: e.unidades.size,
+        unidades: e.unidades,
         percentual_ordens: grandTotalOrdens > 0
           ? parseFloat(((e.total_ordens / grandTotalOrdens) * 100).toFixed(1))
           : 0,

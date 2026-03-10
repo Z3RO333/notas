@@ -45,7 +45,10 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
     )
   }
 
-  const chartData = [...data].reverse()
+  const chartData = [...data].reverse().map((row) => ({
+    ...row,
+    outros: Math.max(0, row.total_ordens - row.concluidas - row.em_aberto),
+  }))
 
   return (
     <Card>
@@ -76,7 +79,8 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="concluidas" name="Concluídas" stackId="a" fill="#16a34a" />
-              <Bar dataKey="em_aberto" name="Em Aberto" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]}>
+              <Bar dataKey="em_aberto" name="Em Aberto" stackId="a" fill="#f59e0b" />
+              <Bar dataKey="outros" name="Outros" stackId="a" fill="#6b7280" radius={[0, 4, 4, 0]}>
                 {showLabels && (
                   <LabelList
                     dataKey="total_ordens"
