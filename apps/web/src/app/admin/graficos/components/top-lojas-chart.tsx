@@ -74,7 +74,7 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
             >
               <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" horizontal={false} />
               <XAxis type="number" allowDecimals={false} tick={CHART_AXIS_TICK} />
-              <YAxis type="category" dataKey="nome_loja" width={130} tick={CHART_CATEGORY_TICK} />
+              <YAxis type="category" dataKey="nome_loja" width={180} tick={CHART_CATEGORY_TICK} />
               <Tooltip
                 formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
               />

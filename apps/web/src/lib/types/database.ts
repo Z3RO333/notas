@@ -536,7 +536,9 @@ export type ImportSystemField =
   | 'ordem_codigo'
   | 'numero_nota'
   | 'status_ordem_raw'
+  | 'tipo_ordem'
   | 'centro'
+  | 'denominacao_unidade'
   | 'ordem_detectada_em'
 
 export type ImportMode =
@@ -552,7 +554,9 @@ export interface MappedImportRow {
   ordem_codigo: string
   numero_nota: string | null
   status_ordem_raw: string | null
+  tipo_ordem: string | null
   centro: string | null
+  denominacao_unidade: string | null
   ordem_detectada_em: string | null
 }
 

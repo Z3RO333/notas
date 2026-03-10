@@ -19,6 +19,17 @@ function normalizeStatus(
   return deriveOrdemStatusFromRaw(raw)
 }
 
+function normalizeOptionalText(value: string | null): string | null {
+  if (!value) return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function normalizeTipoOrdem(value: string | null): string | null {
+  const trimmed = normalizeOptionalText(value)
+  return trimmed ? trimmed.toUpperCase() : null
+}
+
 // ---------------------------------------------------------------------------
 // Date parsing — supports ISO and DD/MM/YYYY
 // ---------------------------------------------------------------------------
@@ -120,6 +131,32 @@ export async function POST(request: Request) {
     }
   }
 
+  const centros = Array.from(new Set(
+    rows
+      .map((r) => normalizeOptionalText(r.centro))
+      .filter((value): value is string => value !== null)
+  ))
+
+  const unidadeByCentro = new Map<string, string>()
+  if (centros.length > 0) {
+    const { data: centroRows, error: centroLookupError } = await supabase
+      .from('dim_centro_unidade')
+      .select('centro, unidade')
+      .in('centro', centros)
+
+    if (centroLookupError) {
+      return NextResponse.json({ error: `Erro ao consultar centros: ${centroLookupError.message}` }, { status: 500 })
+    }
+
+    for (const centroRow of centroRows ?? []) {
+      const centro = centroRow.centro as string | null
+      const unidade = centroRow.unidade as string | null
+      if (centro && unidade) {
+        unidadeByCentro.set(centro, unidade)
+      }
+    }
+  }
+
   // 6. Process each row
   const errors: ImportRowError[] = []
   let created = 0
@@ -129,6 +166,10 @@ export async function POST(request: Request) {
 
   for (const row of rows) {
     const ordemCodigo = row.ordem_codigo?.trim()
+    const centro = normalizeOptionalText(row.centro)
+    const tipoOrdem = normalizeTipoOrdem(row.tipo_ordem)
+    const denominacaoUnidade = normalizeOptionalText(row.denominacao_unidade)
+    const unidadeResolvida = centro ? (unidadeByCentro.get(centro) ?? null) : null
 
     if (!ordemCodigo) {
       errors.push({ linha: row.rowIndex, ordem_codigo: '', motivo: 'ordem_codigo obrigatória' })
@@ -179,7 +220,10 @@ export async function POST(request: Request) {
           ordem_codigo: ordemCodigo,
           status_ordem: normalizeStatus(row.status_ordem_raw),
           status_ordem_raw: row.status_ordem_raw ?? null,
-          centro: row.centro ?? null,
+          tipo_ordem: tipoOrdem,
+          centro,
+          unidade: unidadeResolvida,
+          denominacao_unidade: denominacaoUnidade,
           ordem_detectada_em: parseIsoDate(row.ordem_detectada_em) ?? now,
           data_entrada: parseIsoDate(row.ordem_detectada_em),
           created_at: now,
@@ -202,8 +246,17 @@ export async function POST(request: Request) {
         updatePayload.status_ordem = normalizeStatus(row.status_ordem_raw)
         updatePayload.status_ordem_raw = row.status_ordem_raw
       }
-      if (row.centro !== null) {
-        updatePayload.centro = row.centro
+      if (tipoOrdem !== null) {
+        updatePayload.tipo_ordem = tipoOrdem
+      }
+      if (centro !== null) {
+        updatePayload.centro = centro
+        if (unidadeResolvida !== null) {
+          updatePayload.unidade = unidadeResolvida
+        }
+      }
+      if (denominacaoUnidade !== null) {
+        updatePayload.denominacao_unidade = denominacaoUnidade
       }
       if (row.ordem_detectada_em !== null) {
         const iso = parseIsoDate(row.ordem_detectada_em)

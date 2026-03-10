@@ -38,7 +38,9 @@ const FIELD_ALIASES: Record<ImportSystemField, string[]> = {
   ordem_codigo: ['ORDEM', 'ORDER', 'CODIGO_ORDEM', 'ORDEM_SAP', 'CÓDIGO_ORDEM', 'CODIGO'],
   numero_nota: ['NOTA', 'NUMERO_NOTA', 'NOTE', 'NOTA_SAP', 'NÚMERO_NOTA', 'NUM_NOTA'],
   status_ordem_raw: ['STATUS', 'STATUS_ORDEM', 'STATUS_SAP', 'STATUS_ORDER', 'SITUACAO', 'SITUAÇÃO'],
-  centro: ['CENTRO', 'CENTRO_LOCALIZACAO', 'CENTER', 'CENTRO_LOCALIZAÇÃO', 'CENTRO_LOC'],
+  tipo_ordem: ['TIPO_ORDEM', 'TIPO_DE_ORDEM', 'ORDER_TYPE'],
+  centro: ['CENTRO', 'CENTRO_LOCALIZACAO', 'CENTER', 'CENTRO_LOCALIZAÇÃO', 'CENTRO_LOC', 'CEN_LOCALIZ'],
+  denominacao_unidade: ['DENOMINACAO', 'DENOMINACAO_UNIDADE', 'DENOMINACAO_DA_UNIDADE', 'NOME_LOJA'],
   ordem_detectada_em: ['DATA_CRIACAO', 'DATA_ENTRADA', 'DATA_ABERTURA', 'DATA_CRIAÇÃO', 'DATA', 'DT_CRIACAO'],
 }
 
@@ -46,7 +48,9 @@ const FIELD_LABELS: Record<ImportSystemField, { label: string; required: boolean
   ordem_codigo: { label: 'Código da Ordem', required: true, hint: 'Chave unica — ex: ORDEM, ORDER, CODIGO_ORDEM' },
   numero_nota: { label: 'Número da Nota', required: false, hint: 'Necessario para criar novas ordens — ex: NOTA' },
   status_ordem_raw: { label: 'Status', required: false, hint: 'ex: STATUS, STATUS_ORDEM' },
+  tipo_ordem: { label: 'Tipo de Ordem', required: false, hint: 'ex: TIPO DE ORDEM, TIPO_ORDEM' },
   centro: { label: 'Centro', required: false, hint: 'ex: CENTRO, CENTER' },
+  denominacao_unidade: { label: 'Denominação', required: false, hint: 'ex: DENOMINAÇÃO, NOME_LOJA' },
   ordem_detectada_em: { label: 'Data de Criação', required: false, hint: 'ex: DATA_CRIACAO, DATA_ENTRADA' },
 }
 
@@ -63,18 +67,30 @@ const BATCH_SIZE = 100
 // Helpers
 // ---------------------------------------------------------------------------
 
+function normalizeHeaderKey(value: string): string {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .trim()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
 function autoDetectMapping(headers: string[]): Record<ImportSystemField, string | null> {
-  const upperHeaders = headers.map((h) => h.toUpperCase().trim().replace(/\s+/g, '_'))
+  const normalizedHeaders = headers.map((h) => normalizeHeaderKey(h))
   const result: Record<ImportSystemField, string | null> = {
     ordem_codigo: null,
     numero_nota: null,
     status_ordem_raw: null,
+    tipo_ordem: null,
     centro: null,
+    denominacao_unidade: null,
     ordem_detectada_em: null,
   }
   for (const [field, aliases] of Object.entries(FIELD_ALIASES) as [ImportSystemField, string[]][]) {
     for (const alias of aliases) {
-      const idx = upperHeaders.indexOf(alias)
+      const idx = normalizedHeaders.indexOf(normalizeHeaderKey(alias))
       if (idx !== -1) {
         result[field] = headers[idx]
         break
@@ -111,7 +127,9 @@ function applyMapping(
       ordem_codigo,
       numero_nota: extractCell(row, columnMap.numero_nota),
       status_ordem_raw: extractCell(row, columnMap.status_ordem_raw),
+      tipo_ordem: extractCell(row, columnMap.tipo_ordem),
       centro: extractCell(row, columnMap.centro),
+      denominacao_unidade: extractCell(row, columnMap.denominacao_unidade),
       ordem_detectada_em: extractCell(row, columnMap.ordem_detectada_em),
     })
   })
@@ -175,7 +193,9 @@ export function OrdersImportDialog({ open, onOpenChange, userRole }: OrdersImpor
     ordem_codigo: null,
     numero_nota: null,
     status_ordem_raw: null,
+    tipo_ordem: null,
     centro: null,
+    denominacao_unidade: null,
     ordem_detectada_em: null,
   })
   const [mappedRows, setMappedRows] = useState<MappedImportRow[]>([])
@@ -193,7 +213,15 @@ export function OrdersImportDialog({ open, onOpenChange, userRole }: OrdersImpor
     setFileName(null)
     setRawRows([])
     setHeaders([])
-    setColumnMap({ ordem_codigo: null, numero_nota: null, status_ordem_raw: null, centro: null, ordem_detectada_em: null })
+    setColumnMap({
+      ordem_codigo: null,
+      numero_nota: null,
+      status_ordem_raw: null,
+      tipo_ordem: null,
+      centro: null,
+      denominacao_unidade: null,
+      ordem_detectada_em: null,
+    })
     setMappedRows([])
     setValidationErrors(new Map())
     setImportMode(userRole === 'admin' ? 'update_only' : 'create_and_update')
@@ -475,7 +503,9 @@ export function OrdersImportDialog({ open, onOpenChange, userRole }: OrdersImpor
                     <th className="px-2 py-1.5 text-left text-muted-foreground">Ordem</th>
                     <th className="px-2 py-1.5 text-left text-muted-foreground">Nota</th>
                     <th className="px-2 py-1.5 text-left text-muted-foreground">Status</th>
+                    <th className="px-2 py-1.5 text-left text-muted-foreground">Tipo</th>
                     <th className="px-2 py-1.5 text-left text-muted-foreground">Centro</th>
+                    <th className="px-2 py-1.5 text-left text-muted-foreground">Denominação</th>
                     <th className="px-2 py-1.5 text-left text-muted-foreground">Data</th>
                   </tr>
                 </thead>
@@ -495,7 +525,9 @@ export function OrdersImportDialog({ open, onOpenChange, userRole }: OrdersImpor
                         </td>
                         <td className="px-2 py-1 text-muted-foreground">{row.numero_nota ?? '—'}</td>
                         <td className="px-2 py-1 text-muted-foreground">{row.status_ordem_raw ?? '—'}</td>
+                        <td className="px-2 py-1 text-muted-foreground">{row.tipo_ordem ?? '—'}</td>
                         <td className="px-2 py-1 text-muted-foreground">{row.centro ?? '—'}</td>
+                        <td className="px-2 py-1 text-muted-foreground">{row.denominacao_unidade ?? '—'}</td>
                         <td className="px-2 py-1 text-muted-foreground">{row.ordem_detectada_em ?? '—'}</td>
                       </tr>
                     )
