@@ -49,18 +49,12 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
     segmentosRes,
     opcoesRes,
   ] = await Promise.all([
-    // Q1 — Top unidades por total_ordens (todos os segmentos)
-    (() => {
-      let q = supabase
-        .from('vw_dashboard_gestao_manutencao')
-        .select('nome_loja, tipo_unidade, total_ordens')
-        .not('nome_loja', 'is', null)
-        .not('tipo_unidade', 'is', null)
-      if (ano) q = q.eq('ano', ano)
-      if (mes) q = q.eq('mes', mes)
-      if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
-      return q.order('total_ordens', { ascending: false })
-    })(),
+    // Q1 — Top unidades com breakdown concluidas/em_aberto por status_ordem_raw
+    supabase.rpc('calcular_gestao_top_lojas_por_status', {
+      p_ano: ano ?? null,
+      p_mes: mes ?? null,
+      p_tipo_ordem: tipoOrdem ?? null,
+    }),
 
     // Q2 — Top serviços por total_notas (todos os segmentos)
     (() => {
@@ -104,19 +98,14 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
       .not('tipo_ordem', 'is', null),
   ])
 
-  // --- Top Lojas por segmento ---
-  type TopLojasRaw = Pick<DashboardGestaoRow, 'nome_loja' | 'tipo_unidade' | 'total_ordens'>
+  // --- Top Lojas por segmento (com breakdown concluidas/em_aberto) ---
+  type TopLojasRaw = { nome_loja: string; tipo_unidade: string; concluidas: number; em_aberto: number; total_ordens: number }
   const topLojasRaw = (topLojasRes.data ?? []) as TopLojasRaw[]
 
   const topLojasBySegmento = Object.fromEntries(
     TIPOS.map((tipo) => {
-      const map = new Map<string, number>()
-      for (const row of topLojasRaw) {
-        if (row.tipo_unidade !== tipo || !row.nome_loja) continue
-        map.set(row.nome_loja, (map.get(row.nome_loja) ?? 0) + row.total_ordens)
-      }
-      const sorted: GestaoTopLoja[] = Array.from(map.entries())
-        .map(([nome_loja, total_ordens]) => ({ nome_loja, total_ordens }))
+      const sorted: GestaoTopLoja[] = topLojasRaw
+        .filter((row) => row.tipo_unidade === tipo && row.nome_loja)
         .sort((a, b) => b.total_ordens - a.total_ordens)
         .slice(0, 10)
       return [tipo, sorted]

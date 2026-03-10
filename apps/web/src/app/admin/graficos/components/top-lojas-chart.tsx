@@ -5,6 +5,7 @@ import {
   BarChart,
   CartesianGrid,
   LabelList,
+  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -20,12 +21,6 @@ const TIPO_TITULO: Record<TipoUnidade, string> = {
   CD: 'Top CDs – Ordens Geradas',
 }
 
-const TIPO_COR: Record<TipoUnidade, string> = {
-  LOJA: '#2563eb',
-  FARMA: '#16a34a',
-  CD: '#d97706',
-}
-
 interface TopLojasChartProps {
   data: GestaoTopLoja[]
   tipoUnidade?: TipoUnidade
@@ -34,7 +29,6 @@ interface TopLojasChartProps {
 export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
   const { showLabels } = useChartLabels()
   const titulo = tipoUnidade ? TIPO_TITULO[tipoUnidade] : 'Top Unidades – Ordens Geradas'
-  const cor = tipoUnidade ? TIPO_COR[tipoUnidade] : '#2563eb'
 
   if (data.length === 0) {
     return (
@@ -67,7 +61,7 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
               margin={{ top: 4, right: showLabels ? 52 : 24, bottom: 4, left: 8 }}
             >
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" allowDecimals={false} />
+              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
               <YAxis
                 type="category"
                 dataKey="nome_loja"
@@ -75,15 +69,29 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
                 tick={{ fontSize: 11 }}
               />
               <Tooltip
-                formatter={(value: number) => [value.toLocaleString('pt-BR'), 'Ordens']}
+                formatter={(value: number, name: string) => [
+                  value.toLocaleString('pt-BR'),
+                  name,
+                ]}
               />
-              <Bar dataKey="total_ordens" name="Ordens" fill={cor} radius={[0, 4, 4, 0]}>
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="concluidas" name="Concluídas" stackId="a" fill="#16a34a">
                 {showLabels && (
                   <LabelList
-                    dataKey="total_ordens"
+                    dataKey="concluidas"
+                    position="center"
+                    style={{ fontSize: 10, fill: 'white' }}
+                    formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
+                  />
+                )}
+              </Bar>
+              <Bar dataKey="em_aberto" name="Em Aberto" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]}>
+                {showLabels && (
+                  <LabelList
+                    dataKey="em_aberto"
                     position="right"
                     style={{ fontSize: 11 }}
-                    formatter={(v: number) => v.toLocaleString('pt-BR')}
+                    formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
                   />
                 )}
               </Bar>

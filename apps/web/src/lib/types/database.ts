@@ -605,6 +605,8 @@ export interface GestaoSegmentoSummary {
 
 export interface GestaoTopLoja {
   nome_loja: string
+  concluidas: number
+  em_aberto: number
   total_ordens: number
 }
 
