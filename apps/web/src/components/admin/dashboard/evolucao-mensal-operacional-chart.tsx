@@ -12,6 +12,12 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  CHART_AXIS_TICK,
+  CHART_GRID_STROKE,
+  CHART_LEGEND_STYLE,
+  CHART_VALUE_LABEL_SM,
+} from '@/components/charts/chart-theme'
 import type { EvolucaoMensalOperacional } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 
@@ -47,13 +53,13 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
       <CardContent className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={rows} margin={{ top: showLabels ? 20 : 4, right: 24, bottom: 4, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} minTickGap={20} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
+            <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" />
+            <XAxis dataKey="label" tick={CHART_AXIS_TICK} minTickGap={20} />
+            <YAxis allowDecimals={false} tick={CHART_AXIS_TICK} />
             <Tooltip
               formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
             />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Legend wrapperStyle={CHART_LEGEND_STYLE} />
             <Line
               type="monotone"
               dataKey="concluidas"
@@ -66,7 +72,7 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
                 <LabelList
                   dataKey="concluidas"
                   position="top"
-                  style={{ fontSize: 10, fill: '#e5e7eb' }}
+                  style={CHART_VALUE_LABEL_SM}
                   formatter={(v: number) => v.toLocaleString('pt-BR')}
                 />
               )}
@@ -84,7 +90,7 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
                 <LabelList
                   dataKey="em_aberto"
                   position="top"
-                  style={{ fontSize: 10, fill: '#e5e7eb' }}
+                  style={CHART_VALUE_LABEL_SM}
                   formatter={(v: number) => v.toLocaleString('pt-BR')}
                 />
               )}

@@ -12,6 +12,13 @@ import {
   YAxis,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  CHART_AXIS_TICK,
+  CHART_AXIS_TICK_MD,
+  CHART_GRID_STROKE,
+  CHART_LEGEND_STYLE,
+  CHART_VALUE_LABEL_SM,
+} from '@/components/charts/chart-theme'
 import type { GestaoEvolucaoMes } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 
@@ -46,9 +53,9 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: showLabels ? 20 : 4, right: 16, bottom: 4, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" minTickGap={20} tick={{ fontSize: 12, fill: '#9ca3af' }} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
+              <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" />
+              <XAxis dataKey="label" minTickGap={20} tick={CHART_AXIS_TICK_MD} />
+              <YAxis allowDecimals={false} tick={CHART_AXIS_TICK} />
               <Tooltip
                 formatter={(value: number, name: string) => {
                   const labels: Record<string, string> = {
@@ -59,6 +66,7 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
                 }}
               />
               <Legend
+                wrapperStyle={CHART_LEGEND_STYLE}
                 formatter={(value: string) => {
                   const labels: Record<string, string> = {
                     total_ordens: 'Ordens',
@@ -79,7 +87,7 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
                   <LabelList
                     dataKey="total_ordens"
                     position="top"
-                    style={{ fontSize: 10, fill: '#e5e7eb' }}
+                    style={CHART_VALUE_LABEL_SM}
                     formatter={(v: number) => v.toLocaleString('pt-BR')}
                   />
                 )}
@@ -96,7 +104,7 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
                   <LabelList
                     dataKey="total_notas"
                     position="top"
-                    style={{ fontSize: 10, fill: '#e5e7eb' }}
+                    style={CHART_VALUE_LABEL_SM}
                     formatter={(v: number) => v.toLocaleString('pt-BR')}
                   />
                 )}

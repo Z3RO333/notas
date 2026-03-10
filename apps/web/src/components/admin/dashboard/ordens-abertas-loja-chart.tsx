@@ -2,6 +2,12 @@
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LabelList, ResponsiveContainer, Cell } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  CHART_AXIS_TICK,
+  CHART_CATEGORY_TICK,
+  CHART_GRID_STROKE,
+  CHART_VALUE_LABEL,
+} from '@/components/charts/chart-theme'
 import type { OrdensAbertasLoja } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 
@@ -44,9 +50,9 @@ export function OrdensAbertasLojaChart({ rows, periodLabel }: OrdensAbertasLojaC
             data={data}
             margin={{ top: 4, right: showLabels ? 36 : 24, bottom: 4, left: 8 }}
           >
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
-            <YAxis type="category" dataKey="unidade" width={130} tick={{ fontSize: 11, fill: '#d1d5db' }} />
+            <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" horizontal={false} />
+            <XAxis type="number" allowDecimals={false} tick={CHART_AXIS_TICK} />
+            <YAxis type="category" dataKey="unidade" width={130} tick={CHART_CATEGORY_TICK} />
             <Tooltip
               formatter={(value: number) => [value.toLocaleString('pt-BR'), 'Em Aberto']}
             />
@@ -60,7 +66,7 @@ export function OrdensAbertasLojaChart({ rows, periodLabel }: OrdensAbertasLojaC
                 <LabelList
                   dataKey="total_abertas"
                   position="right"
-                  style={{ fontSize: 11, fill: '#e5e7eb' }}
+                  style={CHART_VALUE_LABEL}
                   formatter={(v: number) => v.toLocaleString('pt-BR')}
                 />
               )}

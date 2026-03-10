@@ -12,6 +12,13 @@ import {
   YAxis,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  CHART_AXIS_TICK,
+  CHART_CATEGORY_TICK,
+  CHART_GRID_STROKE,
+  CHART_LEGEND_STYLE,
+  CHART_VALUE_LABEL,
+} from '@/components/charts/chart-theme'
 import type { GestaoTopLoja, TipoUnidade } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 
@@ -63,13 +70,13 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
               data={chartData}
               margin={{ top: 4, right: showLabels ? 56 : 24, bottom: 4, left: 8 }}
             >
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
+              <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" horizontal={false} />
+              <XAxis type="number" allowDecimals={false} tick={CHART_AXIS_TICK} />
               <YAxis
                 type="category"
                 dataKey="nome_loja"
                 width={130}
-                tick={{ fontSize: 11, fill: '#d1d5db' }}
+                tick={CHART_CATEGORY_TICK}
               />
               <Tooltip
                 formatter={(value: number, name: string) => [
@@ -77,7 +84,7 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
                   name,
                 ]}
               />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Legend wrapperStyle={CHART_LEGEND_STYLE} />
               <Bar dataKey="concluidas" name="Concluídas" stackId="a" fill="#16a34a" />
               <Bar dataKey="em_aberto" name="Em Aberto" stackId="a" fill="#f59e0b" />
               <Bar dataKey="outros" name="Outros" stackId="a" fill="#6b7280" radius={[0, 4, 4, 0]}>
@@ -85,7 +92,7 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
                   <LabelList
                     dataKey="total_ordens"
                     position="right"
-                    style={{ fontSize: 11, fill: '#e5e7eb' }}
+                    style={CHART_VALUE_LABEL}
                     formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
                   />
                 )}

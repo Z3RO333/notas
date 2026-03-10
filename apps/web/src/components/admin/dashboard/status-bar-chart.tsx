@@ -2,6 +2,13 @@
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, ResponsiveContainer } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  CHART_AXIS_TICK,
+  CHART_CATEGORY_TICK,
+  CHART_GRID_STROKE,
+  CHART_LEGEND_STYLE,
+  CHART_VALUE_LABEL_SM,
+} from '@/components/charts/chart-theme'
 import type { ProdutividadeOperacional } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 
@@ -51,13 +58,13 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
             data={data}
             margin={{ top: 4, right: showLabels ? 52 : 24, bottom: 4, left: 8 }}
           >
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
-            <YAxis type="category" dataKey="nome" width={80} tick={{ fontSize: 11, fill: '#d1d5db' }} />
+            <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" horizontal={false} />
+            <XAxis type="number" allowDecimals={false} tick={CHART_AXIS_TICK} />
+            <YAxis type="category" dataKey="nome" width={80} tick={CHART_CATEGORY_TICK} />
             <Tooltip
               formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
             />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Legend wrapperStyle={CHART_LEGEND_STYLE} />
             <Bar dataKey="Atendidas" stackId="a" fill="#16a34a">
               {showLabels && (
                 <LabelList
@@ -74,7 +81,7 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
                 <LabelList
                   dataKey="total_ordens"
                   position="right"
-                  style={{ fontSize: 10, fill: '#e5e7eb' }}
+                  style={CHART_VALUE_LABEL_SM}
                   formatter={(v: number) => v > 0 ? v.toLocaleString('pt-BR') : ''}
                 />
               )}
