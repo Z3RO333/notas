@@ -62,7 +62,11 @@ type OrdemRow = {
   status_ordem_raw: string | null
   data_entrada: string | null
   tipo_ordem: string | null
-  notas_manutencao: { descricao: string | null; centro: string | null } | null
+  // quando vem da query direta:
+  notas_manutencao?: { descricao: string | null; centro: string | null } | null
+  // quando vem da RPC buscar_ordens_equipamento:
+  descricao?: string | null
+  centro?: string | null
 }
 
 interface OrdensDialogProps {
@@ -70,11 +74,12 @@ interface OrdensDialogProps {
   ano?: number
   mes?: number
   tipoOrdem?: string
+  categoria?: string  // se fornecido, usa RPC filtrada por categoria
   open: boolean
   onClose: () => void
 }
 
-function OrdensDialog({ nomeLoja, ano, mes, tipoOrdem, open, onClose }: OrdensDialogProps) {
+function OrdensDialog({ nomeLoja, ano, mes, tipoOrdem, categoria, open, onClose }: OrdensDialogProps) {
   const [ordens, setOrdens] = useState<OrdemRow[]>([])
   const [loading, setLoading] = useState(false)
   const supabase = useMemo(() => createClient(), [])
@@ -83,29 +88,45 @@ function OrdensDialog({ nomeLoja, ano, mes, tipoOrdem, open, onClose }: OrdensDi
     if (!open) return
     setLoading(true)
 
-    let q = supabase
-      .from('ordens_notas_acompanhamento')
-      .select('id, ordem_codigo, status_ordem_raw, data_entrada, tipo_ordem, notas_manutencao!nota_id(descricao, centro)')
-      .eq('denominacao_unidade', nomeLoja)
-      .order('data_entrada', { ascending: false })
-      .limit(200)
+    if (categoria) {
+      // Usa RPC que filtra por keyword da categoria (elevadores/refrigeracao)
+      supabase
+        .rpc('buscar_ordens_equipamento', {
+          p_nome_loja: nomeLoja,
+          p_categoria: categoria,
+          p_ano: ano ?? null,
+          p_mes: mes ?? null,
+        })
+        .then(({ data }) => {
+          setOrdens((data as unknown as OrdemRow[]) ?? [])
+          setLoading(false)
+        })
+    } else {
+      // Query direta para o drill-down genérico da página Gráficos
+      let q = supabase
+        .from('ordens_notas_acompanhamento')
+        .select('id, ordem_codigo, status_ordem_raw, data_entrada, tipo_ordem, notas_manutencao!nota_id(descricao, centro)')
+        .eq('denominacao_unidade', nomeLoja)
+        .order('data_entrada', { ascending: false })
+        .limit(200)
 
-    if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
-    if (mes && ano) {
-      const pad = String(mes).padStart(2, '0')
-      const lastDay = new Date(ano, mes, 0).getDate()
-      q = q.filter('data_entrada', 'gte', `${ano}-${pad}-01`)
-           .filter('data_entrada', 'lte', `${ano}-${pad}-${lastDay}`)
-    } else if (ano) {
-      q = q.filter('data_entrada', 'gte', `${ano}-01-01`)
-           .filter('data_entrada', 'lte', `${ano}-12-31`)
+      if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
+      if (mes && ano) {
+        const pad = String(mes).padStart(2, '0')
+        const lastDay = new Date(ano, mes, 0).getDate()
+        q = q.filter('data_entrada', 'gte', `${ano}-${pad}-01`)
+             .filter('data_entrada', 'lte', `${ano}-${pad}-${lastDay}`)
+      } else if (ano) {
+        q = q.filter('data_entrada', 'gte', `${ano}-01-01`)
+             .filter('data_entrada', 'lte', `${ano}-12-31`)
+      }
+
+      q.then(({ data }) => {
+        setOrdens((data as unknown as OrdemRow[]) ?? [])
+        setLoading(false)
+      })
     }
-
-    q.then(({ data }) => {
-      setOrdens((data as unknown as OrdemRow[]) ?? [])
-      setLoading(false)
-    })
-  }, [open, nomeLoja, ano, mes, tipoOrdem, supabase])
+  }, [open, nomeLoja, ano, mes, tipoOrdem, categoria, supabase])
 
   const formatDate = (d: string | null) => {
     if (!d) return '—'
@@ -146,7 +167,7 @@ function OrdensDialog({ nomeLoja, ano, mes, tipoOrdem, open, onClose }: OrdensDi
                     </td>
                     <td className="py-1.5 px-3 whitespace-nowrap">{formatDate(row.data_entrada)}</td>
                     <td className="py-1.5 px-3 max-w-[240px] truncate">
-                      {row.notas_manutencao?.descricao ?? '—'}
+                      {row.descricao ?? row.notas_manutencao?.descricao ?? '—'}
                     </td>
                   </tr>
                 ))}
@@ -169,9 +190,10 @@ interface TopLojasChartProps {
   ano?: number
   mes?: number
   tipoOrdem?: string
+  categoria?: string  // quando passado, drill-down filtra por categoria (equipamentos)
 }
 
-export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem }: TopLojasChartProps) {
+export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categoria }: TopLojasChartProps) {
   const { showLabels } = useChartLabels()
   const [selectedLoja, setSelectedLoja] = useState<string | null>(null)
   const titulo = tipoUnidade ? TIPO_TITULO[tipoUnidade] : 'Top Unidades - Ordens Geradas'
@@ -280,6 +302,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem }: TopLoj
           ano={ano}
           mes={mes}
           tipoOrdem={tipoOrdem}
+          categoria={categoria}
           open={!!selectedLoja}
           onClose={() => setSelectedLoja(null)}
         />

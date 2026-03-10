@@ -24,8 +24,8 @@ type Categoria = typeof CATEGORIAS[number]
 
 const CATEGORIA_CONFIG: Record<Categoria, { label: string; sublabel: string; cor: string; Icon: typeof Zap }> = {
   elevadores: {
-    label: 'Elevadores e Geradores',
-    sublabel: 'PMOS',
+    label: 'Críticos',
+    sublabel: 'Elevadores, geradores e subestações',
     cor: '#7c3aed',
     Icon: Zap,
   },
@@ -212,6 +212,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
                     data={rawByCategoria[cat].topLojas}
                     ano={ano}
                     mes={mes}
+                    categoria={cat}
                   />
                   <TopServicosChart data={topServByCategoria[cat] ?? []} />
                 </div>
