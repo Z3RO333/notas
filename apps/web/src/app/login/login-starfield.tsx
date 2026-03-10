@@ -71,7 +71,7 @@ function toLayerStyle(layer: StarLayer): CSSProperties {
 
 export function LoginStarfield({ children }: LoginStarfieldProps) {
   return (
-    <div className={styles.shell}>
+    <div className={`${styles.shell} dark`}>
       <div className={styles.background} aria-hidden="true" />
       {STAR_LAYERS.map((layer) => (
         <div
