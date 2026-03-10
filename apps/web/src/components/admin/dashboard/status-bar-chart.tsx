@@ -50,8 +50,8 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
             margin={{ top: 4, right: showLabels ? 52 : 24, bottom: 4, left: 8 }}
           >
             <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-            <YAxis type="category" dataKey="nome" width={80} tick={{ fontSize: 11 }} />
+            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
+            <YAxis type="category" dataKey="nome" width={80} tick={{ fontSize: 11, fill: '#d1d5db' }} />
             <Tooltip
               formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
             />

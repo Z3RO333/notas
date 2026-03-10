@@ -48,8 +48,8 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={rows} margin={{ top: showLabels ? 20 : 4, right: 24, bottom: 4, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={20} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} minTickGap={20} />
+            <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
             <Tooltip
               formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
             />

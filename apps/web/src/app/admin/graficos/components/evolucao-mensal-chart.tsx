@@ -47,8 +47,8 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: showLabels ? 20 : 4, right: 16, bottom: 4, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" minTickGap={20} tick={{ fontSize: 12 }} />
-              <YAxis allowDecimals={false} />
+              <XAxis dataKey="label" minTickGap={20} tick={{ fontSize: 12, fill: '#9ca3af' }} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
               <Tooltip
                 formatter={(value: number, name: string) => {
                   const labels: Record<string, string> = {

@@ -61,12 +61,12 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
               margin={{ top: 4, right: showLabels ? 56 : 24, bottom: 4, left: 8 }}
             >
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
               <YAxis
                 type="category"
                 dataKey="nome_loja"
                 width={130}
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 11, fill: '#d1d5db' }}
               />
               <Tooltip
                 formatter={(value: number, name: string) => [
@@ -75,20 +75,11 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
                 ]}
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="concluidas" name="Concluídas" stackId="a" fill="#16a34a">
-                {showLabels && (
-                  <LabelList
-                    dataKey="concluidas"
-                    position="center"
-                    style={{ fontSize: 10, fill: '#ffffff' }}
-                    formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
-                  />
-                )}
-              </Bar>
+              <Bar dataKey="concluidas" name="Concluídas" stackId="a" fill="#16a34a" />
               <Bar dataKey="em_aberto" name="Em Aberto" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]}>
                 {showLabels && (
                   <LabelList
-                    dataKey="em_aberto"
+                    dataKey="total_ordens"
                     position="right"
                     style={{ fontSize: 11, fill: '#e5e7eb' }}
                     formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}

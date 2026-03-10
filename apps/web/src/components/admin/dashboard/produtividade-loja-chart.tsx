@@ -57,9 +57,9 @@ export function ProdutividadeLojaChart({ rows, periodLabel }: ProdutividadeLojaC
               type="number"
               domain={[0, 100]}
               tickFormatter={(v) => `${v}%`}
-              tick={{ fontSize: 11 }}
+              tick={{ fontSize: 11, fill: '#9ca3af' }}
             />
-            <YAxis type="category" dataKey="unidade" width={130} tick={{ fontSize: 11 }} />
+            <YAxis type="category" dataKey="unidade" width={130} tick={{ fontSize: 11, fill: '#d1d5db' }} />
             <Tooltip
               formatter={(value: number, _name: string, props) => {
                 const { atendidas, em_aberto, total_ordens } = props.payload as ProdutividadeLoja

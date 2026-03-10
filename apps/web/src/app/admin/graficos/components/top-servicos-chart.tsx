@@ -56,12 +56,12 @@ export function TopServicosChart({ data }: TopServicosChartProps) {
               margin={{ top: 4, right: showLabels ? 52 : 24, bottom: 4, left: 8 }}
             >
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" allowDecimals={false} />
+              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
               <YAxis
                 type="category"
                 dataKey="label"
                 width={150}
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 11, fill: '#d1d5db' }}
               />
               <Tooltip
                 formatter={(value: number, name: string) => {

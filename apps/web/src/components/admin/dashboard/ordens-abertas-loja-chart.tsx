@@ -45,8 +45,8 @@ export function OrdensAbertasLojaChart({ rows, periodLabel }: OrdensAbertasLojaC
             margin={{ top: 4, right: showLabels ? 36 : 24, bottom: 4, left: 8 }}
           >
             <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-            <YAxis type="category" dataKey="unidade" width={130} tick={{ fontSize: 11 }} />
+            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
+            <YAxis type="category" dataKey="unidade" width={130} tick={{ fontSize: 11, fill: '#d1d5db' }} />
             <Tooltip
               formatter={(value: number) => [value.toLocaleString('pt-BR'), 'Em Aberto']}
             />
