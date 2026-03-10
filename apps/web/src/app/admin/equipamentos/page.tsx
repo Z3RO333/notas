@@ -207,7 +207,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
                 </div>
 
                 {/* Top Unidades + Top Serviços */}
-                <div className="grid gap-6 lg:grid-cols-2">
+                <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
                   <TopLojasChart
                     data={rawByCategoria[cat].topLojas}
                     ano={ano}

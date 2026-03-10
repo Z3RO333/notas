@@ -43,7 +43,7 @@ const INSIDE_LIGHT_LABEL = createInsideBarLabelRenderer({
   fill: '#ffffff',
   fontSize: 10,
   fontWeight: 600,
-  paddingX: 7,
+  paddingX: 6,
   formatter: (value) => {
     const numericValue = Number(value)
     return numericValue > 0 ? numericValue.toLocaleString('pt-BR') : ''
@@ -54,12 +54,18 @@ const INSIDE_DARK_LABEL = createInsideBarLabelRenderer({
   fill: '#111827',
   fontSize: 10,
   fontWeight: 700,
-  paddingX: 7,
+  paddingX: 6,
   formatter: (value) => {
     const numericValue = Number(value)
     return numericValue > 0 ? numericValue.toLocaleString('pt-BR') : ''
   },
 })
+
+const MIN_STACKED_SEGMENT_PIXELS = 20
+
+function resolveMinPointSize(value: number | null | undefined) {
+  return value && value > 0 ? MIN_STACKED_SEGMENT_PIXELS : 0
+}
 
 const STATUS_LABEL: Record<string, string> = {
   CANCELADO: 'Cancelado',
@@ -285,6 +291,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
                   name="Concluidas"
                   stackId="a"
                   fill="#16a34a"
+                  minPointSize={resolveMinPointSize}
                   onClick={(entry) => setSelectedLoja(entry.nome_loja)}
                 >
                   {showLabels && (
@@ -300,6 +307,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
                   stackId="a"
                   fill="#f59e0b"
                   radius={[0, 4, 4, 0]}
+                  minPointSize={resolveMinPointSize}
                   onClick={(entry) => setSelectedLoja(entry.nome_loja)}
                 >
                   {showLabels && (

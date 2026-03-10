@@ -49,7 +49,7 @@ export default async function RootLayout({
           <ToastProvider>
             <div className="min-h-screen bg-background">
               <TopNav userName={userName} userRole={userRole} />
-              <main className="mx-auto max-w-7xl px-6 py-6">
+              <main className="mx-auto max-w-screen-2xl px-6 py-6">
                 {children}
               </main>
             </div>
