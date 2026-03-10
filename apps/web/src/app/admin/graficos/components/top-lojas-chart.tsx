@@ -63,7 +63,7 @@ const INSIDE_DARK_LABEL = createInsideBarLabelRenderer({
 
 const MIN_STACKED_SEGMENT_PIXELS = 20
 
-function resolveMinPointSize(value: number | null | undefined) {
+function resolveMinPointSizeFromSegment(value: number | null | undefined) {
   return value && value > 0 ? MIN_STACKED_SEGMENT_PIXELS : 0
 }
 
@@ -250,6 +250,10 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
     total_exibido: row.concluidas + row.em_aberto,
   }))
   const axisMax = getPositiveDomainMax(chartData.map((row) => row.total_exibido), 0.06, 4)
+  const getMinPointSizeForDataKey =
+    (dataKey: 'concluidas' | 'em_aberto') =>
+    (_value: number | null | undefined, index: number) =>
+      resolveMinPointSizeFromSegment(chartData[index]?.[dataKey])
 
   return (
     <>
@@ -291,7 +295,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
                   name="Concluidas"
                   stackId="a"
                   fill="#16a34a"
-                  minPointSize={resolveMinPointSize}
+                  minPointSize={getMinPointSizeForDataKey('concluidas')}
                   onClick={(entry) => setSelectedLoja(entry.nome_loja)}
                 >
                   {showLabels && (
@@ -307,7 +311,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
                   stackId="a"
                   fill="#f59e0b"
                   radius={[0, 4, 4, 0]}
-                  minPointSize={resolveMinPointSize}
+                  minPointSize={getMinPointSizeForDataKey('em_aberto')}
                   onClick={(entry) => setSelectedLoja(entry.nome_loja)}
                 >
                   {showLabels && (
