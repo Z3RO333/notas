@@ -62,6 +62,7 @@ type OrdemRow = {
   status_ordem_raw: string | null
   data_entrada: string | null
   tipo_ordem: string | null
+  criado_por?: string | null
   // quando vem da query direta:
   notas_manutencao?: { descricao: string | null; centro: string | null } | null
   // quando vem da RPC buscar_ordens_equipamento:
@@ -105,7 +106,7 @@ function OrdensDialog({ nomeLoja, ano, mes, tipoOrdem, categoria, open, onClose 
       // Query direta para o drill-down genérico da página Gráficos
       let q = supabase
         .from('ordens_notas_acompanhamento')
-        .select('id, ordem_codigo, status_ordem_raw, data_entrada, tipo_ordem, notas_manutencao!nota_id(descricao, centro)')
+        .select('id, ordem_codigo, status_ordem_raw, data_entrada, tipo_ordem, criado_por, notas_manutencao!nota_id(descricao, centro)')
         .eq('denominacao_unidade', nomeLoja)
         .order('data_entrada', { ascending: false })
         .limit(200)
@@ -155,6 +156,7 @@ function OrdensDialog({ nomeLoja, ano, mes, tipoOrdem, categoria, open, onClose 
                   <th className="text-left py-2 px-3 font-medium text-muted-foreground">Status</th>
                   <th className="text-left py-2 px-3 font-medium text-muted-foreground">Data Entrada</th>
                   <th className="text-left py-2 px-3 font-medium text-muted-foreground">Serviço</th>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Criado por</th>
                 </tr>
               </thead>
               <tbody>
@@ -169,6 +171,7 @@ function OrdensDialog({ nomeLoja, ano, mes, tipoOrdem, categoria, open, onClose 
                     <td className="py-1.5 px-3 max-w-[240px] truncate">
                       {row.descricao ?? row.notas_manutencao?.descricao ?? '—'}
                     </td>
+                    <td className="py-1.5 px-3 whitespace-nowrap">{row.criado_por ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>

@@ -8,6 +8,7 @@ Atualiza por ordem_codigo:
   - tipo_ordem             <- Tipo de ordem
   - centro                 <- Cen.localiz.
   - denominacao_unidade    <- Denominação
+  - criado_por             <- Criado por (matrícula SAP → nome)
 
 Uso:
   python scripts/upload_ordens_data_modif.py
@@ -72,6 +73,18 @@ _HEADERS = {
 DEFAULT_XLSX = Path.home() / "Downloads" / "ordens_sap.xlsx"
 BATCH_SIZE = 500
 
+# Mapeamento matrícula SAP → nome do colaborador
+CRIADO_POR_MAP: dict[str, str] = {
+    "10093": "WANDERLUCIO DA SILVA MENDES",
+    "10175": "FABIOLA MARIA RAMOS TENTUNGE",
+    "11924": "PAULA REGINA MATOS CALAZAES",
+    "12686": "ROSANA AZEVEDO FIGUEIRA",
+    "15856": "SUELEM SANTOS DA SILVA",
+    "17542": "ADRIANO BEZERRA DA SILVA",
+    "20504": "MAYKY SILVA DE CASTRO",
+    "21075": "BRENDA FONSECA RODRIGUES",
+}
+
 # ── Parse ─────────────────────────────────────────────────────────────────────
 
 def _find_col(columns: list[str], candidates: list[str]) -> str | None:
@@ -101,6 +114,7 @@ def parse_excel(
     tipo_ordem_col = _find_col(cols, ["Tipo de ordem", "Tipo ordem", "TIPO_ORDEM"])
     centro_col = _find_col(cols, ["Cen.localiz.", "Cen.localiz", "Centro", "CENTRO"])
     denominacao_col = _find_col(cols, ["Denominação", "Denominacao", "DENOMINACAO", "Nome Loja"])
+    criado_por_col = _find_col(cols, ["Criado por", "Criado_por", "CRIADO_POR", "CriadoPor"])
 
     if not ordem_col:
         raise ValueError(f"Coluna 'Ordem' não encontrada. Disponíveis: {cols}")
@@ -111,6 +125,7 @@ def parse_excel(
         "  Colunas:"
         f" ordem='{ordem_col}' | status='{status_col}' | modif='{modif_col}' | entrada='{entrada_col}'"
         f" | tipo='{tipo_ordem_col}' | centro='{centro_col}' | denominacao='{denominacao_col}'"
+        f" | criado_por='{criado_por_col}'"
     )
 
     # Garante tipo datetime
@@ -183,6 +198,14 @@ def parse_excel(
                 if ts_e.tzinfo is None:
                     ts_e = ts_e.tz_localize(timezone.utc)
                 rec["data_entrada"] = ts_e.isoformat()
+
+        if criado_por_col:
+            criado_raw = row.get(criado_por_col)
+            if not pd.isna(criado_raw) if criado_raw is not None else False:
+                matricula = str(int(criado_raw)) if isinstance(criado_raw, float) else str(criado_raw).strip()
+                nome = CRIADO_POR_MAP.get(matricula)
+                if nome:
+                    rec["criado_por"] = nome
 
         records.append(rec)
 
