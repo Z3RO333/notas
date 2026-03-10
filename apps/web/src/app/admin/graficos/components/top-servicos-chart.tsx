@@ -70,13 +70,17 @@ export function TopServicosChart({ data }: TopServicosChartProps) {
                 tick={CHART_CATEGORY_TICK}
               />
               <Tooltip
-                formatter={(value: number, name: string) => {
-                  if (name === 'total_notas') return [value.toLocaleString('pt-BR'), 'Notas']
-                  return [value, name]
-                }}
-                labelFormatter={(label: string) => {
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null
                   const item = chartData.find((d) => d.label === label)
-                  return item?.texto_breve ?? label
+                  const d = payload[0].payload
+                  return (
+                    <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md max-w-[260px]">
+                      <p className="font-medium mb-1 break-words">{item?.texto_breve ?? label}</p>
+                      <p>Notas: <span className="font-semibold text-green-600">{d.total_notas.toLocaleString('pt-BR')}</span></p>
+                      <p className="text-muted-foreground">{d.percentual}% do total</p>
+                    </div>
+                  )
                 }}
               />
               <Bar dataKey="total_notas" name="total_notas" fill="#16a34a" radius={[0, 4, 4, 0]}>

@@ -57,12 +57,16 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
               <XAxis dataKey="label" minTickGap={20} tick={CHART_AXIS_TICK_MD} />
               <YAxis allowDecimals={false} tick={CHART_AXIS_TICK} />
               <Tooltip
-                formatter={(value: number, name: string) => {
-                  const labels: Record<string, string> = {
-                    total_ordens: 'Ordens',
-                    total_notas: 'Notas',
-                  }
-                  return [value.toLocaleString('pt-BR'), labels[name] ?? name]
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null
+                  const d = payload[0].payload
+                  return (
+                    <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
+                      <p className="font-medium mb-1">{label}</p>
+                      <p>Ordens: <span className="font-semibold text-blue-600">{d.total_ordens.toLocaleString('pt-BR')}</span></p>
+                      <p>Notas: <span className="font-semibold text-green-600">{d.total_notas.toLocaleString('pt-BR')}</span></p>
+                    </div>
+                  )
                 }}
               />
               <Legend
