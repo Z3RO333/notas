@@ -17,16 +17,18 @@ import {
   CHART_CATEGORY_TICK,
   CHART_GRID_STROKE,
   CHART_LEGEND_STYLE,
-  CHART_VALUE_LABEL,
 } from '@/components/charts/chart-theme'
 import type { GestaoTopLoja, TipoUnidade } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 
 const TIPO_TITULO: Record<TipoUnidade, string> = {
-  LOJA: 'Top Lojas – Ordens Geradas',
-  FARMA: 'Top Farmas – Ordens Geradas',
-  CD: 'Top CDs – Ordens Geradas',
+  LOJA: 'Top Lojas - Ordens Geradas',
+  FARMA: 'Top Farmas - Ordens Geradas',
+  CD: 'Top CDs - Ordens Geradas',
 }
+
+const INSIDE_LIGHT_LABEL = { fontSize: 10, fill: '#ffffff', fontWeight: 600 } as const
+const INSIDE_DARK_LABEL = { fontSize: 10, fill: '#111827', fontWeight: 700 } as const
 
 interface TopLojasChartProps {
   data: GestaoTopLoja[]
@@ -35,7 +37,7 @@ interface TopLojasChartProps {
 
 export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
   const { showLabels } = useChartLabels()
-  const titulo = tipoUnidade ? TIPO_TITULO[tipoUnidade] : 'Top Unidades – Ordens Geradas'
+  const titulo = tipoUnidade ? TIPO_TITULO[tipoUnidade] : 'Top Unidades - Ordens Geradas'
 
   if (data.length === 0) {
     return (
@@ -44,8 +46,8 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
           <CardTitle className="text-base">{titulo}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground py-8 text-center">
-            Sem dados para o período selecionado.
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            Sem dados para o periodo selecionado.
           </p>
         </CardContent>
       </Card>
@@ -68,31 +70,41 @@ export function TopLojasChart({ data, tipoUnidade }: TopLojasChartProps) {
             <BarChart
               layout="vertical"
               data={chartData}
-              margin={{ top: 4, right: showLabels ? 56 : 24, bottom: 4, left: 8 }}
+              margin={{ top: 4, right: 24, bottom: 4, left: 8 }}
             >
               <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" horizontal={false} />
               <XAxis type="number" allowDecimals={false} tick={CHART_AXIS_TICK} />
-              <YAxis
-                type="category"
-                dataKey="nome_loja"
-                width={130}
-                tick={CHART_CATEGORY_TICK}
-              />
+              <YAxis type="category" dataKey="nome_loja" width={130} tick={CHART_CATEGORY_TICK} />
               <Tooltip
-                formatter={(value: number, name: string) => [
-                  value.toLocaleString('pt-BR'),
-                  name,
-                ]}
+                formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
               />
               <Legend wrapperStyle={CHART_LEGEND_STYLE} />
-              <Bar dataKey="concluidas" name="Concluídas" stackId="a" fill="#16a34a" />
-              <Bar dataKey="em_aberto" name="Em Aberto" stackId="a" fill="#f59e0b" />
+              <Bar dataKey="concluidas" name="Concluidas" stackId="a" fill="#16a34a">
+                {showLabels && (
+                  <LabelList
+                    dataKey="concluidas"
+                    position="center"
+                    style={INSIDE_LIGHT_LABEL}
+                    formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
+                  />
+                )}
+              </Bar>
+              <Bar dataKey="em_aberto" name="Em Aberto" stackId="a" fill="#f59e0b">
+                {showLabels && (
+                  <LabelList
+                    dataKey="em_aberto"
+                    position="center"
+                    style={INSIDE_DARK_LABEL}
+                    formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
+                  />
+                )}
+              </Bar>
               <Bar dataKey="outros" name="Outros" stackId="a" fill="#6b7280" radius={[0, 4, 4, 0]}>
                 {showLabels && (
                   <LabelList
-                    dataKey="total_ordens"
-                    position="right"
-                    style={CHART_VALUE_LABEL}
+                    dataKey="outros"
+                    position="center"
+                    style={INSIDE_LIGHT_LABEL}
                     formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
                   />
                 )}

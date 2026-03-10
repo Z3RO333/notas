@@ -57,8 +57,8 @@ BEGIN
       BTRIM(n.descricao) <> ''
       AND ona.unidade IS NOT NULL
       AND BTRIM(ona.unidade) <> ''
-      AND (p_ano IS NULL OR EXTRACT(YEAR  FROM COALESCE(n.data_criacao_sap, n.created_at::date))::int = p_ano)
-      AND (p_mes IS NULL OR EXTRACT(MONTH FROM COALESCE(n.data_criacao_sap, n.created_at::date))::int = p_mes)
+      AND (p_ano IS NULL OR (ona.data_entrada IS NOT NULL AND EXTRACT(YEAR  FROM ona.data_entrada)::int = p_ano))
+      AND (p_mes IS NULL OR (ona.data_entrada IS NOT NULL AND EXTRACT(MONTH FROM ona.data_entrada)::int = p_mes))
       AND (p_tipo_ordem IS NULL OR ona.tipo_ordem = p_tipo_ordem)
   )
   SELECT
