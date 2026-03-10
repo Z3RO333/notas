@@ -174,7 +174,7 @@ function OrdensDialog({ nomeLoja, ano, mes, tipoOrdem, categoria, open, onClose 
               </tbody>
             </table>
             <p className="text-xs text-muted-foreground text-right pt-2 px-3">
-              {ordens.length} ordem{ordens.length !== 1 ? 's' : ''}
+              {ordens.length} ordens
               {ordens.length === 200 ? ' (limite 200)' : ''}
             </p>
           </div>
