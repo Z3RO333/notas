@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
@@ -13,7 +14,6 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { LoginLogo } from './login-logo'
 
 export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
@@ -175,7 +175,14 @@ export default function LoginPage() {
     <Card className="w-full max-w-sm animate-fade-in-up border-white/10 bg-background/92 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.34)] dark:bg-slate-950/55 dark:border-white/[0.06] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_20px_60px_rgba(0,0,0,0.5)]">
       <CardHeader className="text-center">
         <div className="mx-auto mb-4 flex items-center justify-center">
-          <LoginLogo />
+          <Image
+            src="/login-logo.png"
+            alt="Logo do cockpit"
+            width={84}
+            height={92}
+            priority
+            className="h-auto w-[84px] drop-shadow-[0_14px_18px_rgba(5,15,48,0.24)]"
+          />
         </div>
         <CardTitle className="text-xl">Cockpit de Manutencao</CardTitle>
         <CardDescription>
