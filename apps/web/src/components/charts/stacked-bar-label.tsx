@@ -17,6 +17,11 @@ interface CreateInsideBarLabelRendererOptions {
   fontWeight?: number
   paddingX?: number
   minHeight?: number
+  fallbackPosition?: 'none' | 'barStart' | 'segmentEnd'
+  fallbackOffset?: number
+  fallbackFill?: string
+  fallbackStroke?: string
+  fallbackStrokeWidth?: number
   formatter?: (value: LabelValue) => string
 }
 
@@ -40,6 +45,11 @@ export function createInsideBarLabelRenderer(options: CreateInsideBarLabelRender
   const fontWeight = options.fontWeight ?? 600
   const paddingX = options.paddingX ?? 7
   const minHeight = options.minHeight ?? fontSize + 2
+  const fallbackPosition = options.fallbackPosition ?? 'none'
+  const fallbackOffset = options.fallbackOffset ?? 6
+  const fallbackFill = options.fallbackFill ?? options.fill
+  const fallbackStroke = options.fallbackStroke ?? 'hsl(var(--background))'
+  const fallbackStrokeWidth = options.fallbackStrokeWidth ?? 3
 
   return function InsideBarLabel({
     x,
@@ -74,8 +84,37 @@ export function createInsideBarLabelRenderer(options: CreateInsideBarLabelRender
     const estimatedTextWidth = label.length * fontSize * CHAR_WIDTH_ESTIMATE
     const minSegmentWidth = estimatedTextWidth + paddingX * 2
 
-    if (widthValue < minSegmentWidth || heightValue < minHeight) {
+    if (heightValue < minHeight) {
       return null
+    }
+
+    if (widthValue < minSegmentWidth) {
+      if (fallbackPosition === 'none') {
+        return null
+      }
+
+      const fallbackX =
+        fallbackPosition === 'barStart'
+          ? xValue + fallbackOffset
+          : xValue + widthValue + fallbackOffset
+
+      return (
+        <text
+          x={fallbackX}
+          y={yValue + heightValue / 2}
+          fill={fallbackFill}
+          fontSize={fontSize}
+          fontWeight={fontWeight}
+          textAnchor="start"
+          dominantBaseline="middle"
+          pointerEvents="none"
+          stroke={fallbackStroke}
+          strokeWidth={fallbackStrokeWidth}
+          paintOrder="stroke"
+        >
+          {label}
+        </text>
+      )
     }
 
     return (

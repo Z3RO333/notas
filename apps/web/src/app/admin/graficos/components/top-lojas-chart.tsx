@@ -44,6 +44,9 @@ const INSIDE_LIGHT_LABEL = createInsideBarLabelRenderer({
   fontSize: 10,
   fontWeight: 600,
   paddingX: 7,
+  fallbackPosition: 'barStart',
+  fallbackOffset: 6,
+  fallbackStroke: 'hsl(var(--card))',
   formatter: (value) => {
     const numericValue = Number(value)
     return numericValue > 0 ? numericValue.toLocaleString('pt-BR') : ''
@@ -55,6 +58,9 @@ const INSIDE_DARK_LABEL = createInsideBarLabelRenderer({
   fontSize: 10,
   fontWeight: 700,
   paddingX: 7,
+  fallbackPosition: 'segmentEnd',
+  fallbackOffset: 6,
+  fallbackStroke: 'hsl(var(--card))',
   formatter: (value) => {
     const numericValue = Number(value)
     return numericValue > 0 ? numericValue.toLocaleString('pt-BR') : ''
@@ -243,7 +249,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
     ...row,
     total_exibido: row.concluidas + row.em_aberto,
   }))
-  const axisMax = getPositiveDomainMax(chartData.map((row) => row.total_exibido))
+  const axisMax = getPositiveDomainMax(chartData.map((row) => row.total_exibido), 0.12, 18)
 
   return (
     <>
@@ -258,12 +264,12 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
               <BarChart
                 layout="vertical"
                 data={chartData}
-                margin={{ top: 4, right: 40, bottom: 4, left: 8 }}
+                margin={{ top: 4, right: 56, bottom: 4, left: 8 }}
                 style={{ cursor: 'pointer' }}
               >
                 <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" allowDecimals={false} tick={CHART_AXIS_TICK} domain={[0, axisMax]} />
-                <YAxis type="category" dataKey="nome_loja" width={180} tick={CHART_CATEGORY_TICK} />
+                <YAxis type="category" dataKey="nome_loja" width={188} tick={CHART_CATEGORY_TICK} />
                 <Tooltip
                   formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
                   content={({ active, payload, label }) => {
