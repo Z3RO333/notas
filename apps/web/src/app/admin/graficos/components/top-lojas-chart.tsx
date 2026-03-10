@@ -25,6 +25,10 @@ import {
   CHART_GRID_STROKE,
   CHART_LEGEND_STYLE,
 } from '@/components/charts/chart-theme'
+import {
+  createInsideBarLabelRenderer,
+  getPositiveDomainMax,
+} from '@/components/charts/stacked-bar-label'
 import type { GestaoTopLoja, TipoUnidade } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 import { createClient } from '@/lib/supabase/client'
@@ -35,8 +39,27 @@ const TIPO_TITULO: Record<TipoUnidade, string> = {
   CD: 'Top CDs - Ordens Geradas',
 }
 
-const INSIDE_LIGHT_LABEL = { fontSize: 10, fill: '#ffffff', fontWeight: 600 } as const
-const INSIDE_DARK_LABEL = { fontSize: 10, fill: '#111827', fontWeight: 700 } as const
+const INSIDE_LIGHT_LABEL = createInsideBarLabelRenderer({
+  fill: '#ffffff',
+  fontSize: 10,
+  fontWeight: 600,
+  paddingX: 7,
+  formatter: (value) => {
+    const numericValue = Number(value)
+    return numericValue > 0 ? numericValue.toLocaleString('pt-BR') : ''
+  },
+})
+
+const INSIDE_DARK_LABEL = createInsideBarLabelRenderer({
+  fill: '#111827',
+  fontSize: 10,
+  fontWeight: 700,
+  paddingX: 7,
+  formatter: (value) => {
+    const numericValue = Number(value)
+    return numericValue > 0 ? numericValue.toLocaleString('pt-BR') : ''
+  },
+})
 
 const STATUS_LABEL: Record<string, string> = {
   CANCELADO: 'Cancelado',
@@ -220,6 +243,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
     ...row,
     total_exibido: row.concluidas + row.em_aberto,
   }))
+  const axisMax = getPositiveDomainMax(chartData.map((row) => row.total_exibido))
 
   return (
     <>
@@ -234,11 +258,11 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
               <BarChart
                 layout="vertical"
                 data={chartData}
-                margin={{ top: 4, right: 24, bottom: 4, left: 8 }}
+                margin={{ top: 4, right: 40, bottom: 4, left: 8 }}
                 style={{ cursor: 'pointer' }}
               >
                 <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" allowDecimals={false} tick={CHART_AXIS_TICK} />
+                <XAxis type="number" allowDecimals={false} tick={CHART_AXIS_TICK} domain={[0, axisMax]} />
                 <YAxis type="category" dataKey="nome_loja" width={180} tick={CHART_CATEGORY_TICK} />
                 <Tooltip
                   formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
@@ -266,9 +290,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
                   {showLabels && (
                     <LabelList
                       dataKey="concluidas"
-                      position="center"
-                      style={INSIDE_LIGHT_LABEL}
-                      formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
+                      content={INSIDE_LIGHT_LABEL}
                     />
                   )}
                 </Bar>
@@ -283,9 +305,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
                   {showLabels && (
                     <LabelList
                       dataKey="em_aberto"
-                      position="center"
-                      style={INSIDE_DARK_LABEL}
-                      formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
+                      content={INSIDE_DARK_LABEL}
                     />
                   )}
                 </Bar>

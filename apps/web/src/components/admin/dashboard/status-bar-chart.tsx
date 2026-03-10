@@ -18,11 +18,34 @@ import {
   CHART_GRID_STROKE,
   CHART_LEGEND_STYLE,
 } from '@/components/charts/chart-theme'
+import {
+  createInsideBarLabelRenderer,
+  getPositiveDomainMax,
+} from '@/components/charts/stacked-bar-label'
 import type { ProdutividadeOperacional } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 
-const INSIDE_LIGHT_LABEL = { fontSize: 10, fill: '#ffffff', fontWeight: 600 } as const
-const INSIDE_DARK_LABEL = { fontSize: 10, fill: '#111827', fontWeight: 700 } as const
+const INSIDE_LIGHT_LABEL = createInsideBarLabelRenderer({
+  fill: '#ffffff',
+  fontSize: 10,
+  fontWeight: 600,
+  paddingX: 7,
+  formatter: (value) => {
+    const numericValue = Number(value)
+    return numericValue > 0 ? numericValue.toLocaleString('pt-BR') : ''
+  },
+})
+
+const INSIDE_DARK_LABEL = createInsideBarLabelRenderer({
+  fill: '#111827',
+  fontSize: 10,
+  fontWeight: 700,
+  paddingX: 7,
+  formatter: (value) => {
+    const numericValue = Number(value)
+    return numericValue > 0 ? numericValue.toLocaleString('pt-BR') : ''
+  },
+})
 
 interface StatusBarChartProps {
   rows: ProdutividadeOperacional[]
@@ -50,7 +73,9 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
     Atendidas: row.atendidas,
     'Em Aberto': row.em_aberto,
     Outros: Math.max(0, row.total_ordens - row.atendidas - row.em_aberto),
+    total_exibido: row.total_ordens,
   }))
+  const axisMax = getPositiveDomainMax(data.map((row) => row.total_exibido))
 
   return (
     <Card>
@@ -65,10 +90,10 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
           <BarChart
             layout="vertical"
             data={data}
-            margin={{ top: 4, right: 24, bottom: 4, left: 8 }}
+            margin={{ top: 4, right: 40, bottom: 4, left: 8 }}
           >
             <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" horizontal={false} />
-            <XAxis type="number" allowDecimals={false} tick={CHART_AXIS_TICK} />
+            <XAxis type="number" allowDecimals={false} tick={CHART_AXIS_TICK} domain={[0, axisMax]} />
             <YAxis type="category" dataKey="nome" width={80} tick={CHART_CATEGORY_TICK} />
             <Tooltip
               formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
@@ -78,9 +103,7 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
               {showLabels && (
                 <LabelList
                   dataKey="Atendidas"
-                  position="center"
-                  style={INSIDE_LIGHT_LABEL}
-                  formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
+                  content={INSIDE_LIGHT_LABEL}
                 />
               )}
             </Bar>
@@ -88,9 +111,7 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
               {showLabels && (
                 <LabelList
                   dataKey="Em Aberto"
-                  position="center"
-                  style={INSIDE_DARK_LABEL}
-                  formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
+                  content={INSIDE_DARK_LABEL}
                 />
               )}
             </Bar>
@@ -98,9 +119,7 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
               {showLabels && (
                 <LabelList
                   dataKey="Outros"
-                  position="center"
-                  style={INSIDE_LIGHT_LABEL}
-                  formatter={(v: number) => (v > 0 ? v.toLocaleString('pt-BR') : '')}
+                  content={INSIDE_LIGHT_LABEL}
                 />
               )}
             </Bar>
