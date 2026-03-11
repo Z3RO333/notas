@@ -2,9 +2,10 @@
 
 import {
   Bar,
-  BarChart,
   CartesianGrid,
+  ComposedChart,
   Legend,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -16,6 +17,9 @@ import {
   CHART_AXIS_TICK_MD,
   CHART_GRID_STROKE,
   CHART_LEGEND_STYLE,
+  CHART_TREND_LINE_DASH,
+  CHART_TREND_LINE_OPACITY,
+  CHART_TREND_LINE_STROKE,
 } from '@/components/charts/chart-theme'
 import type { FinanceiroEvolucaoMes } from '@/lib/types/database'
 import { formatCurrencyBRL, formatCurrencyCompactBRL } from '../financeiro-format'
@@ -48,7 +52,7 @@ export function FinanceiroMonthlyChart({ data }: FinanceiroMonthlyChartProps) {
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
+            <ComposedChart data={data} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
               <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" tick={CHART_AXIS_TICK_MD} />
               <YAxis tick={CHART_AXIS_TICK} tickFormatter={formatCurrencyCompactBRL} />
@@ -83,9 +87,20 @@ export function FinanceiroMonthlyChart({ data }: FinanceiroMonthlyChartProps) {
                 }}
               />
               <Legend wrapperStyle={CHART_LEGEND_STYLE} />
-              <Bar dataKey="realizado" name="Realizado" stackId="financeiro" fill="#22c55e" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="previsto_pendente" name="Previsto pendente" stackId="financeiro" fill="#f59e0b" radius={[6, 6, 0, 0]} />
-            </BarChart>
+              <Bar dataKey="realizado" name="Realizado" fill="#22c55e" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="previsto_pendente" name="Previsto pendente" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+              <Line
+                type="monotone"
+                dataKey="total"
+                name="Total"
+                stroke={CHART_TREND_LINE_STROKE}
+                strokeWidth={2}
+                strokeDasharray={CHART_TREND_LINE_DASH}
+                strokeOpacity={CHART_TREND_LINE_OPACITY}
+                dot={false}
+                activeDot={{ r: 4, fill: CHART_TREND_LINE_STROKE, strokeWidth: 0 }}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </CardContent>

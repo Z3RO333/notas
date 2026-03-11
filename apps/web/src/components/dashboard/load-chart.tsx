@@ -1,8 +1,13 @@
 'use client'
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import type { CargaAdministrador } from '@/lib/types/database'
+import {
+  CHART_TREND_LINE_DASH,
+  CHART_TREND_LINE_OPACITY,
+  CHART_TREND_LINE_STROKE,
+} from '@/components/charts/chart-theme'
 
 interface LoadChartProps {
   carga: CargaAdministrador[]
@@ -14,6 +19,7 @@ export function LoadChart({ carga }: LoadChartProps) {
     Nova: admin.qtd_nova,
     'Em Andamento': admin.qtd_em_andamento,
     Encaminhada: admin.qtd_encaminhada,
+    Total: admin.qtd_nova + admin.qtd_em_andamento + admin.qtd_encaminhada,
   }))
 
   return (
@@ -24,7 +30,7 @@ export function LoadChart({ carga }: LoadChartProps) {
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data}>
+            <ComposedChart data={data}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="nome" />
               <YAxis />
@@ -33,7 +39,18 @@ export function LoadChart({ carga }: LoadChartProps) {
               <Bar dataKey="Nova" stackId="a" fill="#3b82f6" />
               <Bar dataKey="Em Andamento" stackId="a" fill="#eab308" />
               <Bar dataKey="Encaminhada" stackId="a" fill="#8b5cf6" />
-            </BarChart>
+              <Line
+                type="monotone"
+                dataKey="Total"
+                name="Total"
+                stroke={CHART_TREND_LINE_STROKE}
+                strokeWidth={2}
+                strokeDasharray={CHART_TREND_LINE_DASH}
+                strokeOpacity={CHART_TREND_LINE_OPACITY}
+                dot={false}
+                activeDot={{ r: 4, fill: CHART_TREND_LINE_STROKE, strokeWidth: 0 }}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </CardContent>

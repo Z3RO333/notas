@@ -1,21 +1,25 @@
 'use client'
 
 import {
-  LineChart,
+  Bar,
+  ComposedChart,
+  CartesianGrid,
+  LabelList,
+  Legend,
   Line,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  LabelList,
-  ResponsiveContainer,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   CHART_AXIS_TICK,
   CHART_GRID_STROKE,
   CHART_LEGEND_STYLE,
+  CHART_TREND_LINE_DASH,
+  CHART_TREND_LINE_OPACITY,
+  CHART_TREND_LINE_STROKE,
   CHART_VALUE_LABEL_SM,
 } from '@/components/charts/chart-theme'
 import type { EvolucaoMensalOperacional } from '@/lib/types/database'
@@ -33,26 +37,31 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Evolução Mensal</CardTitle>
+          <CardTitle className="text-base">Evolucao Mensal</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Nenhum dado no período.</p>
+          <p className="text-sm text-muted-foreground">Nenhum dado no periodo.</p>
         </CardContent>
       </Card>
     )
   }
 
+  const data = rows.map((row) => ({
+    ...row,
+    total: row.concluidas + row.em_aberto,
+  }))
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">
-          Evolução Mensal
+          Evolucao Mensal
           <span className="ml-2 text-xs font-normal text-muted-foreground">({periodLabel})</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={rows} margin={{ top: showLabels ? 20 : 4, right: 24, bottom: 4, left: 0 }}>
+          <ComposedChart data={data} margin={{ top: showLabels ? 20 : 4, right: 24, bottom: 4, left: 0 }}>
             <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" />
             <XAxis dataKey="label" tick={CHART_AXIS_TICK} minTickGap={20} />
             <YAxis allowDecimals={false} tick={CHART_AXIS_TICK} />
@@ -60,42 +69,48 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
               formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
             />
             <Legend wrapperStyle={CHART_LEGEND_STYLE} />
-            <Line
-              type="monotone"
+            <Bar
               dataKey="concluidas"
-              name="Concluídas"
-              stroke="#16a34a"
-              strokeWidth={2}
-              dot={{ r: showLabels ? 3 : 3 }}
+              name="Concluidas"
+              fill="#16a34a"
+              radius={[6, 6, 0, 0]}
             >
               {showLabels && (
                 <LabelList
                   dataKey="concluidas"
                   position="top"
                   style={CHART_VALUE_LABEL_SM}
-                  formatter={(v: number) => v.toLocaleString('pt-BR')}
+                  formatter={(value: number) => value.toLocaleString('pt-BR')}
                 />
               )}
-            </Line>
-            <Line
-              type="monotone"
+            </Bar>
+            <Bar
               dataKey="em_aberto"
               name="Em Aberto"
-              stroke="#f59e0b"
-              strokeWidth={2}
-              dot={{ r: 3 }}
-              strokeDasharray="4 2"
+              fill="#f59e0b"
+              radius={[6, 6, 0, 0]}
             >
               {showLabels && (
                 <LabelList
                   dataKey="em_aberto"
                   position="top"
                   style={CHART_VALUE_LABEL_SM}
-                  formatter={(v: number) => v.toLocaleString('pt-BR')}
+                  formatter={(value: number) => value.toLocaleString('pt-BR')}
                 />
               )}
-            </Line>
-          </LineChart>
+            </Bar>
+            <Line
+              type="monotone"
+              dataKey="total"
+              name="Total"
+              stroke={CHART_TREND_LINE_STROKE}
+              strokeWidth={2}
+              strokeDasharray={CHART_TREND_LINE_DASH}
+              strokeOpacity={CHART_TREND_LINE_OPACITY}
+              dot={false}
+              activeDot={{ r: 4, fill: CHART_TREND_LINE_STROKE, strokeWidth: 0 }}
+            />
+          </ComposedChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>

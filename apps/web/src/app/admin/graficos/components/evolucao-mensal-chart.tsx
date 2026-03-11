@@ -2,10 +2,11 @@
 
 import {
   Bar,
-  BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
   LabelList,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -16,6 +17,9 @@ import {
   CHART_AXIS_TICK,
   CHART_AXIS_TICK_MD,
   CHART_GRID_STROKE,
+  CHART_TREND_LINE_DASH,
+  CHART_TREND_LINE_OPACITY,
+  CHART_TREND_LINE_STROKE,
   CHART_VALUE_LABEL_SM,
 } from '@/components/charts/chart-theme'
 import type { GestaoEvolucaoMes } from '@/lib/types/database'
@@ -66,7 +70,7 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: showLabels ? 20 : 8, right: 16, bottom: 4, left: 0 }}>
+            <ComposedChart data={data} margin={{ top: showLabels ? 20 : 8, right: 16, bottom: 4, left: 0 }}>
               <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" minTickGap={20} tick={CHART_AXIS_TICK_MD} />
               <YAxis allowDecimals={false} tick={CHART_AXIS_TICK} />
@@ -108,7 +112,18 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
                   />
                 )}
               </Bar>
-            </BarChart>
+              <Line
+                type="monotone"
+                dataKey="total_ordens"
+                name="Tendencia"
+                stroke={CHART_TREND_LINE_STROKE}
+                strokeWidth={2}
+                strokeDasharray={CHART_TREND_LINE_DASH}
+                strokeOpacity={CHART_TREND_LINE_OPACITY}
+                dot={false}
+                activeDot={{ r: 4, fill: CHART_TREND_LINE_STROKE, strokeWidth: 0 }}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </CardContent>

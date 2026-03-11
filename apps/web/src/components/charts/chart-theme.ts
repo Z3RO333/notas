@@ -29,3 +29,7 @@ export const CHART_LEGEND_STYLE = {
   fontSize: 12,
   color: 'hsl(var(--foreground))',
 }
+
+export const CHART_TREND_LINE_STROKE = 'hsl(var(--foreground))'
+export const CHART_TREND_LINE_DASH = '4 4'
+export const CHART_TREND_LINE_OPACITY = 0.55
