@@ -29,6 +29,7 @@ import {
   createInsideBarLabelRenderer,
   getPositiveDomainMax,
 } from '@/components/charts/stacked-bar-label'
+import { createWrappedCategoryTickRenderer } from '@/components/charts/wrapped-category-tick'
 import type { GestaoTopLoja, TipoUnidade } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 import { createClient } from '@/lib/supabase/client'
@@ -59,6 +60,15 @@ const INSIDE_DARK_LABEL = createInsideBarLabelRenderer({
     const numericValue = Number(value)
     return numericValue > 0 ? numericValue.toLocaleString('pt-BR') : ''
   },
+})
+
+const WRAPPED_CATEGORY_TICK = createWrappedCategoryTickRenderer({
+  fill: CHART_CATEGORY_TICK.fill,
+  fontSize: CHART_CATEGORY_TICK.fontSize,
+  fontWeight: 500,
+  maxCharsPerLine: 20,
+  maxLines: 3,
+  dx: -8,
 })
 
 const MIN_STACKED_SEGMENT_PIXELS = 20
@@ -273,7 +283,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
               >
                 <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" allowDecimals={false} tick={CHART_AXIS_TICK} domain={[0, axisMax]} />
-                <YAxis type="category" dataKey="nome_loja" width={180} tick={CHART_CATEGORY_TICK} />
+                <YAxis type="category" dataKey="nome_loja" width={212} tick={WRAPPED_CATEGORY_TICK} interval={0} />
                 <Tooltip
                   formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
                   content={({ active, payload, label }) => {

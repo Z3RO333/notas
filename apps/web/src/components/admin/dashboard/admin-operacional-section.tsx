@@ -213,6 +213,7 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <KpiCard label="Operacionais Ativos" value={kpis.total_operacionais} />
+        <KpiCard label="Total de Ordens" value={kpis.total_ordens} />
         <KpiCard
           label="Ordens Atendidas"
           value={kpis.ordens_atendidas}
@@ -223,7 +224,6 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
           )}
         />
         <KpiCard label="Ordens em Aberto" value={kpis.ordens_em_aberto} />
-        <KpiCard label="Total de Ordens" value={kpis.total_ordens} />
         <KpiCard label="Lojas Atendidas" value={kpis.lojas_atendidas} />
       </div>
 

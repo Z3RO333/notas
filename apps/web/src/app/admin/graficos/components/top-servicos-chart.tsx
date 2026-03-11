@@ -17,8 +17,18 @@ import {
   CHART_GRID_STROKE,
   CHART_VALUE_LABEL,
 } from '@/components/charts/chart-theme'
+import { createWrappedCategoryTickRenderer } from '@/components/charts/wrapped-category-tick'
 import type { GestaoTopServico } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
+
+const WRAPPED_SERVICE_TICK = createWrappedCategoryTickRenderer({
+  fill: CHART_CATEGORY_TICK.fill,
+  fontSize: CHART_CATEGORY_TICK.fontSize,
+  fontWeight: 500,
+  maxCharsPerLine: 18,
+  maxLines: 3,
+  dx: -8,
+})
 
 interface TopServicosChartProps {
   data: GestaoTopServico[]
@@ -31,27 +41,26 @@ export function TopServicosChart({ data }: TopServicosChartProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Top Serviços Solicitados</CardTitle>
+          <CardTitle className="text-base">Top Servicos Solicitados</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground py-8 text-center">
-            Sem dados para o período selecionado.
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            Sem dados para o periodo selecionado.
           </p>
         </CardContent>
       </Card>
     )
   }
 
-  const chartData = data.map((d) => ({
-    ...d,
-    // Truncar labels longos para caber no gráfico
-    label: d.texto_breve.length > 22 ? `${d.texto_breve.slice(0, 22)}…` : d.texto_breve,
+  const chartData = data.map((item) => ({
+    ...item,
+    label: item.texto_breve,
   }))
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Top Serviços Solicitados</CardTitle>
+        <CardTitle className="text-base">Top Servicos Solicitados</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-80">
@@ -66,19 +75,25 @@ export function TopServicosChart({ data }: TopServicosChartProps) {
               <YAxis
                 type="category"
                 dataKey="label"
-                width={150}
-                tick={CHART_CATEGORY_TICK}
+                width={188}
+                tick={WRAPPED_SERVICE_TICK}
+                interval={0}
               />
               <Tooltip
                 content={({ active, payload, label }) => {
                   if (!active || !payload?.length) return null
-                  const item = chartData.find((d) => d.label === label)
-                  const d = payload[0].payload
+                  const row = payload[0].payload
+
                   return (
-                    <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md max-w-[260px]">
-                      <p className="font-medium mb-1 break-words">{item?.texto_breve ?? label}</p>
-                      <p>Notas: <span className="font-semibold text-green-600">{d.total_notas.toLocaleString('pt-BR')}</span></p>
-                      <p className="text-muted-foreground">{d.percentual}% do total</p>
+                    <div className="max-w-[260px] rounded border bg-popover px-3 py-2 text-xs shadow-md">
+                      <p className="mb-1 break-words font-medium">{row.texto_breve ?? label}</p>
+                      <p>
+                        Notas:{' '}
+                        <span className="font-semibold text-green-600">
+                          {row.total_notas.toLocaleString('pt-BR')}
+                        </span>
+                      </p>
+                      <p className="text-muted-foreground">{row.percentual}% do total</p>
                     </div>
                   )
                 }}
@@ -89,7 +104,7 @@ export function TopServicosChart({ data }: TopServicosChartProps) {
                     dataKey="total_notas"
                     position="right"
                     style={CHART_VALUE_LABEL}
-                    formatter={(v: number) => v.toLocaleString('pt-BR')}
+                    formatter={(value: number) => value.toLocaleString('pt-BR')}
                   />
                 )}
               </Bar>

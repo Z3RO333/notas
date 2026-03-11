@@ -1058,18 +1058,6 @@ def upsert_sap_status_aux_records(
     if not records:
         return 0, 0
 
-    existing_numbers: set[str] = set()
-    numero_notas = [r["numero_nota_norm"] for r in records]
-    for i in range(0, len(numero_notas), BATCH_SIZE):
-        chunk = numero_notas[i:i + BATCH_SIZE]
-        result = (
-            supabase.table("notas_status_sap_aux")
-            .select("numero_nota_norm")
-            .in_("numero_nota_norm", chunk)
-            .execute()
-        )
-        existing_numbers.update(item["numero_nota_norm"] for item in (result.data or []))
-
     imported_at = datetime.now(timezone.utc).isoformat()
     payload = [
         {
@@ -1086,16 +1074,20 @@ def upsert_sap_status_aux_records(
         for record in records
     ]
 
+    inserted = 0
+    updated = 0
     for i in range(0, len(payload), SAP_STATUS_AUX_BATCH_SIZE):
         batch = payload[i:i + SAP_STATUS_AUX_BATCH_SIZE]
-        (
-            supabase.table("notas_status_sap_aux")
-            .upsert(batch, on_conflict="numero_nota_norm")
-            .execute()
-        )
+        # Usa RPC para evitar o erro "COALESCE types text and uuid" que o PostgREST
+        # gera automaticamente no merge-duplicates para colunas UUID (lote_id, sync_id).
+        result = supabase.rpc(
+            "importar_notas_status_sap_aux",
+            {"p_records": batch},
+        ).execute()
+        row = (result.data or [{}])[0]
+        inserted += int(row.get("inseridas") or 0)
+        updated += int(row.get("atualizadas") or 0)
 
-    inserted = sum(1 for record in records if record["numero_nota_norm"] not in existing_numbers)
-    updated = len(records) - inserted
     return inserted, updated
 
 

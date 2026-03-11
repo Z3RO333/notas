@@ -209,9 +209,7 @@ def parse_excel(
             criado_raw = row.get(criado_por_col)
             if not pd.isna(criado_raw) if criado_raw is not None else False:
                 matricula = str(int(criado_raw)) if isinstance(criado_raw, float) else str(criado_raw).strip()
-                nome = CRIADO_POR_MAP.get(matricula)
-                if nome:
-                    rec["criado_por"] = nome
+                rec["criado_por_sap_codigo"] = matricula
 
         records.append(rec)
 

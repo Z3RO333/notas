@@ -1,0 +1,25 @@
+-- 00145_increase_authenticated_statement_timeout.sql
+--
+-- Problema:
+--   O Painel Administrativo (/admin) expira para o Walter (gestor) com
+--   statement_timeout=57014 (PostgreSQL error code para query timeout).
+--   O role `authenticated` no Supabase tem timeout padrão de 8s, insuficiente
+--   para as RPCs de dashboard (calcular_produtividade_notas_dashboard,
+--   listar_fluxo_notas_dashboard, calcular_metricas_notas_dashboard)
+--   que lêem notas_historico com ~12.450 rows + joins em notas_manutencao.
+--
+-- Causa raiz:
+--   ALTER ROLE authenticated SET statement_timeout = '3s' (anon) e
+--   SET statement_timeout = '8s' (authenticated) são valores padrão do
+--   Supabase. As funções do dashboard levam > 8s no cold cache.
+--
+-- Solução:
+--   Aumentar o statement_timeout do role `authenticated` para 30s.
+--   O Painel Administrativo é acessado apenas por gestores (poucos usuários)
+--   e as queries são complexas mas determinísticas — não há risco de runaway.
+--
+-- Segurança:
+--   30s é conservador. As RPCs de dashboard retornam em < 5s após warm cache.
+--   O limite evita que queries travadas bloqueiem conexões indefinidamente.
+
+ALTER ROLE authenticated SET statement_timeout = '30s';
