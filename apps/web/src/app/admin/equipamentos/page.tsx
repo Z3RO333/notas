@@ -45,6 +45,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
   const params = (await searchParams) ?? {}
   const ano = params.ano ? parseInt(params.ano) : undefined
   const mes = params.mes ? parseInt(params.mes) : undefined
+  const tipoOrdem = params.tipo_ordem ?? undefined
 
   const supabase = await createClient()
 
@@ -55,11 +56,12 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
     viewRefriRes,
     anosRes,
   ] = await Promise.all([
-    // Q1 — Top unidades elevadores (PMOS)
+    // Q1 — Top unidades elevadores
     supabase.rpc('calcular_equipamentos_top_lojas', {
       p_categoria: 'elevadores',
       p_ano: ano ?? null,
       p_mes: mes ?? null,
+      p_tipo_ordem: tipoOrdem ?? null,
     }),
 
     // Q2 — Top unidades refrigeração
@@ -67,6 +69,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
       p_categoria: 'refrigeracao',
       p_ano: ano ?? null,
       p_mes: mes ?? null,
+      p_tipo_ordem: tipoOrdem ?? null,
     }),
 
     // Q3 — Serviços + evolução elevadores
@@ -78,6 +81,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
         .not('nome_loja', 'is', null)
       if (ano) q = q.eq('ano', ano)
       if (mes) q = q.eq('mes', mes)
+      if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
       return q.order('total_ordens', { ascending: false }).limit(5000)
     })(),
 
@@ -90,6 +94,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
         .not('nome_loja', 'is', null)
       if (ano) q = q.eq('ano', ano)
       if (mes) q = q.eq('mes', mes)
+      if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
       return q.order('total_ordens', { ascending: false }).limit(5000)
     })(),
 
@@ -183,10 +188,11 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
       </div>
 
       <GestaoFilters
-        tiposOrdem={[]}
+        tiposOrdem={['PMOS', 'PMPL']}
         anos={anos}
         anoAtivo={ano}
         mesAtivo={mes}
+        tipoOrdemAtivo={tipoOrdem}
       />
 
       <ChartLabelsProvider>
