@@ -1,10 +1,11 @@
 'use client'
 
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
+  Cell,
   LabelList,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -23,6 +24,21 @@ import { useChartLabels } from '@/components/charts/chart-labels-context'
 interface EvolucaoMensalChartProps {
   data: GestaoEvolucaoMes[]
 }
+
+const MONTH_BAR_COLORS = [
+  '#2563eb',
+  '#0ea5e9',
+  '#14b8a6',
+  '#22c55e',
+  '#84cc16',
+  '#eab308',
+  '#f59e0b',
+  '#f97316',
+  '#ef4444',
+  '#ec4899',
+  '#a855f7',
+  '#6366f1',
+]
 
 export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
   const { showLabels } = useChartLabels()
@@ -50,8 +66,8 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: showLabels ? 20 : 4, right: 16, bottom: 4, left: 0 }}>
-              <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" />
+            <BarChart data={data} margin={{ top: showLabels ? 20 : 8, right: 16, bottom: 4, left: 0 }}>
+              <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" minTickGap={20} tick={CHART_AXIS_TICK_MD} />
               <YAxis allowDecimals={false} tick={CHART_AXIS_TICK} />
               <Tooltip
@@ -72,14 +88,17 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
                   )
                 }}
               />
-              <Line
-                type="monotone"
+              <Bar
                 dataKey="total_ordens"
                 name="total_ordens"
-                stroke="#2563eb"
-                strokeWidth={2}
-                dot={showLabels}
+                radius={[6, 6, 0, 0]}
               >
+                {data.map((row, index) => (
+                  <Cell
+                    key={`${row.label}-${index}`}
+                    fill={MONTH_BAR_COLORS[index % MONTH_BAR_COLORS.length]}
+                  />
+                ))}
                 {showLabels && (
                   <LabelList
                     dataKey="total_ordens"
@@ -88,8 +107,8 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
                     formatter={(value: number) => value.toLocaleString('pt-BR')}
                   />
                 )}
-              </Line>
-            </LineChart>
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </CardContent>

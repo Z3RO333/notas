@@ -36,7 +36,7 @@ export function SegmentoSummary({ segmentos }: SegmentoSummaryProps) {
                 </p>
                 <p className="text-sm font-medium text-foreground">{cfg.label}</p>
                 <p className="text-xs text-muted-foreground">
-                  {seg.unidades} unidade{seg.unidades !== 1 ? 's' : ''} - {seg.total_ordens.toLocaleString('pt-BR')} ordem{seg.total_ordens !== 1 ? 's' : ''}
+                  {seg.unidades} unidade{seg.unidades !== 1 ? 's' : ''} - {seg.total_ordens.toLocaleString('pt-BR')} {seg.total_ordens === 1 ? 'ordem' : 'ordens'}
                 </p>
               </div>
             </CardContent>
