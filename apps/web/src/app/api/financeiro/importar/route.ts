@@ -19,6 +19,7 @@ type FinanceiroPayload = {
   tipo_ordem: FinanceiroTipoOrdem
   numero_nota: string | null
   data_entrada: string
+  inicio_programado: string | null
   denominacao_unidade: string | null
   texto_breve: string | null
   fornecedor_codigo: string | null
@@ -130,6 +131,7 @@ function normalizeRow(
       tipo_ordem: tipoOrdem,
       numero_nota: normalizeOptionalText(row.numero_nota),
       data_entrada: dataEntrada,
+      inicio_programado: parseDateOnly(row.inicio_programado) ?? null,
       denominacao_unidade: normalizeOptionalText(row.denominacao_unidade),
       texto_breve: normalizeOptionalText(row.texto_breve),
       fornecedor_codigo: normalizeOptionalText(row.fornecedor_codigo),

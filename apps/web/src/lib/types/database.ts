@@ -590,6 +590,7 @@ export interface FinanceiroImportRow {
   tipo_ordem: FinanceiroTipoOrdem | null
   numero_nota: string | null
   data_entrada: string | null
+  inicio_programado: string | null
   denominacao_unidade: string | null
   texto_breve: string | null
   fornecedor_codigo: string | null
