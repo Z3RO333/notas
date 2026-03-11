@@ -616,7 +616,7 @@ export interface GestaoTopLoja {
 
 export interface GestaoTopServico {
   texto_breve: string
-  total_notas: number
+  total_ordens: number
   percentual: number
 }
 

@@ -1,4 +1,4 @@
-import { ShoppingBag, Pill, Warehouse } from 'lucide-react'
+import { Pill, ShoppingBag, Warehouse } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import type { GestaoSegmentoSummary } from '@/lib/types/database'
 
@@ -22,11 +22,11 @@ export function SegmentoSummary({ segmentos }: SegmentoSummaryProps) {
         return (
           <Card key={seg.tipo} className={`border-0 ${cfg.bg}`}>
             <CardContent className="pt-5 pb-4">
-              <div className="flex items-start justify-between mb-3">
-                <div className={`rounded-lg p-2 bg-white/60 dark:bg-black/20`}>
+              <div className="mb-3 flex items-start justify-between">
+                <div className="rounded-lg bg-white/60 p-2 dark:bg-black/20">
                   <Icon className={`h-5 w-5 ${cfg.color}`} />
                 </div>
-                <span className="text-xs font-medium text-muted-foreground bg-white/60 dark:bg-black/20 rounded px-2 py-1">
+                <span className="rounded bg-white/60 px-2 py-1 text-xs font-medium text-muted-foreground dark:bg-black/20">
                   {seg.percentual_ordens.toFixed(1)}% do total
                 </span>
               </div>
@@ -36,7 +36,7 @@ export function SegmentoSummary({ segmentos }: SegmentoSummaryProps) {
                 </p>
                 <p className="text-sm font-medium text-foreground">{cfg.label}</p>
                 <p className="text-xs text-muted-foreground">
-                  {seg.unidades} unidade{seg.unidades !== 1 ? 's' : ''} · {seg.total_notas.toLocaleString('pt-BR')} nota{seg.total_notas !== 1 ? 's' : ''}
+                  {seg.unidades} unidade{seg.unidades !== 1 ? 's' : ''} - {seg.total_ordens.toLocaleString('pt-BR')} ordem{seg.total_ordens !== 1 ? 's' : ''}
                 </p>
               </div>
             </CardContent>

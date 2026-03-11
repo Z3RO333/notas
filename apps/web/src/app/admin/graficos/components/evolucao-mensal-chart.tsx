@@ -3,7 +3,6 @@
 import {
   CartesianGrid,
   LabelList,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -16,7 +15,6 @@ import {
   CHART_AXIS_TICK,
   CHART_AXIS_TICK_MD,
   CHART_GRID_STROKE,
-  CHART_LEGEND_STYLE,
   CHART_VALUE_LABEL_SM,
 } from '@/components/charts/chart-theme'
 import type { GestaoEvolucaoMes } from '@/lib/types/database'
@@ -33,11 +31,11 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Evolução Mensal</CardTitle>
+          <CardTitle className="text-base">Evolucao Mensal</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground py-8 text-center">
-            Sem dados para o período selecionado.
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            Sem dados para o periodo selecionado.
           </p>
         </CardContent>
       </Card>
@@ -47,7 +45,7 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Evolução Mensal – Ordens e Notas</CardTitle>
+        <CardTitle className="text-base">Evolucao Mensal - Ordens</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-80">
@@ -59,24 +57,19 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
               <Tooltip
                 content={({ active, payload, label }) => {
                   if (!active || !payload?.length) return null
-                  const d = payload[0].payload
+                  const row = payload[0].payload
+
                   return (
                     <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
-                      <p className="font-medium mb-1">{label}</p>
-                      <p>Ordens: <span className="font-semibold text-blue-600">{d.total_ordens.toLocaleString('pt-BR')}</span></p>
-                      <p>Notas: <span className="font-semibold text-green-600">{d.total_notas.toLocaleString('pt-BR')}</span></p>
+                      <p className="mb-1 font-medium">{label}</p>
+                      <p>
+                        Ordens:{' '}
+                        <span className="font-semibold text-blue-600">
+                          {row.total_ordens.toLocaleString('pt-BR')}
+                        </span>
+                      </p>
                     </div>
                   )
-                }}
-              />
-              <Legend
-                wrapperStyle={CHART_LEGEND_STYLE}
-                formatter={(value: string) => {
-                  const labels: Record<string, string> = {
-                    total_ordens: 'Ordens',
-                    total_notas: 'Notas',
-                  }
-                  return labels[value] ?? value
                 }}
               />
               <Line
@@ -92,24 +85,7 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
                     dataKey="total_ordens"
                     position="top"
                     style={CHART_VALUE_LABEL_SM}
-                    formatter={(v: number) => v.toLocaleString('pt-BR')}
-                  />
-                )}
-              </Line>
-              <Line
-                type="monotone"
-                dataKey="total_notas"
-                name="total_notas"
-                stroke="#16a34a"
-                strokeWidth={2}
-                dot={showLabels}
-              >
-                {showLabels && (
-                  <LabelList
-                    dataKey="total_notas"
-                    position="top"
-                    style={CHART_VALUE_LABEL_SM}
-                    formatter={(v: number) => v.toLocaleString('pt-BR')}
+                    formatter={(value: number) => value.toLocaleString('pt-BR')}
                   />
                 )}
               </Line>

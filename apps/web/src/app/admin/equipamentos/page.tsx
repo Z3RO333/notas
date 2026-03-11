@@ -78,7 +78,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
         .not('nome_loja', 'is', null)
       if (ano) q = q.eq('ano', ano)
       if (mes) q = q.eq('mes', mes)
-      return q.order('total_notas', { ascending: false }).limit(5000)
+      return q.order('total_ordens', { ascending: false }).limit(5000)
     })(),
 
     // Q4 — Serviços + evolução refrigeração
@@ -90,7 +90,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
         .not('nome_loja', 'is', null)
       if (ano) q = q.eq('ano', ano)
       if (mes) q = q.eq('mes', mes)
-      return q.order('total_notas', { ascending: false }).limit(5000)
+      return q.order('total_ordens', { ascending: false }).limit(5000)
     })(),
 
     // Q5 — Anos disponíveis
@@ -126,16 +126,16 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
       const rows = rawByCategoria[cat].viewRows
       const map = new Map<string, number>()
       for (const row of rows) {
-        map.set(row.texto_breve, (map.get(row.texto_breve) ?? 0) + row.total_notas)
+        map.set(row.texto_breve, (map.get(row.texto_breve) ?? 0) + row.total_ordens)
       }
       const total = Array.from(map.values()).reduce((a, b) => a + b, 0)
       const sorted: GestaoTopServico[] = Array.from(map.entries())
-        .map(([texto_breve, total_notas]) => ({
+        .map(([texto_breve, total_ordens]) => ({
           texto_breve,
-          total_notas,
-          percentual: total > 0 ? parseFloat(((total_notas / total) * 100).toFixed(1)) : 0,
+          total_ordens,
+          percentual: total > 0 ? parseFloat(((total_ordens / total) * 100).toFixed(1)) : 0,
         }))
-        .sort((a, b) => b.total_notas - a.total_notas)
+        .sort((a, b) => b.total_ordens - a.total_ordens)
         .slice(0, 15)
       return [cat, sorted]
     })

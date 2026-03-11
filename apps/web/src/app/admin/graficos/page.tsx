@@ -60,12 +60,12 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
     (() => {
       let q = supabase
         .from('vw_dashboard_gestao_manutencao')
-        .select('texto_breve, tipo_unidade, total_notas')
+        .select('texto_breve, tipo_unidade, total_ordens')
         .not('tipo_unidade', 'is', null)
       if (ano) q = q.eq('ano', ano)
       if (mes) q = q.eq('mes', mes)
       if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
-      return q.order('total_notas', { ascending: false })
+      return q.order('total_ordens', { ascending: false })
     })(),
 
     // Q3 — Evolução mensal (todos os segmentos)
@@ -114,7 +114,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   ) as Record<TipoUnidade, GestaoTopLoja[]>
 
   // --- Top Serviços por segmento ---
-  type TopServRaw = Pick<DashboardGestaoRow, 'texto_breve' | 'tipo_unidade' | 'total_notas'>
+  type TopServRaw = Pick<DashboardGestaoRow, 'texto_breve' | 'tipo_unidade' | 'total_ordens'>
   const topServicosRaw = (topServicosRes.data ?? []) as TopServRaw[]
 
   const topServBySegmento = Object.fromEntries(
@@ -122,16 +122,16 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
       const map = new Map<string, number>()
       for (const row of topServicosRaw) {
         if (row.tipo_unidade !== tipo) continue
-        map.set(row.texto_breve, (map.get(row.texto_breve) ?? 0) + row.total_notas)
+        map.set(row.texto_breve, (map.get(row.texto_breve) ?? 0) + row.total_ordens)
       }
       const total = Array.from(map.values()).reduce((a, b) => a + b, 0)
       const sorted: GestaoTopServico[] = Array.from(map.entries())
-        .map(([texto_breve, total_notas]) => ({
+        .map(([texto_breve, total_ordens]) => ({
           texto_breve,
-          total_notas,
-          percentual: total > 0 ? parseFloat(((total_notas / total) * 100).toFixed(1)) : 0,
+          total_ordens,
+          percentual: total > 0 ? parseFloat(((total_ordens / total) * 100).toFixed(1)) : 0,
         }))
-        .sort((a, b) => b.total_notas - a.total_notas)
+        .sort((a, b) => b.total_ordens - a.total_ordens)
         .slice(0, 15)
       return [tipo, sorted]
     })

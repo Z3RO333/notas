@@ -33,7 +33,7 @@ export function TopServicosChart({ data }: TopServicosChartProps) {
               <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
                 <th className="w-12 px-4 py-3 text-right font-medium">#</th>
                 <th className="px-4 py-3 text-left font-medium">Servico</th>
-                <th className="px-4 py-3 text-right font-medium">Notas</th>
+                <th className="px-4 py-3 text-right font-medium">Ordens</th>
                 <th className="px-4 py-3 text-right font-medium">% do total</th>
               </tr>
             </thead>
@@ -50,7 +50,7 @@ export function TopServicosChart({ data }: TopServicosChartProps) {
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">
                     <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                      {row.total_notas.toLocaleString('pt-BR')}
+                      {row.total_ordens.toLocaleString('pt-BR')}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">
