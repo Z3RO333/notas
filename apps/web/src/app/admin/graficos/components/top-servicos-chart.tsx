@@ -10,7 +10,7 @@ export function TopServicosChart({ data }: TopServicosChartProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Top Servicos Solicitados</CardTitle>
+          <CardTitle className="text-base">Servicos Solicitados</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="py-8 text-center text-sm text-muted-foreground">
@@ -24,7 +24,7 @@ export function TopServicosChart({ data }: TopServicosChartProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Top Servicos Solicitados</CardTitle>
+        <CardTitle className="text-base">Servicos Solicitados</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <div className="max-h-96 overflow-auto">
