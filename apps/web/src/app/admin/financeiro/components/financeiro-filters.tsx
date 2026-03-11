@@ -34,6 +34,8 @@ export function FinanceiroFilters({ anos, anoAtivo, mesAtivo }: FinanceiroFilter
     const params = new URLSearchParams(searchParams.toString())
     if (value !== 'todos') {
       params.set(key, value)
+    } else if (key === 'ano') {
+      params.set(key, 'todos')
     } else {
       params.delete(key)
     }

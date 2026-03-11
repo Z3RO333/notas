@@ -34,8 +34,13 @@ interface GraficosPageProps {
 
 export default async function GraficosPage({ searchParams }: GraficosPageProps) {
   const params = (await searchParams) ?? {}
-  const ano = params.ano ? parseInt(params.ano) : undefined
-  const mes = params.mes ? parseInt(params.mes) : undefined
+  const currentYear = new Date().getFullYear()
+  const parsedAno = params.ano && params.ano !== 'todos' ? parseInt(params.ano, 10) : NaN
+  const parsedMes = params.mes && params.mes !== 'todos' ? parseInt(params.mes, 10) : NaN
+  const ano = params.ano === 'todos'
+    ? undefined
+    : (Number.isFinite(parsedAno) ? parsedAno : currentYear)
+  const mes = Number.isFinite(parsedMes) ? parsedMes : undefined
   const tipoOrdem = params.tipo_ordem ?? undefined
 
   const supabase = await createClient()
@@ -220,7 +225,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
     if (row.ano) anosSet.add(row.ano)
   }
   const tiposOrdem = Array.from(tiposOrdemSet).sort()
-  const anos = Array.from(anosSet).sort((a, b) => b - a)
+  const anos = Array.from(new Set([currentYear, ...Array.from(anosSet)])).sort((a, b) => b - a)
 
   return (
     <div className="space-y-6">

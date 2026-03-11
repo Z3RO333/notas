@@ -28,6 +28,8 @@ export function GestaoFilters({ tiposOrdem, anos, anoAtivo, mesAtivo, tipoOrdemA
       const params = new URLSearchParams(searchParams.toString())
       if (value && value !== 'todos') {
         params.set(key, value)
+      } else if (key === 'ano') {
+        params.set(key, 'todos')
       } else {
         params.delete(key)
       }

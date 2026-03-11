@@ -109,9 +109,12 @@ function buildRanking(
 
 export default async function FinanceiroPage({ searchParams }: FinanceiroPageProps) {
   const params = (await searchParams) ?? {}
-  const parsedAno = params.ano ? parseInt(params.ano, 10) : NaN
-  const parsedMes = params.mes ? parseInt(params.mes, 10) : NaN
-  const ano = Number.isFinite(parsedAno) ? parsedAno : undefined
+  const currentYear = new Date().getFullYear()
+  const parsedAno = params.ano && params.ano !== 'todos' ? parseInt(params.ano, 10) : NaN
+  const parsedMes = params.mes && params.mes !== 'todos' ? parseInt(params.mes, 10) : NaN
+  const ano = params.ano === 'todos'
+    ? undefined
+    : (Number.isFinite(parsedAno) ? parsedAno : currentYear)
   const mes = Number.isFinite(parsedMes) ? parsedMes : undefined
 
   const supabase = await createClient()
@@ -164,12 +167,13 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
   if (yearsResult.error) throw yearsResult.error
 
   const rows = (rowsResult.data ?? []) as unknown as FinanceiroOrdemRow[]
-  const yearOptions = Array.from(new Set(
+  const yearOptions = Array.from(new Set([
+    currentYear,
     ((yearsResult.data ?? []) as unknown as Array<{ competencia_ano: number | string | null }>)
       .map((row) => row.competencia_ano)
       .map((value) => toNumber(value))
       .filter((value) => value > 0)
-  )).sort((left, right) => right - left)
+  ].flat())).sort((left, right) => right - left)
 
   const byTipo = Object.fromEntries(
     TIPOS.map((tipo) => {
