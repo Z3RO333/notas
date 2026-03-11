@@ -86,8 +86,8 @@ pmpl_rows AS (
     r.especialidade                                                               AS categoria,
     f.texto_breve                                                                 AS texto_breve,
     'PMPL'::text                                                                  AS tipo_ordem,
-    EXTRACT(YEAR  FROM f.data_entrada)::int                                       AS ano,
-    EXTRACT(MONTH FROM f.data_entrada)::int                                       AS mes,
+    EXTRACT(YEAR  FROM f.inicio_programado)::int                                  AS ano,
+    EXTRACT(MONTH FROM f.inicio_programado)::int                                  AS mes,
     COUNT(DISTINCT ona.id)                                                        AS total_ordens,
     0                                                                             AS total_notas
   FROM public.ordens_notas_acompanhamento ona
@@ -100,15 +100,15 @@ pmpl_rows AS (
   WHERE ona.tipo_ordem = 'PMPL'
     AND r.especialidade IN ('elevadores', 'refrigeracao')
     AND BTRIM(f.texto_breve) <> ''
-    AND f.data_entrada IS NOT NULL
+    AND f.inicio_programado IS NOT NULL
   GROUP BY
     COALESCE(norm.nome_canonical, NULLIF(BTRIM(ona.denominacao_unidade),''), ona.unidade),
     norm.tipo_unidade_override,
     ona.unidade,
     r.especialidade,
     f.texto_breve,
-    EXTRACT(YEAR  FROM f.data_entrada),
-    EXTRACT(MONTH FROM f.data_entrada)
+    EXTRACT(YEAR  FROM f.inicio_programado),
+    EXTRACT(MONTH FROM f.inicio_programado)
 )
 SELECT * FROM pmos_rows
 UNION ALL
@@ -225,8 +225,8 @@ BEGIN
       AND BTRIM(f.texto_breve) <> ''
       AND ona.unidade IS NOT NULL
       AND BTRIM(ona.unidade) <> ''
-      AND (p_ano IS NULL OR (f.data_entrada IS NOT NULL AND EXTRACT(YEAR  FROM f.data_entrada)::int = p_ano))
-      AND (p_mes IS NULL OR (f.data_entrada IS NOT NULL AND EXTRACT(MONTH FROM f.data_entrada)::int = p_mes))
+      AND (p_ano IS NULL OR (f.inicio_programado IS NOT NULL AND EXTRACT(YEAR  FROM f.inicio_programado)::int = p_ano))
+      AND (p_mes IS NULL OR (f.inicio_programado IS NOT NULL AND EXTRACT(MONTH FROM f.inicio_programado)::int = p_mes))
       -- Inclui PMPL path só quando filtro é NULL ou 'PMPL'
       AND (p_tipo_ordem IS NULL OR UPPER(BTRIM(p_tipo_ordem)) = 'PMPL')
   ),
