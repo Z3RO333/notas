@@ -582,6 +582,46 @@ export interface ImportProgress {
   errors: ImportRowError[]
 }
 
+export type FinanceiroTipoOrdem = 'PMOS' | 'PMPL'
+
+export interface FinanceiroImportRow {
+  rowIndex: number
+  ordem_codigo: string
+  tipo_ordem: FinanceiroTipoOrdem | null
+  numero_nota: string | null
+  data_entrada: string | null
+  denominacao_unidade: string | null
+  texto_breve: string | null
+  fornecedor_codigo: string | null
+  fornecedor_nome: string | null
+  custos_estimados: number | null
+  custos_totais_materiais: number | null
+  custos_adicionais: number | null
+  custos_totais_reais: number | null
+}
+
+export interface FinanceiroImportError {
+  linha: number
+  ordem_codigo: string
+  motivo: string
+}
+
+export interface FinanceiroImportBatchResult {
+  created: number
+  updated: number
+  skipped: number
+  errors: FinanceiroImportError[]
+}
+
+export interface FinanceiroImportProgress {
+  totalRows: number
+  processedRows: number
+  created: number
+  updated: number
+  skipped: number
+  errors: FinanceiroImportError[]
+}
+
 // --- Gráficos Gestão ---
 
 export type TipoUnidade = 'LOJA' | 'FARMA' | 'CD'
@@ -639,6 +679,61 @@ export interface GestaoKpis {
   total_notas: number
   lojas_ativas: number
   servicos_unicos: number
+}
+
+// --- Financeiro ---
+
+export interface FinanceiroOrdemRow {
+  id: string
+  ordem_codigo: string
+  tipo_ordem: FinanceiroTipoOrdem
+  numero_nota: string | null
+  data_entrada: string
+  denominacao_unidade: string | null
+  texto_breve: string | null
+  fornecedor_codigo: string | null
+  fornecedor_nome: string | null
+  custos_estimados: number
+  custos_totais_materiais: number
+  custos_adicionais: number
+  custos_totais_reais: number
+  competencia_ano: number
+  competencia_mes: number
+  valor_realizado: number
+  valor_previsto_pendente: number
+  tem_custo_real: boolean
+  valor_servico_calculado: number
+  source_file_name: string | null
+  imported_by: string | null
+  importado_em: string
+  created_at: string
+  updated_at: string
+}
+
+export interface FinanceiroKpiSummary {
+  tipo_ordem: FinanceiroTipoOrdem
+  total_ordens: number
+  ordens_com_custo_real: number
+  custo_realizado: number
+  custo_previsto_pendente: number
+  ticket_medio_realizado: number
+  cobertura_percentual: number
+}
+
+export interface FinanceiroEvolucaoMes {
+  ano: number
+  mes: number
+  label: string
+  realizado: number
+  previsto_pendente: number
+  total: number
+}
+
+export interface FinanceiroRankingRow {
+  nome: string
+  realizado: number
+  previsto_pendente: number
+  total: number
 }
 
 // ============================================================

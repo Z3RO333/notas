@@ -10,7 +10,6 @@ import type {
 import { GestaoFilters } from './components/gestao-filters'
 import { SegmentoSummary } from './components/segmento-summary'
 import { SegmentoSection } from './components/segmento-section'
-import { FinanceiroBlock } from './components/financeiro-block'
 import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
 import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
 
@@ -266,8 +265,6 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
           ))}
         </div>
       </ChartLabelsProvider>
-
-      <FinanceiroBlock />
     </div>
   )
 }
