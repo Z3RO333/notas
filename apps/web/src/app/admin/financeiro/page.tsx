@@ -183,20 +183,31 @@ function buildCartaoRanking(rows: CartaoGastoRow[], resolveKey: (row: CartaoGast
     .slice(0, limit)
 }
 
+const PARALLEL_PAGES = 10 // handles up to 10 000 rows per round
+
 async function fetchAllRows<T>(
   fetchPage: (from: number, to: number) => PromiseLike<FetchPageResult>,
   pageSize = FETCH_PAGE_SIZE,
 ) {
   const rows: T[] = []
 
-  for (let offset = 0; ; offset += pageSize) {
-    const { data, error } = await fetchPage(offset, offset + pageSize - 1)
-    if (error) throw error
+  for (let offset = 0; ; offset += PARALLEL_PAGES * pageSize) {
+    const results = await Promise.all(
+      Array.from({ length: PARALLEL_PAGES }, (_, i) => {
+        const from = offset + i * pageSize
+        return fetchPage(from, from + pageSize - 1)
+      }),
+    )
 
-    const batch = (data ?? []) as T[]
-    rows.push(...batch)
+    let done = false
+    for (const { data, error } of results) {
+      if (error) throw error
+      const batch = (data ?? []) as T[]
+      rows.push(...batch)
+      if (batch.length < pageSize) { done = true; break }
+    }
 
-    if (batch.length < pageSize) break
+    if (done) break
   }
 
   return rows
