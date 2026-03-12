@@ -22,9 +22,15 @@ import { FINANCEIRO_MONTH_LABELS } from './financeiro-format'
 export const dynamic = 'force-dynamic'
 
 const TIPOS: FinanceiroTipoOrdem[] = ['PMOS', 'PMPL']
+const FETCH_PAGE_SIZE = 1000
 
 interface FinanceiroPageProps {
   searchParams?: Promise<Record<string, string | undefined>>
+}
+
+type FetchPageResult = {
+  data: unknown[] | null
+  error: unknown
 }
 
 function toNumber(value: unknown) {
@@ -177,6 +183,25 @@ function buildCartaoRanking(rows: CartaoGastoRow[], resolveKey: (row: CartaoGast
     .slice(0, limit)
 }
 
+async function fetchAllRows<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<FetchPageResult>,
+  pageSize = FETCH_PAGE_SIZE,
+) {
+  const rows: T[] = []
+
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await fetchPage(offset, offset + pageSize - 1)
+    if (error) throw error
+
+    const batch = (data ?? []) as T[]
+    rows.push(...batch)
+
+    if (batch.length < pageSize) break
+  }
+
+  return rows
+}
+
 export default async function FinanceiroPage({ searchParams }: FinanceiroPageProps) {
   const params = (await searchParams) ?? {}
   const currentYear = new Date().getFullYear()
@@ -189,8 +214,8 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
 
   const supabase = await createClient()
 
-  const [rowsResult, yearsResult, cartaoYearsResult, cartaoResult] = await Promise.all([
-    (() => {
+  const [rows, yearsFromOrdensRaw, yearsFromCartaoRaw, cartaoRows] = await Promise.all([
+    fetchAllRows<FinanceiroOrdemRow>((from, to) => {
       let query = supabase
         .from('vw_financeiro_ordens')
         .select([
@@ -220,43 +245,47 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
           'updated_at',
         ].join(','))
         .in('tipo_ordem', TIPOS)
-        .limit(20000)
 
       if (ano) query = query.eq('competencia_ano', ano)
       if (mes) query = query.eq('competencia_mes', mes)
-      return query.order('data_entrada', { ascending: true })
-    })(),
-    supabase
-      .from('vw_financeiro_ordens')
-      .select('competencia_ano')
-      .not('competencia_ano', 'is', null)
-      .limit(20000),
-    supabase
-      .from('cartao_corporativo_gastos')
-      .select('ano')
-      .not('ano', 'is', null)
-      .limit(1000),
-    (() => {
+
+      return query
+        .order('data_entrada', { ascending: true })
+        .range(from, to)
+    }),
+    fetchAllRows<{ competencia_ano: number | string | null }>((from, to) => {
+      return supabase
+        .from('vw_financeiro_ordens')
+        .select('competencia_ano')
+        .not('competencia_ano', 'is', null)
+        .range(from, to)
+    }),
+    fetchAllRows<{ ano: number | string | null }>((from, to) => {
+      return supabase
+        .from('cartao_corporativo_gastos')
+        .select('ano')
+        .not('ano', 'is', null)
+        .range(from, to)
+    }),
+    fetchAllRows<CartaoGastoRow>((from, to) => {
       let query = supabase
         .from('cartao_corporativo_gastos')
         .select('data,fornecedor,centro_custo,valor,ano,mes')
-        .limit(10000)
 
       if (ano) query = query.eq('ano', ano)
       if (mes) query = query.eq('mes', mes)
-      return query.order('data', { ascending: true })
-    })(),
+
+      return query
+        .order('data', { ascending: true })
+        .range(from, to)
+    }),
   ])
 
-  if (rowsResult.error) throw rowsResult.error
-  if (yearsResult.error) throw yearsResult.error
-
-  const rows = (rowsResult.data ?? []) as unknown as FinanceiroOrdemRow[]
-  const yearsFromOrdens = ((yearsResult.data ?? []) as unknown as Array<{ competencia_ano: number | string | null }>)
+  const yearsFromOrdens = yearsFromOrdensRaw
     .map((row) => row.competencia_ano)
     .map((value) => toNumber(value))
     .filter((value) => value > 0)
-  const yearsFromCartao = ((cartaoYearsResult.data ?? []) as unknown as Array<{ ano: number | string | null }>)
+  const yearsFromCartao = yearsFromCartaoRaw
     .map((row) => row.ano)
     .map((value) => toNumber(value))
     .filter((value) => value > 0)
@@ -282,7 +311,6 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
     fornecedores: FinanceiroRankingRow[]
   }>
 
-  const cartaoRows = (cartaoResult.data ?? []) as unknown as CartaoGastoRow[]
   const cartaoKpi = buildCartaoKpi(cartaoRows)
   const cartaoMensal = buildCartaoMensal(cartaoRows)
   const cartaoFornecedores = buildCartaoRanking(cartaoRows, (row) => row.fornecedor, 10)
