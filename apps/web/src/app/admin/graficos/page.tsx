@@ -27,28 +27,10 @@ const TIPO_LABEL: Record<TipoUnidade, string> = {
 }
 
 const TIPOS: TipoUnidade[] = ['LOJA', 'FARMA', 'CD']
-const VIEW_PAGE_SIZE = 1000
+const VIEW_LIMIT = 10000
 
 interface GraficosPageProps {
   searchParams?: Promise<Record<string, string | undefined>>
-}
-
-type RangedQuery<T> = {
-  range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>
-}
-
-async function fetchAllRows<T>(buildQuery: () => RangedQuery<T>) {
-  const rows: T[] = []
-
-  for (let from = 0; ; from += VIEW_PAGE_SIZE) {
-    const { data, error } = await buildQuery().range(from, from + VIEW_PAGE_SIZE - 1)
-    if (error) throw error
-    if (!data?.length) break
-    rows.push(...data)
-    if (data.length < VIEW_PAGE_SIZE) break
-  }
-
-  return rows
 }
 
 export default async function GraficosPage({ searchParams }: GraficosPageProps) {
@@ -84,48 +66,49 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
     }),
 
     // Q2 — Top serviços por total_notas (todos os segmentos)
-    fetchAllRows<TopServRaw>(() => {
+    (() => {
       let q = supabase
         .from('vw_dashboard_gestao_manutencao')
         .select('texto_breve, tipo_unidade, total_ordens')
         .not('tipo_unidade', 'is', null)
+        .limit(VIEW_LIMIT)
       if (ano) q = q.eq('ano', ano)
       if (mes) q = q.eq('mes', mes)
       if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
       return q.order('total_ordens', { ascending: false })
-    }),
+    })(),
 
     // Q3 — Evolução mensal (todos os segmentos)
-    fetchAllRows<EvolucaoRaw>(() => {
+    (() => {
       let q = supabase
         .from('vw_dashboard_gestao_manutencao')
         .select('ano, mes, tipo_unidade, total_ordens, total_notas')
         .not('tipo_unidade', 'is', null)
+        .limit(VIEW_LIMIT)
       if (ano) q = q.eq('ano', ano)
       if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
       return q.order('ano').order('mes')
-    }),
+    })(),
 
     // Q4 — total_notas por segmento (usado só para o card de resumo)
-    // limit alto para evitar truncagem do PostgREST (default 1000 linhas)
-    fetchAllRows<SegRaw>(() => {
+    (() => {
       let q = supabase
         .from('vw_dashboard_gestao_manutencao')
         .select('tipo_unidade, nome_loja, total_notas')
         .not('tipo_unidade', 'is', null)
+        .limit(VIEW_LIMIT)
       if (ano) q = q.eq('ano', ano)
       if (mes) q = q.eq('mes', mes)
       if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
       return q
-    }),
+    })(),
 
     // Q5 — Opções de filtro
-    fetchAllRows<OpcoesRaw>(() =>
-      supabase
-        .from('vw_dashboard_gestao_manutencao')
-        .select('tipo_ordem, ano')
-        .not('tipo_ordem', 'is', null)
-    ),
+    supabase
+      .from('vw_dashboard_gestao_manutencao')
+      .select('tipo_ordem, ano')
+      .not('tipo_ordem', 'is', null)
+      .limit(VIEW_LIMIT),
 
   ])
 
@@ -144,7 +127,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   ) as Record<TipoUnidade, GestaoTopLoja[]>
 
   // --- Top Serviços por segmento ---
-  const topServicosRaw = topServicosRes
+  const topServicosRaw = (topServicosRes.data ?? []) as TopServRaw[]
 
   const topServBySegmento = Object.fromEntries(
     TIPOS.map((tipo) => {
@@ -167,7 +150,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   ) as Record<TipoUnidade, GestaoTopServico[]>
 
   // --- Evolução mensal por segmento ---
-  const evolucaoRaw = evolucaoRes
+  const evolucaoRaw = (evolucaoRes.data ?? []) as EvolucaoRaw[]
 
   const evolucaoBySegmento = Object.fromEntries(
     TIPOS.map((tipo) => {
@@ -194,9 +177,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   ) as Record<TipoUnidade, GestaoEvolucaoMes[]>
 
   // --- Segmentos: summary por LOJA / FARMA / CD ---
-  // total_ordens e unidades vêm do Q1 RPC (sem risco de truncagem, 1 linha por unidade)
-  // total_notas vem do Q4 view (com limit 10000)
-  const segRaw = segmentosRes
+  const segRaw = (segmentosRes.data ?? []) as SegRaw[]
 
   const segMap = new Map<TipoUnidade, { total_ordens: number; total_notas: number; unidades: number }>()
 
@@ -240,7 +221,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
     })
 
   // --- Opções de filtro ---
-  const opcoesRaw = opcoesRes
+  const opcoesRaw = (opcoesRes.data ?? []) as OpcoesRaw[]
   const tiposOrdemSet = new Set<string>()
   const anosSet = new Set<number>()
   for (const row of opcoesRaw) {
