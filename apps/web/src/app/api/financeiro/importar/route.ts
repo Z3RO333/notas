@@ -238,6 +238,12 @@ export async function POST(request: Request) {
   const created = payloads.filter((row) => !existingCodes.has(row.ordem_codigo)).length
   const updated = payloads.length - created
 
+  // Preenche data_entrada em ordens_notas_acompanhamento (Databricks) onde estiver nula,
+  // cruzando pelo ordem_codigo: PMPL usa inicio_programado, PMOS usa data_entrada.
+  await adminClient.rpc('backfill_data_entrada_from_financeiro', {
+    p_codigos: payloads.map((row) => row.ordem_codigo),
+  })
+
   const { error: auditError } = await adminClient
     .from('admin_audit_log')
     .insert({
