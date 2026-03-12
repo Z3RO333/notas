@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import type {
-  DashboardGestaoRow,
   GestaoEvolucaoMes,
   GestaoSegmentoSummary,
   GestaoTopLoja,
@@ -16,8 +15,18 @@ import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
 export const dynamic = 'force-dynamic'
 
 const MES_LABELS: Record<number, string> = {
-  1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
-  7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez',
+  1: 'Jan',
+  2: 'Fev',
+  3: 'Mar',
+  4: 'Abr',
+  5: 'Mai',
+  6: 'Jun',
+  7: 'Jul',
+  8: 'Ago',
+  9: 'Set',
+  10: 'Out',
+  11: 'Nov',
+  12: 'Dez',
 }
 
 const TIPO_LABEL: Record<TipoUnidade, string> = {
@@ -27,10 +36,34 @@ const TIPO_LABEL: Record<TipoUnidade, string> = {
 }
 
 const TIPOS: TipoUnidade[] = ['LOJA', 'FARMA', 'CD']
-const VIEW_LIMIT = 10000
 
 interface GraficosPageProps {
   searchParams?: Promise<Record<string, string | undefined>>
+}
+
+type TopLojasRaw = {
+  nome_loja: string
+  tipo_unidade: string
+  concluidas: number
+  em_aberto: number
+  total_ordens: number
+}
+
+type TopServRaw = Pick<GestaoTopServico, 'texto_breve' | 'total_ordens'> & {
+  tipo_unidade: string | null
+}
+
+type EvolucaoRaw = Pick<GestaoEvolucaoMes, 'ano' | 'mes' | 'total_ordens' | 'total_notas'> & {
+  tipo_unidade: string | null
+}
+
+type SegRaw = Pick<GestaoSegmentoSummary, 'total_ordens' | 'total_notas' | 'unidades'> & {
+  tipo_unidade: string | null
+}
+
+type OpcoesRaw = {
+  tipo_ordem: string | null
+  ano: number | null
 }
 
 export default async function GraficosPage({ searchParams }: GraficosPageProps) {
@@ -38,83 +71,45 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   const currentYear = new Date().getFullYear()
   const parsedAno = params.ano && params.ano !== 'todos' ? parseInt(params.ano, 10) : NaN
   const parsedMes = params.mes && params.mes !== 'todos' ? parseInt(params.mes, 10) : NaN
-  const ano = params.ano === 'todos'
-    ? undefined
-    : (Number.isFinite(parsedAno) ? parsedAno : currentYear)
+  const ano =
+    params.ano === 'todos'
+      ? undefined
+      : Number.isFinite(parsedAno)
+        ? parsedAno
+        : currentYear
   const mes = Number.isFinite(parsedMes) ? parsedMes : undefined
   const tipoOrdem = params.tipo_ordem ?? undefined
 
   const supabase = await createClient()
-  type TopServRaw = Pick<DashboardGestaoRow, 'texto_breve' | 'tipo_unidade' | 'total_ordens'>
-  type EvolucaoRaw = Pick<DashboardGestaoRow, 'ano' | 'mes' | 'tipo_unidade' | 'total_ordens' | 'total_notas'>
-  type SegRaw = Pick<DashboardGestaoRow, 'tipo_unidade' | 'nome_loja' | 'total_notas'>
-  type OpcoesRaw = Pick<DashboardGestaoRow, 'tipo_ordem' | 'ano'>
 
-  // 4 queries paralelas — sem filtro de tipo_unidade, buscamos tudo e particionamos
-  const [
-    topLojasRes,
-    topServicosRes,
-    evolucaoRes,
-    segmentosRes,
-    opcoesRes,
-  ] = await Promise.all([
-    // Q1 — Top unidades com breakdown concluidas/em_aberto por status_ordem_raw
+  const [topLojasRes, topServicosRes, evolucaoRes, segmentosRes, opcoesRes] = await Promise.all([
     supabase.rpc('calcular_gestao_top_lojas_por_status', {
       p_ano: ano ?? null,
       p_mes: mes ?? null,
       p_tipo_ordem: tipoOrdem ?? null,
     }),
-
-    // Q2 — Top serviços por total_notas (todos os segmentos)
-    (() => {
-      let q = supabase
-        .from('vw_dashboard_gestao_manutencao')
-        .select('texto_breve, tipo_unidade, total_ordens')
-        .not('tipo_unidade', 'is', null)
-        .limit(VIEW_LIMIT)
-      if (ano) q = q.eq('ano', ano)
-      if (mes) q = q.eq('mes', mes)
-      if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
-      return q.order('total_ordens', { ascending: false })
-    })(),
-
-    // Q3 — Evolução mensal (todos os segmentos)
-    (() => {
-      let q = supabase
-        .from('vw_dashboard_gestao_manutencao')
-        .select('ano, mes, tipo_unidade, total_ordens, total_notas')
-        .not('tipo_unidade', 'is', null)
-        .limit(VIEW_LIMIT)
-      if (ano) q = q.eq('ano', ano)
-      if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
-      return q.order('ano').order('mes')
-    })(),
-
-    // Q4 — total_notas por segmento (usado só para o card de resumo)
-    (() => {
-      let q = supabase
-        .from('vw_dashboard_gestao_manutencao')
-        .select('tipo_unidade, nome_loja, total_notas')
-        .not('tipo_unidade', 'is', null)
-        .limit(VIEW_LIMIT)
-      if (ano) q = q.eq('ano', ano)
-      if (mes) q = q.eq('mes', mes)
-      if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
-      return q
-    })(),
-
-    // Q5 — Opções de filtro
-    supabase
-      .from('vw_dashboard_gestao_manutencao')
-      .select('tipo_ordem, ano')
-      .not('tipo_ordem', 'is', null)
-      .limit(VIEW_LIMIT),
-
+    supabase.rpc('calcular_gestao_top_servicos', {
+      p_ano: ano ?? null,
+      p_mes: mes ?? null,
+      p_tipo_ordem: tipoOrdem ?? null,
+    }),
+    supabase.rpc('calcular_gestao_evolucao_mensal', {
+      p_ano: ano ?? null,
+      p_tipo_ordem: tipoOrdem ?? null,
+    }),
+    supabase.rpc('calcular_gestao_resumo_segmentos', {
+      p_ano: ano ?? null,
+      p_mes: mes ?? null,
+      p_tipo_ordem: tipoOrdem ?? null,
+    }),
+    supabase.rpc('listar_gestao_filtros'),
   ])
 
-  // --- Top Lojas por segmento (com breakdown concluidas/em_aberto) ---
-  type TopLojasRaw = { nome_loja: string; tipo_unidade: string; concluidas: number; em_aberto: number; total_ordens: number }
   const topLojasRaw = (topLojasRes.data ?? []) as TopLojasRaw[]
+  const topServicosRaw = (topServicosRes.data ?? []) as TopServRaw[]
+  const evolucaoRaw = (evolucaoRes.data ?? []) as EvolucaoRaw[]
+  const segRaw = (segmentosRes.data ?? []) as SegRaw[]
+  const opcoesRaw = (opcoesRes.data ?? []) as OpcoesRaw[]
 
   const topLojasBySegmento = Object.fromEntries(
     TIPOS.map((tipo) => {
@@ -126,22 +121,15 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
     })
   ) as Record<TipoUnidade, GestaoTopLoja[]>
 
-  // --- Top Serviços por segmento ---
-  const topServicosRaw = (topServicosRes.data ?? []) as TopServRaw[]
-
   const topServBySegmento = Object.fromEntries(
     TIPOS.map((tipo) => {
-      const map = new Map<string, number>()
-      for (const row of topServicosRaw) {
-        if (row.tipo_unidade !== tipo) continue
-        map.set(row.texto_breve, (map.get(row.texto_breve) ?? 0) + row.total_ordens)
-      }
-      const total = Array.from(map.values()).reduce((a, b) => a + b, 0)
-      const sorted: GestaoTopServico[] = Array.from(map.entries())
-        .map(([texto_breve, total_ordens]) => ({
-          texto_breve,
-          total_ordens,
-          percentual: total > 0 ? parseFloat(((total_ordens / total) * 100).toFixed(1)) : 0,
+      const rows = topServicosRaw.filter((row) => row.tipo_unidade === tipo)
+      const total = rows.reduce((sum, row) => sum + row.total_ordens, 0)
+      const sorted: GestaoTopServico[] = rows
+        .map((row) => ({
+          texto_breve: row.texto_breve,
+          total_ordens: row.total_ordens,
+          percentual: total > 0 ? parseFloat(((row.total_ordens / total) * 100).toFixed(1)) : 0,
         }))
         .sort((a, b) => b.total_ordens - a.total_ordens)
         .slice(0, 15)
@@ -149,79 +137,45 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
     })
   ) as Record<TipoUnidade, GestaoTopServico[]>
 
-  // --- Evolução mensal por segmento ---
-  const evolucaoRaw = (evolucaoRes.data ?? []) as EvolucaoRaw[]
-
   const evolucaoBySegmento = Object.fromEntries(
     TIPOS.map((tipo) => {
-      const map = new Map<string, { ano: number; mes: number; total_ordens: number; total_notas: number }>()
-      for (const row of evolucaoRaw) {
-        if (row.tipo_unidade !== tipo) continue
-        const key = `${row.ano}-${String(row.mes).padStart(2, '0')}`
-        const existing = map.get(key)
-        if (existing) {
-          existing.total_ordens += row.total_ordens
-          existing.total_notas += row.total_notas
-        } else {
-          map.set(key, { ano: row.ano, mes: row.mes, total_ordens: row.total_ordens, total_notas: row.total_notas })
-        }
-      }
-      const sorted: GestaoEvolucaoMes[] = Array.from(map.entries())
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([, v]) => ({
-          ...v,
-          label: `${MES_LABELS[v.mes] ?? v.mes}/${String(v.ano).slice(2)}`,
+      const sorted: GestaoEvolucaoMes[] = evolucaoRaw
+        .filter((row) => row.tipo_unidade === tipo)
+        .sort((a, b) => {
+          if (a.ano !== b.ano) return a.ano - b.ano
+          return a.mes - b.mes
+        })
+        .map((row) => ({
+          ano: row.ano,
+          mes: row.mes,
+          total_ordens: row.total_ordens,
+          total_notas: row.total_notas,
+          label: `${MES_LABELS[row.mes] ?? row.mes}/${String(row.ano).slice(2)}`,
         }))
       return [tipo, sorted]
     })
   ) as Record<TipoUnidade, GestaoEvolucaoMes[]>
 
-  // --- Segmentos: summary por LOJA / FARMA / CD ---
-  const segRaw = (segmentosRes.data ?? []) as SegRaw[]
+  const grandTotalOrdens = segRaw.reduce((sum, row) => sum + row.total_ordens, 0)
+  const segmentos: GestaoSegmentoSummary[] = TIPOS.flatMap((tipo) => {
+    const row = segRaw.find((item) => item.tipo_unidade === tipo)
+    if (!row) return []
 
-  const segMap = new Map<TipoUnidade, { total_ordens: number; total_notas: number; unidades: number }>()
-
-  // total_ordens e contagem de unidades — fonte: Q1 RPC (preciso)
-  for (const row of topLojasRaw) {
-    if (!row.tipo_unidade) continue
-    const t = row.tipo_unidade as TipoUnidade
-    if (!segMap.has(t)) segMap.set(t, { total_ordens: 0, total_notas: 0, unidades: 0 })
-    const entry = segMap.get(t)!
-    entry.total_ordens += row.total_ordens
-    entry.unidades += 1
-  }
-
-  // total_notas — fonte: Q4 view
-  const notasMap = new Map<TipoUnidade, number>()
-  for (const row of segRaw) {
-    if (!row.tipo_unidade) continue
-    const t = row.tipo_unidade as TipoUnidade
-    notasMap.set(t, (notasMap.get(t) ?? 0) + row.total_notas)
-  }
-  for (const [t, notas] of notasMap) {
-    const entry = segMap.get(t)
-    if (entry) entry.total_notas = notas
-  }
-
-  const grandTotalOrdens = Array.from(segMap.values()).reduce((s, e) => s + e.total_ordens, 0)
-  const segmentos: GestaoSegmentoSummary[] = TIPOS
-    .filter((t) => segMap.has(t))
-    .map((tipo) => {
-      const e = segMap.get(tipo)!
-      return {
+    return [
+      {
         tipo,
         label: TIPO_LABEL[tipo],
-        total_ordens: e.total_ordens,
-        total_notas: e.total_notas,
-        unidades: e.unidades,
-        percentual_ordens: grandTotalOrdens > 0
-          ? parseFloat(((e.total_ordens / grandTotalOrdens) * 100).toFixed(1))
-          : 0,
-      }
-    })
+        total_ordens: row.total_ordens,
+        total_notas: row.total_notas,
+        unidades: row.unidades,
+        percentual_ordens:
+          grandTotalOrdens > 0
+            ? parseFloat(((row.total_ordens / grandTotalOrdens) * 100).toFixed(1))
+            : 0,
+      },
+    ]
+  })
 
-  // --- Opções de filtro ---
-  const opcoesRaw = (opcoesRes.data ?? []) as OpcoesRaw[]
   const tiposOrdemSet = new Set<string>()
   const anosSet = new Set<number>()
   for (const row of opcoesRaw) {
@@ -234,18 +188,14 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Gráficos – Inteligência Gerencial</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Gráficos - Inteligência Gerencial</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Padrões, recorrência e ranking por segmento de unidade.
         </p>
       </div>
 
-      {/* Cards de resumo por segmento */}
-      {segmentos.length > 0 && (
-        <SegmentoSummary segmentos={segmentos} />
-      )}
+      {segmentos.length > 0 && <SegmentoSummary segmentos={segmentos} />}
 
-      {/* Filtros globais */}
       <GestaoFilters
         tiposOrdem={tiposOrdem}
         anos={anos}
@@ -254,7 +204,6 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
         tipoOrdemAtivo={tipoOrdem}
       />
 
-      {/* Seções separadas por segmento */}
       <ChartLabelsProvider>
         <div className="flex justify-end">
           <ChartLabelsToggle />
