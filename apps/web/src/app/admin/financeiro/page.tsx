@@ -9,6 +9,14 @@ import type {
 import { FinanceiroFilters } from './components/financeiro-filters'
 import { FinanceiroImportDialog } from './components/financeiro-import-dialog'
 import { FinanceiroSection } from './components/financeiro-section'
+import { CartaoImportDialog } from './components/cartao-import-dialog'
+import { CartaoKpiStrip } from './components/cartao-kpi-strip'
+import { CartaoMonthlyChart } from './components/cartao-monthly-chart'
+import { CartaoRankingFornecedores } from './components/cartao-ranking-fornecedores'
+import { CartaoRankingCentros } from './components/cartao-ranking-centros'
+import type { CartaoKpiData } from './components/cartao-kpi-strip'
+import type { CartaoMesData } from './components/cartao-monthly-chart'
+import type { CartaoRankingRow } from './components/cartao-ranking-fornecedores'
 import { FINANCEIRO_MONTH_LABELS } from './financeiro-format'
 
 export const dynamic = 'force-dynamic'
@@ -107,6 +115,68 @@ function buildRanking(
     .slice(0, limit)
 }
 
+type CartaoGastoRow = {
+  data: string
+  fornecedor: string
+  centro_custo: string | null
+  valor: number
+  ano: number
+  mes: number
+}
+
+function buildCartaoKpi(rows: CartaoGastoRow[]): CartaoKpiData {
+  const total = rows.reduce((sum, row) => sum + row.valor, 0)
+  return {
+    total_gasto: total,
+    qtd_transacoes: rows.length,
+    ticket_medio: rows.length > 0 ? total / rows.length : 0,
+  }
+}
+
+function buildCartaoMensal(rows: CartaoGastoRow[]): CartaoMesData[] {
+  const grouped = new Map<string, CartaoMesData>()
+
+  for (const row of rows) {
+    const key = `${row.ano}-${String(row.mes).padStart(2, '0')}`
+    const existing = grouped.get(key)
+    if (existing) {
+      existing.total += row.valor
+      existing.qtd += 1
+      continue
+    }
+    grouped.set(key, {
+      ano: row.ano,
+      mes: row.mes,
+      label: `${FINANCEIRO_MONTH_LABELS[row.mes] ?? row.mes}/${String(row.ano).slice(2)}`,
+      total: row.valor,
+      qtd: 1,
+    })
+  }
+
+  return Array.from(grouped.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, row]) => row)
+}
+
+function buildCartaoRanking(rows: CartaoGastoRow[], resolveKey: (row: CartaoGastoRow) => string, limit: number): CartaoRankingRow[] {
+  const grouped = new Map<string, CartaoRankingRow>()
+
+  for (const row of rows) {
+    const key = resolveKey(row).trim() || 'Sem classificacao'
+    const current = grouped.get(key)
+    if (current) {
+      current.total += row.valor
+      current.qtd += 1
+      continue
+    }
+    grouped.set(key, { nome: key, total: row.valor, qtd: 1 })
+  }
+
+  return Array.from(grouped.values())
+    .sort((a, b) => b.total - a.total)
+    .slice(0, limit)
+}
+
 export default async function FinanceiroPage({ searchParams }: FinanceiroPageProps) {
   const params = (await searchParams) ?? {}
   const currentYear = new Date().getFullYear()
@@ -119,7 +189,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
 
   const supabase = await createClient()
 
-  const [rowsResult, yearsResult] = await Promise.all([
+  const [rowsResult, yearsResult, cartaoResult] = await Promise.all([
     (() => {
       let query = supabase
         .from('vw_financeiro_ordens')
@@ -161,6 +231,16 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
       .select('competencia_ano')
       .not('competencia_ano', 'is', null)
       .limit(20000),
+    (() => {
+      let query = supabase
+        .from('cartao_corporativo_gastos')
+        .select('data,fornecedor,centro_custo,valor,ano,mes')
+        .limit(10000)
+
+      if (ano) query = query.eq('ano', ano)
+      if (mes) query = query.eq('mes', mes)
+      return query.order('data', { ascending: true })
+    })(),
   ])
 
   if (rowsResult.error) throw rowsResult.error
@@ -194,6 +274,13 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
     fornecedores: FinanceiroRankingRow[]
   }>
 
+  const cartaoRows = (cartaoResult.data ?? []) as unknown as CartaoGastoRow[]
+  const cartaoKpi = buildCartaoKpi(cartaoRows)
+  const cartaoMensal = buildCartaoMensal(cartaoRows)
+  const cartaoFornecedores = buildCartaoRanking(cartaoRows, (row) => row.fornecedor, 10)
+  const cartaoCentros = buildCartaoRanking(cartaoRows, (row) => row.centro_custo ?? 'Sem centro', 10)
+  const hasCartaoData = cartaoRows.length > 0
+
   const hasImportedData = yearOptions.length > 0
 
   return (
@@ -205,7 +292,10 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
             Custos operacionais por ordem, separados entre PMOS e PMPL, com competencia por data de entrada.
           </p>
         </div>
-        <FinanceiroImportDialog />
+        <div className="flex gap-2">
+          <CartaoImportDialog />
+          <FinanceiroImportDialog />
+        </div>
       </div>
 
       <FinanceiroFilters
@@ -236,6 +326,36 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
           ))}
         </div>
       )}
+
+      {/* Seção Cartão Corporativo */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between border-b pb-3">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Cartao Corporativo</h2>
+            <p className="text-sm text-muted-foreground">
+              Gastos do cartao Alelo Despesas, independente das ordens SAP.
+            </p>
+          </div>
+        </div>
+
+        {!hasCartaoData ? (
+          <div className="rounded-xl border border-dashed p-8 text-center">
+            <p className="text-sm font-medium">Nenhum gasto de cartao importado para o periodo.</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Use o botao &quot;Importar Cartao&quot; acima para carregar os dados.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <CartaoKpiStrip data={cartaoKpi} />
+            <CartaoMonthlyChart data={cartaoMensal} />
+            <div className="grid gap-6 xl:grid-cols-2">
+              <CartaoRankingFornecedores data={cartaoFornecedores} />
+              <CartaoRankingCentros data={cartaoCentros} />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
