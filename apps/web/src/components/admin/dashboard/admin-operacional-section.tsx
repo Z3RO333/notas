@@ -37,15 +37,15 @@ function KpiCard({ label, value, sub }: { label: string; value: number; sub?: Re
   )
 }
 
-function ServicosTopList({ rows, periodLabel }: { rows: ServicoMaisFeito[]; periodLabel: string }) {
+function ServicosRecorrentesList({ rows, periodLabel }: { rows: ServicoMaisFeito[]; periodLabel: string }) {
   if (rows.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Serviços Mais Feitos</CardTitle>
+          <CardTitle className="text-base">Servicos Recorrentes</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Nenhum serviço encontrado no período.</p>
+          <p className="text-sm text-muted-foreground">Nenhum servico recorrente encontrado no periodo.</p>
         </CardContent>
       </Card>
     )
@@ -57,7 +57,7 @@ function ServicosTopList({ rows, periodLabel }: { rows: ServicoMaisFeito[]; peri
     <Card>
       <CardHeader>
         <CardTitle className="text-base">
-          Serviços Mais Feitos
+          Servicos Recorrentes
           <span className="ml-2 text-xs font-normal text-muted-foreground">({periodLabel})</span>
         </CardTitle>
       </CardHeader>
@@ -227,7 +227,7 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
         <KpiCard label="Lojas Atendidas" value={kpis.lojas_atendidas} />
       </div>
 
-      {/* Tabela + Serviços */}
+      {/* Tabela + Servicos recorrentes */}
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <ProdutividadeTable
@@ -237,7 +237,7 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
             totalOrdensGeralPmosPeriodo={totalOrdensGeralPmosPeriodo}
           />
         </div>
-        <ServicosTopList rows={servicos} periodLabel={period.periodLabel} />
+        <ServicosRecorrentesList rows={servicos} periodLabel={period.periodLabel} />
       </div>
 
       {/* Gráficos */}
