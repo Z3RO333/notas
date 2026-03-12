@@ -189,7 +189,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
 
   const supabase = await createClient()
 
-  const [rowsResult, yearsResult, cartaoResult] = await Promise.all([
+  const [rowsResult, yearsResult, cartaoYearsResult, cartaoResult] = await Promise.all([
     (() => {
       let query = supabase
         .from('vw_financeiro_ordens')
@@ -231,6 +231,11 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
       .select('competencia_ano')
       .not('competencia_ano', 'is', null)
       .limit(20000),
+    supabase
+      .from('cartao_corporativo_gastos')
+      .select('ano')
+      .not('ano', 'is', null)
+      .limit(1000),
     (() => {
       let query = supabase
         .from('cartao_corporativo_gastos')
@@ -247,13 +252,16 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
   if (yearsResult.error) throw yearsResult.error
 
   const rows = (rowsResult.data ?? []) as unknown as FinanceiroOrdemRow[]
-  const yearOptions = Array.from(new Set([
-    currentYear,
-    ((yearsResult.data ?? []) as unknown as Array<{ competencia_ano: number | string | null }>)
-      .map((row) => row.competencia_ano)
-      .map((value) => toNumber(value))
-      .filter((value) => value > 0)
-  ].flat())).sort((left, right) => right - left)
+  const yearsFromOrdens = ((yearsResult.data ?? []) as unknown as Array<{ competencia_ano: number | string | null }>)
+    .map((row) => row.competencia_ano)
+    .map((value) => toNumber(value))
+    .filter((value) => value > 0)
+  const yearsFromCartao = ((cartaoYearsResult.data ?? []) as unknown as Array<{ ano: number | string | null }>)
+    .map((row) => row.ano)
+    .map((value) => toNumber(value))
+    .filter((value) => value > 0)
+  const yearOptions = Array.from(new Set([currentYear, ...yearsFromOrdens, ...yearsFromCartao]))
+    .sort((left, right) => right - left)
 
   const byTipo = Object.fromEntries(
     TIPOS.map((tipo) => {
