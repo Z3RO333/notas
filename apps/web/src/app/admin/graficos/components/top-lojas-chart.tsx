@@ -256,13 +256,13 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
     )
   }
 
-  const chartData = [...data].reverse().map((row) => ({
+  const chartData = [...data].map((row) => ({
     ...row,
     total_exibido: row.concluidas + row.em_aberto,
   }))
   const chartTotal = chartData.reduce((sum, row) => sum + row.total_exibido, 0)
   const axisMax = getPositiveDomainMax(chartData.map((row) => row.total_exibido), 0.06, 4)
-  const topShare = calculateShare(chartData[chartData.length - 1]?.total_exibido ?? 0, chartTotal)
+  const topShare = calculateShare(chartData[0]?.total_exibido ?? 0, chartTotal)
   const getMinPointSizeForDataKey =
     (dataKey: 'concluidas' | 'em_aberto') =>
     (_value: number | null | undefined, index: number) =>
