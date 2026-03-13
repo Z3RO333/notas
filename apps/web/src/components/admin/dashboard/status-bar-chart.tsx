@@ -22,6 +22,7 @@ import {
   createAdaptiveBarLabelRenderer,
   getPositiveDomainMax,
 } from '@/components/charts/stacked-bar-label'
+import { calculateShare, formatPercent } from '@/components/charts/chart-percentages'
 import type { ProdutividadeOperacional } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 
@@ -95,15 +96,20 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
     Outros: Math.max(0, row.total_ordens - row.atendidas - row.em_aberto),
     total_exibido: row.total_ordens,
   }))
+  const totalPeriodo = data.reduce((sum, row) => sum + row.total_exibido, 0)
   const axisMax = getPositiveDomainMax(data.map((row) => row.total_exibido), 0.12, 14)
+  const topShare = calculateShare(data[0]?.total_exibido ?? 0, totalPeriodo)
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="space-y-1">
         <CardTitle className="text-base">
           Status por Operacional
           <span className="ml-2 text-xs font-normal text-muted-foreground">({periodLabel})</span>
         </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Maior participacao no periodo: {formatPercent(topShare)}
+        </p>
       </CardHeader>
       <CardContent className="h-80">
         <ResponsiveContainer width="100%" height="100%">
@@ -116,7 +122,29 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
             <XAxis type="number" allowDecimals={false} tick={CHART_AXIS_TICK} domain={[0, axisMax]} />
             <YAxis type="category" dataKey="nome" width={92} tick={CHART_CATEGORY_TICK} />
             <Tooltip
-              formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null
+                const row = payload[0].payload as {
+                  nome: string
+                  Atendidas: number
+                  'Em Aberto': number
+                  Outros: number
+                  total_exibido: number
+                }
+
+                return (
+                  <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
+                    <p className="mb-1 font-medium">{label}</p>
+                    <p>Atendidas: <span className="font-semibold text-green-600">{row.Atendidas.toLocaleString('pt-BR')}</span> <span className="text-muted-foreground">({formatPercent(calculateShare(row.Atendidas, row.total_exibido))})</span></p>
+                    <p>Em Aberto: <span className="font-semibold text-amber-500">{row['Em Aberto'].toLocaleString('pt-BR')}</span> <span className="text-muted-foreground">({formatPercent(calculateShare(row['Em Aberto'], row.total_exibido))})</span></p>
+                    <p>Outros: <span className="font-semibold text-slate-500">{row.Outros.toLocaleString('pt-BR')}</span> <span className="text-muted-foreground">({formatPercent(calculateShare(row.Outros, row.total_exibido))})</span></p>
+                    <p className="mt-1 border-t pt-1">Total: <span className="font-semibold">{row.total_exibido.toLocaleString('pt-BR')}</span></p>
+                    <p className="text-muted-foreground">
+                      Participacao no periodo: {formatPercent(calculateShare(row.total_exibido, totalPeriodo))}
+                    </p>
+                  </div>
+                )
+              }}
             />
             <Legend wrapperStyle={CHART_LEGEND_STYLE} />
             <Bar dataKey="Atendidas" stackId="a" fill="#16a34a">

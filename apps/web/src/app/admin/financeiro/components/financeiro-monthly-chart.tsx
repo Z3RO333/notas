@@ -21,6 +21,13 @@ import {
   CHART_TREND_LINE_OPACITY,
   CHART_TREND_LINE_STROKE,
 } from '@/components/charts/chart-theme'
+import {
+  calculatePercentChange,
+  calculateShare,
+  formatPercent,
+  formatSignedPercentChange,
+  formatTrendDescription,
+} from '@/components/charts/chart-percentages'
 import type { FinanceiroEvolucaoMes } from '@/lib/types/database'
 import { formatCurrencyBRL, formatCurrencyCompactBRL } from '../financeiro-format'
 
@@ -44,22 +51,40 @@ export function FinanceiroMonthlyChart({ data }: FinanceiroMonthlyChartProps) {
     )
   }
 
+  const chartData = data.map((row, index) => {
+    const previousTotal = index > 0 ? data[index - 1]?.total ?? 0 : 0
+    return {
+      ...row,
+      deltaPct: index === 0 ? null : calculatePercentChange(previousTotal, row.total),
+      realizadoPct: calculateShare(row.realizado, row.total),
+      pendentePct: calculateShare(row.previsto_pendente, row.total),
+    }
+  })
+  const latestDelta = chartData[chartData.length - 1]?.deltaPct ?? null
+
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="space-y-1">
         <CardTitle className="text-base">Evolucao Mensal de Custo</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Ultima variacao do total: {formatTrendDescription(latestDelta)} vs mes anterior
+        </p>
       </CardHeader>
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
               <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" tick={CHART_AXIS_TICK_MD} />
               <YAxis tick={CHART_AXIS_TICK} tickFormatter={formatCurrencyCompactBRL} />
               <Tooltip
                 content={({ active, payload, label }) => {
                   if (!active || !payload?.length) return null
-                  const row = payload[0].payload as FinanceiroEvolucaoMes
+                  const row = payload[0].payload as FinanceiroEvolucaoMes & {
+                    deltaPct: number | null
+                    realizadoPct: number
+                    pendentePct: number
+                  }
 
                   return (
                     <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
@@ -69,18 +94,23 @@ export function FinanceiroMonthlyChart({ data }: FinanceiroMonthlyChartProps) {
                         <span className="font-semibold text-emerald-500">
                           {formatCurrencyBRL(row.realizado)}
                         </span>
+                        <span className="text-muted-foreground"> ({formatPercent(row.realizadoPct)})</span>
                       </p>
                       <p>
                         Previsto pendente:{' '}
                         <span className="font-semibold text-amber-500">
                           {formatCurrencyBRL(row.previsto_pendente)}
                         </span>
+                        <span className="text-muted-foreground"> ({formatPercent(row.pendentePct)})</span>
                       </p>
                       <p>
                         Total:{' '}
                         <span className="font-semibold text-foreground">
                           {formatCurrencyBRL(row.total)}
                         </span>
+                      </p>
+                      <p className="mt-1 border-t pt-1 text-muted-foreground">
+                        Variacao vs mes anterior: {formatSignedPercentChange(row.deltaPct)}
                       </p>
                     </div>
                   )

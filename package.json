@@ -4,6 +4,12 @@
   "workspaces": [
     "apps/*"
   ],
+  "scripts": {
+    "backfill:financeiro-historico": "node scripts/backfill_financeiro_historico.js",
+    "backfill:ordens-historico": "node scripts/backfill_ordens_historico.js",
+    "test:backfill-financeiro-historico": "node --test scripts/__tests__/backfill_financeiro_historico.test.js",
+    "test:backfill-ordens-historico": "node --test scripts/__tests__/backfill_ordens_historico.test.js"
+  },
   "devDependencies": {
     "supabase": "^2.76.13"
   }

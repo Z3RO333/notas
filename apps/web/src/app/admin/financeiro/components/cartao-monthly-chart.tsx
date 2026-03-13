@@ -15,6 +15,11 @@ import {
   CHART_AXIS_TICK_MD,
   CHART_GRID_STROKE,
 } from '@/components/charts/chart-theme'
+import {
+  calculatePercentChange,
+  formatSignedPercentChange,
+  formatTrendDescription,
+} from '@/components/charts/chart-percentages'
 import { formatCurrencyBRL, formatCurrencyCompactBRL } from '../financeiro-format'
 
 export interface CartaoMesData {
@@ -45,22 +50,34 @@ export function CartaoMonthlyChart({ data }: CartaoMonthlyChartProps) {
     )
   }
 
+  const chartData = data.map((row, index) => {
+    const previousTotal = index > 0 ? data[index - 1]?.total ?? 0 : 0
+    return {
+      ...row,
+      deltaPct: index === 0 ? null : calculatePercentChange(previousTotal, row.total),
+    }
+  })
+  const latestDelta = chartData[chartData.length - 1]?.deltaPct ?? null
+
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="space-y-1">
         <CardTitle className="text-base">Gastos por Mes</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Ultima variacao: {formatTrendDescription(latestDelta)} vs mes anterior
+        </p>
       </CardHeader>
       <CardContent>
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
+            <BarChart data={chartData} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
               <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" tick={CHART_AXIS_TICK_MD} />
               <YAxis tick={CHART_AXIS_TICK} tickFormatter={formatCurrencyCompactBRL} />
               <Tooltip
                 content={({ active, payload, label }) => {
                   if (!active || !payload?.length) return null
-                  const row = payload[0].payload as CartaoMesData
+                  const row = payload[0].payload as CartaoMesData & { deltaPct: number | null }
 
                   return (
                     <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
@@ -72,6 +89,9 @@ export function CartaoMonthlyChart({ data }: CartaoMonthlyChartProps) {
                         </span>
                       </p>
                       <p className="text-muted-foreground">{row.qtd} transacoes</p>
+                      <p className="mt-1 border-t pt-1 text-muted-foreground">
+                        Variacao vs mes anterior: {formatSignedPercentChange(row.deltaPct)}
+                      </p>
                     </div>
                   )
                 }}

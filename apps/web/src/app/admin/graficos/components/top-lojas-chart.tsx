@@ -29,6 +29,7 @@ import {
   createInsideBarLabelRenderer,
   getPositiveDomainMax,
 } from '@/components/charts/stacked-bar-label'
+import { calculateShare, formatPercent } from '@/components/charts/chart-percentages'
 import { createWrappedCategoryTickRenderer } from '@/components/charts/wrapped-category-tick'
 import type { GestaoTopLoja, TipoUnidade } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
@@ -259,7 +260,9 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
     ...row,
     total_exibido: row.concluidas + row.em_aberto,
   }))
+  const chartTotal = chartData.reduce((sum, row) => sum + row.total_exibido, 0)
   const axisMax = getPositiveDomainMax(chartData.map((row) => row.total_exibido), 0.06, 4)
+  const topShare = calculateShare(chartData[chartData.length - 1]?.total_exibido ?? 0, chartTotal)
   const getMinPointSizeForDataKey =
     (dataKey: 'concluidas' | 'em_aberto') =>
     (_value: number | null | undefined, index: number) =>
@@ -270,6 +273,9 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
       <Card>
         <CardHeader className="px-4 pb-4">
           <CardTitle className="text-base">{titulo}</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Maior participacao no recorte: {formatPercent(topShare)}
+          </p>
         </CardHeader>
         <CardContent className="px-4 pb-4 pt-0">
           <p className="text-xs text-muted-foreground mb-2">Clique em uma barra para ver as ordens</p>
@@ -292,9 +298,20 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
                     return (
                       <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
                         <p className="font-medium mb-1">{label}</p>
-                        <p>Concluidas: <span className="font-semibold text-green-600">{d.concluidas.toLocaleString('pt-BR')}</span></p>
-                        <p>Em Aberto: <span className="font-semibold text-amber-500">{d.em_aberto.toLocaleString('pt-BR')}</span></p>
+                        <p>
+                          Concluidas:{' '}
+                          <span className="font-semibold text-green-600">{d.concluidas.toLocaleString('pt-BR')}</span>
+                          <span className="text-muted-foreground"> ({formatPercent(calculateShare(d.concluidas, d.total_exibido))})</span>
+                        </p>
+                        <p>
+                          Em Aberto:{' '}
+                          <span className="font-semibold text-amber-500">{d.em_aberto.toLocaleString('pt-BR')}</span>
+                          <span className="text-muted-foreground"> ({formatPercent(calculateShare(d.em_aberto, d.total_exibido))})</span>
+                        </p>
                         <p className="mt-1 border-t pt-1">Total: <span className="font-semibold">{(d.concluidas + d.em_aberto).toLocaleString('pt-BR')}</span></p>
+                        <p className="text-muted-foreground">
+                          Participacao no grafico: {formatPercent(calculateShare(d.total_exibido, chartTotal))}
+                        </p>
                       </div>
                     )
                   }}

@@ -22,6 +22,11 @@ import {
   CHART_TREND_LINE_STROKE,
   CHART_VALUE_LABEL_SM,
 } from '@/components/charts/chart-theme'
+import {
+  calculatePercentChange,
+  formatSignedPercentChange,
+  formatTrendDescription,
+} from '@/components/charts/chart-percentages'
 import type { EvolucaoMensalOperacional } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 
@@ -46,18 +51,30 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
     )
   }
 
-  const data = rows.map((row) => ({
-    ...row,
-    total: row.concluidas + row.em_aberto,
-  }))
+  const data = rows.map((row, index) => {
+    const total = row.concluidas + row.em_aberto
+    const previousTotal = index > 0
+      ? (rows[index - 1]?.concluidas ?? 0) + (rows[index - 1]?.em_aberto ?? 0)
+      : 0
+
+    return {
+      ...row,
+      total,
+      deltaPct: index === 0 ? null : calculatePercentChange(previousTotal, total),
+    }
+  })
+  const latestDelta = data[data.length - 1]?.deltaPct ?? null
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="space-y-1">
         <CardTitle className="text-base">
           Evolucao Mensal
           <span className="ml-2 text-xs font-normal text-muted-foreground">({periodLabel})</span>
         </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Ultima variacao do total: {formatTrendDescription(latestDelta)} vs mes anterior
+        </p>
       </CardHeader>
       <CardContent className="h-80">
         <ResponsiveContainer width="100%" height="100%">
@@ -66,7 +83,25 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
             <XAxis dataKey="label" tick={CHART_AXIS_TICK} minTickGap={20} />
             <YAxis allowDecimals={false} tick={CHART_AXIS_TICK} />
             <Tooltip
-              formatter={(value: number, name: string) => [value.toLocaleString('pt-BR'), name]}
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null
+                const row = payload[0].payload as EvolucaoMensalOperacional & {
+                  total: number
+                  deltaPct: number | null
+                }
+
+                return (
+                  <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
+                    <p className="mb-1 font-medium">{label}</p>
+                    <p>Concluidas: <span className="font-semibold text-green-600">{row.concluidas.toLocaleString('pt-BR')}</span></p>
+                    <p>Em Aberto: <span className="font-semibold text-amber-500">{row.em_aberto.toLocaleString('pt-BR')}</span></p>
+                    <p>Total: <span className="font-semibold">{row.total.toLocaleString('pt-BR')}</span></p>
+                    <p className="mt-1 border-t pt-1 text-muted-foreground">
+                      Variacao vs mes anterior: {formatSignedPercentChange(row.deltaPct)}
+                    </p>
+                  </div>
+                )
+              }}
             />
             <Legend wrapperStyle={CHART_LEGEND_STYLE} />
             <Bar

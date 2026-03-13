@@ -16,6 +16,7 @@ import {
   CHART_GRID_STROKE,
   CHART_LEGEND_STYLE,
 } from '@/components/charts/chart-theme'
+import { calculateShare, formatPercent } from '@/components/charts/chart-percentages'
 import { createWrappedCategoryTickRenderer } from '@/components/charts/wrapped-category-tick'
 import type { FinanceiroRankingRow } from '@/lib/types/database'
 import { formatCurrencyBRL, formatCurrencyCompactBRL } from '../financeiro-format'
@@ -48,12 +49,17 @@ export function FinanceiroCostByUnitChart({ data }: FinanceiroCostByUnitChartPro
     )
   }
 
+  const chartTotal = data.reduce((sum, row) => sum + row.total, 0)
   const chartHeight = Math.max(340, data.length * 52)
+  const topShare = calculateShare(data[0]?.total ?? 0, chartTotal)
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="space-y-1">
         <CardTitle className="text-base">Custo por Unidade</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Maior participacao no total: {formatPercent(topShare)}
+        </p>
       </CardHeader>
       <CardContent>
         <div className="h-[340px] xl:h-[420px]" style={{ minHeight: chartHeight }}>
@@ -84,18 +90,23 @@ export function FinanceiroCostByUnitChart({ data }: FinanceiroCostByUnitChartPro
                         <span className="font-semibold text-emerald-500">
                           {formatCurrencyBRL(row.realizado)}
                         </span>
+                        <span className="text-muted-foreground"> ({formatPercent(calculateShare(row.realizado, row.total))})</span>
                       </p>
                       <p>
                         Previsto pendente:{' '}
                         <span className="font-semibold text-amber-500">
                           {formatCurrencyBRL(row.previsto_pendente)}
                         </span>
+                        <span className="text-muted-foreground"> ({formatPercent(calculateShare(row.previsto_pendente, row.total))})</span>
                       </p>
                       <p>
                         Total:{' '}
                         <span className="font-semibold text-foreground">
                           {formatCurrencyBRL(row.total)}
                         </span>
+                      </p>
+                      <p className="mt-1 border-t pt-1 text-muted-foreground">
+                        Participacao no grafico: {formatPercent(calculateShare(row.total, chartTotal))}
                       </p>
                     </div>
                   )

@@ -21,6 +21,10 @@ import {
   CHART_LEGEND_STYLE,
   CHART_VALUE_LABEL_SM,
 } from '@/components/charts/chart-theme'
+import {
+  calculatePercentChange,
+  formatSignedPercentChange,
+} from '@/components/charts/chart-percentages'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 import type { ComparativoOrdensMes } from '@/lib/types/database'
 import { buildOrdersChartRows, type OrdersMetricKey } from '../comparativos-utils'
@@ -48,13 +52,25 @@ export function OrdersComparisonChart({
 }: OrdersComparisonChartProps) {
   const [metric, setMetric] = useState<OrdersMetricKey>('total_ordens')
   const { showLabels } = useChartLabels()
-  const data = buildOrdersChartRows(rows, anoBase, anoComparado, metric)
+  const data = buildOrdersChartRows(rows, anoBase, anoComparado, metric).map((row) => ({
+    ...row,
+    deltaAbs: row.valorComparado - row.valorBase,
+    deltaPct: calculatePercentChange(row.valorBase, row.valorComparado),
+  }))
+  const totalBase = data.reduce((sum, row) => sum + row.valorBase, 0)
+  const totalComparado = data.reduce((sum, row) => sum + row.valorComparado, 0)
+  const totalDeltaPct = calculatePercentChange(totalBase, totalComparado)
 
   return (
     <Card>
       <CardHeader className="space-y-3">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <CardTitle className="text-base">Ordens por mes</CardTitle>
+          <div className="space-y-1">
+            <CardTitle className="text-base">Ordens por mes</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Variacao acumulada do periodo: {formatSignedPercentChange(totalDeltaPct)}
+            </p>
+          </div>
           <div className="flex flex-wrap gap-2">
             {METRIC_OPTIONS.map((option) => (
               <Button
@@ -78,8 +94,28 @@ export function OrdersComparisonChart({
               <XAxis dataKey="label" tick={CHART_AXIS_TICK_MD} minTickGap={20} />
               <YAxis allowDecimals={false} tick={CHART_AXIS_TICK} />
               <Tooltip
-                formatter={(value: number) => formatInteger(value)}
-                contentStyle={{ borderRadius: 12 }}
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null
+                  const row = payload[0].payload as {
+                    label: string
+                    valorBase: number
+                    valorComparado: number
+                    deltaAbs: number
+                    deltaPct: number | null
+                  }
+
+                  return (
+                    <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
+                      <p className="mb-1 font-medium">{label}</p>
+                      <p>{anoBase}: <span className="font-semibold text-slate-500">{formatInteger(row.valorBase)}</span></p>
+                      <p>{anoComparado}: <span className="font-semibold text-blue-600">{formatInteger(row.valorComparado)}</span></p>
+                      <p>Delta: <span className="font-semibold">{formatInteger(row.deltaAbs)}</span></p>
+                      <p className="mt-1 border-t pt-1 text-muted-foreground">
+                        Variacao: {formatSignedPercentChange(row.deltaPct)}
+                      </p>
+                    </div>
+                  )
+                }}
               />
               <Legend wrapperStyle={CHART_LEGEND_STYLE} />
               <Bar dataKey="valorBase" name={String(anoBase)} fill="#94a3b8" radius={[6, 6, 0, 0]}>

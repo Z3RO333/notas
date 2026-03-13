@@ -8,6 +8,12 @@ interface ComparisonKpiStripProps {
   formatValue: (value: number) => string
 }
 
+function getDeltaLabel(item: ComparisonKpiItem): string {
+  if (item.deltaAbs > 0) return `A mais vs ${item.anoBase}`
+  if (item.deltaAbs < 0) return `A menos vs ${item.anoBase}`
+  return `Mesmo nivel de ${item.anoBase}`
+}
+
 function getDeltaClass(value: number): string {
   if (value > 0) return 'text-rose-600'
   if (value < 0) return 'text-emerald-600'
@@ -25,6 +31,8 @@ export function ComparisonKpiStrip({ items, formatValue }: ComparisonKpiStripPro
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {items.map((item) => {
         const deltaClass = getDeltaClass(item.deltaAbs)
+        const deltaLabel = getDeltaLabel(item)
+        const deltaValue = Math.abs(item.deltaAbs)
         return (
           <Card key={item.id}>
             <CardHeader className="pb-3">
@@ -55,10 +63,10 @@ export function ComparisonKpiStrip({ items, formatValue }: ComparisonKpiStripPro
               <div className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm ${deltaClass}`}>
                 <span className="inline-flex items-center gap-1 font-medium">
                   <DeltaIcon value={item.deltaAbs} />
-                  Delta
+                  {deltaLabel}
                 </span>
                 <div className="text-right">
-                  <p className="tabular-nums">{formatValue(item.deltaAbs)}</p>
+                  <p className="tabular-nums">{formatValue(deltaValue)}</p>
                   <p className="text-xs">{formatDeltaPercent(item.deltaPct)}</p>
                 </div>
               </div>

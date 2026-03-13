@@ -21,10 +21,15 @@ export function TopServicosChart({ data }: TopServicosChartProps) {
     )
   }
 
+  const topPercent = data[0]?.percentual ?? 0
+
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader className="space-y-1 pb-3">
         <CardTitle className="text-base">Servicos Solicitados</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Lider responde por {topPercent.toFixed(1)}% do total
+        </p>
       </CardHeader>
       <CardContent className="p-0">
         <div className="max-h-96 overflow-auto">

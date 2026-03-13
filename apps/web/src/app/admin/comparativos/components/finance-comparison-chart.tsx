@@ -21,6 +21,10 @@ import {
   CHART_LEGEND_STYLE,
   CHART_VALUE_LABEL_SM,
 } from '@/components/charts/chart-theme'
+import {
+  calculatePercentChange,
+  formatSignedPercentChange,
+} from '@/components/charts/chart-percentages'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 import type { ComparativoFinanceiroMes } from '@/lib/types/database'
 import { formatCurrencyBRL, formatCurrencyCompactBRL } from '@/app/admin/financeiro/financeiro-format'
@@ -45,13 +49,25 @@ export function FinanceComparisonChart({
 }: FinanceComparisonChartProps) {
   const [metric, setMetric] = useState<FinanceMetricKey>('total_gasto')
   const { showLabels } = useChartLabels()
-  const data = buildFinanceChartRows(rows, anoBase, anoComparado, metric)
+  const data = buildFinanceChartRows(rows, anoBase, anoComparado, metric).map((row) => ({
+    ...row,
+    deltaAbs: row.valorComparado - row.valorBase,
+    deltaPct: calculatePercentChange(row.valorBase, row.valorComparado),
+  }))
+  const totalBase = data.reduce((sum, row) => sum + row.valorBase, 0)
+  const totalComparado = data.reduce((sum, row) => sum + row.valorComparado, 0)
+  const totalDeltaPct = calculatePercentChange(totalBase, totalComparado)
 
   return (
     <Card>
       <CardHeader className="space-y-3">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <CardTitle className="text-base">Financeiro por mes</CardTitle>
+          <div className="space-y-1">
+            <CardTitle className="text-base">Financeiro por mes</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Variacao acumulada do periodo: {formatSignedPercentChange(totalDeltaPct)}
+            </p>
+          </div>
           <div className="flex flex-wrap gap-2">
             {METRIC_OPTIONS.map((option) => (
               <Button
@@ -75,8 +91,28 @@ export function FinanceComparisonChart({
               <XAxis dataKey="label" tick={CHART_AXIS_TICK_MD} minTickGap={20} />
               <YAxis tick={CHART_AXIS_TICK} tickFormatter={formatCurrencyCompactBRL} />
               <Tooltip
-                formatter={(value: number) => formatCurrencyBRL(value)}
-                contentStyle={{ borderRadius: 12 }}
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null
+                  const row = payload[0].payload as {
+                    label: string
+                    valorBase: number
+                    valorComparado: number
+                    deltaAbs: number
+                    deltaPct: number | null
+                  }
+
+                  return (
+                    <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
+                      <p className="mb-1 font-medium">{label}</p>
+                      <p>{anoBase}: <span className="font-semibold text-amber-700">{formatCurrencyBRL(row.valorBase)}</span></p>
+                      <p>{anoComparado}: <span className="font-semibold text-emerald-600">{formatCurrencyBRL(row.valorComparado)}</span></p>
+                      <p>Delta: <span className="font-semibold">{formatCurrencyBRL(row.deltaAbs)}</span></p>
+                      <p className="mt-1 border-t pt-1 text-muted-foreground">
+                        Variacao: {formatSignedPercentChange(row.deltaPct)}
+                      </p>
+                    </div>
+                  )
+                }}
               />
               <Legend wrapperStyle={CHART_LEGEND_STYLE} />
               <Bar dataKey="valorBase" name={String(anoBase)} fill="#a16207" radius={[6, 6, 0, 0]}>

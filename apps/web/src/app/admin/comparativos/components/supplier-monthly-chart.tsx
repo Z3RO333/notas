@@ -21,6 +21,10 @@ import {
   CHART_LEGEND_STYLE,
   CHART_VALUE_LABEL_SM,
 } from '@/components/charts/chart-theme'
+import {
+  calculatePercentChange,
+  formatSignedPercentChange,
+} from '@/components/charts/chart-percentages'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 import { formatCurrencyBRL, formatCurrencyCompactBRL } from '@/app/admin/financeiro/financeiro-format'
 import type { FinanceMetricKey, SupplierMonthlyComparisonRow } from '../comparativos-utils'
@@ -61,13 +65,33 @@ export function SupplierMonthlyChart({
         : metric === 'valor_realizado'
           ? row.realizadoComparado
           : row.pendenteComparado,
+      deltaPct: calculatePercentChange(
+        metric === 'total_gasto'
+          ? row.totalBase
+          : metric === 'valor_realizado'
+            ? row.realizadoBase
+            : row.pendenteBase,
+        metric === 'total_gasto'
+          ? row.totalComparado
+          : metric === 'valor_realizado'
+            ? row.realizadoComparado
+            : row.pendenteComparado,
+      ),
     }))
+  const totalBase = data.reduce((sum, row) => sum + row.valorBase, 0)
+  const totalComparado = data.reduce((sum, row) => sum + row.valorComparado, 0)
+  const totalDeltaPct = calculatePercentChange(totalBase, totalComparado)
 
   return (
     <Card>
       <CardHeader className="space-y-3">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <CardTitle className="text-base">Fornecedor por mes - {fornecedorNome}</CardTitle>
+          <div className="space-y-1">
+            <CardTitle className="text-base">Fornecedor por mes - {fornecedorNome}</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Variacao acumulada do periodo: {formatSignedPercentChange(totalDeltaPct)}
+            </p>
+          </div>
           <div className="flex flex-wrap gap-2">
             {METRIC_OPTIONS.map((option) => (
               <Button
@@ -91,8 +115,25 @@ export function SupplierMonthlyChart({
               <XAxis dataKey="label" tick={CHART_AXIS_TICK_MD} minTickGap={20} />
               <YAxis tick={CHART_AXIS_TICK} tickFormatter={formatCurrencyCompactBRL} />
               <Tooltip
-                formatter={(value: number) => formatCurrencyBRL(value)}
-                contentStyle={{ borderRadius: 12 }}
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null
+                  const row = payload[0].payload as {
+                    valorBase: number
+                    valorComparado: number
+                    deltaPct: number | null
+                  }
+
+                  return (
+                    <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
+                      <p className="mb-1 font-medium">{label}</p>
+                      <p>{anoBase}: <span className="font-semibold text-amber-700">{formatCurrencyBRL(row.valorBase)}</span></p>
+                      <p>{anoComparado}: <span className="font-semibold text-teal-700">{formatCurrencyBRL(row.valorComparado)}</span></p>
+                      <p className="mt-1 border-t pt-1 text-muted-foreground">
+                        Variacao: {formatSignedPercentChange(row.deltaPct)}
+                      </p>
+                    </div>
+                  )
+                }}
               />
               <Legend wrapperStyle={CHART_LEGEND_STYLE} />
               <Bar dataKey="valorBase" name={String(anoBase)} fill="#b45309" radius={[6, 6, 0, 0]}>

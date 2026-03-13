@@ -22,6 +22,11 @@ import {
   CHART_TREND_LINE_STROKE,
   CHART_VALUE_LABEL_SM,
 } from '@/components/charts/chart-theme'
+import {
+  calculatePercentChange,
+  formatSignedPercentChange,
+  formatTrendDescription,
+} from '@/components/charts/chart-percentages'
 import type { GestaoEvolucaoMes } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 
@@ -62,22 +67,34 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
     )
   }
 
+  const chartData = data.map((row, index) => {
+    const previousTotal = index > 0 ? data[index - 1]?.total_ordens ?? 0 : 0
+    return {
+      ...row,
+      deltaPct: index === 0 ? null : calculatePercentChange(previousTotal, row.total_ordens),
+    }
+  })
+  const latestDelta = chartData[chartData.length - 1]?.deltaPct ?? null
+
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="space-y-1">
         <CardTitle className="text-base">Evolucao Mensal - Ordens</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Ultima variacao: {formatTrendDescription(latestDelta)} vs mes anterior
+        </p>
       </CardHeader>
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} margin={{ top: showLabels ? 20 : 8, right: 16, bottom: 4, left: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: showLabels ? 20 : 8, right: 16, bottom: 4, left: 0 }}>
               <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" minTickGap={20} tick={CHART_AXIS_TICK_MD} />
               <YAxis allowDecimals={false} tick={CHART_AXIS_TICK} />
               <Tooltip
                 content={({ active, payload, label }) => {
                   if (!active || !payload?.length) return null
-                  const row = payload[0].payload
+                  const row = payload[0].payload as GestaoEvolucaoMes & { deltaPct: number | null }
 
                   return (
                     <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
@@ -88,6 +105,9 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
                           {row.total_ordens.toLocaleString('pt-BR')}
                         </span>
                       </p>
+                      <p className="mt-1 border-t pt-1 text-muted-foreground">
+                        Variacao vs mes anterior: {formatSignedPercentChange(row.deltaPct)}
+                      </p>
                     </div>
                   )
                 }}
@@ -97,7 +117,7 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
                 name="total_ordens"
                 radius={[6, 6, 0, 0]}
               >
-                {data.map((row, index) => (
+                {chartData.map((row, index) => (
                   <Cell
                     key={`${row.label}-${index}`}
                     fill={MONTH_BAR_COLORS[index % MONTH_BAR_COLORS.length]}

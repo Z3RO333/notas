@@ -8,6 +8,7 @@ import {
   CHART_GRID_STROKE,
   CHART_VALUE_LABEL,
 } from '@/components/charts/chart-theme'
+import { calculateShare, formatPercent } from '@/components/charts/chart-percentages'
 import type { OrdensAbertasLoja } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
 
@@ -34,14 +35,19 @@ export function OrdensAbertasLojaChart({ rows, periodLabel }: OrdensAbertasLojaC
 
   const max = rows[0]?.total_abertas ?? 1
   const data = [...rows].reverse()
+  const totalAbertas = data.reduce((sum, row) => sum + row.total_abertas, 0)
+  const leadShare = calculateShare(rows[0]?.total_abertas ?? 0, totalAbertas)
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="space-y-1">
         <CardTitle className="text-base">
           Em Aberto por Loja
           <span className="ml-2 text-xs font-normal text-muted-foreground">({periodLabel})</span>
         </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Lider concentra {formatPercent(leadShare)} das ordens abertas
+        </p>
       </CardHeader>
       <CardContent className="h-80">
         <ResponsiveContainer width="100%" height="100%">
@@ -54,7 +60,20 @@ export function OrdensAbertasLojaChart({ rows, periodLabel }: OrdensAbertasLojaC
             <XAxis type="number" allowDecimals={false} tick={CHART_AXIS_TICK} />
             <YAxis type="category" dataKey="unidade" width={130} tick={CHART_CATEGORY_TICK} />
             <Tooltip
-              formatter={(value: number) => [value.toLocaleString('pt-BR'), 'Em Aberto']}
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null
+                const row = payload[0].payload as OrdensAbertasLoja
+
+                return (
+                  <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
+                    <p className="mb-1 font-medium">{label}</p>
+                    <p>Em Aberto: <span className="font-semibold text-red-500">{row.total_abertas.toLocaleString('pt-BR')}</span></p>
+                    <p className="text-muted-foreground">
+                      Participacao no periodo: {formatPercent(calculateShare(row.total_abertas, totalAbertas))}
+                    </p>
+                  </div>
+                )
+              }}
             />
             <Bar dataKey="total_abertas" radius={[0, 4, 4, 0]}>
               {data.map((entry, index) => {
