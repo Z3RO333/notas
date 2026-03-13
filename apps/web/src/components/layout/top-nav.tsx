@@ -47,7 +47,7 @@ export function TopNav({ userName, userRole }: TopNavProps) {
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-14 items-center px-6">
         <Link href="/" className="flex items-center gap-2 mr-8">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white">
             <Image src="/login-logo.png" alt="Cockpit" width={22} height={22} />
           </div>
           <span className="text-lg font-bold tracking-tight">Cockpit</span>
