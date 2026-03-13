@@ -1,34 +1,10 @@
-'use client'
-
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  CHART_AXIS_TICK,
-  CHART_GRID_STROKE,
-} from '@/components/charts/chart-theme'
-import { createWrappedCategoryTickRenderer } from '@/components/charts/wrapped-category-tick'
-import { formatCurrencyBRL, formatCurrencyCompactBRL } from '../financeiro-format'
+import { formatCurrencyBRL } from '../financeiro-format'
 import type { CartaoRankingRow } from './cartao-ranking-fornecedores'
 
 interface CartaoRankingCentrosProps {
   data: CartaoRankingRow[]
 }
-
-const wrappedTick = createWrappedCategoryTickRenderer({
-  fill: 'hsl(var(--foreground))',
-  fontSize: 11,
-  fontWeight: 500,
-  maxCharsPerLine: 18,
-  maxLines: 2,
-})
 
 export function CartaoRankingCentros({ data }: CartaoRankingCentrosProps) {
   if (data.length === 0) {
@@ -46,46 +22,44 @@ export function CartaoRankingCentros({ data }: CartaoRankingCentrosProps) {
     )
   }
 
-  const chartHeight = Math.max(300, data.length * 48)
-
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-3">
         <CardTitle className="text-base">Top Centros de Custo</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div style={{ height: chartHeight }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={data}
-              layout="vertical"
-              margin={{ top: 8, right: 16, bottom: 4, left: 24 }}
-            >
-              <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" tick={CHART_AXIS_TICK} tickFormatter={formatCurrencyCompactBRL} />
-              <YAxis type="category" dataKey="nome" width={170} tick={wrappedTick} />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (!active || !payload?.length) return null
-                  const row = payload[0].payload as CartaoRankingRow
-
-                  return (
-                    <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
-                      <p className="mb-1 font-medium">{row.nome}</p>
-                      <p>
-                        Total:{' '}
-                        <span className="font-semibold text-violet-400">
-                          {formatCurrencyBRL(row.total)}
-                        </span>
-                      </p>
-                      <p className="text-muted-foreground">{row.qtd} transacoes</p>
-                    </div>
-                  )
-                }}
-              />
-              <Bar dataKey="total" name="Total" fill="#7c3aed" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+      <CardContent className="p-0">
+        <div className="max-h-[420px] overflow-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
+                <th className="w-10 px-4 py-3 text-right font-medium">#</th>
+                <th className="px-4 py-3 text-left font-medium">Centro de Custo</th>
+                <th className="px-4 py-3 text-right font-medium">Total</th>
+                <th className="px-4 py-3 text-right font-medium">Qtd</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((row, index) => (
+                <tr
+                  key={`centro-${row.nome}-${index}`}
+                  className="border-b transition-colors last:border-0 hover:bg-muted/15"
+                >
+                  <td className="px-4 py-3 text-right text-xs tabular-nums text-muted-foreground">
+                    {String(index + 1).padStart(2, '0')}
+                  </td>
+                  <td className="px-4 py-3">
+                    <p className="break-words font-medium leading-5">{row.nome}</p>
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    <span className="font-semibold text-violet-400">{formatCurrencyBRL(row.total)}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
+                    {row.qtd}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </CardContent>
     </Card>

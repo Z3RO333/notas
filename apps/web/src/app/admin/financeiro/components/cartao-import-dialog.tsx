@@ -115,7 +115,7 @@ function parseSheetRows(sheet: XLSX.WorkSheet, sheetName: string): CartaoImportR
 
   const dataCol = findColumn(headers, ['DATA', 'DT_CRIACAO', 'CARIMBO_DE_DATA_HORA'])
   const fornecedorCol = findColumn(headers, ['FORNECEDOR', 'CODIGO_FORNECEDOR', 'DESCRICAO_FORNECEDOR'])
-  const centroCustoCol = findColumn(headers, ['CENTRO_DE_CUSTO', 'CENTRO_CUSTO', 'CENTRODE_CUSTO'])
+  const centroCustoCol = findColumn(headers, ['CENTRO_DE_CUSTO', 'CENTRO_CUSTO', 'CENTRODE_CUSTO', 'LOCAL', 'CUSTO'])
   const valorCol = findColumn(headers, ['VALOR'])
 
   if (!dataCol || !fornecedorCol || !valorCol) return []
