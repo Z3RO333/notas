@@ -18,10 +18,10 @@ export function buildCopilotAlerts(params: {
   isoAdmins: IsoAdminRow[]
   summary: DashboardSummaryMetrics
   latestSync: SyncLog | null
-  notasCriticas5d: number
+  notasCriticas: number
   now?: Date
 }): CopilotAlert[] {
-  const { isoGlobal, isoAdmins, summary, latestSync, notasCriticas5d } = params
+  const { isoGlobal, isoAdmins, summary, latestSync, notasCriticas } = params
   const now = params.now ?? new Date()
   const nowMs = now.getTime()
   const alerts: CopilotAlert[] = []
@@ -54,19 +54,21 @@ export function buildCopilotAlerts(params: {
         description: `ISO ${admin.iso_score.toFixed(0)} — ${admin.qtd_abertas} notas abertas, ${admin.qtd_notas_criticas} críticas.`,
         adminId: admin.administrador_id,
         adminNome: admin.nome,
-        actionLabel: 'Redistribuir notas',
+        actionLabel: 'Ver notas',
         actionType: 'redistribuir',
+        viewHref: `/?status=abertas&responsavel=${admin.administrador_id}`,
       })
     }
   }
 
   // 3. Notas com SLA estourado (5+ dias)
-  if (notasCriticas5d > 0) {
+  if (notasCriticas > 0) {
     alerts.push({
       id: 'notas-estourado-sla',
       level: 'critical',
       title: 'Notas em SLA crítico',
-      description: `${formatInteger(notasCriticas5d)} nota(s) aberta(s) há 5+ dias sem resolução.`,
+      description: `${formatInteger(notasCriticas)} nota(s) aberta(s) há 5+ dias sem resolução.`,
+      viewHref: '/?kpi=critico',
     })
   }
 
@@ -77,6 +79,7 @@ export function buildCopilotAlerts(params: {
       level: 'critical',
       title: 'Notas sem atribuição',
       description: `${formatInteger(summary.sem_atribuir)} nota(s) nova(s) aguardando distribuição.`,
+      viewHref: '/?status=nova&responsavel=sem_atribuir',
     })
   }
 

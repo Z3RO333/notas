@@ -1,4 +1,5 @@
 import { getAgingDays, isOpenStatus } from '@/lib/collaborator/aging'
+import { SLA_DENTRO_PRAZO_MAX_DAYS, SLA_ESTOURADO_MIN_DAYS, SLA_CRITICO_MIN_DAYS } from './sla'
 import type { NotaPanelData } from '@/lib/types/database'
 import type { SmartAgingCategory, SmartAgingBadge, SmartAgingCounts } from '@/lib/types/copilot'
 
@@ -14,10 +15,10 @@ export function getSmartAgingCategory(
   now: Date = new Date()
 ): SmartAgingCategory {
   const days = getAgingDays(nota, now)
-  if (days <= 1) return 'dentro_prazo'
-  if (days === 2) return 'perto_de_estourar'
-  if (days <= 4) return 'estourado'
-  return 'critico'
+  if (days <= SLA_DENTRO_PRAZO_MAX_DAYS) return 'dentro_prazo'
+  if (days < SLA_ESTOURADO_MIN_DAYS)     return 'perto_de_estourar'   // = 2 dias
+  if (days < SLA_CRITICO_MIN_DAYS)       return 'estourado'           // = 3-4 dias
+  return 'critico'                                                     // 5+ dias
 }
 
 const BADGE_MAP: Record<SmartAgingCategory, SmartAgingBadge> = {

@@ -63,6 +63,7 @@ export interface CopilotAlert {
   adminNome?: string
   actionLabel?: string
   actionType?: CopilotActionType
+  viewHref?: string   // URL para navegar ao clicar no CTA
 }
 
 // --- Workload Radar ---
@@ -117,6 +118,9 @@ export type PredictionType =
   | 'aging_sla_estouro'
   | 'taxa_entrada_alta'
   | 'sobrecarga_continua'
+export type PredictionKind = 'projecao' | 'tendencia' | 'alerta_antecipado'
+export type PredictionConfianca = 'alta' | 'media' | 'baixa'
+export type PredictionTendencia = 'piorando' | 'estavel' | 'melhorando'
 
 export interface Prediction {
   tipo: PredictionType
@@ -125,6 +129,10 @@ export interface Prediction {
   diasParaEvento: number
   severidade: PredictionSeverity
   mensagem: string
+  kind: PredictionKind
+  confianca: PredictionConfianca
+  tendencia: PredictionTendencia
+  variacaoPct?: number   // variação relativa vs janela anterior (ex: +15 = +15%)
 }
 
 // --- Suggestions ---
@@ -139,6 +147,14 @@ export type CopilotActionType =
 
 export type SuggestionPriority = 'alta' | 'media' | 'baixa'
 export type CopilotSuggestionDomain = 'notas' | 'ordens'
+
+export interface NotaSample {
+  id: string
+  numero_nota: string
+  descricao: string
+  prioridade: string | null
+  centro: string | null
+}
 
 export interface CopilotSuggestion {
   id: string
@@ -155,6 +171,9 @@ export interface CopilotSuggestion {
   targetAdminNome?: string
   notaIds?: string[]
   unidade?: string
+  porQueAgora?: string    // contexto temporal ("3 notas com 5+ dias")
+  quemImpacta?: string    // área/loja afetada
+  notasSample?: NotaSample[]  // até 3 notas representativas
 }
 
 // --- Dynamic KPIs ---

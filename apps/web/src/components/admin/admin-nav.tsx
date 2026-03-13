@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Banknote, BarChart3, HardHat, LineChart, Settings, UserCog, ScrollText, Zap } from 'lucide-react'
+import { Banknote, BarChart3, BarChartBig, HardHat, LineChart, Settings, UserCog, ScrollText, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const links = [
   { href: '/admin', label: 'Dashboard', icon: BarChart3, exact: true },
   { href: '/admin/graficos', label: 'Gráficos', icon: LineChart },
+  { href: '/admin/comparativos', label: 'Comparativos', icon: BarChartBig },
   { href: '/admin/financeiro', label: 'Financeiro', icon: Banknote },
   { href: '/admin/equipamentos', label: 'Equipamentos', icon: Zap },
   { href: '/admin/operacional', label: 'Operacional', icon: HardHat },

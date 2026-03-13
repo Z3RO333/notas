@@ -147,7 +147,7 @@ export default async function CopilotPage() {
 
   // Smart aging counts
   const agingCounts = buildSmartAgingCounts(notasPanel, now)
-  const notasCriticas5d = agingCounts.critico
+  const notasCriticas = agingCounts.critico
 
   // Copilot alerts
   const alerts = buildCopilotAlerts({
@@ -155,7 +155,7 @@ export default async function CopilotPage() {
     isoAdmins,
     summary,
     latestSync,
-    notasCriticas5d,
+    notasCriticas,
     now,
   })
 
@@ -185,6 +185,7 @@ export default async function CopilotPage() {
     isoAdmins,
     notasSemAtribuir,
     ordensVermelhasPorUnidade,
+    notasPanel,
   })
 
   // Productivity

@@ -737,6 +737,63 @@ export interface FinanceiroRankingRow {
   total: number
 }
 
+// --- Comparativos Anuais ---
+
+export interface ComparativoOrdensMes {
+  ano: number
+  mes: number
+  total_ordens: number
+  ordens_abertas: number
+  ordens_executadas: number
+}
+
+export interface ComparativoOrdensResumoAno {
+  ano: number
+  total_ordens: number
+  ordens_abertas: number
+  ordens_executadas: number
+}
+
+export interface ComparativoFinanceiroMes {
+  ano: number
+  mes: number
+  total_ordens: number
+  total_gasto: number
+  valor_realizado: number
+  valor_previsto_pendente: number
+}
+
+export interface ComparativoFinanceiroResumoAno {
+  ano: number
+  total_ordens: number
+  total_gasto: number
+  valor_realizado: number
+  valor_previsto_pendente: number
+}
+
+export interface ComparativoFornecedorResumo {
+  fornecedor_ref: string
+  fornecedor_codigo: string | null
+  fornecedor_nome: string | null
+  ano: number
+  total_ordens: number
+  total_gasto: number
+  valor_realizado: number
+  valor_previsto_pendente: number
+}
+
+export interface ComparativoFornecedorMes {
+  fornecedor_ref: string
+  fornecedor_codigo: string | null
+  fornecedor_nome: string | null
+  ano: number
+  mes: number
+  total_ordens: number
+  total_gasto: number
+  valor_realizado: number
+  valor_previsto_pendente: number
+}
+
 // ============================================================
 // Operacional (Fornecedores)
 // ============================================================

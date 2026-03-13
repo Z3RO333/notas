@@ -27,6 +27,15 @@ const ACTION_LABELS: Record<string, string> = {
   redistribuir_ferias: 'Redistribuir',
 }
 
+const CTA_LABELS: Record<string, string> = {
+  redistribuir: 'Redistribuir agora',
+  redistribuir_ferias: 'Redistribuir agora',
+  escalar: 'Ver notas',
+  pausar_distribuicao: 'Ver notas',
+  investigar_unidade: 'Ver ordens',
+  investigar_colaborador_ordens: 'Ver ordens',
+}
+
 export function SuggestionsPanel({ suggestions, maxItems = 5 }: SuggestionsPanelProps) {
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
@@ -84,6 +93,20 @@ export function SuggestionsPanel({ suggestions, maxItems = 5 }: SuggestionsPanel
                     </div>
                     <p className="text-sm font-medium">{sug.titulo}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{sug.descricao}</p>
+                    {sug.porQueAgora && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">⚡ {sug.porQueAgora}</p>
+                    )}
+                    {sug.notasSample && sug.notasSample.length > 0 && (
+                      <ul className="mt-1.5 space-y-0.5">
+                        {sug.notasSample.map(n => (
+                          <li key={n.id} className="text-[11px] text-muted-foreground">
+                            · <span className="font-mono">{n.numero_nota}</span>
+                            {n.centro ? ` — ${n.centro}` : ''}
+                            {n.descricao ? ` — ${n.descricao.slice(0, 40)}${n.descricao.length > 40 ? '…' : ''}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     <p className="text-xs text-emerald-600 mt-1">{sug.impacto}</p>
                   </div>
 
@@ -93,7 +116,7 @@ export function SuggestionsPanel({ suggestions, maxItems = 5 }: SuggestionsPanel
                     className="shrink-0 text-xs gap-1"
                     onClick={() => router.push(sug.viewHref)}
                   >
-                    Ver
+                    {CTA_LABELS[sug.acao] ?? 'Ver'}
                     <ArrowRight className="h-3 w-3" />
                   </Button>
                 </div>

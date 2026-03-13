@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { AlertOctagon, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import type { CopilotAlert, CopilotAlertLevel } from '@/lib/types/copilot'
@@ -64,8 +65,16 @@ export function CopilotAlertsPanel({ alerts }: CopilotAlertsPanelProps) {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">{alert.title}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{alert.description}</p>
-                    {alert.actionLabel && (
-                      <p className="text-xs text-primary font-medium mt-1 cursor-pointer hover:underline">
+                    {alert.actionLabel && alert.viewHref && (
+                      <Link
+                        href={alert.viewHref}
+                        className="text-xs text-primary font-medium mt-1 inline-block hover:underline"
+                      >
+                        {alert.actionLabel} →
+                      </Link>
+                    )}
+                    {alert.actionLabel && !alert.viewHref && (
+                      <p className="text-xs text-primary font-medium mt-1">
                         {alert.actionLabel} →
                       </p>
                     )}
