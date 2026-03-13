@@ -2,8 +2,11 @@
 
 import {
   Bar,
-  BarChart,
   CartesianGrid,
+  ComposedChart,
+  LabelList,
+  Legend,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -14,9 +17,13 @@ import {
   CHART_AXIS_TICK,
   CHART_AXIS_TICK_MD,
   CHART_GRID_STROKE,
+  CHART_LEGEND_STYLE,
+  CHART_PERCENT_LINE_STROKE,
 } from '@/components/charts/chart-theme'
+import { ChartPercentChangeLabel } from '@/components/charts/chart-percent-change-label'
 import {
   calculatePercentChange,
+  formatPercentChangeLabel,
   formatSignedPercentChange,
   formatTrendDescription,
 } from '@/components/charts/chart-percentages'
@@ -55,6 +62,7 @@ export function CartaoMonthlyChart({ data }: CartaoMonthlyChartProps) {
     return {
       ...row,
       deltaPct: index === 0 ? null : calculatePercentChange(previousTotal, row.total),
+      deltaPctPlot: index === 0 ? null : calculatePercentChange(previousTotal, row.total),
     }
   })
   const latestDelta = chartData[chartData.length - 1]?.deltaPct ?? null
@@ -70,10 +78,17 @@ export function CartaoMonthlyChart({ data }: CartaoMonthlyChartProps) {
       <CardContent>
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 28, right: 20, bottom: 4, left: 0 }}>
               <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" tick={CHART_AXIS_TICK_MD} />
-              <YAxis tick={CHART_AXIS_TICK} tickFormatter={formatCurrencyCompactBRL} />
+              <YAxis yAxisId="valor" tick={CHART_AXIS_TICK} tickFormatter={formatCurrencyCompactBRL} />
+              <YAxis
+                yAxisId="percent"
+                orientation="right"
+                tick={CHART_AXIS_TICK}
+                tickFormatter={(value: number) => formatPercentChangeLabel(value)}
+                width={56}
+              />
               <Tooltip
                 content={({ active, payload, label }) => {
                   if (!active || !payload?.length) return null
@@ -96,8 +111,22 @@ export function CartaoMonthlyChart({ data }: CartaoMonthlyChartProps) {
                   )
                 }}
               />
-              <Bar dataKey="total" name="Total" fill="#a78bfa" radius={[6, 6, 0, 0]} />
-            </BarChart>
+              <Legend wrapperStyle={CHART_LEGEND_STYLE} />
+              <Bar yAxisId="valor" dataKey="total" name="Total" fill="#a78bfa" radius={[6, 6, 0, 0]} />
+              <Line
+                yAxisId="percent"
+                type="monotone"
+                dataKey="deltaPctPlot"
+                name="Variacao %"
+                stroke={CHART_PERCENT_LINE_STROKE}
+                strokeWidth={2}
+                dot={{ r: 3, fill: CHART_PERCENT_LINE_STROKE, strokeWidth: 0 }}
+                activeDot={{ r: 4, fill: CHART_PERCENT_LINE_STROKE, strokeWidth: 0 }}
+                connectNulls={false}
+              >
+                <LabelList content={(props) => <ChartPercentChangeLabel {...props} />} />
+              </Line>
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </CardContent>

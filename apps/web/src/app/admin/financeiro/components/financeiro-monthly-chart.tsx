@@ -4,6 +4,7 @@ import {
   Bar,
   CartesianGrid,
   ComposedChart,
+  LabelList,
   Legend,
   Line,
   ResponsiveContainer,
@@ -21,6 +22,7 @@ import {
   CHART_TREND_LINE_OPACITY,
   CHART_TREND_LINE_STROKE,
 } from '@/components/charts/chart-theme'
+import { ChartPercentChangeLabel } from '@/components/charts/chart-percent-change-label'
 import {
   calculatePercentChange,
   calculateShare,
@@ -73,7 +75,7 @@ export function FinanceiroMonthlyChart({ data }: FinanceiroMonthlyChartProps) {
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 28, right: 16, bottom: 4, left: 0 }}>
               <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" tick={CHART_AXIS_TICK_MD} />
               <YAxis tick={CHART_AXIS_TICK} tickFormatter={formatCurrencyCompactBRL} />
@@ -129,7 +131,9 @@ export function FinanceiroMonthlyChart({ data }: FinanceiroMonthlyChartProps) {
                 strokeOpacity={CHART_TREND_LINE_OPACITY}
                 dot={false}
                 activeDot={{ r: 4, fill: CHART_TREND_LINE_STROKE, strokeWidth: 0 }}
-              />
+              >
+                <LabelList content={(props) => <ChartPercentChangeLabel {...props} />} />
+              </Line>
             </ComposedChart>
           </ResponsiveContainer>
         </div>

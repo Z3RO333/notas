@@ -22,6 +22,7 @@ import {
   CHART_TREND_LINE_STROKE,
   CHART_VALUE_LABEL_SM,
 } from '@/components/charts/chart-theme'
+import { ChartPercentChangeLabel } from '@/components/charts/chart-percent-change-label'
 import {
   calculatePercentChange,
   formatSignedPercentChange,
@@ -78,7 +79,7 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
       </CardHeader>
       <CardContent className="h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: showLabels ? 20 : 4, right: 24, bottom: 4, left: 0 }}>
+          <ComposedChart data={data} margin={{ top: showLabels ? 34 : 22, right: 24, bottom: 4, left: 0 }}>
             <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" />
             <XAxis dataKey="label" tick={CHART_AXIS_TICK} minTickGap={20} />
             <YAxis allowDecimals={false} tick={CHART_AXIS_TICK} />
@@ -144,7 +145,9 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
               strokeOpacity={CHART_TREND_LINE_OPACITY}
               dot={false}
               activeDot={{ r: 4, fill: CHART_TREND_LINE_STROKE, strokeWidth: 0 }}
-            />
+            >
+              <LabelList content={(props) => <ChartPercentChangeLabel {...props} />} />
+            </Line>
           </ComposedChart>
         </ResponsiveContainer>
       </CardContent>

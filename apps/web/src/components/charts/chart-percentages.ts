@@ -20,6 +20,12 @@ export function formatSignedPercentChange(value: number | null, digits = 1): str
   return `${sign}${value.toFixed(digits)}%`
 }
 
+export function formatPercentChangeLabel(value: number | null): string {
+  if (value === null) return ''
+  const digits = Math.abs(value) >= 100 ? 0 : 1
+  return formatSignedPercentChange(value, digits)
+}
+
 export function formatTrendDescription(value: number | null, digits = 1): string {
   if (value === null) return 'Sem base anterior'
   if (value > 0) return `Subida de +${value.toFixed(digits)}%`
