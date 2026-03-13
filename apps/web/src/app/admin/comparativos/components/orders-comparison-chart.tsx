@@ -7,7 +7,6 @@ import {
   ComposedChart,
   LabelList,
   Legend,
-  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -20,13 +19,11 @@ import {
   CHART_AXIS_TICK_MD,
   CHART_GRID_STROKE,
   CHART_LEGEND_STYLE,
-  CHART_PERCENT_LINE_STROKE,
   CHART_VALUE_LABEL_SM,
 } from '@/components/charts/chart-theme'
-import { ChartPercentChangeLabel } from '@/components/charts/chart-percent-change-label'
+import { ChartPercentChangeBarLabel } from '@/components/charts/chart-percent-change-label'
 import {
   calculatePercentChange,
-  formatPercentChangeLabel,
   formatSignedPercentChange,
 } from '@/components/charts/chart-percentages'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
@@ -60,7 +57,6 @@ export function OrdersComparisonChart({
     ...row,
     deltaAbs: row.valorComparado - row.valorBase,
     deltaPct: calculatePercentChange(row.valorBase, row.valorComparado),
-    deltaPctPlot: calculatePercentChange(row.valorBase, row.valorComparado),
   }))
   const totalBase = data.reduce((sum, row) => sum + row.valorBase, 0)
   const totalComparado = data.reduce((sum, row) => sum + row.valorComparado, 0)
@@ -94,17 +90,10 @@ export function OrdersComparisonChart({
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} margin={{ top: showLabels ? 34 : 26, right: 24, bottom: 4, left: 0 }}>
+            <ComposedChart data={data} margin={{ top: showLabels ? 36 : 28, right: 16, bottom: 4, left: 0 }}>
               <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" tick={CHART_AXIS_TICK_MD} minTickGap={20} />
-              <YAxis yAxisId="valor" allowDecimals={false} tick={CHART_AXIS_TICK} />
-              <YAxis
-                yAxisId="percent"
-                orientation="right"
-                tick={CHART_AXIS_TICK}
-                tickFormatter={(value: number) => formatPercentChangeLabel(value)}
-                width={56}
-              />
+              <YAxis allowDecimals={false} tick={CHART_AXIS_TICK} />
               <Tooltip
                 content={({ active, payload, label }) => {
                   if (!active || !payload?.length) return null
@@ -130,7 +119,7 @@ export function OrdersComparisonChart({
                 }}
               />
               <Legend wrapperStyle={CHART_LEGEND_STYLE} />
-              <Bar yAxisId="valor" dataKey="valorBase" name={String(anoBase)} fill="#94a3b8" radius={[6, 6, 0, 0]}>
+              <Bar dataKey="valorBase" name={String(anoBase)} fill="#94a3b8" radius={[6, 6, 0, 0]}>
                 {showLabels && (
                   <LabelList
                     dataKey="valorBase"
@@ -140,7 +129,7 @@ export function OrdersComparisonChart({
                   />
                 )}
               </Bar>
-              <Bar yAxisId="valor" dataKey="valorComparado" name={String(anoComparado)} fill="#2563eb" radius={[6, 6, 0, 0]}>
+              <Bar dataKey="valorComparado" name={String(anoComparado)} fill="#2563eb" radius={[6, 6, 0, 0]}>
                 {showLabels && (
                   <LabelList
                     dataKey="valorComparado"
@@ -149,20 +138,12 @@ export function OrdersComparisonChart({
                     formatter={(value: number) => formatInteger(value)}
                   />
                 )}
+                <LabelList
+                  content={(props) => (
+                    <ChartPercentChangeBarLabel {...props} showValueLabels={showLabels} />
+                  )}
+                />
               </Bar>
-              <Line
-                yAxisId="percent"
-                type="monotone"
-                dataKey="deltaPctPlot"
-                name="Variacao %"
-                stroke={CHART_PERCENT_LINE_STROKE}
-                strokeWidth={2}
-                dot={{ r: 3, fill: CHART_PERCENT_LINE_STROKE, strokeWidth: 0 }}
-                activeDot={{ r: 4, fill: CHART_PERCENT_LINE_STROKE, strokeWidth: 0 }}
-                connectNulls={false}
-              >
-                <LabelList content={(props) => <ChartPercentChangeLabel {...props} />} />
-              </Line>
             </ComposedChart>
           </ResponsiveContainer>
         </div>
