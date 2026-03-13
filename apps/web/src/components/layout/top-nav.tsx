@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Wrench, ClipboardList, ListChecks, Shield, Sparkles, LogOut, Menu, X } from 'lucide-react'
+import { HardHat, ClipboardList, ListChecks, Shield, Sparkles, LogOut, Menu, X } from 'lucide-react'
 import { ThemeSelector } from '@/components/theme/theme-selector'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -47,7 +47,7 @@ export function TopNav({ userName, userRole }: TopNavProps) {
       <div className="flex h-14 items-center px-6">
         <Link href="/" className="flex items-center gap-2 mr-8">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Wrench className="h-4 w-4 text-primary-foreground" />
+            <HardHat className="h-4 w-4 text-primary-foreground" />
           </div>
           <span className="text-lg font-bold tracking-tight">Cockpit</span>
         </Link>
