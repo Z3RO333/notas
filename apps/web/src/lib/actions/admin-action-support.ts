@@ -96,6 +96,33 @@ export async function runBestEffortAutomaticOrdersRouting(params: {
   }
 }
 
+export async function runBestEffortVacationCoverageRedistribution(params: {
+  supabase: SupabaseServerClient
+  gestorId: string
+  adminOrigemId: string
+  motivo: string
+  errorPrefix: string
+}) {
+  try {
+    const { error } = await params.supabase.rpc('redistribuir_carteira_ferias', {
+      p_admin_origem: params.adminOrigemId,
+      p_gestor_id: params.gestorId,
+      p_motivo: params.motivo,
+    })
+
+    if (error) {
+      if (isMissingRpcFunctionError(error, 'redistribuir_carteira_ferias')) {
+        console.warn('RPC redistribuir_carteira_ferias nao encontrada. Pulando redistribuicao automatica de ferias.')
+        return
+      }
+
+      throw new Error(error.message)
+    }
+  } catch (redistributionError) {
+    console.error(params.errorPrefix, redistributionError)
+  }
+}
+
 export function isMissingRpcFunctionError(
   error: { code?: string; message?: string; details?: string | null; hint?: string | null } | null | undefined,
   functionName: string

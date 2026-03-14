@@ -6,6 +6,7 @@ import {
   isMissingRpcFunctionError,
   revalidateCockpitPaths,
   runBestEffortAutomaticOrdersRouting,
+  runBestEffortVacationCoverageRedistribution,
   writeAdminAuditLog,
 } from '@/lib/actions/admin-action-support'
 import type { Especialidade } from '@/lib/types/database'
@@ -97,6 +98,16 @@ export async function toggleFerias(adminId: string, valor: boolean, motivo?: str
     alvoId: adminId,
     detalhes: { motivo },
   })
+
+  if (valor) {
+    await runBestEffortVacationCoverageRedistribution({
+      supabase,
+      gestorId: admin.id,
+      adminOrigemId: adminId,
+      motivo: motivo ?? 'Redistribuicao automatica ao entrar de ferias',
+      errorPrefix: 'Falha ao redistribuir carteira apos marcar ferias:',
+    })
+  }
 
   await runBestEffortAutomaticOrdersRouting({
     supabase,
@@ -280,7 +291,20 @@ export async function salvarPessoaAdmin(params: SalvarPessoaAdminParams) {
   }
 
   let targetId = params.id ?? null
+  let previousEmFerias = false
   if (targetId) {
+    const { data: currentAdmin, error: currentAdminError } = await supabase
+      .from('administradores')
+      .select('id, em_ferias')
+      .eq('id', targetId)
+      .single()
+
+    if (currentAdminError || !currentAdmin) {
+      throw new Error(currentAdminError?.message ?? 'Pessoa nao encontrada')
+    }
+
+    previousEmFerias = Boolean(currentAdmin.em_ferias)
+
     const updatePayload = role === 'gestor'
       ? { ...payload, recebe_distribuicao: false }
       : payload
@@ -325,6 +349,16 @@ export async function salvarPessoaAdmin(params: SalvarPessoaAdminParams) {
       data_fim_ferias: dataFimFerias,
     },
   })
+
+  if (role === 'admin' && params.emFerias && targetId && !previousEmFerias) {
+    await runBestEffortVacationCoverageRedistribution({
+      supabase,
+      gestorId: admin.id,
+      adminOrigemId: targetId,
+      motivo: 'Redistribuicao automatica ao salvar pessoa em ferias',
+      errorPrefix: 'Falha ao redistribuir carteira apos salvar pessoa em ferias:',
+    })
+  }
 
   await runBestEffortAutomaticOrdersRouting({
     supabase,
