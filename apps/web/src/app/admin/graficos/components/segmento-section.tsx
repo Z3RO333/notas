@@ -35,7 +35,7 @@ export function SegmentoSection({ tipo, topLojas, topServicos, evolucao, ano, me
       {/* Top Unidades + Top Serviços lado a lado */}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <TopLojasChart data={topLojas} tipoUnidade={tipo} ano={ano} mes={mes} tipoOrdem={tipoOrdem} />
-        <TopServicosChart data={topServicos} />
+        <TopServicosChart data={topServicos} ano={ano} mes={mes} tipoOrdem={tipoOrdem} tipoUnidade={tipo} />
       </div>
 
       {/* Evolução mensal do segmento */}
