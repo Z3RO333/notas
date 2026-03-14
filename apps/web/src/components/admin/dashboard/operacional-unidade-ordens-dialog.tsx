@@ -77,6 +77,7 @@ interface OperacionalUnidadeOrdensDialogProps {
   endExclusiveIso: string
   periodLabel: string
   fornecedorCodigo?: string | null
+  initialFilter?: RowFilter
   open: boolean
   onClose: () => void
 }
@@ -112,11 +113,12 @@ export function OperacionalUnidadeOrdensDialog({
   endExclusiveIso,
   periodLabel,
   fornecedorCodigo,
+  initialFilter = 'todas',
   open,
   onClose,
 }: OperacionalUnidadeOrdensDialogProps) {
   const [payload, setPayload] = useState<OperacionalOrdersResponse | null>(null)
-  const [filter, setFilter] = useState<RowFilter>('todas')
+  const [filter, setFilter] = useState<RowFilter>(initialFilter)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -136,7 +138,7 @@ export function OperacionalUnidadeOrdensDialog({
 
     setLoading(true)
     setError(null)
-    setFilter('todas')
+    setFilter(initialFilter)
 
     fetch(`/api/operacional/unidades/ordens?${params.toString()}`, {
       signal: controller.signal,
@@ -161,7 +163,7 @@ export function OperacionalUnidadeOrdensDialog({
       })
 
     return () => controller.abort()
-  }, [open, unidade, startIso, endExclusiveIso, fornecedorCodigo])
+  }, [open, unidade, startIso, endExclusiveIso, fornecedorCodigo, initialFilter])
 
   const filteredRows = useMemo(() => {
     if (!payload) return []

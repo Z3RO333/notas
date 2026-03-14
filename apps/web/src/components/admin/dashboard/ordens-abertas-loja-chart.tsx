@@ -121,6 +121,7 @@ export function OrdensAbertasLojaChart({
           endExclusiveIso={endExclusiveIso}
           periodLabel={periodLabel}
           fornecedorCodigo={fornecedorCodigo}
+          initialFilter="pendentes"
           open={!!selectedUnidade}
           onClose={() => setSelectedUnidade(null)}
         />

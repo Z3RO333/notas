@@ -78,23 +78,40 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Parametros obrigatorios ausentes' }, { status: 400 })
   }
 
-  const query = await supabase
+  const [operacionaisResult, query] = await Promise.all([
+    supabase
+      .from('dim_operacionais')
+      .select('codigo')
+      .limit(5000),
+    supabase
     .from('ordens_notas_acompanhamento')
     .select('id, ordem_codigo, unidade, fornecedor_codigo, fornecedor_nome, status_ordem_raw, ordem_detectada_em, data_entrada, tipo_ordem, texto_breve, numero_nota')
     .eq('unidade', unidade)
     .gte('ordem_detectada_em', startIso)
     .lt('ordem_detectada_em', endExclusiveIso)
     .order('ordem_detectada_em', { ascending: false })
-    .limit(500)
+    .limit(500),
+  ])
 
   if (query.error) {
     return NextResponse.json({ error: query.error.message }, { status: 500 })
   }
+  if (operacionaisResult.error) {
+    return NextResponse.json({ error: operacionaisResult.error.message }, { status: 500 })
+  }
+
+  const allowedSupplierCodes = new Set(
+    (operacionaisResult.data ?? [])
+      .map((row) => normalizeSupplierCode(row.codigo ?? null))
+      .filter(Boolean)
+  )
 
   const rows = ((query.data ?? []) as OperacionalOrderRow[])
     .filter((row) => {
+      const normalizedSupplier = normalizeSupplierCode(row.fornecedor_codigo)
+      if (!allowedSupplierCodes.has(normalizedSupplier)) return false
       if (!fornecedorCodigo) return true
-      return normalizeSupplierCode(row.fornecedor_codigo) === fornecedorCodigo
+      return normalizedSupplier === fornecedorCodigo
     })
 
   const summary = rows.reduce(
