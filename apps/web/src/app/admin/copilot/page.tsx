@@ -36,7 +36,6 @@ import type {
 
 export const dynamic = 'force-dynamic'
 
-const OPEN_STATUSES = ['nova', 'em_andamento', 'encaminhada_fornecedor'] as const
 const OPEN_NOTAS_FIELDS = 'data_criacao_sap, created_at, status' as const
 const NOTA_PANEL_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, data_criacao_sap, created_at' as const
 const ORDERS_FETCH_PAGE_SIZE = 1000
@@ -65,17 +64,15 @@ export default async function CopilotPage() {
     supabase.from('vw_carga_administradores').select('*').order('nome'),
     supabase.from('administradores').select('id').eq('role', 'admin'),
     supabase.from('vw_dashboard_fluxo_diario_90d').select('*').order('dia', { ascending: true }),
-    supabase.from('notas_manutencao').select(OPEN_NOTAS_FIELDS).in('status', OPEN_STATUSES),
+    supabase.from('vw_notas_sem_ordem').select(OPEN_NOTAS_FIELDS),
     supabase
-      .from('notas_manutencao')
-      .select(NOTA_PANEL_FIELDS)
-      .in('status', OPEN_STATUSES),
+      .from('vw_notas_sem_ordem')
+      .select(NOTA_PANEL_FIELDS),
     supabase.from('sync_log').select('*').order('started_at', { ascending: false }).limit(1),
     supabase
-      .from('notas_manutencao')
+      .from('vw_notas_sem_ordem')
       .select('id', { count: 'exact', head: true })
-      .is('administrador_id', null)
-      .eq('status', 'nova'),
+      .is('administrador_id', null),
   ])
 
   const firstError = [

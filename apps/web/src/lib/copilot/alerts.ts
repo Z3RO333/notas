@@ -111,8 +111,8 @@ export function buildCopilotAlerts(params: {
     }
   }
 
-  // 6. Sobrecarga relativa da equipe
-  const adminsSobrecarregados = isoAdmins.filter((a) => a.workload_pressure >= 130)
+  // 6. Sobrecarga relativa da equipe (workload_pressure é LEAST(..., 100) no SQL)
+  const adminsSobrecarregados = isoAdmins.filter((a) => a.workload_pressure >= 90)
   if (adminsSobrecarregados.length > 0) {
     alerts.push({
       id: 'sobrecarga-equipe',
