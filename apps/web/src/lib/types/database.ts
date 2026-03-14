@@ -583,6 +583,7 @@ export interface ImportProgress {
 }
 
 export type FinanceiroTipoOrdem = 'PMOS' | 'PMPL'
+export type FinanceiroReplaceMode = 'competencia' | 'upsert'
 
 export interface FinanceiroImportRow {
   rowIndex: number
@@ -607,10 +608,20 @@ export interface FinanceiroImportError {
   motivo: string
 }
 
+export interface FinanceiroImportScope {
+  tipo_ordem: FinanceiroTipoOrdem
+  competencia_inicio: string
+  competencia_fim: string
+}
+
 export interface FinanceiroImportBatchResult {
   created: number
   updated: number
+  deleted: number
   skipped: number
+  scopes: FinanceiroImportScope[]
+  missing_operational_count?: number
+  missing_operational_order_codes?: string[]
   errors: FinanceiroImportError[]
 }
 
@@ -619,7 +630,11 @@ export interface FinanceiroImportProgress {
   processedRows: number
   created: number
   updated: number
+  deleted: number
   skipped: number
+  scopes: FinanceiroImportScope[]
+  missingOperationalCount?: number
+  missingOperationalOrderCodes?: string[]
   errors: FinanceiroImportError[]
 }
 
@@ -689,7 +704,7 @@ export interface FinanceiroOrdemRow {
   ordem_codigo: string
   tipo_ordem: FinanceiroTipoOrdem
   numero_nota: string | null
-  data_entrada: string
+  data_entrada: string | null
   denominacao_unidade: string | null
   texto_breve: string | null
   fornecedor_codigo: string | null
@@ -727,14 +742,16 @@ export interface FinanceiroEvolucaoMes {
   label: string
   realizado: number
   previsto_pendente: number
-  total: number
+  total_gasto: number
+  compromisso_total: number
 }
 
 export interface FinanceiroRankingRow {
   nome: string
   realizado: number
   previsto_pendente: number
-  total: number
+  total_gasto: number
+  compromisso_total: number
 }
 
 // --- Comparativos Anuais ---

@@ -38,7 +38,7 @@ export function FinanceiroRankingTable({ title, itemLabel, data }: FinanceiroRan
                 <th className="px-4 py-3 text-left font-medium">{itemLabel}</th>
                 <th className="px-4 py-3 text-right font-medium">Realizado</th>
                 <th className="px-4 py-3 text-right font-medium">Pendente</th>
-                <th className="px-4 py-3 text-right font-medium">Total</th>
+                <th className="px-4 py-3 text-right font-medium">Compromisso</th>
               </tr>
             </thead>
             <tbody>
@@ -60,7 +60,7 @@ export function FinanceiroRankingTable({ title, itemLabel, data }: FinanceiroRan
                     <span className="font-medium text-amber-500">{formatCurrencyBRL(row.previsto_pendente)}</span>
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">
-                    <span className="font-semibold text-foreground">{formatCurrencyBRL(row.total)}</span>
+                    <span className="font-semibold text-foreground">{formatCurrencyBRL(row.compromisso_total)}</span>
                   </td>
                 </tr>
               ))}

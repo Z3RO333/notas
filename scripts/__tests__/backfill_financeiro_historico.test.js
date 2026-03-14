@@ -86,7 +86,7 @@ test('normalizeRow aceita numero_nota ausente e usa competencia de PMPL via inic
   assert.equal(normalized.competenciaDate, '2025-04-15')
 })
 
-test('normalizeRow invalida PMPL sem inicio_programado e linha sem ordem', () => {
+test('normalizeRow aceita PMPL sem inicio_programado quando data_entrada existe e invalida linha sem competencia', () => {
   const missingInicio = normalizeRow({
     Ordem: '5123456',
     'Tipo de ordem': 'PMPL',
@@ -94,22 +94,23 @@ test('normalizeRow invalida PMPL sem inicio_programado e linha sem ordem', () =>
     'Inicio prog.': null,
   }, 2, mapping, 'source')
 
-  const missingOrder = normalizeRow({
-    Ordem: '',
-    'Tipo de ordem': 'PMOS',
-    'Data de entrada': '2025-01-02',
-    'Inicio prog.': '2025-01-02',
+  const missingCompetencia = normalizeRow({
+    Ordem: '600',
+    'Tipo de ordem': 'PMPL',
+    'Data de entrada': null,
+    'Inicio prog.': null,
   }, 3, mapping, 'source')
 
-  assert.equal(missingInicio.status, 'invalid')
-  assert.equal(missingInicio.reason, 'inicio_programado_ausente')
-  assert.equal(missingOrder.status, 'invalid')
-  assert.equal(missingOrder.reason, 'ordem_codigo_ausente')
+  assert.equal(missingInicio.status, 'valid')
+  assert.equal(missingInicio.competenciaDate, '2025-01-02')
+  assert.equal(missingCompetencia.status, 'invalid')
+  assert.equal(missingCompetencia.reason, 'competencia_ausente')
 })
 
 test('competencia e filtro historico respeitam PMOS e PMPL', () => {
   assert.equal(getCompetenciaDate('PMOS', '2025-01-01', '2025-02-01'), '2025-01-01')
   assert.equal(getCompetenciaDate('PMPL', '2025-01-01', '2025-02-01'), '2025-02-01')
+  assert.equal(getCompetenciaDate('PMPL', '2025-01-01', null), '2025-01-01')
   assert.equal(isCompetenciaInRange('2025-12-31', 2022, 2025), true)
   assert.equal(isCompetenciaInRange('2026-01-01', 2022, 2025), false)
 })

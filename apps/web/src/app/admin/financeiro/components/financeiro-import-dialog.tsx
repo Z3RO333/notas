@@ -34,8 +34,7 @@ const FIELD_ALIASES: Record<ImportField, string[]> = {
   custos_totais_reais: ['CUST_TOT_REAIS', 'CUSTOS_TOTAIS_REAIS'],
 }
 
-const REQUIRED_FIELDS: ImportField[] = ['ordem_codigo', 'tipo_ordem', 'data_entrada']
-const BATCH_SIZE = 250
+const REQUIRED_FIELDS: ImportField[] = ['ordem_codigo', 'tipo_ordem']
 
 function normalizeHeaderKey(value: string) {
   return value
@@ -103,6 +102,16 @@ function parseDateToIso(value: string | null) {
   return parsed.toISOString().slice(0, 10)
 }
 
+function getCompetenciaDate(
+  tipoOrdem: FinanceiroTipoOrdem | null,
+  dataEntrada: string | null,
+  inicioProgramado: string | null,
+) {
+  if (tipoOrdem === 'PMPL') return inicioProgramado ?? dataEntrada
+  if (tipoOrdem === 'PMOS') return dataEntrada
+  return null
+}
+
 function autoDetectMapping(headers: string[]): Record<ImportField, string | null> {
   const normalizedHeaders = headers.map((header) => normalizeHeaderKey(header))
   const result = {} as Record<ImportField, string | null>
@@ -119,14 +128,6 @@ function autoDetectMapping(headers: string[]): Record<ImportField, string | null
   }
 
   return result
-}
-
-function chunkArray<T>(items: T[], size: number) {
-  const chunks: T[][] = []
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size))
-  }
-  return chunks
 }
 
 export function FinanceiroImportDialog() {
@@ -151,7 +152,7 @@ export function FinanceiroImportDialog() {
     const pmos = validRows.filter((row) => row.tipo_ordem === 'PMOS').length
     const pmpl = validRows.filter((row) => row.tipo_ordem === 'PMPL').length
     const dates = validRows
-      .map((row) => row.data_entrada)
+      .map((row) => getCompetenciaDate(row.tipo_ordem, row.data_entrada, row.inicio_programado))
       .filter((value): value is string => Boolean(value))
       .sort()
 
@@ -223,6 +224,7 @@ export function FinanceiroImportDialog() {
         const rowIndex = index + 2
         const tipoOrdem = normalizeTipoOrdem(extractCell(row, columnMap.tipo_ordem))
         const dataEntrada = parseDateToIso(extractCell(row, columnMap.data_entrada))
+        const inicioProgramado = parseDateToIso(extractCell(row, columnMap.inicio_programado))
         const ordemCodigo = extractCell(row, columnMap.ordem_codigo) ?? ''
 
         nextRows.push({
@@ -231,7 +233,7 @@ export function FinanceiroImportDialog() {
           tipo_ordem: tipoOrdem,
           numero_nota: extractCell(row, columnMap.numero_nota),
           data_entrada: dataEntrada,
-          inicio_programado: parseDateToIso(extractCell(row, columnMap.inicio_programado)),
+          inicio_programado: inicioProgramado,
           denominacao_unidade: extractCell(row, columnMap.denominacao_unidade),
           texto_breve: extractCell(row, columnMap.texto_breve),
           fornecedor_codigo: extractCell(row, columnMap.fornecedor_codigo),
@@ -250,8 +252,15 @@ export function FinanceiroImportDialog() {
           nextErrors.push({ linha: rowIndex, ordem_codigo: ordemCodigo, motivo: 'Tipo de ordem invalido (PMOS ou PMPL)' })
           return
         }
-        if (!dataEntrada) {
-          nextErrors.push({ linha: rowIndex, ordem_codigo: ordemCodigo, motivo: 'Data de entrada invalida' })
+        const competenciaDate = getCompetenciaDate(tipoOrdem, dataEntrada, inicioProgramado)
+        if (!competenciaDate) {
+          nextErrors.push({
+            linha: rowIndex,
+            ordem_codigo: ordemCodigo,
+            motivo: tipoOrdem === 'PMPL'
+              ? 'PMPL precisa de inicio programado ou data de entrada'
+              : 'Data de entrada invalida',
+          })
         }
       })
 
@@ -302,40 +311,43 @@ export function FinanceiroImportDialog() {
       processedRows: 0,
       created: 0,
       updated: 0,
+      deleted: 0,
       skipped: 0,
+      scopes: [],
       errors: [...errors],
     }
     setProgress(cumulative)
 
-    const batches = chunkArray(validRows, BATCH_SIZE)
-
     try {
-      for (const batch of batches) {
-        const response = await fetch('/api/financeiro/importar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            rows: batch,
-            sourceFileName: fileName,
-          }),
-        })
+      const response = await fetch('/api/financeiro/importar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rows: validRows,
+          sourceFileName: fileName,
+          replaceMode: 'competencia',
+        }),
+      })
 
-        const payload = await response.json() as FinanceiroImportBatchResult | { error: string }
-        if (!response.ok || 'error' in payload) {
-          throw new Error('error' in payload ? payload.error : 'Falha ao importar financeiro')
-        }
-
-        cumulative.processedRows += batch.length
-        cumulative.created += payload.created
-        cumulative.updated += payload.updated
-        cumulative.skipped += payload.skipped
-        cumulative.errors.push(...payload.errors)
-        setProgress({ ...cumulative })
+      const payload = await response.json() as FinanceiroImportBatchResult | { error: string }
+      if (!response.ok || 'error' in payload) {
+        throw new Error('error' in payload ? payload.error : 'Falha ao importar financeiro')
       }
+
+      cumulative.processedRows = validRows.length
+      cumulative.created = payload.created
+      cumulative.updated = payload.updated
+      cumulative.deleted = payload.deleted
+      cumulative.skipped = payload.skipped
+      cumulative.scopes = payload.scopes
+      cumulative.missingOperationalCount = payload.missing_operational_count
+      cumulative.missingOperationalOrderCodes = payload.missing_operational_order_codes
+      cumulative.errors = [...errors, ...payload.errors]
+      setProgress({ ...cumulative })
 
       toast({
         title: 'Financeiro importado',
-        description: `${cumulative.created} novas, ${cumulative.updated} atualizadas e ${cumulative.errors.length} erros.`,
+        description: `${cumulative.deleted} removidas do escopo, ${cumulative.created} novas, ${cumulative.updated} atualizadas e ${cumulative.errors.length} erros.`,
         variant: 'success',
       })
       router.refresh()
@@ -364,7 +376,7 @@ export function FinanceiroImportDialog() {
           <DialogHeader>
             <DialogTitle>Importar Financeiro SAP</DialogTitle>
             <DialogDescription>
-              Use a planilha combinada com PMOS e PMPL. A importacao faz upsert por codigo da ordem.
+              Aceita arquivo combinado ou separado. A importacao substitui por competencia; PMPL usa inicio programado com fallback em data de entrada.
             </DialogDescription>
           </DialogHeader>
 
@@ -373,7 +385,7 @@ export function FinanceiroImportDialog() {
               <label className="flex cursor-pointer flex-col gap-2">
                 <span className="text-sm font-medium">Selecionar arquivo</span>
                 <span className="text-xs text-muted-foreground">
-                  Colunas esperadas: Ordem, Tipo de ordem, Data de entrada, Texto breve, fornecedor e custos.
+                  Colunas esperadas: Ordem, Tipo de ordem, Data de entrada, Inicio prog., texto breve, fornecedor e custos. Quando houver valor total, ele prevalece; sem valor total, o pendente usa o maior entre estimado e material.
                 </span>
                 <input
                   ref={inputRef}
@@ -411,6 +423,7 @@ export function FinanceiroImportDialog() {
                   <p className="mt-2 text-sm font-medium">
                     {summary.firstDate ?? '—'} ate {summary.lastDate ?? '—'}
                   </p>
+                  <p className="mt-1 text-xs text-muted-foreground">Competencia efetiva detectada.</p>
                 </div>
               </div>
             )}
@@ -452,8 +465,18 @@ export function FinanceiroImportDialog() {
                   {progress.processedRows.toLocaleString('pt-BR')} / {progress.totalRows.toLocaleString('pt-BR')} processadas
                 </p>
                 <p className="text-muted-foreground">
-                  Criadas {progress.created.toLocaleString('pt-BR')} • Atualizadas {progress.updated.toLocaleString('pt-BR')} • Ignoradas {progress.skipped.toLocaleString('pt-BR')}
+                  Removidas {progress.deleted.toLocaleString('pt-BR')} • Criadas {progress.created.toLocaleString('pt-BR')} • Atualizadas {progress.updated.toLocaleString('pt-BR')} • Ignoradas {progress.skipped.toLocaleString('pt-BR')}
                 </p>
+                {progress.scopes.length > 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Escopos: {progress.scopes.map((scope) => `${scope.tipo_ordem} ${scope.competencia_inicio} ate ${scope.competencia_fim}`).join(' | ')}
+                  </p>
+                )}
+                {(progress.missingOperationalCount ?? 0) > 0 && (
+                  <p className="mt-1 text-xs text-amber-500">
+                    {progress.missingOperationalCount} ordem(ns) importadas ainda nao existem na base operacional.
+                  </p>
+                )}
               </div>
             )}
 

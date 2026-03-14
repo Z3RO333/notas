@@ -18,6 +18,7 @@ import type { CartaoKpiData } from './components/cartao-kpi-strip'
 import type { CartaoMesData } from './components/cartao-monthly-chart'
 import type { CartaoRankingRow } from './components/cartao-ranking-fornecedores'
 import { FINANCEIRO_MONTH_LABELS } from './financeiro-format'
+import { buildMonthlyEvolution, buildRanking, buildSummary, toNumber } from './financeiro-data'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,94 +32,6 @@ interface FinanceiroPageProps {
 type FetchPageResult = {
   data: unknown[] | null
   error: unknown
-}
-
-function toNumber(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : 0
-  }
-  return 0
-}
-
-function buildSummary(tipoOrdem: FinanceiroTipoOrdem, rows: FinanceiroOrdemRow[]): FinanceiroKpiSummary {
-  const totalOrdens = rows.length
-  const ordensComCustoReal = rows.filter((row) => row.tem_custo_real).length
-  const custoRealizado = rows.reduce((sum, row) => sum + toNumber(row.valor_realizado), 0)
-  const custoPrevistoPendente = rows.reduce((sum, row) => sum + toNumber(row.valor_previsto_pendente), 0)
-
-  return {
-    tipo_ordem: tipoOrdem,
-    total_ordens: totalOrdens,
-    ordens_com_custo_real: ordensComCustoReal,
-    custo_realizado: custoRealizado,
-    custo_previsto_pendente: custoPrevistoPendente,
-    ticket_medio_realizado: ordensComCustoReal > 0 ? custoRealizado / ordensComCustoReal : 0,
-    cobertura_percentual: totalOrdens > 0 ? (ordensComCustoReal / totalOrdens) * 100 : 0,
-  }
-}
-
-function buildMonthlyEvolution(rows: FinanceiroOrdemRow[]): FinanceiroEvolucaoMes[] {
-  const grouped = new Map<string, FinanceiroEvolucaoMes>()
-
-  for (const row of rows) {
-    const ano = toNumber(row.competencia_ano)
-    const mes = toNumber(row.competencia_mes)
-    if (!ano || !mes) continue
-    const key = `${ano}-${String(mes).padStart(2, '0')}`
-    const existing = grouped.get(key)
-
-    if (existing) {
-      existing.realizado += toNumber(row.valor_realizado)
-      existing.previsto_pendente += toNumber(row.valor_previsto_pendente)
-      existing.total = existing.realizado + existing.previsto_pendente
-      continue
-    }
-
-    grouped.set(key, {
-      ano,
-      mes,
-      label: `${FINANCEIRO_MONTH_LABELS[mes] ?? mes}/${String(ano).slice(2)}`,
-      realizado: toNumber(row.valor_realizado),
-      previsto_pendente: toNumber(row.valor_previsto_pendente),
-      total: toNumber(row.valor_realizado) + toNumber(row.valor_previsto_pendente),
-    })
-  }
-
-  return Array.from(grouped.entries())
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([, row]) => row)
-}
-
-function buildRanking(
-  rows: FinanceiroOrdemRow[],
-  resolveKey: (row: FinanceiroOrdemRow) => string,
-  limit: number,
-): FinanceiroRankingRow[] {
-  const grouped = new Map<string, FinanceiroRankingRow>()
-
-  for (const row of rows) {
-    const key = resolveKey(row).trim() || 'Sem classificacao'
-    const current = grouped.get(key)
-    if (current) {
-      current.realizado += toNumber(row.valor_realizado)
-      current.previsto_pendente += toNumber(row.valor_previsto_pendente)
-      current.total = current.realizado + current.previsto_pendente
-      continue
-    }
-
-    grouped.set(key, {
-      nome: key,
-      realizado: toNumber(row.valor_realizado),
-      previsto_pendente: toNumber(row.valor_previsto_pendente),
-      total: toNumber(row.valor_realizado) + toNumber(row.valor_previsto_pendente),
-    })
-  }
-
-  return Array.from(grouped.values())
-    .sort((left, right) => right.total - left.total)
-    .slice(0, limit)
 }
 
 type CartaoGastoRow = {
@@ -336,7 +249,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Financeiro</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Custos operacionais por ordem, separados entre PMOS e PMPL, com competencia por data de entrada.
+            Custos operacionais por ordem. PMOS usa data de entrada; PMPL usa inicio programado com fallback em data de entrada. Quando existir valor total, ele prevalece; sem valor total, o pendente usa o maior entre estimado e material.
           </p>
         </div>
         <div className="flex gap-2">

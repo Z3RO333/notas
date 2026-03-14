@@ -220,7 +220,7 @@ export default async function ComparativosPage({ searchParams }: ComparativosPag
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Financeiro</h2>
             <p className="text-sm text-muted-foreground">
-              Compare gasto total, realizado e pendente com a mesma competencia financeira usada na tela de Financeiro.
+              Compare gasto realizado, compromisso total e pendente com a mesma competencia financeira usada na tela de Financeiro. Quando houver valor total, ele prevalece; sem valor total, o pendente usa o maior entre estimado e material.
             </p>
           </div>
           <ComparisonKpiStrip items={financeKpis} formatValue={formatCurrencyBRL} />

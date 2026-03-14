@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom'
 import { server } from './mocks/server'
-import { beforeAll, afterEach, afterAll } from 'vitest'
+
+const { beforeAll, afterEach, afterAll } = globalThis as unknown as typeof import('vitest')
 
 // Radix Select depends on pointer-capture APIs that jsdom does not implement.
 if (!Element.prototype.hasPointerCapture) {

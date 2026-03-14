@@ -49,16 +49,15 @@ export function FinanceiroCostByUnitChart({ data }: FinanceiroCostByUnitChartPro
     )
   }
 
-  const chartTotal = data.reduce((sum, row) => sum + row.total, 0)
   const chartHeight = Math.max(340, data.length * 52)
-  const topShare = calculateShare(data[0]?.total ?? 0, chartTotal)
+  const chartTotal = data.reduce((sum, row) => sum + row.compromisso_total, 0)
 
   return (
     <Card>
       <CardHeader className="space-y-1">
         <CardTitle className="text-base">Custo por Unidade</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Maior participacao no total: {formatPercent(topShare)}
+          Barras mostram compromisso total; ranking prioriza gasto realizado.
         </p>
       </CardHeader>
       <CardContent>
@@ -90,23 +89,29 @@ export function FinanceiroCostByUnitChart({ data }: FinanceiroCostByUnitChartPro
                         <span className="font-semibold text-emerald-500">
                           {formatCurrencyBRL(row.realizado)}
                         </span>
-                        <span className="text-muted-foreground"> ({formatPercent(calculateShare(row.realizado, row.total))})</span>
+                        <span className="text-muted-foreground"> ({formatPercent(calculateShare(row.realizado, row.compromisso_total))})</span>
                       </p>
                       <p>
                         Previsto pendente:{' '}
                         <span className="font-semibold text-amber-500">
                           {formatCurrencyBRL(row.previsto_pendente)}
                         </span>
-                        <span className="text-muted-foreground"> ({formatPercent(calculateShare(row.previsto_pendente, row.total))})</span>
+                        <span className="text-muted-foreground"> ({formatPercent(calculateShare(row.previsto_pendente, row.compromisso_total))})</span>
                       </p>
                       <p>
-                        Total:{' '}
+                        Gasto realizado:{' '}
                         <span className="font-semibold text-foreground">
-                          {formatCurrencyBRL(row.total)}
+                          {formatCurrencyBRL(row.total_gasto)}
+                        </span>
+                      </p>
+                      <p>
+                        Compromisso total:{' '}
+                        <span className="font-semibold text-foreground">
+                          {formatCurrencyBRL(row.compromisso_total)}
                         </span>
                       </p>
                       <p className="mt-1 border-t pt-1 text-muted-foreground">
-                        Participacao no grafico: {formatPercent(calculateShare(row.total, chartTotal))}
+                        Participacao no compromisso: {formatPercent(calculateShare(row.compromisso_total, chartTotal))}
                       </p>
                     </div>
                   )

@@ -10,7 +10,7 @@ import type {
 
 export type ComparativoTipoOrdemFilter = 'todos' | FinanceiroTipoOrdem
 export type OrdersMetricKey = 'total_ordens' | 'ordens_abertas' | 'ordens_executadas'
-export type FinanceMetricKey = 'total_gasto' | 'valor_realizado' | 'valor_previsto_pendente'
+export type FinanceMetricKey = 'total_gasto' | 'compromisso_total' | 'valor_previsto_pendente'
 export type SupplierSortKey = 'nome' | 'total_base' | 'total_comparado' | 'delta_abs' | 'delta_pct'
 export type SupplierSortDirection = 'asc' | 'desc'
 
@@ -155,6 +155,20 @@ export function formatDeltaPercent(value: number | null): string {
   return `${sign}${value.toFixed(1)}%`
 }
 
+function resolveFinanceMetricValue(
+  row: ComparativoFinanceiroResumoAno | ComparativoFinanceiroMes | undefined,
+  metric: FinanceMetricKey,
+): number {
+  if (!row) return 0
+  if (metric === 'compromisso_total') {
+    return toNumber(row.total_gasto) + toNumber(row.valor_previsto_pendente)
+  }
+  if (metric === 'total_gasto') {
+    return toNumber(row.total_gasto)
+  }
+  return toNumber(row.valor_previsto_pendente)
+}
+
 export function buildOrdersKpis(
   rows: ComparativoOrdensResumoAno[],
   anoBase: number,
@@ -197,14 +211,14 @@ export function buildFinanceKpis(
   const compared = byYear.get(anoComparado)
 
   const metrics: Array<{ key: FinanceMetricKey; id: string; label: string }> = [
-    { key: 'total_gasto', id: 'finance-total', label: 'Total gasto' },
-    { key: 'valor_realizado', id: 'finance-realizado', label: 'Realizado' },
+    { key: 'total_gasto', id: 'finance-total', label: 'Gasto realizado' },
+    { key: 'compromisso_total', id: 'finance-compromisso', label: 'Compromisso total' },
     { key: 'valor_previsto_pendente', id: 'finance-pendente', label: 'Previsto pendente' },
   ]
 
   return metrics.map((metric) => {
-    const valorBase = toNumber(base?.[metric.key])
-    const valorComparado = toNumber(compared?.[metric.key])
+    const valorBase = resolveFinanceMetricValue(base, metric.key)
+    const valorComparado = resolveFinanceMetricValue(compared, metric.key)
     const delta = buildDelta(valorBase, valorComparado)
 
     return {
@@ -257,8 +271,8 @@ export function buildFinanceChartRows(
     return {
       mes,
       label: COMPARATIVO_MONTH_LABELS[mes] ?? String(mes),
-      valorBase: toNumber(base?.[metric]),
-      valorComparado: toNumber(compared?.[metric]),
+      valorBase: resolveFinanceMetricValue(base, metric),
+      valorComparado: resolveFinanceMetricValue(compared, metric),
     }
   })
 }

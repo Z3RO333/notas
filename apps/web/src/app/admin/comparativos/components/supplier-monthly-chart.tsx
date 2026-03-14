@@ -38,8 +38,8 @@ interface SupplierMonthlyChartProps {
 }
 
 const METRIC_OPTIONS: Array<{ key: FinanceMetricKey; label: string }> = [
-  { key: 'total_gasto', label: 'Total' },
-  { key: 'valor_realizado', label: 'Realizado' },
+  { key: 'total_gasto', label: 'Gasto' },
+  { key: 'compromisso_total', label: 'Compromisso' },
   { key: 'valor_previsto_pendente', label: 'Pendente' },
 ]
 
@@ -56,27 +56,27 @@ export function SupplierMonthlyChart({
     .filter((row) => row.mes !== null)
     .map((row) => ({
       label: row.label,
-      valorBase: metric === 'total_gasto'
+      valorBase: metric === 'compromisso_total'
+        ? row.totalBase + row.pendenteBase
+        : metric === 'total_gasto'
         ? row.totalBase
-        : metric === 'valor_realizado'
-          ? row.realizadoBase
-          : row.pendenteBase,
-      valorComparado: metric === 'total_gasto'
+        : row.pendenteBase,
+      valorComparado: metric === 'compromisso_total'
+        ? row.totalComparado + row.pendenteComparado
+        : metric === 'total_gasto'
         ? row.totalComparado
-        : metric === 'valor_realizado'
-          ? row.realizadoComparado
-          : row.pendenteComparado,
+        : row.pendenteComparado,
       deltaPct: calculatePercentChange(
-        metric === 'total_gasto'
+        metric === 'compromisso_total'
+          ? row.totalBase + row.pendenteBase
+          : metric === 'total_gasto'
           ? row.totalBase
-          : metric === 'valor_realizado'
-            ? row.realizadoBase
-            : row.pendenteBase,
-        metric === 'total_gasto'
+          : row.pendenteBase,
+        metric === 'compromisso_total'
+          ? row.totalComparado + row.pendenteComparado
+          : metric === 'total_gasto'
           ? row.totalComparado
-          : metric === 'valor_realizado'
-            ? row.realizadoComparado
-            : row.pendenteComparado,
+          : row.pendenteComparado,
       ),
     }))
   const totalBase = data.reduce((sum, row) => sum + row.valorBase, 0)

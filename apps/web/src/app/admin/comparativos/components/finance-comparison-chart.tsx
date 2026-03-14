@@ -38,8 +38,8 @@ interface FinanceComparisonChartProps {
 }
 
 const METRIC_OPTIONS: Array<{ key: FinanceMetricKey; label: string }> = [
-  { key: 'total_gasto', label: 'Total' },
-  { key: 'valor_realizado', label: 'Realizado' },
+  { key: 'total_gasto', label: 'Gasto' },
+  { key: 'compromisso_total', label: 'Compromisso' },
   { key: 'valor_previsto_pendente', label: 'Pendente' },
 ]
 

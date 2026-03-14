@@ -135,7 +135,7 @@ function buildSourceTag(filePath, fromYear, toYear) {
 }
 
 function getCompetenciaDate(tipoOrdem, dataEntrada, inicioProgramado) {
-  if (tipoOrdem === 'PMPL') return inicioProgramado
+  if (tipoOrdem === 'PMPL') return inicioProgramado || dataEntrada
   if (tipoOrdem === 'PMOS') return dataEntrada
   return null
 }
@@ -170,14 +170,6 @@ function normalizeRow(rawRow, rowIndex, mapping, sourceTag) {
 
   if (!tipoOrdem) {
     return { status: 'invalid', reason: 'tipo_ordem_invalido', rowIndex, ordemCodigo }
-  }
-
-  if (!dataEntrada) {
-    return { status: 'invalid', reason: 'data_entrada_ausente', rowIndex, ordemCodigo, tipoOrdem }
-  }
-
-  if (tipoOrdem === 'PMPL' && !inicioProgramado) {
-    return { status: 'invalid', reason: 'inicio_programado_ausente', rowIndex, ordemCodigo, tipoOrdem }
   }
 
   const competenciaDate = getCompetenciaDate(tipoOrdem, dataEntrada, inicioProgramado)

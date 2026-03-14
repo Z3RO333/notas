@@ -54,12 +54,12 @@ export function FinanceiroMonthlyChart({ data }: FinanceiroMonthlyChartProps) {
   }
 
   const chartData = data.map((row, index) => {
-    const previousTotal = index > 0 ? data[index - 1]?.total ?? 0 : 0
+    const previousCompromisso = index > 0 ? data[index - 1]?.compromisso_total ?? 0 : 0
     return {
       ...row,
-      deltaPct: index === 0 ? null : calculatePercentChange(previousTotal, row.total),
-      realizadoPct: calculateShare(row.realizado, row.total),
-      pendentePct: calculateShare(row.previsto_pendente, row.total),
+      deltaPct: index === 0 ? null : calculatePercentChange(previousCompromisso, row.compromisso_total),
+      realizadoPct: calculateShare(row.realizado, row.compromisso_total),
+      pendentePct: calculateShare(row.previsto_pendente, row.compromisso_total),
     }
   })
   const latestDelta = chartData[chartData.length - 1]?.deltaPct ?? null
@@ -69,7 +69,7 @@ export function FinanceiroMonthlyChart({ data }: FinanceiroMonthlyChartProps) {
       <CardHeader className="space-y-1">
         <CardTitle className="text-base">Evolucao Mensal de Custo</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Ultima variacao do total: {formatTrendDescription(latestDelta)} vs mes anterior
+          Ultima variacao do compromisso total: {formatTrendDescription(latestDelta)} vs mes anterior
         </p>
       </CardHeader>
       <CardContent>
@@ -106,13 +106,19 @@ export function FinanceiroMonthlyChart({ data }: FinanceiroMonthlyChartProps) {
                         <span className="text-muted-foreground"> ({formatPercent(row.pendentePct)})</span>
                       </p>
                       <p>
-                        Total:{' '}
+                        Gasto realizado:{' '}
                         <span className="font-semibold text-foreground">
-                          {formatCurrencyBRL(row.total)}
+                          {formatCurrencyBRL(row.total_gasto)}
+                        </span>
+                      </p>
+                      <p>
+                        Compromisso total:{' '}
+                        <span className="font-semibold text-foreground">
+                          {formatCurrencyBRL(row.compromisso_total)}
                         </span>
                       </p>
                       <p className="mt-1 border-t pt-1 text-muted-foreground">
-                        Variacao vs mes anterior: {formatSignedPercentChange(row.deltaPct)}
+                        Variacao do compromisso vs mes anterior: {formatSignedPercentChange(row.deltaPct)}
                       </p>
                     </div>
                   )
@@ -123,8 +129,8 @@ export function FinanceiroMonthlyChart({ data }: FinanceiroMonthlyChartProps) {
               <Bar dataKey="previsto_pendente" name="Previsto pendente" fill="#f59e0b" radius={[6, 6, 0, 0]} />
               <Line
                 type="monotone"
-                dataKey="total"
-                name="Total"
+                dataKey="compromisso_total"
+                name="Compromisso total"
                 stroke={CHART_TREND_LINE_STROKE}
                 strokeWidth={2}
                 strokeDasharray={CHART_TREND_LINE_DASH}
