@@ -3,13 +3,18 @@
 import { Fragment, useState } from 'react'
 import { ChevronDown, ChevronRight, MapPin } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import type { LojaPorOperacional, ProdutividadeOperacional } from '@/lib/types/database'
+import { OperacionalUnidadeOrdensDialog } from './operacional-unidade-ordens-dialog'
 
 interface ProdutividadeTableProps {
   rows: ProdutividadeOperacional[]
   lojasMap: Record<string, LojaPorOperacional[]>
   periodLabel: string
   totalOrdensGeralPmosPeriodo: number
+  startIso: string
+  endExclusiveIso: string
+  fornecedorCodigo?: string | null
 }
 
 export function ProdutividadeTable({
@@ -17,8 +22,12 @@ export function ProdutividadeTable({
   lojasMap,
   periodLabel,
   totalOrdensGeralPmosPeriodo,
+  startIso,
+  endExclusiveIso,
+  fornecedorCodigo,
 }: ProdutividadeTableProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [selectedUnit, setSelectedUnit] = useState<{ unidade: string; fornecedorCodigo?: string | null } | null>(null)
 
   function toggle(codigo: string) {
     setExpanded((prev) => {
@@ -52,6 +61,9 @@ export function ProdutividadeTable({
           Produtividade por Colaborador
           <span className="ml-2 text-xs font-normal text-muted-foreground">({periodLabel})</span>
         </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Expanda um colaborador e clique em uma loja para ver as ordens daquele atendimento.
+        </p>
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
@@ -133,14 +145,24 @@ export function ProdutividadeTable({
                         <td colSpan={6} className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
                             {lojas.map((loja) => (
-                              <span
+                              <Button
                                 key={loja.unidade}
-                                className="inline-flex items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs"
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-auto gap-1 px-2 py-1 text-xs"
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  setSelectedUnit({
+                                    unidade: loja.unidade,
+                                    fornecedorCodigo: fornecedorCodigo ?? row.fornecedor_codigo,
+                                  })
+                                }}
                               >
                                 <MapPin className="h-3 w-3 text-muted-foreground" />
                                 <span className="font-medium">{loja.unidade}</span>
                                 <span className="text-muted-foreground">x{loja.qtd_atendidas}</span>
-                              </span>
+                              </Button>
                             ))}
                           </div>
                         </td>
@@ -153,6 +175,18 @@ export function ProdutividadeTable({
           </table>
         </div>
       </CardContent>
+
+      {selectedUnit && (
+        <OperacionalUnidadeOrdensDialog
+          unidade={selectedUnit.unidade}
+          startIso={startIso}
+          endExclusiveIso={endExclusiveIso}
+          periodLabel={periodLabel}
+          fornecedorCodigo={selectedUnit.fornecedorCodigo}
+          open={!!selectedUnit}
+          onClose={() => setSelectedUnit(null)}
+        />
+      )}
     </Card>
   )
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LabelList, ResponsiveContainer, Cell } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -11,10 +12,14 @@ import {
 import { calculateShare, formatPercent } from '@/components/charts/chart-percentages'
 import type { ProdutividadeLoja } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
+import { OperacionalUnidadeOrdensDialog } from './operacional-unidade-ordens-dialog'
 
 interface ProdutividadeLojaChartProps {
   rows: ProdutividadeLoja[]
   periodLabel: string
+  startIso: string
+  endExclusiveIso: string
+  fornecedorCodigo?: string | null
 }
 
 function getBarColor(pct: number): string {
@@ -23,8 +28,15 @@ function getBarColor(pct: number): string {
   return '#ef4444'
 }
 
-export function ProdutividadeLojaChart({ rows, periodLabel }: ProdutividadeLojaChartProps) {
+export function ProdutividadeLojaChart({
+  rows,
+  periodLabel,
+  startIso,
+  endExclusiveIso,
+  fornecedorCodigo,
+}: ProdutividadeLojaChartProps) {
   const { showLabels } = useChartLabels()
+  const [selectedUnidade, setSelectedUnidade] = useState<string | null>(null)
 
   if (rows.length === 0) {
     return (
@@ -55,6 +67,7 @@ export function ProdutividadeLojaChart({ rows, periodLabel }: ProdutividadeLojaC
         <p className="text-xs text-muted-foreground">
           Melhor taxa de conclusao: {formatPercent(bestRate)}
         </p>
+        <p className="text-xs text-muted-foreground">Clique em uma loja para abrir as ordens e separar pendentes de atendidas.</p>
       </CardHeader>
       <CardContent className="h-80">
         <ResponsiveContainer width="100%" height="100%">
@@ -62,6 +75,7 @@ export function ProdutividadeLojaChart({ rows, periodLabel }: ProdutividadeLojaC
             layout="vertical"
             data={data}
             margin={{ top: 4, right: showLabels ? 60 : 40, bottom: 4, left: 8 }}
+            style={{ cursor: 'pointer' }}
           >
             <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="3 3" horizontal={false} />
             <XAxis
@@ -89,7 +103,11 @@ export function ProdutividadeLojaChart({ rows, periodLabel }: ProdutividadeLojaC
                 )
               }}
             />
-            <Bar dataKey="pct_conclusao" radius={[0, 4, 4, 0]}>
+            <Bar
+              dataKey="pct_conclusao"
+              radius={[0, 4, 4, 0]}
+              onClick={(entry: ProdutividadeLoja) => setSelectedUnidade(entry.unidade)}
+            >
               {data.map((entry, index) => (
                 <Cell key={index} fill={getBarColor(entry.pct_conclusao)} />
               ))}
@@ -105,6 +123,17 @@ export function ProdutividadeLojaChart({ rows, periodLabel }: ProdutividadeLojaC
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
+      {selectedUnidade && (
+        <OperacionalUnidadeOrdensDialog
+          unidade={selectedUnidade}
+          startIso={startIso}
+          endExclusiveIso={endExclusiveIso}
+          periodLabel={periodLabel}
+          fornecedorCodigo={fornecedorCodigo}
+          open={!!selectedUnidade}
+          onClose={() => setSelectedUnidade(null)}
+        />
+      )}
     </Card>
   )
 }

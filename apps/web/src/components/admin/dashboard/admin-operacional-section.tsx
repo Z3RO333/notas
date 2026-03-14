@@ -235,6 +235,9 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
             lojasMap={lojasMap}
             periodLabel={period.periodLabel}
             totalOrdensGeralPmosPeriodo={totalOrdensGeralPmosPeriodo}
+            startIso={period.startIso}
+            endExclusiveIso={period.endExclusiveIso}
+            fornecedorCodigo={fornecedorCodigo}
           />
         </div>
         <ServicosRecorrentesList rows={servicos} periodLabel={period.periodLabel} />
@@ -247,9 +250,21 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
         </div>
         <div className="grid gap-6 lg:grid-cols-2">
           <StatusBarChart rows={produtividade} periodLabel={period.periodLabel} />
-          <OrdensAbertasLojaChart rows={abertasLoja} periodLabel={period.periodLabel} />
+          <OrdensAbertasLojaChart
+            rows={abertasLoja}
+            periodLabel={period.periodLabel}
+            startIso={period.startIso}
+            endExclusiveIso={period.endExclusiveIso}
+            fornecedorCodigo={fornecedorCodigo}
+          />
           <EvolucaoMensalOperacionalChart rows={evolucao} periodLabel={period.periodLabel} />
-          <ProdutividadeLojaChart rows={produtividadeLoja} periodLabel={period.periodLabel} />
+          <ProdutividadeLojaChart
+            rows={produtividadeLoja}
+            periodLabel={period.periodLabel}
+            startIso={period.startIso}
+            endExclusiveIso={period.endExclusiveIso}
+            fornecedorCodigo={fornecedorCodigo}
+          />
         </div>
       </ChartLabelsProvider>
     </section>
