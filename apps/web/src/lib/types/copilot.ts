@@ -50,6 +50,13 @@ export interface SmartAgingCounts {
   critico: number
 }
 
+export interface CopilotAdminNoteStats {
+  administrador_id: string
+  qtd_abertas: number
+  qtd_notas_criticas: number
+  critical_density: number
+}
+
 // --- Copilot Alerts ---
 
 export type CopilotAlertLevel = 'critical' | 'warning' | 'info'

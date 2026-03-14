@@ -8,7 +8,7 @@ import { WorkloadRadar } from '@/components/copilot/workload-radar'
 import { ProductivityMedals } from '@/components/copilot/productivity-medals'
 import { RealtimeListener } from '@/components/notas/realtime-listener'
 import { buildCopilotAlerts } from '@/lib/copilot/alerts'
-import { buildSmartAgingCounts } from '@/lib/copilot/aging'
+import { buildAdminNoteStats, buildSmartAgingCounts } from '@/lib/copilot/aging'
 import { buildDynamicKpis } from '@/lib/copilot/dynamic-kpis'
 import { buildPredictions } from '@/lib/copilot/predictions'
 import { buildSuggestions } from '@/lib/copilot/suggestions'
@@ -144,6 +144,7 @@ export default async function CopilotPage() {
 
   // Smart aging counts
   const agingCounts = buildSmartAgingCounts(notasPanel, now)
+  const adminNoteStats = buildAdminNoteStats(notasPanel, now)
   const notasCriticas = agingCounts.critico
 
   // Copilot alerts
@@ -153,6 +154,7 @@ export default async function CopilotPage() {
     summary,
     latestSync,
     notasCriticas,
+    adminNoteStats,
     now,
   })
 
@@ -168,6 +170,7 @@ export default async function CopilotPage() {
   const predictions = buildPredictions({
     throughput: throughput30d,
     radarRows,
+    adminNoteStats,
   })
 
   // Suggestions
@@ -183,6 +186,7 @@ export default async function CopilotPage() {
     notasSemAtribuir,
     ordensVermelhasPorUnidade,
     notasPanel,
+    adminNoteStats,
   })
 
   // Productivity

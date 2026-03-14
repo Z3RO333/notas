@@ -87,6 +87,33 @@ describe('buildCopilotAlerts', () => {
     expect(alert?.viewHref).toContain('a1')
   })
 
+  it('usa contagem real do painel na descricao do admin critico', () => {
+    const overloaded: IsoAdminRow = {
+      ...baseAdmin,
+      iso_score: 80,
+      iso_faixa: 'critico',
+      qtd_abertas: 57,
+      qtd_notas_criticas: 50,
+    }
+    const alerts = buildCopilotAlerts({
+      isoGlobal: baseGlobal,
+      isoAdmins: [overloaded],
+      summary: baseSummary,
+      latestSync: null,
+      notasCriticas: 0,
+      adminNoteStats: new Map([
+        ['a1', {
+          administrador_id: 'a1',
+          qtd_abertas: 18,
+          qtd_notas_criticas: 14,
+          critical_density: 77.8,
+        }],
+      ]),
+    })
+    const alert = alerts.find(a => a.id === 'admin-sobrecarregado-a1')
+    expect(alert?.description).toContain('18 notas abertas, 14 críticas')
+  })
+
   it('não repete saudavel quando há outros alertas', () => {
     const alerts = buildCopilotAlerts({
       isoGlobal: baseGlobal, isoAdmins: [],

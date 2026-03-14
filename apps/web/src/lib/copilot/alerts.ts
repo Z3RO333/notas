@@ -1,5 +1,5 @@
 import type { CopilotAlert } from '@/lib/types/copilot'
-import type { IsoAdminRow, IsoGlobal } from '@/lib/types/copilot'
+import type { CopilotAdminNoteStats, IsoAdminRow, IsoGlobal } from '@/lib/types/copilot'
 import type { DashboardSummaryMetrics } from '@/lib/types/dashboard'
 import type { SyncLog } from '@/lib/types/database'
 
@@ -19,9 +19,10 @@ export function buildCopilotAlerts(params: {
   summary: DashboardSummaryMetrics
   latestSync: SyncLog | null
   notasCriticas: number
+  adminNoteStats?: ReadonlyMap<string, CopilotAdminNoteStats>
   now?: Date
 }): CopilotAlert[] {
-  const { isoGlobal, isoAdmins, summary, latestSync, notasCriticas } = params
+  const { isoGlobal, isoAdmins, summary, latestSync, notasCriticas, adminNoteStats } = params
   const now = params.now ?? new Date()
   const nowMs = now.getTime()
   const alerts: CopilotAlert[] = []
@@ -47,11 +48,14 @@ export function buildCopilotAlerts(params: {
   const adminsCriticos = isoAdmins.filter((a) => a.iso_score >= 75)
   if (adminsCriticos.length > 0) {
     for (const admin of adminsCriticos.slice(0, 3)) {
+      const stats = adminNoteStats?.get(admin.administrador_id)
+      const qtdAbertas = stats?.qtd_abertas ?? admin.qtd_abertas
+      const qtdCriticas = stats?.qtd_notas_criticas ?? admin.qtd_notas_criticas
       alerts.push({
         id: `admin-sobrecarregado-${admin.administrador_id}`,
         level: 'critical',
         title: `${admin.nome} sobrecarregado`,
-        description: `ISO ${admin.iso_score.toFixed(0)} — ${admin.qtd_abertas} notas abertas, ${admin.qtd_notas_criticas} críticas.`,
+        description: `ISO ${admin.iso_score.toFixed(0)} — ${qtdAbertas} notas abertas, ${qtdCriticas} críticas.`,
         adminId: admin.administrador_id,
         adminNome: admin.nome,
         actionLabel: 'Ver notas',

@@ -112,7 +112,7 @@ function WorkloadRadarCard({ row }: { row: WorkloadRadarRow }) {
             <span className="text-2xl font-bold tabular-nums text-foreground leading-none">
               {row.qtd_abertas}
             </span>
-            <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">notas abertas</p>
+            <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">backlog total</p>
           </div>
         </div>
 

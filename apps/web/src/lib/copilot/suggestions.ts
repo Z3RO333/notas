@@ -1,6 +1,7 @@
-import { getSmartAgingCategory } from '@/lib/copilot/aging'
+import { buildAdminNoteStats, getSmartAgingCategory } from '@/lib/copilot/aging'
 import { isOpenStatus } from '@/lib/collaborator/aging'
 import type {
+  CopilotAdminNoteStats,
   CopilotSuggestion,
   CopilotSuggestionDomain,
   NotaSample,
@@ -88,8 +89,16 @@ export function buildSuggestions(params: {
   notasSemAtribuir: number
   ordensVermelhasPorUnidade?: Map<string, number>
   notasPanel?: NotaPanelData[]
+  adminNoteStats?: ReadonlyMap<string, CopilotAdminNoteStats>
 }): CopilotSuggestion[] {
-  const { radarRows, isoAdmins, notasSemAtribuir, ordensVermelhasPorUnidade, notasPanel = [] } = params
+  const {
+    radarRows,
+    isoAdmins,
+    notasSemAtribuir,
+    ordensVermelhasPorUnidade,
+    notasPanel = [],
+    adminNoteStats,
+  } = params
   const suggestions: CopilotSuggestion[] = []
   nextId = 0
 
@@ -102,10 +111,24 @@ export function buildSuggestions(params: {
     notasPorAdmin.set(nota.administrador_id, list)
   }
 
+  const now = new Date()
+  const noteStatsByAdmin = adminNoteStats ?? buildAdminNoteStats(notasPanel, now)
+
+  function getOpenNotesCount(adminId: string, fallback: number): number {
+    return noteStatsByAdmin.get(adminId)?.qtd_abertas ?? fallback
+  }
+
+  function getCriticalNotesCount(adminId: string, fallback: number): number {
+    return noteStatsByAdmin.get(adminId)?.qtd_notas_criticas ?? fallback
+  }
+
+  function getCriticalDensity(adminId: string, fallback: number): number {
+    return noteStatsByAdmin.get(adminId)?.critical_density ?? fallback
+  }
+
   // Helper: amostrar notas críticas (5+ dias)
   function sampleCriticalNotas(adminId: string, maxSamples = 3): NotaSample[] {
     const notas = notasPorAdmin.get(adminId) ?? []
-    const now = new Date()
     return notas
       .filter(n => isOpenStatus(n.status) && getSmartAgingCategory(n, now) === 'critico')
       .slice(0, maxSamples)
@@ -133,15 +156,22 @@ export function buildSuggestions(params: {
   for (const sobre of sobrecarregados) {
     const candidatos = [...ociosos, ...equilibrados]
       .filter((c) => c.administrador_id !== sobre.administrador_id && !destinosUsados.has(c.administrador_id))
-      .sort((a, b) => a.qtd_abertas - b.qtd_abertas)
+      .sort((a, b) => (
+        getOpenNotesCount(a.administrador_id, a.qtd_abertas)
+        - getOpenNotesCount(b.administrador_id, b.qtd_abertas)
+      ))
     const melhorDestino = candidatos[0]
     if (!melhorDestino) break
 
-    const diferencaCarga = Math.max(sobre.qtd_abertas - melhorDestino.qtd_abertas, 0)
+    const qtdAbertasSobre = getOpenNotesCount(sobre.administrador_id, sobre.qtd_abertas)
+    const qtdAbertasDestino = getOpenNotesCount(melhorDestino.administrador_id, melhorDestino.qtd_abertas)
+    if (qtdAbertasSobre <= 0) continue
+
+    const diferencaCarga = Math.max(qtdAbertasSobre - qtdAbertasDestino, 0)
     const notasParaTransferir = Math.max(
       1,
       Math.min(
-        Math.ceil(sobre.qtd_abertas * 0.25),
+        Math.ceil(qtdAbertasSobre * 0.25),
         Math.ceil(diferencaCarga / 2)
       )
     )
@@ -158,7 +188,7 @@ export function buildSuggestions(params: {
           responsavel: sobre.administrador_id,
         }),
         titulo: `Redistribuir notas de ${sobre.nome}`,
-        descricao: `Transferir ~${notasParaTransferir} nota(s) de ${sobre.nome} (${sobre.qtd_abertas} abertas, ${sobre.pct_carga.toFixed(0)}% carga) para ${melhorDestino.nome} (${melhorDestino.qtd_abertas} abertas).`,
+        descricao: `Transferir ~${notasParaTransferir} nota(s) de ${sobre.nome} (${qtdAbertasSobre} no painel, ${sobre.pct_carga.toFixed(0)}% carga) para ${melhorDestino.nome} (${qtdAbertasDestino} no painel).`,
         impacto: `Reduz ISO de ${sobre.nome} e equilibra carga da equipe.`,
         porQueAgora: `Carga ${sobre.pct_carga.toFixed(0)}% — acima da capacidade máxima.`,
         adminId: sobre.administrador_id,
@@ -172,12 +202,15 @@ export function buildSuggestions(params: {
   // 2. Escalar notas com aging crítico — ordenado por iso_score desc (mais urgente primeiro)
   const isoMap = new Map(isoAdmins.map(a => [a.administrador_id, a]))
   const adminsPorScore = [...isoAdmins]
-    .filter(a => a.qtd_notas_criticas >= 2 && a.critical_density >= 20)
+    .filter((a) => getCriticalNotesCount(a.administrador_id, a.qtd_notas_criticas) >= 2)
+    .filter((a) => getCriticalDensity(a.administrador_id, a.critical_density) >= 20)
     .sort((a, b) => b.iso_score - a.iso_score)
 
   for (const admin of adminsPorScore) {
     const sample = sampleCriticalNotas(admin.administrador_id)
     const centros = [...new Set(sample.map(n => n.centro).filter(Boolean))] as string[]
+    const qtdCriticas = getCriticalNotesCount(admin.administrador_id, admin.qtd_notas_criticas)
+    const criticalDensity = getCriticalDensity(admin.administrador_id, admin.critical_density)
     suggestions.push({
       id: uid(),
       prioridade: 'alta',
@@ -189,9 +222,9 @@ export function buildSuggestions(params: {
         responsavel: admin.administrador_id,
       }),
       titulo: `Escalar notas críticas de ${admin.nome}`,
-      descricao: `${admin.nome} tem ${admin.qtd_notas_criticas} nota(s) com 5+ dias sem resolução (${admin.critical_density.toFixed(0)}% do backlog).`,
+      descricao: `${admin.nome} tem ${qtdCriticas} nota(s) com 5+ dias sem resolução (${criticalDensity.toFixed(0)}% do backlog).`,
       impacto: 'Reduz risco de SLA estourado e melhora tempo de resposta.',
-      porQueAgora: `${admin.qtd_notas_criticas} nota(s) com 5+ dias${centros.length ? ` — ${centros.join(', ')}` : ''}.`,
+      porQueAgora: `${qtdCriticas} nota(s) com 5+ dias${centros.length ? ` — ${centros.join(', ')}` : ''}.`,
       quemImpacta: centros.length ? `Área(s): ${centros.join(', ')}` : undefined,
       notasSample: sample,
       adminId: admin.administrador_id,
@@ -200,8 +233,11 @@ export function buildSuggestions(params: {
   }
 
   // 3. Admin em férias com notas
-  const emFerias = radarRows.filter((r) => r.em_ferias && r.qtd_abertas > 0)
+  const emFerias = radarRows.filter(
+    (r) => r.em_ferias && getOpenNotesCount(r.administrador_id, r.qtd_abertas) > 0
+  )
   for (const admin of emFerias) {
+    const qtdAbertas = getOpenNotesCount(admin.administrador_id, admin.qtd_abertas)
     suggestions.push({
       id: uid(),
       prioridade: 'alta',
@@ -212,7 +248,7 @@ export function buildSuggestions(params: {
         responsavel: admin.administrador_id,
       }),
       titulo: `Redistribuir notas de ${admin.nome} (férias)`,
-      descricao: `${admin.nome} está em férias com ${admin.qtd_abertas} nota(s) aberta(s).`,
+      descricao: `${admin.nome} está em férias com ${qtdAbertas} nota(s) aberta(s) no painel.`,
       impacto: 'Evita que notas envelhecam durante ausência.',
       porQueAgora: 'Admin em férias — notas sem responsável ativo.',
       adminId: admin.administrador_id,
@@ -228,9 +264,11 @@ export function buildSuggestions(params: {
       !r.em_ferias &&
       r.recebe_distribuicao &&
       r.pct_carga >= 90 &&
+      getOpenNotesCount(r.administrador_id, r.qtd_abertas) > 0 &&
       !sobrecarregadosIds.has(r.administrador_id)
   )
   for (const admin of cargaElevada) {
+    const qtdAbertas = getOpenNotesCount(admin.administrador_id, admin.qtd_abertas)
     suggestions.push({
       id: uid(),
       prioridade: 'media',
@@ -241,7 +279,7 @@ export function buildSuggestions(params: {
         responsavel: admin.administrador_id,
       }),
       titulo: `Pausar distribuição para ${admin.nome}`,
-      descricao: `${admin.nome} está com carga ${admin.pct_carga.toFixed(0)}% (${admin.qtd_abertas}/${admin.max_notas} notas).`,
+      descricao: `${admin.nome} está com carga ${admin.pct_carga.toFixed(0)}% (${qtdAbertas} nota(s) no painel).`,
       impacto: 'Evita sobrecarga e permite foco na resolução do backlog.',
       adminId: admin.administrador_id,
       adminNome: admin.nome,

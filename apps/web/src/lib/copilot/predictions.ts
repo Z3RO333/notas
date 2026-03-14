@@ -1,4 +1,5 @@
 import type {
+  CopilotAdminNoteStats,
   Prediction,
   PredictionConfianca,
   PredictionSeverity,
@@ -35,8 +36,9 @@ function variacaoPct(current: number, previous: number | null): number | undefin
 export function buildPredictions(params: {
   throughput: DashboardThroughputPoint[]
   radarRows: WorkloadRadarRow[]
+  adminNoteStats?: ReadonlyMap<string, CopilotAdminNoteStats>
 }): Prediction[] {
-  const { throughput, radarRows } = params
+  const { throughput, radarRows, adminNoteStats } = params
   const predictions: Prediction[] = []
 
   const recent7 = throughput.slice(-7)
@@ -91,10 +93,11 @@ export function buildPredictions(params: {
   }
 
   for (const row of radarRows) {
-    if (row.em_ferias || row.qtd_abertas === 0) continue
+    const noteStats = adminNoteStats?.get(row.administrador_id)
+    const total = noteStats?.qtd_abertas ?? row.qtd_abertas
+    if (row.em_ferias || total === 0) continue
 
-    const criticas = row.qtd_notas_criticas
-    const total = row.qtd_abertas
+    const criticas = noteStats?.qtd_notas_criticas ?? row.qtd_notas_criticas
     const ratioCriticas = criticas / total
 
     if (ratioCriticas >= 0.5 && criticas >= 3) {

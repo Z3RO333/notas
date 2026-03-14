@@ -151,6 +151,35 @@ describe('buildSuggestions', () => {
       const escalar = result.filter(s => s.acao === 'escalar')
       expect(escalar[0].adminId).toBe('a2')
     })
+
+    it('usa a contagem real do notasPanel quando o agregado vier inflado', () => {
+      const iso = makeIso({
+        administrador_id: 'a1',
+        nome: 'Admin',
+        qtd_abertas: 57,
+        qtd_notas_criticas: 50,
+        critical_density: 87.7,
+        iso_score: 60,
+      })
+      const notas = [
+        ...Array.from({ length: 14 }, (_, index) => makeNota({ id: `crit-${index}`, numero_nota: `10${index}`, administrador_id: 'a1' })),
+        ...Array.from({ length: 4 }, (_, index) => {
+          const createdAt = new Date()
+          createdAt.setDate(createdAt.getDate() - 1)
+          return makeNota({
+            id: `ok-${index}`,
+            numero_nota: `20${index}`,
+            administrador_id: 'a1',
+            created_at: createdAt.toISOString(),
+          })
+        }),
+      ]
+
+      const result = buildSuggestions({ radarRows: [], isoAdmins: [iso], notasSemAtribuir: 0, notasPanel: notas })
+      const sug = result.find(s => s.acao === 'escalar')
+      expect(sug?.descricao).toContain('14 nota(s)')
+      expect(sug?.descricao).toContain('(78% do backlog)')
+    })
   })
 
   describe('Regra 3 — férias com notas abertas', () => {

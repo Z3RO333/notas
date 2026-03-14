@@ -200,6 +200,24 @@ describe('buildPredictions', () => {
       const prediction = result.find((item) => item.tipo === 'aging_sla_estouro')
       expect(prediction?.tendencia).toBe('piorando')
     })
+
+    it('usa a contagem real do painel para SLA quando o radar vier inflado', () => {
+      const radar = makeRadar({ administrador_id: 'a1', qtd_abertas: 57, qtd_notas_criticas: 50 })
+      const result = buildPredictions({
+        throughput: [],
+        radarRows: [radar],
+        adminNoteStats: new Map([
+          ['a1', {
+            administrador_id: 'a1',
+            qtd_abertas: 18,
+            qtd_notas_criticas: 14,
+            critical_density: 77.8,
+          }],
+        ]),
+      })
+      const prediction = result.find((item) => item.tipo === 'aging_sla_estouro')
+      expect(prediction?.mensagem).toContain('14 de 18')
+    })
   })
 
   describe('Ordenacao', () => {

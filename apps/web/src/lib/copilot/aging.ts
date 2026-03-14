@@ -1,7 +1,12 @@
 import { getAgingDays, isOpenStatus } from '@/lib/collaborator/aging'
 import { SLA_DENTRO_PRAZO_MAX_DAYS, SLA_ESTOURADO_MIN_DAYS, SLA_CRITICO_MIN_DAYS } from './sla'
 import type { NotaPanelData } from '@/lib/types/database'
-import type { SmartAgingCategory, SmartAgingBadge, SmartAgingCounts } from '@/lib/types/copilot'
+import type {
+  CopilotAdminNoteStats,
+  SmartAgingCategory,
+  SmartAgingBadge,
+  SmartAgingCounts,
+} from '@/lib/types/copilot'
 
 /**
  * Smart Aging — SLA-based categories
@@ -71,4 +76,37 @@ export function buildSmartAgingCounts(notas: NotaPanelData[], now: Date = new Da
   }
 
   return counts
+}
+
+export function buildAdminNoteStats(
+  notas: NotaPanelData[],
+  now: Date = new Date(),
+): Map<string, CopilotAdminNoteStats> {
+  const stats = new Map<string, CopilotAdminNoteStats>()
+
+  for (const nota of notas) {
+    if (!nota.administrador_id || !isOpenStatus(nota.status)) continue
+
+    const current = stats.get(nota.administrador_id) ?? {
+      administrador_id: nota.administrador_id,
+      qtd_abertas: 0,
+      qtd_notas_criticas: 0,
+      critical_density: 0,
+    }
+
+    current.qtd_abertas += 1
+    if (getSmartAgingCategory(nota, now) === 'critico') {
+      current.qtd_notas_criticas += 1
+    }
+
+    stats.set(nota.administrador_id, current)
+  }
+
+  for (const entry of stats.values()) {
+    entry.critical_density = entry.qtd_abertas > 0
+      ? Number(((entry.qtd_notas_criticas / entry.qtd_abertas) * 100).toFixed(1))
+      : 0
+  }
+
+  return stats
 }

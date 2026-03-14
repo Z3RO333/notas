@@ -383,6 +383,18 @@ def _is_missing_rpc_error(exc: Exception, rpc_name: str) -> bool:
     )
 
 
+def _extract_single_rpc_row(result, default=None):
+    data = result.data
+    if isinstance(data, list):
+        if not data:
+            return {} if default is None else default
+        first = data[0]
+        return first if isinstance(first, dict) else ({} if default is None else default)
+    if isinstance(data, dict):
+        return data
+    return {} if default is None else default
+
+
 def _calculate_maintenance_reference_completeness(candidate: dict) -> int:
     score = 0
     if candidate.get("tipo_ordem"):
@@ -2221,7 +2233,7 @@ def upsert_orders_maintenance_reference(sync_id: str, references: list[dict]) ->
 def run_orders_maintenance_reference_enrichment() -> dict:
     """Enriquece ordens_notas_acompanhamento via referência de manutenção."""
     result = supabase.rpc("enriquecer_ordens_por_referencia_manutencao", {}).execute()
-    row = (result.data or [{}])[0]
+    row = _extract_single_rpc_row(result)
     metrics = {
         "ordens_atualizadas_total": int(row.get("ordens_atualizadas_total") or 0),
         "tipo_ordem_atualizadas": int(row.get("tipo_ordem_atualizadas") or 0),
@@ -2238,11 +2250,75 @@ def run_orders_maintenance_reference_enrichment() -> dict:
     return metrics
 
 
+def run_tipo_ordem_reference_enrichment() -> dict:
+    """Enriquece tipo_ordem das ordens vinculadas às notas.
+
+    Se essa etapa estourar timeout, o sync continua e registra a falha na metadata.
+    """
+    try:
+        result = supabase.rpc("enriquecer_tipo_ordem_por_referencia", {}).execute()
+    except Exception as exc:
+        if _is_statement_timeout_error(exc):
+            error_msg = f"{type(exc).__name__}: {exc}"
+            logger.warning(
+                "Timeout no enriquecimento de tipo_ordem por referência (57014). Mantendo sync ativo. erro=%s",
+                error_msg,
+            )
+            return {
+                "status": "error_tolerated",
+                "tipo_enriquecidas": 0,
+                "error": error_msg,
+            }
+        raise
+
+    row = _extract_single_rpc_row(result, default=0)
+    if isinstance(row, dict):
+        tipo_enriquecidas = int(
+            row.get("tipo_enriquecidas")
+            or row.get("total")
+            or 0
+        )
+    else:
+        tipo_enriquecidas = int(row or 0)
+
+    logger.info("tipo_ordem enriquecidas: %s", tipo_enriquecidas)
+    return {
+        "status": "success",
+        "tipo_enriquecidas": tipo_enriquecidas,
+        "error": None,
+    }
+
+
 def run_standalone_owner_assignment() -> dict:
     """Atribui responsável para ordens standalone sem dono."""
-    result = supabase.rpc("atribuir_responsavel_ordens_standalone", {}).execute()
-    row = (result.data or [{}])[0]
+    try:
+        result = supabase.rpc("atribuir_responsavel_ordens_standalone", {}).execute()
+    except Exception as exc:
+        if _is_statement_timeout_error(exc):
+            error_msg = f"{type(exc).__name__}: {exc}"
+            logger.warning(
+                "Timeout na atribuição de responsável das ordens standalone (57014). Mantendo sync ativo. erro=%s",
+                error_msg,
+            )
+            return {
+                "status": "error_tolerated",
+                "error": error_msg,
+                "total_candidatas": 0,
+                "responsaveis_preenchidos": 0,
+                "atribuicoes_criado_por": 0,
+                "atribuicoes_refrigeracao": 0,
+                "atribuicoes_pmpl_config": 0,
+                "atribuicoes_fallback": 0,
+                "sem_destino": 0,
+                "regras_refrigeracao_encontradas": 0,
+                "admins_refrigeracao_elegiveis": 0,
+            }
+        raise
+
+    row = _extract_single_rpc_row(result)
     metrics = {
+        "status": "success",
+        "error": None,
         "total_candidatas": int(row.get("total_candidatas") or 0),
         "responsaveis_preenchidos": int(row.get("responsaveis_preenchidos") or 0),
         "atribuicoes_criado_por": int(row.get("atribuicoes_criado_por") or 0),
@@ -2290,15 +2366,33 @@ def run_standalone_pmpl_owner_realign() -> dict:
                 rpc_name,
             )
             return {
+                "status": "rpc_missing",
+                "error": None,
                 "rpc_disponivel": False,
+                "total_candidatas": 0,
+                "reatribuicoes": 0,
+                "destino_id": None,
+            }
+        if _is_statement_timeout_error(exc):
+            error_msg = f"{type(exc).__name__}: {exc}"
+            logger.warning(
+                "Timeout no realinhamento PMPL standalone (57014). Mantendo sync ativo. erro=%s",
+                error_msg,
+            )
+            return {
+                "status": "error_tolerated",
+                "error": error_msg,
+                "rpc_disponivel": True,
                 "total_candidatas": 0,
                 "reatribuicoes": 0,
                 "destino_id": None,
             }
         raise
 
-    row = (result.data or [{}])[0]
+    row = _extract_single_rpc_row(result)
     metrics = {
+        "status": "success",
+        "error": None,
         "rpc_disponivel": True,
         "total_candidatas": int(row.get("total_candidatas") or 0),
         "reatribuicoes": int(row.get("reatribuicoes") or 0),
@@ -2447,6 +2541,7 @@ def main():
     copy_intent_ttl_minutes = get_copy_intent_ttl_minutes(spark)
     copy_intent_confirm_repair_minutes = get_copy_intent_confirm_repair_minutes(spark)
     sap_status_aux_required = get_sap_status_aux_required(spark)
+    current_step = "startup"
 
     try:
         supabase.table("sync_log").select("id").limit(1).execute()
@@ -2483,6 +2578,8 @@ def main():
         "numero_nota_preenchidas": 0,
     }
     standalone_owner_metrics = {
+        "status": "not_run",
+        "error": None,
         "total_candidatas": 0,
         "responsaveis_preenchidos": 0,
         "atribuicoes_criado_por": 0,
@@ -2494,10 +2591,17 @@ def main():
         "admins_refrigeracao_elegiveis": 0,
     }
     standalone_pmpl_realign_metrics = {
+        "status": "not_run",
+        "error": None,
         "rpc_disponivel": False,
         "total_candidatas": 0,
         "reatribuicoes": 0,
         "destino_id": None,
+    }
+    tipo_ordem_enrichment_metrics = {
+        "status": "not_run",
+        "tipo_enriquecidas": 0,
+        "error": None,
     }
     copy_reconcile_status = "not_run"
     copy_reconcile_error: str | None = None
@@ -2577,6 +2681,7 @@ def main():
 
     try:
         full_bootstrap = should_run_full_bootstrap(bootstrap_mode, sync_start_date)
+        current_step = "read_new_notes"
         notes, note_batch_metrics = read_new_notes(
             spark,
             window_days=window_days,
@@ -2587,9 +2692,11 @@ def main():
         )
         logger.info("Lidas: %s notas da fonte %s", len(notes), STREAMING_TABLE)
 
+        current_step = "upsert_notes"
         inserted, updated = upsert_notes(notes, sync_id)
 
         try:
+            current_step = "run_sap_status_aux_sync"
             sap_status_aux_metrics = run_sap_status_aux_sync(spark, sync_id)
         except Exception as sap_status_aux_exc:
             sap_status_aux_metrics["status"] = "error_required" if sap_status_aux_required else "error_tolerated"
@@ -2602,9 +2709,11 @@ def main():
             if sap_status_aux_required:
                 raise
 
+        current_step = "run_register_orders"
         ordens_detectadas, notas_auto_concluidas = run_register_orders(sync_id)
 
         try:
+            current_step = "reconcile_copy_intent_states"
             copy_reconcile_metrics = reconcile_copy_intent_states(
                 sync_id=sync_id,
                 ttl_minutes=copy_intent_ttl_minutes,
@@ -2621,52 +2730,52 @@ def main():
             )
 
         # Importa ordens PMPL standalone (sem nota correspondente) direto da fonte
+        current_step = "read_standalone_pmpl_orders"
         standalone_orders = read_standalone_pmpl_orders(
             spark,
             pmpl_standalone_window_days,
             sync_start_date,
             ignore_watermark=ignore_watermark,
         )
+        current_step = "push_standalone_pmpl_orders"
         _, pmpl_standalone_inseridas, pmpl_standalone_atualizadas = push_standalone_pmpl_orders(sync_id, standalone_orders)
 
+        current_step = "get_orders_for_pmpl_refresh"
         eligible_orders = get_orders_for_pmpl_refresh(min_age_days=pmpl_min_age_days)
+        current_step = "consolidate_pmpl_status_by_order"
         pmpl_updates = consolidate_pmpl_status_by_order(spark, eligible_orders)
+        current_step = "push_pmpl_updates"
         _, ordens_status_atualizadas, mudancas_status = push_pmpl_updates(sync_id, pmpl_updates)
 
+        current_step = "read_orders_document_reference"
         orders_document_reference, orders_document_metrics = read_orders_document_reference(spark)
+        current_step = "upsert_orders_document_reference"
         ordens_tipo_ref_inseridas, ordens_tipo_ref_atualizadas = upsert_orders_document_reference(
             sync_id,
             orders_document_reference,
         )
 
         # Enriquece tipo_ordem para ordens sem tipo vinculadas à fonte principal de notas.
-        result_enrich = supabase.rpc("enriquecer_tipo_ordem_por_referencia", {}).execute()
-        enrich_data = result_enrich.data
-        if isinstance(enrich_data, list):
-            enrich_data = enrich_data[0] if enrich_data else 0
-        if isinstance(enrich_data, dict):
-            tipo_enriquecidas = int(
-                enrich_data.get("tipo_enriquecidas")
-                or enrich_data.get("total")
-                or 0
-            )
-        else:
-            tipo_enriquecidas = int(enrich_data or 0)
-        logger.info("tipo_ordem enriquecidas: %s", tipo_enriquecidas)
+        current_step = "run_tipo_ordem_reference_enrichment"
+        tipo_ordem_enrichment_metrics = run_tipo_ordem_reference_enrichment()
+        tipo_enriquecidas = tipo_ordem_enrichment_metrics["tipo_enriquecidas"]
 
         # Fonte v2 (manutencao.silver.selecao_ordens_manutencao):
         # dedupe por completude + data_extracao e enriquecimento direto da tabela operacional.
         try:
+            current_step = "read_orders_maintenance_reference"
             orders_ref_v2_reference, orders_ref_v2_metrics = read_orders_maintenance_reference(
                 spark,
                 sync_start_date=sync_start_date,
                 lookback_days=orders_ref_v2_lookback_days,
             )
+            current_step = "upsert_orders_maintenance_reference"
             ordens_ref_v2_inseridas, ordens_ref_v2_atualizadas = upsert_orders_maintenance_reference(
                 sync_id,
                 orders_ref_v2_reference,
             )
             try:
+                current_step = "run_orders_maintenance_reference_enrichment"
                 orders_ref_v2_enrichment_metrics = run_orders_maintenance_reference_enrichment()
                 orders_ref_v2_status = "success"
                 orders_ref_v2_failure_streak = 0
@@ -2703,18 +2812,24 @@ def main():
                     f"por {orders_ref_v2_failure_streak} ciclos consecutivos."
                 ) from ref_v2_exc
 
+        current_step = "run_standalone_owner_assignment"
         standalone_owner_metrics = run_standalone_owner_assignment()
+        current_step = "run_standalone_pmpl_owner_realign"
         standalone_pmpl_realign_metrics = run_standalone_pmpl_owner_realign()
 
         # Segunda passada: backfill ordem_sap (referência silver) → registrar ordens.
         # Resolve notas com ordens em selecao_ordens_manutencao que não vieram da fonte de notas.
+        current_step = "run_backfill_and_register_v2"
         backfill_v2_metrics = run_backfill_and_register_v2(sync_id)
 
+        current_step = "run_distribution"
         distributed = run_distribution(sync_id)
 
+        current_step = "run_cockpit_convergencia_sync"
         cockpit_sync_metrics = run_cockpit_convergencia_sync(sync_id)
 
         metadata = {
+            "current_step": current_step,
             "window_days": window_days,
             "force_window": force_window,
             "ignore_watermark": ignore_watermark,
@@ -2746,6 +2861,8 @@ def main():
             "ordens_tipo_ref_conflicts": orders_document_metrics["conflicts"],
             "ordens_tipo_ref_inseridas": ordens_tipo_ref_inseridas,
             "ordens_tipo_ref_atualizadas": ordens_tipo_ref_atualizadas,
+            "tipo_ordem_enrichment_status": tipo_ordem_enrichment_metrics["status"],
+            "tipo_ordem_enrichment_error": tipo_ordem_enrichment_metrics["error"],
             "tipo_ordem_enriquecidas": tipo_enriquecidas,
             "orders_ref_v2_status": orders_ref_v2_status,
             "orders_ref_v2_failure_streak": orders_ref_v2_failure_streak,
@@ -2767,6 +2884,8 @@ def main():
             "orders_ref_v2_numero_nota_preenchidas": orders_ref_v2_enrichment_metrics["numero_nota_preenchidas"],
             "standalone_owner_total_candidatas": standalone_owner_metrics["total_candidatas"],
             "standalone_owner_preenchidos": standalone_owner_metrics["responsaveis_preenchidos"],
+            "standalone_owner_status": standalone_owner_metrics["status"],
+            "standalone_owner_error": standalone_owner_metrics["error"],
             "standalone_owner_atribuicoes_criado_por": standalone_owner_metrics["atribuicoes_criado_por"],
             "standalone_owner_atribuicoes_refrigeracao": standalone_owner_metrics["atribuicoes_refrigeracao"],
             "standalone_owner_atribuicoes_pmpl_config": standalone_owner_metrics["atribuicoes_pmpl_config"],
@@ -2775,6 +2894,8 @@ def main():
             "standalone_owner_regras_refrigeracao_encontradas": standalone_owner_metrics["regras_refrigeracao_encontradas"],
             "standalone_owner_admins_refrigeracao_elegiveis": standalone_owner_metrics["admins_refrigeracao_elegiveis"],
             "standalone_pmpl_realign_rpc_disponivel": standalone_pmpl_realign_metrics["rpc_disponivel"],
+            "standalone_pmpl_realign_status": standalone_pmpl_realign_metrics["status"],
+            "standalone_pmpl_realign_error": standalone_pmpl_realign_metrics["error"],
             "standalone_pmpl_realign_total_candidatas": standalone_pmpl_realign_metrics["total_candidatas"],
             "standalone_pmpl_realign_reatribuicoes": standalone_pmpl_realign_metrics["reatribuicoes"],
             "standalone_pmpl_realign_destino_id": standalone_pmpl_realign_metrics["destino_id"],
@@ -2826,7 +2947,7 @@ def main():
         logger.info("Sync concluido com sucesso")
 
     except Exception as e:
-        logger.error("Sync falhou: %s: %s", type(e).__name__, e)
+        logger.error("Sync falhou na etapa %s: %s: %s", current_step, type(e).__name__, e)
         try:
             finalize_sync_log(
                 sync_id,
@@ -2835,6 +2956,7 @@ def main():
                 updated=0,
                 distributed=0,
                 metadata={
+                    "current_step": current_step,
                     "window_days": window_days,
                     "force_window": force_window,
                     "ignore_watermark": ignore_watermark,
@@ -2851,6 +2973,9 @@ def main():
                     "copy_em_geracao_to_alerta": copy_reconcile_metrics["em_geracao_to_alerta"],
                     "copy_confirmadas": copy_reconcile_metrics["confirmadas"],
                     "copy_confirm_repaired": copy_reconcile_metrics["confirm_repaired"],
+                    "tipo_ordem_enrichment_status": tipo_ordem_enrichment_metrics["status"],
+                    "tipo_ordem_enrichment_error": tipo_ordem_enrichment_metrics["error"],
+                    "tipo_ordem_enriquecidas": tipo_ordem_enrichment_metrics["tipo_enriquecidas"],
                     "orders_ref_v2_status": orders_ref_v2_status,
                     "orders_ref_v2_failure_streak": orders_ref_v2_failure_streak,
                     "orders_ref_v2_error": orders_ref_v2_error,
@@ -2871,13 +2996,17 @@ def main():
                     "orders_ref_v2_numero_nota_preenchidas": orders_ref_v2_enrichment_metrics["numero_nota_preenchidas"],
                     "standalone_owner_total_candidatas": standalone_owner_metrics["total_candidatas"],
                     "standalone_owner_preenchidos": standalone_owner_metrics["responsaveis_preenchidos"],
+                    "standalone_owner_status": standalone_owner_metrics["status"],
+                    "standalone_owner_error": standalone_owner_metrics["error"],
                     "standalone_owner_atribuicoes_criado_por": standalone_owner_metrics["atribuicoes_criado_por"],
-            "standalone_owner_atribuicoes_refrigeracao": standalone_owner_metrics["atribuicoes_refrigeracao"],
+                    "standalone_owner_atribuicoes_refrigeracao": standalone_owner_metrics["atribuicoes_refrigeracao"],
                     "standalone_owner_atribuicoes_pmpl_config": standalone_owner_metrics["atribuicoes_pmpl_config"],
                     "standalone_owner_atribuicoes_fallback": standalone_owner_metrics["atribuicoes_fallback"],
                     "standalone_owner_sem_destino": standalone_owner_metrics["sem_destino"],
                     "standalone_owner_regras_refrigeracao_encontradas": standalone_owner_metrics["regras_refrigeracao_encontradas"],
                     "standalone_owner_admins_refrigeracao_elegiveis": standalone_owner_metrics["admins_refrigeracao_elegiveis"],
+                    "standalone_pmpl_realign_status": standalone_pmpl_realign_metrics["status"],
+                    "standalone_pmpl_realign_error": standalone_pmpl_realign_metrics["error"],
                     "standalone_pmpl_realign_rpc_disponivel": standalone_pmpl_realign_metrics["rpc_disponivel"],
                     "standalone_pmpl_realign_total_candidatas": standalone_pmpl_realign_metrics["total_candidatas"],
                     "standalone_pmpl_realign_reatribuicoes": standalone_pmpl_realign_metrics["reatribuicoes"],
