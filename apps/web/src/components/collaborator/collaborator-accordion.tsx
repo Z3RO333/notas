@@ -1,10 +1,15 @@
+'use client'
+
 import Link from 'next/link'
-import { useEffect, useMemo, useRef } from 'react'
-import { ListChecks, LayoutGrid } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Copy, ListChecks, LayoutGrid } from 'lucide-react'
 import { NotaCard } from '@/components/painel/nota-card'
 import { NotaListItem } from '@/components/painel/nota-list-item'
 import { AdminSummary } from '@/components/painel/admin-summary'
+import { Button } from '@/components/ui/button'
+import { useToast } from '@/components/ui/toast'
 import { getAgingDays, isOpenStatus } from '@/lib/collaborator/aging'
+import { buildCopyPayload, copyToClipboard } from '@/lib/orders/copy'
 import type { CollaboratorData, NotesViewMode } from '@/lib/types/collaborator'
 import type { NotaPanelData, OrdemAcompanhamento } from '@/lib/types/database'
 
@@ -38,6 +43,25 @@ export function CollaboratorAccordion({
   trackingOrders,
 }: CollaboratorAccordionProps) {
   const ref = useRef<HTMLDivElement>(null)
+  const { toast } = useToast()
+  const [copying, setCopying] = useState(false)
+
+  const handleCopyAll = async () => {
+    if (notas.length === 0) return
+    setCopying(true)
+    const codes = notas.map((n) => n.numero_nota).filter(Boolean)
+    const payload = buildCopyPayload(codes)
+    const ok = await copyToClipboard(payload)
+    setCopying(false)
+    if (ok) {
+      toast({
+        title: `${codes.length} nota${codes.length !== 1 ? 's' : ''} copiadas ✅`,
+        description: 'Prontas para colar no SAP.',
+      })
+    } else {
+      toast({ title: 'Erro ao copiar', variant: 'destructive' })
+    }
+  }
 
   useEffect(() => {
     if (isOpen && ref.current) {
@@ -56,9 +80,24 @@ export function CollaboratorAccordion({
         <div className="space-y-4 rounded-lg border bg-card p-4">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-base">{collaborator.nome}</h3>
-            <span className="text-sm text-muted-foreground">
-              {notas.length} nota{notas.length !== 1 ? 's' : ''}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {notas.length} nota{notas.length !== 1 ? 's' : ''}
+              </span>
+              {notas.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => { e.stopPropagation(); void handleCopyAll() }}
+                  disabled={copying}
+                  className="h-6 px-2 text-xs gap-1"
+                  title="Copiar todos os números de nota para o SAP"
+                >
+                  <Copy className="h-3 w-3" />
+                  {copying ? 'Copiando…' : 'Copiar tudo'}
+                </Button>
+              )}
+            </div>
           </div>
 
           {adminActions && <div className="border-b pb-4">{adminActions}</div>}
