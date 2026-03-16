@@ -15,6 +15,7 @@ import { buildSuggestions } from '@/lib/copilot/suggestions'
 import { buildProductivityDetailRows } from '@/lib/copilot/productivity'
 import { sortRadarRows } from '@/lib/copilot/workload'
 import { getIsoFaixaConfig } from '@/lib/copilot/iso'
+import { isRawOrderActive } from '@/lib/orders/status-raw'
 import {
   buildDashboardSummary,
   buildThroughput30d,
@@ -39,6 +40,7 @@ export const dynamic = 'force-dynamic'
 const OPEN_NOTAS_FIELDS = 'data_criacao_sap, created_at, status' as const
 const NOTA_PANEL_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, data_criacao_sap, created_at' as const
 const ORDERS_FETCH_PAGE_SIZE = 1000
+const ORDERS_PANEL_FIELDS = 'unidade, semaforo_atraso, status_ordem_raw' as const
 
 export default async function CopilotPage() {
   const supabase = await createClient()
@@ -94,18 +96,17 @@ export default async function CopilotPage() {
     ((adminIdsResult.data ?? []) as Array<{ id: string }>).map((admin) => admin.id)
   )
 
-  const ordensRows: Array<Pick<OrdemNotaAcompanhamento, 'unidade' | 'semaforo_atraso'>> = []
+  const ordensRows: Array<Pick<OrdemNotaAcompanhamento, 'unidade' | 'semaforo_atraso' | 'status_ordem_raw'>> = []
   for (let offset = 0; ; offset += ORDERS_FETCH_PAGE_SIZE) {
     const { data, error } = await supabase
       .from('vw_ordens_notas_painel')
-      .select('unidade, semaforo_atraso')
-      .not('status_ordem', 'in', '("concluida","cancelada")')
+      .select(ORDERS_PANEL_FIELDS)
       .order('dias_em_aberto', { ascending: false })
       .range(offset, offset + ORDERS_FETCH_PAGE_SIZE - 1)
 
     if (error) throw error
-    const batch = (data ?? []) as Array<Pick<OrdemNotaAcompanhamento, 'unidade' | 'semaforo_atraso'>>
-    ordensRows.push(...batch)
+    const batch = (data ?? []) as Array<Pick<OrdemNotaAcompanhamento, 'unidade' | 'semaforo_atraso' | 'status_ordem_raw'>>
+    ordensRows.push(...batch.filter((row) => isRawOrderActive(row.status_ordem_raw)))
     if (batch.length < ORDERS_FETCH_PAGE_SIZE) break
   }
 

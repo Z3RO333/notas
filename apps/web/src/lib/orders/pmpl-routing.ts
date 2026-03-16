@@ -10,6 +10,10 @@ import {
   normalizeAdminEmail,
   resolveFixedOwnerKeyByUnit,
 } from '@/lib/admin/admin-identity-catalog'
+import {
+  shouldKeepRefrigeracaoOrderWithSuelem,
+  shouldRouteOrderToRefrigeracao,
+} from '@/lib/orders/refrigeracao-routing'
 import type { UserRole } from '@/lib/types/database'
 
 const ROUTING_BATCH_SIZE = 1000
@@ -101,6 +105,7 @@ interface RoutingCandidateRow {
   nota_id: string
   ordem_codigo: string | null
   tipo_ordem?: string | null
+  texto_breve?: string | null
   unidade: string | null
   descricao: string | null
   responsavel_atual_id: string | null
@@ -241,16 +246,32 @@ function isPmplType(value: string | null | undefined): boolean {
   return normalizeTextForMatch(value) === PMPL_CONFIG_TYPE
 }
 
-function isRefrigeracaoOrder(descricao: string | null | undefined, keywords: string[]): boolean {
-  if (!descricao || keywords.length === 0) return false
+async function attachTextoBreveToRoutingRows(
+  supabase: RoutingSupabase,
+  rows: RoutingCandidateRow[]
+): Promise<RoutingCandidateRow[]> {
+  if (rows.length === 0) return rows
 
-  const normalizedDescription = normalizeTextForMatch(descricao)
-  if (!normalizedDescription) return false
+  const byOrderId = new Map<string, string | null>()
+  const orderIds = Array.from(new Set(rows.map((row) => row.ordem_id).filter(Boolean)))
 
-  return keywords.some((keyword) => (
-    keyword.length > 0
-    && normalizedDescription.includes(keyword)
-  ))
+  for (const idsChunk of chunkArray(orderIds, REASSIGN_CHUNK_SIZE)) {
+    const { data, error } = await supabase
+      .from('ordens_notas_acompanhamento')
+      .select('id, texto_breve')
+      .in('id', idsChunk)
+
+    if (error) throw error
+
+    for (const item of data ?? []) {
+      byOrderId.set(item.id, item.texto_breve ?? null)
+    }
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    texto_breve: byOrderId.get(row.ordem_id) ?? null,
+  }))
 }
 
 function routeOrder(row: RoutingCandidateRow, context: RouteOrderContext): RouteOrderResult {
@@ -262,7 +283,14 @@ function routeOrder(row: RoutingCandidateRow, context: RouteOrderContext): Route
     }
   }
 
-  if (isRefrigeracaoOrder(row.descricao, context.refrigeracaoKeywords)) {
+  if (
+    shouldKeepRefrigeracaoOrderWithSuelem(row.ordem_codigo)
+    && shouldRouteOrderToRefrigeracao({
+      textoBreve: row.texto_breve,
+      descricao: row.descricao,
+      keywords: context.refrigeracaoKeywords,
+    })
+  ) {
     return {
       page: 'PMOS',
       ownerId: context.refrigeracaoOwnerId,
@@ -595,6 +623,8 @@ export async function applyAutomaticOrdersRouting({
       throw error
     }
   }
+
+  routingRows = await attachTextoBreveToRoutingRows(supabase, routingRows)
 
   const detectedByUnit: Record<string, number> = {
     'CD MANAUS': 0,

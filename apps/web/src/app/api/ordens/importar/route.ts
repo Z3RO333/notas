@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { deriveOrdemStatusFromRaw } from '@/lib/orders/status-raw'
 import type {
   ImportBatchResult,
   ImportMode,
@@ -8,16 +7,6 @@ import type {
   MappedImportRow,
   UserRole,
 } from '@/lib/types/database'
-
-// ---------------------------------------------------------------------------
-// Status normalization
-// ---------------------------------------------------------------------------
-
-function normalizeStatus(
-  raw: string | null,
-): 'aberta' | 'em_tratativa' | 'concluida' | 'cancelada' | 'desconhecido' {
-  return deriveOrdemStatusFromRaw(raw)
-}
 
 function normalizeOptionalText(value: string | null): string | null {
   if (!value) return null
@@ -218,7 +207,6 @@ export async function POST(request: Request) {
           nota_id: notaId,
           numero_nota: row.numero_nota!,
           ordem_codigo: ordemCodigo,
-          status_ordem: normalizeStatus(row.status_ordem_raw),
           status_ordem_raw: row.status_ordem_raw ?? null,
           tipo_ordem: tipoOrdem,
           centro,
@@ -243,7 +231,6 @@ export async function POST(request: Request) {
       }
 
       if (row.status_ordem_raw !== null) {
-        updatePayload.status_ordem = normalizeStatus(row.status_ordem_raw)
         updatePayload.status_ordem_raw = row.status_ordem_raw
       }
       if (tipoOrdem !== null) {
