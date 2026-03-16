@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { isPmplFallbackOwnerEmail } from '@/lib/admin/admin-identity-catalog'
+import { isFixedCdOwnerEmail, isPmplFallbackOwnerEmail } from '@/lib/admin/admin-identity-catalog'
 import type { CurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { buildAgingCounts } from '@/lib/collaborator/metrics'
 import { isOpenStatus } from '@/lib/collaborator/aging'
@@ -202,13 +202,21 @@ export async function getNotesPanelData(params: {
   const carga = operationalCarga.filter((admin) => {
     if (!canViewGlobal) return currentAdminId ? admin.id === currentAdminId : false
 
+    // Regras de exibição no painel de distribuição:
+    // 1. Apenas admins ativos e fora de férias são exibidos
+    // 2. Deve estar recebendo distribuição OU ter notas abertas
+    // 3. Gustavo (PMPL fallback) e donos fixos de CD (Brenda/Adriano) nunca aparecem aqui
     return (
-      admin.recebe_distribuicao
-      || !admin.ativo
-      || admin.em_ferias
-      || admin.qtd_abertas > 0
-      || notaAdminIds.has(admin.id)
-    ) && !isPmplFallbackOwnerEmail(admin.email)
+      admin.ativo
+      && !admin.em_ferias
+      && (
+        admin.recebe_distribuicao
+        || admin.qtd_abertas > 0
+        || notaAdminIds.has(admin.id)
+      )
+    )
+    && !isPmplFallbackOwnerEmail(admin.email)
+    && !isFixedCdOwnerEmail(admin.email)
   })
 
   const collaborators = [...carga]

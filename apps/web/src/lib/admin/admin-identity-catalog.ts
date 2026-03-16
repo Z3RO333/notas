@@ -62,6 +62,13 @@ export function isPmplFallbackOwnerEmail(value: string | null | undefined): bool
   return normalizeAdminEmail(value) === PMPL_FALLBACK_OWNER_EMAIL
 }
 
+/** Brenda e Adriano são donos fixos de CD (Manaus/Tarumã).
+ *  Eles não recebem distribuição de notas — aparecem apenas no painel de ordens. */
+export function isFixedCdOwnerEmail(value: string | null | undefined): boolean {
+  const normalizedEmail = normalizeAdminEmail(value)
+  return Object.values(FIXED_OWNER_EMAIL_BY_KEY).some((email) => email === normalizedEmail)
+}
+
 export function isPmplExceptionOwnerName(value: string | null | undefined): boolean {
   const normalizedName = normalizeAdminIdentityName(value)
   if (!normalizedName) return false
