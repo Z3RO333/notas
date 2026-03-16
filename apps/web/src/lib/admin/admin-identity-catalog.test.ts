@@ -1,6 +1,7 @@
 import {
   buildFixedOwnerAvatarByAdminId,
   getFixedOwnerCardRank,
+  isFixedCdOwnerEmail,
   isPmplExceptionOwnerName,
   isRefrigeracaoFallbackGestorEmail,
   normalizeAdminIdentityName,
@@ -46,6 +47,9 @@ describe('admin-identity-catalog', () => {
   it('keeps exception and fallback rules centralized', () => {
     expect(isPmplExceptionOwnerName('Gustavo Andrade')).toBe(true)
     expect(isPmplExceptionOwnerName('Brenda Rodrigues')).toBe(false)
+    expect(isFixedCdOwnerEmail('BRENDAFONSECA@bemol.com.br')).toBe(true)
+    expect(isFixedCdOwnerEmail('adrianobezerra@bemol.com.br')).toBe(true)
+    expect(isFixedCdOwnerEmail('rosanafigueira@bemol.com.br')).toBe(false)
     expect(isRefrigeracaoFallbackGestorEmail('WALTERRODRIGUES@bemol.com.br')).toBe(true)
     expect(isRefrigeracaoFallbackGestorEmail('outro@bemol.com.br')).toBe(false)
   })
