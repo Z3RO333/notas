@@ -57,9 +57,10 @@ export function CollaboratorAccordion({
       toast({
         title: `${codes.length} nota${codes.length !== 1 ? 's' : ''} copiadas ✅`,
         description: 'Prontas para colar no SAP.',
+        variant: 'success',
       })
     } else {
-      toast({ title: 'Erro ao copiar', variant: 'destructive' })
+      toast({ title: 'Erro ao copiar', variant: 'error' })
     }
   }
 
