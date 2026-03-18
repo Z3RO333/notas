@@ -266,6 +266,10 @@ export function CollaboratorPanel({
     () => new Map(collaborators.map((collaborator) => [collaborator.id, collaborator])),
     [collaborators]
   )
+  const unidadeLabelByValue = useMemo(
+    () => new Map(unidadeOptions.map((option) => [option.value, option.label])),
+    [unidadeOptions]
+  )
 
   const filterNotas = useCallback((list: NotaPanelData[]) => {
     let filtered = list
@@ -399,7 +403,7 @@ export function CollaboratorPanel({
       ? { key: 'responsavel', label: 'Responsável' }
       : null,
     showUnidadeFilter && unidadeFilter && unidadeFilter !== 'todas'
-      ? { key: 'unidade', label: `Unidade: ${unidadeFilter}` }
+      ? { key: 'unidade', label: `Unidade: ${unidadeLabelByValue.get(unidadeFilter) ?? unidadeFilter}` }
       : null,
     activeNotesKpi ? { key: 'kpi', label: `KPI: ${activeNotesKpi}` } : null,
   ].filter(Boolean) as Array<{ key: string; label: string }>

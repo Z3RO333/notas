@@ -484,7 +484,7 @@ export interface PerspectivaReatribuicaoAdmin30d {
 // Campos minimos que NotaCard e CollaboratorPanel precisam
 export type NotaPanelData = Pick<NotaManutencao,
   'id' | 'numero_nota' | 'descricao' | 'status' | 'administrador_id' |
-  'prioridade' | 'centro' | 'data_criacao_sap' | 'created_at'
+  'prioridade' | 'centro' | 'denominacao_unidade' | 'data_criacao_sap' | 'created_at'
 > & {
   status_operacional?: NotaStatusOperacional | null
   em_geracao_por_admin_id?: string | null

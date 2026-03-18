@@ -49,6 +49,7 @@ export function NotaListItem({ nota }: NotaListItemProps) {
   const [overrideOpen, setOverrideOpen] = useState(false)
   const [conflictOwnerEmail, setConflictOwnerEmail] = useState<string | null>(null)
   const [operacaoLocal, setOperacaoLocal] = useState<NotaOperacaoEstado | null>(null)
+  const unidadeLabel = nota.denominacao_unidade?.trim() || nota.centro?.trim() || null
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const estadoOperacional = operacaoLocal ?? buildCurrentStateFromNota(nota)
@@ -194,6 +195,9 @@ export function NotaListItem({ nota }: NotaListItemProps) {
             #{nota.numero_nota}
           </p>
           <p className="truncate text-sm text-muted-foreground">{nota.descricao}</p>
+          {unidadeLabel && (
+            <p className="truncate text-xs text-muted-foreground/80">{unidadeLabel}</p>
+          )}
         </div>
 
         <div className="flex shrink-0 items-center gap-2">

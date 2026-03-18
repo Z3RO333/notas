@@ -19,7 +19,7 @@ import type {
 } from '@/lib/types/database'
 import type { CollaboratorData } from '@/lib/types/collaborator'
 
-const NOTA_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, data_criacao_sap, created_at' as const
+const NOTA_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, denominacao_unidade, data_criacao_sap, created_at' as const
 const EMPTY_UUID = '00000000-0000-0000-0000-000000000000'
 const NOTA_OPERATIONAL_FIELDS = 'nota_id, numero_nota, status_operacional, em_geracao_por_admin_id, em_geracao_por_email, em_geracao_em, ultima_copia_em, ttl_minutos, numero_ordem_confirmada, confirmada_em, created_at, updated_at' as const
 const VALID_NOTES_KPI: NotesKpiFilter[] = ['notas', 'novas', 'um_dia', 'dois_mais']
@@ -38,6 +38,14 @@ export interface NotesPageSearchParams {
 interface SelectOption {
   value: string
   label: string
+}
+
+function getNotaUnidadeLabel(nota: Pick<NotaPanelData, 'centro' | 'denominacao_unidade'>): string | null {
+  const denominacao = nota.denominacao_unidade?.trim()
+  if (denominacao) return denominacao
+
+  const centro = nota.centro?.trim()
+  return centro || null
 }
 
 export interface NotesPanelPageData {
@@ -240,9 +248,19 @@ export async function getNotesPanelData(params: {
 
   const unidadeOptions: SelectOption[] = [
     { value: 'todas', label: 'Todas as unidades' },
-    ...Array.from(new Set(notasFiltradas.map((nota) => nota.centro).filter(Boolean) as string[]))
-      .sort((a, b) => a.localeCompare(b, 'pt-BR'))
-      .map((centro) => ({ value: centro, label: centro })),
+    ...Array.from(
+      new Map(
+        notasFiltradas
+          .map((nota) => {
+            const centro = nota.centro?.trim()
+            if (!centro) return null
+            return [centro, getNotaUnidadeLabel(nota) ?? centro] as const
+          })
+          .filter(Boolean) as ReadonlyArray<readonly [string, string]>
+      ).entries()
+    )
+      .sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'))
+      .map(([centro, label]) => ({ value: centro, label })),
   ]
 
   return {

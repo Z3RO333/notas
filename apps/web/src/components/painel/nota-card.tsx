@@ -67,6 +67,7 @@ export function NotaCard({ nota }: NotaCardProps) {
   const [overrideOpen, setOverrideOpen] = useState(false)
   const [conflictOwnerEmail, setConflictOwnerEmail] = useState<string | null>(null)
   const [operacaoLocal, setOperacaoLocal] = useState<NotaOperacaoEstado | null>(null)
+  const unidadeLabel = nota.denominacao_unidade?.trim() || nota.centro?.trim() || null
 
   const prioridadeCor = nota.prioridade ? (prioridadeColor[nota.prioridade] || 'border-l-gray-300') : 'border-l-gray-300'
   const canConclude = nota.administrador_id && (nota.status === 'em_andamento' || nota.status === 'encaminhada_fornecedor')
@@ -264,8 +265,10 @@ export function NotaCard({ nota }: NotaCardProps) {
 
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-3">
-              {nota.centro && (
-                <span className="rounded bg-muted px-1.5 py-0.5">{nota.centro}</span>
+              {unidadeLabel && (
+                <span className="max-w-[14rem] truncate rounded bg-muted px-1.5 py-0.5" title={unidadeLabel}>
+                  {unidadeLabel}
+                </span>
               )}
               {nota.prioridade && (
                 <span>{prioridadeLabel[nota.prioridade] || nota.prioridade}</span>
