@@ -84,6 +84,7 @@ export interface NotaManutencao {
   hora_nota: string | null
   ordem_sap: string | null
   centro: string | null
+  denominacao_unidade: string | null
   status_sap: string | null
   conta_fornecedor: string | null
   autor_nota: string | null
