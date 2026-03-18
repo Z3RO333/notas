@@ -78,7 +78,7 @@ function parseInitialFilters(raw: Awaited<OrdersPageProps['searchParams']>): Ord
     startDate: parseDate(firstParam(raw?.startDate)) ?? (periodMode === 'range' ? defaultStartDate : null),
     endDate: parseDate(firstParam(raw?.endDate)) ?? (periodMode === 'range' ? defaultEndDate : null),
     q: (firstParam(raw?.q) ?? '').trim(),
-    status: (firstParam(raw?.status) ?? 'todas').trim() || 'todas',
+    status: (firstParam(raw?.status) ?? 'aberta').trim() || 'aberta',
     responsavel: (firstParam(raw?.responsavel) ?? 'todos').trim() || 'todos',
     unidade: (firstParam(raw?.unidade) ?? '').trim(),
     prioridade: (firstParam(raw?.prioridade) ?? 'todas').trim() || 'todas',

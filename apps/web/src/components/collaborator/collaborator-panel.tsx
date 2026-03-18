@@ -17,6 +17,7 @@ import { CollaboratorAccordion } from './collaborator-accordion'
 import { CollaboratorAdminActions } from './collaborator-admin-actions'
 import { CollaboratorFullCard } from './collaborator-full-card'
 import { TrackingOrdersBlock } from './tracking-orders-block'
+import { NotesEmCampoDialog } from '@/components/notas/notes-em-campo-dialog'
 import { listenNotaOperacaoEvent } from '@/lib/notes/copy-intent'
 import {
   applyOperationalStateToNota,
@@ -361,6 +362,37 @@ export function CollaboratorPanel({
     filteredNotasByAdmin,
   ])
 
+  const visibleNotesForEmCampo = useMemo(() => {
+    const notesMap = new Map<string, NotaPanelData>()
+
+    if (showResponsavelFilter && responsavelFilter === 'sem_atribuir') {
+      for (const nota of filteredNotasSemAtribuir) {
+        notesMap.set(nota.id, nota)
+      }
+      return Array.from(notesMap.values())
+    }
+
+    for (const collaborator of visibleCollaborators) {
+      for (const nota of filteredNotasByAdmin.get(collaborator.id) ?? []) {
+        notesMap.set(nota.id, nota)
+      }
+    }
+
+    if (!showResponsavelFilter || responsavelFilter === 'todos') {
+      for (const nota of filteredNotasSemAtribuir) {
+        notesMap.set(nota.id, nota)
+      }
+    }
+
+    return Array.from(notesMap.values())
+  }, [
+    filteredNotasByAdmin,
+    filteredNotasSemAtribuir,
+    responsavelFilter,
+    showResponsavelFilter,
+    visibleCollaborators,
+  ])
+
   function handleCardClick(id: string) {
     setExpandedId((prev) => (prev === id ? null : id))
   }
@@ -500,6 +532,15 @@ export function CollaboratorPanel({
               ))}
             </SelectContent>
           </Select>
+        )}
+
+        {mode === 'viewer' && (
+          <NotesEmCampoDialog
+            collaborators={collaborators}
+            notes={visibleNotesForEmCampo}
+            unidadeOptions={unidadeOptions}
+            defaultUnidade={unidadeFilter}
+          />
         )}
 
         <Select value={viewMode} onValueChange={handleViewModeChange}>

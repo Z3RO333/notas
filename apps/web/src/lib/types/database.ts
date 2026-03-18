@@ -160,6 +160,60 @@ export interface NotaOperacaoEstado {
   updated_at: string
 }
 
+export type NotesEmCampoHintPriority = 'interno' | 'externo' | 'equilibrado'
+export type NotesEmCampoExternalMatchMode = 'exato' | 'fallback_servico'
+export type NotesEmCampoSuggestionTargetType = 'interno' | 'externo'
+
+export interface NotesEmCampoInternalSuggestion {
+  admin_id: string
+  nome: string
+  especialidade: Especialidade
+  qtd_ordens_ativas: number
+  qtd_notas_abertas: number
+}
+
+export interface NotesEmCampoExternalSuggestion {
+  fornecedor_codigo: string
+  fornecedor_nome: string
+  total_em_campo: number
+  historico_loja_servico: number
+  historico_servico_geral: number
+  match_mode: NotesEmCampoExternalMatchMode
+}
+
+export interface NotesEmCampoHint {
+  prioridade: NotesEmCampoHintPriority
+  mensagem: string
+}
+
+export interface NotesEmCampoSuggestionTarget {
+  tipo: NotesEmCampoSuggestionTargetType
+  codigo: string | null
+  nome: string
+  historico_loja_servico: number
+  historico_servico_geral: number
+  match_mode: NotesEmCampoExternalMatchMode | null
+}
+
+export interface NotesEmCampoData {
+  internos: NotesEmCampoInternalSuggestion[]
+  externos: NotesEmCampoExternalSuggestion[]
+  hint: NotesEmCampoHint
+}
+
+export interface NotesEmCampoNoteSuggestion {
+  nota_id: string
+  numero_nota: string
+  loja: string | null
+  servico: string | null
+  destino_tipo: NotesEmCampoSuggestionTargetType | null
+  destino_codigo: string | null
+  destino_nome: string | null
+  historico_loja_servico: number
+  historico_servico_geral: number
+  match_mode: NotesEmCampoExternalMatchMode | null
+}
+
 export interface SyncLog {
   id: string
   started_at: string
