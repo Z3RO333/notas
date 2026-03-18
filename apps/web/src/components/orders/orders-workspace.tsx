@@ -2,20 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import {
-  AlertTriangle,
-  Copy,
-  Download,
-  LayoutGrid,
-  Loader2,
-  Clock3,
-  RefreshCcw,
-  Rows3,
-  TimerReset,
-} from 'lucide-react'
+import { AlertTriangle, Copy, Download, LayoutGrid, Loader2, Clock3, RefreshCcw, Rows3, TimerReset } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { CollaboratorCardShell } from '@/components/collaborator/collaborator-card-shell'
 import { OrderCompactCard } from '@/components/orders/order-compact-card'
+import { OperacionaisEmCampoDialog } from '@/components/orders/operacionais-em-campo-dialog'
 import { OrdersBulkReassignBar } from '@/components/orders/orders-bulk-reassign-bar'
 import { OrdersDetailDrawer } from '@/components/orders/orders-detail-drawer'
 import { OrdersKpiStrip } from '@/components/orders/orders-kpi-strip'
@@ -23,25 +14,10 @@ import { OrdersOwnerFullCard } from '@/components/orders/orders-owner-full-card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  getOrdersCriticalityLevel,
-  getRawStatusLabel,
-  getSemaforoLabel,
-  workspaceKpisToOrdemNotaKpis,
-} from '@/lib/orders/metrics'
-import {
-  UNASSIGNED_ORDER_OWNER_KEY,
-  buildVisibleOwnerSummary,
-  hasIndividualOwnerSelection,
-  toOrderOwnerKey,
-} from '@/lib/orders/owner-visibility'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { getOrdersCriticalityLevel, getRawStatusLabel, getSemaforoLabel, workspaceKpisToOrdemNotaKpis } from '@/lib/orders/metrics'
+import { cn } from '@/lib/utils'
+import { UNASSIGNED_ORDER_OWNER_KEY, buildVisibleOwnerSummary, hasIndividualOwnerSelection, toOrderOwnerKey } from '@/lib/orders/owner-visibility'
 import { shouldHideOwnerOutsidePmpl } from '@/lib/admin/admin-identity-catalog'
 import { resolveCargoPresentationFromOwner } from '@/lib/collaborator/cargo-presentation'
 import { buildCopyPayload, copyToClipboard } from '@/lib/orders/copy'
@@ -92,28 +68,20 @@ const MONTH_LABELS = [
 function utcYmd(offsetDays = 0): string {
   const d = new Date()
   d.setUTCDate(d.getUTCDate() - offsetDays)
-  return [
-    d.getUTCFullYear(),
-    String(d.getUTCMonth() + 1).padStart(2, '0'),
-    String(d.getUTCDate()).padStart(2, '0'),
-  ].join('-')
+  return [d.getUTCFullYear(), String(d.getUTCMonth() + 1).padStart(2, '0'), String(d.getUTCDate()).padStart(2, '0')].join('-')
 }
 
 function utcFirstOfMonth(): string {
   const d = new Date()
-  return [
-    d.getUTCFullYear(),
-    String(d.getUTCMonth() + 1).padStart(2, '0'),
-    '01',
-  ].join('-')
+  return [d.getUTCFullYear(), String(d.getUTCMonth() + 1).padStart(2, '0'), '01'].join('-')
 }
 
 const DATE_PRESETS = [
-  { value: 'hoje',  label: 'Hoje' },
+  { value: 'hoje', label: 'Hoje' },
   { value: 'ontem', label: 'Ontem' },
-  { value: '7d',    label: 'Últimos 7 dias' },
-  { value: '30d',   label: 'Últimos 30 dias' },
-  { value: 'mes',   label: 'Mês atual' },
+  { value: '7d', label: 'Últimos 7 dias' },
+  { value: '30d', label: 'Últimos 30 dias' },
+  { value: 'mes', label: 'Mês atual' },
   { value: 'custom', label: 'Personalizado' },
 ] as const
 
@@ -128,7 +96,10 @@ function detectDatePreset(startDate: string | null, endDate: string | null): str
   return 'custom'
 }
 
-const PERIOD_MODE_LABELS: Array<{ value: OrdersPeriodModeOperational; label: string }> = [
+const PERIOD_MODE_LABELS: Array<{
+  value: OrdersPeriodModeOperational
+  label: string
+}> = [
   { value: 'all', label: 'Todo histórico' },
   { value: 'year', label: 'Ano' },
   { value: 'year_month', label: 'Ano + mês' },
@@ -183,12 +154,7 @@ interface SmartSearchResolution {
   matchedOwnerLabel: string | null
 }
 
-function resolveSmartSearch(
-  query: string,
-  ownerCandidates: Array<{ id: string; nome: string }>,
-  currentResponsavel: string,
-  canViewGlobal: boolean,
-): SmartSearchResolution {
+function resolveSmartSearch(query: string, ownerCandidates: Array<{ id: string; nome: string }>, currentResponsavel: string, canViewGlobal: boolean): SmartSearchResolution {
   const clean = sanitizeText(query)
   if (!clean) {
     return {
@@ -211,11 +177,7 @@ function resolveSmartSearch(
   }
 
   const normalized = normalizeSearchToken(clean)
-  if (
-    canViewGlobal
-    && (currentResponsavel === 'todos' || !currentResponsavel)
-    && normalized.length >= 3
-  ) {
+  if (canViewGlobal && (currentResponsavel === 'todos' || !currentResponsavel) && normalized.length >= 3) {
     const matches = ownerCandidates.filter((owner) => normalizeSearchToken(owner.nome).includes(normalized))
     if (matches.length === 1) {
       return {
@@ -249,17 +211,17 @@ function formatNumber(value: number): string {
 
 function exportOrdersToXlsx(rows: OrdemNotaAcompanhamento[]) {
   const data = rows.map((row) => ({
-    'Ordem': row.ordem_codigo,
-    'Nota': row.numero_nota,
-    'Status': getRawStatusLabel(row.status_ordem_raw),
+    Ordem: row.ordem_codigo,
+    Nota: row.numero_nota,
+    Status: getRawStatusLabel(row.status_ordem_raw),
     'Status RAW': row.status_ordem_raw ?? '',
-    'Centro': row.centro ?? '',
-    'Unidade': row.unidade ?? '',
-    'Responsável': row.administrador_nome ?? 'Sem responsável',
-    'Semáforo': getSemaforoLabel(row.semaforo_atraso),
+    Centro: row.centro ?? '',
+    Unidade: row.unidade ?? '',
+    Responsável: row.administrador_nome ?? 'Sem responsável',
+    Semáforo: getSemaforoLabel(row.semaforo_atraso),
     'Dias em aberto': row.dias_em_aberto,
     'Detectada em': formatIsoDate(row.ordem_detectada_em),
-    'Descrição': row.descricao ?? '',
+    Descrição: row.descricao ?? '',
   }))
 
   const ws = XLSX.utils.json_to_sheet(data)
@@ -376,35 +338,33 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   }, [reassignTargets])
 
   const selectedNotaIdsSet = useMemo(() => new Set(selectedNotaIds), [selectedNotaIds])
-  const searchOwnerCandidates = useMemo(
-    () => reassignTargets.map((target) => ({ id: target.id, nome: target.nome })),
-    [reassignTargets]
-  )
+  const searchOwnerCandidates = useMemo(() => reassignTargets.map((target) => ({ id: target.id, nome: target.nome })), [reassignTargets])
   const hasListScopeFilters = Boolean(
-    filters.q
-    || (filters.status && filters.status !== 'todas')
-    || (filters.responsavel && filters.responsavel !== 'todos')
-    || filters.unidade
-    || (filters.prioridade && filters.prioridade !== 'todas')
+    filters.q ||
+    (filters.status && filters.status !== 'todas') ||
+    (filters.responsavel && filters.responsavel !== 'todos') ||
+    filters.unidade ||
+    (filters.prioridade && filters.prioridade !== 'todas'),
   )
   const smartSearch = useMemo(
     () => resolveSmartSearch(filters.q, searchOwnerCandidates, filters.responsavel, currentUser.canViewGlobal),
-    [filters.q, searchOwnerCandidates, filters.responsavel, currentUser.canViewGlobal]
+    [filters.q, searchOwnerCandidates, filters.responsavel, currentUser.canViewGlobal],
   )
-  const effectiveFilters = useMemo<OrdersWorkspaceFilters>(() => ({
-    ...filters,
-    q: smartSearch.effectiveQ,
-    responsavel: smartSearch.derivedResponsavel ?? filters.responsavel,
-  }), [filters, smartSearch.effectiveQ, smartSearch.derivedResponsavel])
+  const effectiveFilters = useMemo<OrdersWorkspaceFilters>(
+    () => ({
+      ...filters,
+      q: smartSearch.effectiveQ,
+      responsavel: smartSearch.derivedResponsavel ?? filters.responsavel,
+    }),
+    [filters, smartSearch.effectiveQ, smartSearch.derivedResponsavel],
+  )
   const hasSelectedOwnerFilter = hasIndividualOwnerSelection(currentUser.canViewGlobal, filters.responsavel)
   const selectedOwnerKey = hasSelectedOwnerFilter ? filters.responsavel.trim() : null
 
   const ownerGroups = useMemo((): OrderOwnerGroup[] => {
     if (ownerCardsViewMode !== 'cards') return []
 
-    const scopedOwnerSummary = isPrivateScope
-      ? ownerSummary.filter((item) => item.administrador_id === currentUser.adminId)
-      : ownerSummary
+    const scopedOwnerSummary = isPrivateScope ? ownerSummary.filter((item) => item.administrador_id === currentUser.adminId) : ownerSummary
 
     // Agrupar rows carregados por responsável (para a lista de itens)
     // Exclui concluídas/canceladas — o card exibe apenas ordens ativas.
@@ -442,16 +402,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       })
       .filter((g) => g.total > 0)
       .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, 'pt-BR'))
-  }, [
-    rows,
-    ownerCardsViewMode,
-    ownerSummary,
-    filters.tipoOrdem,
-    ownerEspecialidadeById,
-    isPrivateScope,
-    currentUser.adminId,
-    selectedOwnerKey,
-  ])
+  }, [rows, ownerCardsViewMode, ownerSummary, filters.tipoOrdem, ownerEspecialidadeById, isPrivateScope, currentUser.adminId, selectedOwnerKey])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -505,131 +456,140 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     setFilters((prev) => (prev.responsavel === 'todos' ? prev : { ...prev, responsavel: 'todos' }))
   }, [isPrivateScope, filters.responsavel])
 
-  const fetchWorkspace = useCallback(async (
-    reset: boolean,
-    cursor: OrdersWorkspaceCursor | null = null,
-  ) => {
-    fetchAbortRef.current?.abort()
-    const controller = new AbortController()
-    fetchAbortRef.current = controller
-
-    if (reset) {
-      setLoadingInitial(true)
-      setError(null)
-    } else {
-      setLoadingMore(true)
-    }
-
-    const reqId = Math.random().toString(36).slice(2, 8)
-    const pageCursor = reset ? null : cursor
-
-    console.debug(`[ordens:fetch:start] reqId=${reqId} reset=${reset}`, {
-      filtros: {
-        ...effectiveFilters,
-        q: effectiveFilters.q ? '***' : '',
-        searchMode: smartSearch.mode,
-      },
-      cursor: pageCursor,
-    })
-
-    try {
-      const params = buildWorkspaceParams(effectiveFilters, pageCursor, batchSize)
-      const response = await fetch(`/api/ordens/workspace?${params.toString()}`, {
-        signal: controller.signal,
-        cache: 'no-store',
-      })
-
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as { error?: string }
-        throw new Error(payload.error || 'Falha ao carregar ordens')
-      }
-
-      const payload = (await response.json()) as OrdersWorkspaceResponse
-
-      console.debug(`[ordens:fetch:done] reqId=${reqId}`, {
-        rows: payload.rows.length,
-        total: payload.kpis.total,
-        cursor: payload.nextCursor ?? 'fim',
-      })
-
-      if (process.env.NODE_ENV === 'development') {
-        const k = payload.kpis
-        const soma = k.abertas + k.em_tratativa + k.concluidas + k.canceladas
-        if (soma !== k.total) {
-          console.warn('[ordens:consistencia] total !== soma de status principais', {
-            total: k.total, soma, diff: k.total - soma,
-            nota: 'atrasadas e avaliadas são dimensões ortogonais — não entram na soma',
-          })
-        }
-        const ids = payload.rows.map((r) => r.ordem_id)
-        const uniq = new Set(ids)
-        if (uniq.size !== ids.length) {
-          console.warn('[ordens:consistencia] linhas duplicadas detectadas na página', {
-            total: ids.length, unique: uniq.size, duplicatas: ids.length - uniq.size,
-          })
-        }
-      }
-
-      setCurrentUser((prev) => ({ ...payload.currentUser, userEmail: prev.userEmail }))
-      setKpis(payload.kpis)
-      setOwnerSummary(payload.ownerSummary)
-      setReassignTargets(payload.reassignTargets)
-      setNextCursor(payload.nextCursor)
+  const fetchWorkspace = useCallback(
+    async (reset: boolean, cursor: OrdersWorkspaceCursor | null = null) => {
+      fetchAbortRef.current?.abort()
+      const controller = new AbortController()
+      fetchAbortRef.current = controller
 
       if (reset) {
-        setRows(payload.rows)
-        setSelectedNotaIds([])
-        if (pendingSearchEnterActionRef.current) {
-          pendingSearchEnterActionRef.current = false
-          const first = payload.rows[0]
-          if (!first) {
-            toast({
-              title: 'Nenhum resultado para copiar',
-              variant: 'info',
+        setLoadingInitial(true)
+        setError(null)
+      } else {
+        setLoadingMore(true)
+      }
+
+      const reqId = Math.random().toString(36).slice(2, 8)
+      const pageCursor = reset ? null : cursor
+
+      console.debug(`[ordens:fetch:start] reqId=${reqId} reset=${reset}`, {
+        filtros: {
+          ...effectiveFilters,
+          q: effectiveFilters.q ? '***' : '',
+          searchMode: smartSearch.mode,
+        },
+        cursor: pageCursor,
+      })
+
+      try {
+        const params = buildWorkspaceParams(effectiveFilters, pageCursor, batchSize)
+        const response = await fetch(`/api/ordens/workspace?${params.toString()}`, {
+          signal: controller.signal,
+          cache: 'no-store',
+        })
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => ({}))) as {
+            error?: string
+          }
+          throw new Error(payload.error || 'Falha ao carregar ordens')
+        }
+
+        const payload = (await response.json()) as OrdersWorkspaceResponse
+
+        console.debug(`[ordens:fetch:done] reqId=${reqId}`, {
+          rows: payload.rows.length,
+          total: payload.kpis.total,
+          cursor: payload.nextCursor ?? 'fim',
+        })
+
+        if (process.env.NODE_ENV === 'development') {
+          const k = payload.kpis
+          const soma = k.abertas + k.em_tratativa + k.concluidas + k.canceladas
+          if (soma !== k.total) {
+            console.warn('[ordens:consistencia] total !== soma de status principais', {
+              total: k.total,
+              soma,
+              diff: k.total - soma,
+              nota: 'atrasadas e avaliadas são dimensões ortogonais — não entram na soma',
             })
-          } else {
-            setDetailRow(first)
-            const target = getPrimaryCopyTarget(first)
-            if (!target) {
+          }
+          const ids = payload.rows.map((r) => r.ordem_id)
+          const uniq = new Set(ids)
+          if (uniq.size !== ids.length) {
+            console.warn('[ordens:consistencia] linhas duplicadas detectadas na página', {
+              total: ids.length,
+              unique: uniq.size,
+              duplicatas: ids.length - uniq.size,
+            })
+          }
+        }
+
+        setCurrentUser((prev) => ({
+          ...payload.currentUser,
+          userEmail: prev.userEmail,
+        }))
+        setKpis(payload.kpis)
+        setOwnerSummary(payload.ownerSummary)
+        setReassignTargets(payload.reassignTargets)
+        setNextCursor(payload.nextCursor)
+
+        if (reset) {
+          setRows(payload.rows)
+          setSelectedNotaIds([])
+          if (pendingSearchEnterActionRef.current) {
+            pendingSearchEnterActionRef.current = false
+            const first = payload.rows[0]
+            if (!first) {
               toast({
-                title: 'Resultado sem código copiável',
+                title: 'Nenhum resultado para copiar',
                 variant: 'info',
               })
             } else {
-              const copied = await copyToClipboard(target.value)
-              if (!copied) {
+              setDetailRow(first)
+              const target = getPrimaryCopyTarget(first)
+              if (!target) {
                 toast({
-                  title: `Falha ao copiar ${target.label}`,
-                  description: 'Não foi possível copiar para a área de transferência.',
-                  variant: 'error',
+                  title: 'Resultado sem código copiável',
+                  variant: 'info',
                 })
               } else {
-                toast({
-                  title: `${target.label} ${target.value} copiada ✅`,
-                  variant: 'success',
-                })
+                const copied = await copyToClipboard(target.value)
+                if (!copied) {
+                  toast({
+                    title: `Falha ao copiar ${target.label}`,
+                    description: 'Não foi possível copiar para a área de transferência.',
+                    variant: 'error',
+                  })
+                } else {
+                  toast({
+                    title: `${target.label} ${target.value} copiada ✅`,
+                    variant: 'success',
+                  })
+                }
               }
             }
           }
+        } else {
+          setRows((prev) => mergeRows(prev, payload.rows))
         }
-      } else {
-        setRows((prev) => mergeRows(prev, payload.rows))
+      } catch (fetchError) {
+        if ((fetchError as Error).name === 'AbortError') return
+        setError(fetchError instanceof Error ? fetchError.message : 'Falha ao carregar ordens')
+        if (reset) {
+          setRows([])
+          setNextCursor(null)
+        }
+      } finally {
+        // Se o fetch foi abortado (ex: novo filtro aplicado enquanto este estava em voo),
+        // não alterar o estado de loading — o fetch substituto já assumiu o controle.
+        if (controller.signal.aborted) return
+        if (reset) setLoadingInitial(false)
+        setLoadingMore(false)
       }
-    } catch (fetchError) {
-      if ((fetchError as Error).name === 'AbortError') return
-      setError(fetchError instanceof Error ? fetchError.message : 'Falha ao carregar ordens')
-      if (reset) {
-        setRows([])
-        setNextCursor(null)
-      }
-    } finally {
-      // Se o fetch foi abortado (ex: novo filtro aplicado enquanto este estava em voo),
-      // não alterar o estado de loading — o fetch substituto já assumiu o controle.
-      if (controller.signal.aborted) return
-      if (reset) setLoadingInitial(false)
-      setLoadingMore(false)
-    }
-  }, [effectiveFilters, smartSearch.mode, toast])
+    },
+    [effectiveFilters, smartSearch.mode, toast],
+  )
 
   useEffect(() => {
     setNextCursor(null)
@@ -638,16 +598,15 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     return () => fetchAbortRef.current?.abort()
   }, [fetchWorkspace])
 
-  const rowsWithLinkedNote = useMemo(
-    () => rows.filter((row) => Boolean(getRowNotaId(row))),
-    [rows]
-  )
+  const rowsWithLinkedNote = useMemo(() => rows.filter((row) => Boolean(getRowNotaId(row))), [rows])
   const allLoadedSelected = useMemo(
-    () => rowsWithLinkedNote.length > 0 && rowsWithLinkedNote.every((row) => {
-      const notaId = getRowNotaId(row)
-      return notaId ? selectedNotaIdsSet.has(notaId) : false
-    }),
-    [rowsWithLinkedNote, selectedNotaIdsSet]
+    () =>
+      rowsWithLinkedNote.length > 0 &&
+      rowsWithLinkedNote.every((row) => {
+        const notaId = getRowNotaId(row)
+        return notaId ? selectedNotaIdsSet.has(notaId) : false
+      }),
+    [rowsWithLinkedNote, selectedNotaIdsSet],
   )
 
   function toggleSelection(notaId: string) {
@@ -672,9 +631,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       assignments
         .map((item) => {
           const notaId = normalizeNotaId(item.nota_id)
-          return notaId ? [notaId, item.administrador_destino_id] as const : null
+          return notaId ? ([notaId, item.administrador_destino_id] as const) : null
         })
-        .filter(Boolean) as Array<readonly [string, string]>
+        .filter(Boolean) as Array<readonly [string, string]>,
     )
     if (assignByNota.size === 0) return
 
@@ -708,9 +667,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   }
 
   const unitOptions = useMemo(() => {
-    const units = Array.from(
-      new Set(rows.map((row) => row.unidade).filter(Boolean) as string[])
-    )
+    const units = Array.from(new Set(rows.map((row) => row.unidade).filter(Boolean) as string[]))
     return units.sort((a, b) => a.localeCompare(b, 'pt-BR'))
   }, [rows])
 
@@ -723,6 +680,10 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       }))
     return options
   }, [ownerSummary])
+  const periodControlsClassName = cn(
+    'grid gap-2 sm:grid-cols-2',
+    filters.periodMode === 'range' ? 'xl:grid-cols-4' : filters.periodMode === 'year_month' ? 'xl:grid-cols-3' : filters.periodMode === 'all' ? 'xl:grid-cols-1' : 'xl:grid-cols-2',
+  )
 
   const handleCopyFilteredOrders = useCallback(async () => {
     setCopyFilterLoading(true)
@@ -758,9 +719,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     } catch (error) {
       toast({
         title: 'Falha ao copiar filtro',
-        description: error instanceof Error
-          ? error.message
-          : 'Não foi possível carregar as ordens do filtro atual.',
+        description: error instanceof Error ? error.message : 'Não foi possível carregar as ordens do filtro atual.',
         variant: 'error',
       })
     } finally {
@@ -831,40 +790,43 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     return null
   }
 
-  const copyFromRow = useCallback(async (row: OrdemNotaAcompanhamento | null | undefined) => {
-    if (!row) {
-      toast({
-        title: 'Nenhum resultado para copiar',
-        variant: 'info',
-      })
-      return
-    }
+  const copyFromRow = useCallback(
+    async (row: OrdemNotaAcompanhamento | null | undefined) => {
+      if (!row) {
+        toast({
+          title: 'Nenhum resultado para copiar',
+          variant: 'info',
+        })
+        return
+      }
 
-    setDetailRow(row)
-    const target = getPrimaryCopyTarget(row)
-    if (!target) {
-      toast({
-        title: 'Resultado sem código copiável',
-        variant: 'info',
-      })
-      return
-    }
+      setDetailRow(row)
+      const target = getPrimaryCopyTarget(row)
+      if (!target) {
+        toast({
+          title: 'Resultado sem código copiável',
+          variant: 'info',
+        })
+        return
+      }
 
-    const copied = await copyToClipboard(target.value)
-    if (!copied) {
-      toast({
-        title: `Falha ao copiar ${target.label}`,
-        description: 'Não foi possível copiar para a área de transferência.',
-        variant: 'error',
-      })
-      return
-    }
+      const copied = await copyToClipboard(target.value)
+      if (!copied) {
+        toast({
+          title: `Falha ao copiar ${target.label}`,
+          description: 'Não foi possível copiar para a área de transferência.',
+          variant: 'error',
+        })
+        return
+      }
 
-    toast({
-      title: `${target.label} ${target.value} copiada ✅`,
-      variant: 'success',
-    })
-  }, [toast])
+      toast({
+        title: `${target.label} ${target.value} copiada ✅`,
+        variant: 'success',
+      })
+    },
+    [toast],
+  )
 
   const selectAndCopyFirstResult = useCallback(async () => {
     await copyFromRow(rows[0])
@@ -873,11 +835,11 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   function handleDatePreset(preset: string) {
     const today = utcYmd(0)
     const ranges: Record<string, { start: string; end: string }> = {
-      hoje:  { start: today,             end: today },
-      ontem: { start: utcYmd(1),         end: utcYmd(1) },
-      '7d':  { start: utcYmd(6),         end: today },
-      '30d': { start: utcYmd(29),        end: today },
-      mes:   { start: utcFirstOfMonth(), end: today },
+      hoje: { start: today, end: today },
+      ontem: { start: utcYmd(1), end: utcYmd(1) },
+      '7d': { start: utcYmd(6), end: today },
+      '30d': { start: utcYmd(29), end: today },
+      mes: { start: utcFirstOfMonth(), end: today },
     }
     const range = ranges[preset]
     if (range) {
@@ -912,9 +874,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             type="button"
             onClick={() => handleTabChange('PMOS')}
             className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
-              filters.tipoOrdem === 'PMOS' || !filters.tipoOrdem
-                ? 'bg-background shadow text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
+              filters.tipoOrdem === 'PMOS' || !filters.tipoOrdem ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             PMOS <span className="text-muted-foreground font-normal">(Padrão)</span>
@@ -923,27 +883,16 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             type="button"
             onClick={() => handleTabChange('PMPL')}
             className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
-              filters.tipoOrdem === 'PMPL'
-                ? 'bg-background shadow text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
+              filters.tipoOrdem === 'PMPL' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             PMPL
           </button>
         </div>
       )}
-      {filters.tipoOrdem === 'PMPL' && (
-        <p className="text-xs text-muted-foreground">
-          Ordens sem nota não permitem reatribuição por nota.
-        </p>
-      )}
+      {filters.tipoOrdem === 'PMPL' && <p className="text-xs text-muted-foreground">Ordens sem nota não permitem reatribuição por nota.</p>}
 
-      <OrdersKpiStrip
-        kpis={workspaceKpisToOrdemNotaKpis(kpis)}
-        activeKpi={null}
-        criticality={getOrdersCriticalityLevel(kpis.total, kpis.atrasadas)}
-        interactive={false}
-      />
+      <OrdersKpiStrip kpis={workspaceKpisToOrdemNotaKpis(kpis)} activeKpi={null} criticality={getOrdersCriticalityLevel(kpis.total, kpis.atrasadas)} interactive={false} />
 
       {hasListScopeFilters && (
         <p className="text-xs text-muted-foreground">
@@ -979,18 +928,18 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
               <button
                 type="button"
                 className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
-                onClick={() => setFilters((prev) => ({ ...prev, responsavel: UNASSIGNED_ORDER_OWNER_KEY }))}
+                onClick={() =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    responsavel: UNASSIGNED_ORDER_OWNER_KEY,
+                  }))
+                }
               >
                 Sem responsável: {formatNumber(kpis.sem_responsavel)}
               </button>
             )}
             {currentUser.canViewGlobal && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setFilters((prev) => ({ ...prev, responsavel: 'todos' }))}
-              >
+              <Button type="button" variant="outline" size="sm" onClick={() => setFilters((prev) => ({ ...prev, responsavel: 'todos' }))}>
                 Todos
               </Button>
             )}
@@ -1040,12 +989,12 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                       icon: AlertTriangle,
                     },
                   ]}
-                  summary={(
+                  summary={
                     <>
                       <span className="text-base font-bold text-foreground">{formatNumber(owner.total)}</span>
                       <span> de ordens ativas</span>
                     </>
-                  )}
+                  }
                 />
               )
             })}
@@ -1060,9 +1009,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                 reassignTargets={reassignTargets}
                 selectedNotaIds={selectedNotaIdsSet}
                 onToggleRowSelection={(notaId) => {
-                  setSelectedNotaIds((prev) =>
-                    prev.includes(notaId) ? prev.filter((id) => id !== notaId) : [...prev, notaId]
-                  )
+                  setSelectedNotaIds((prev) => (prev.includes(notaId) ? prev.filter((id) => id !== notaId) : [...prev, notaId]))
                 }}
               />
             ))}
@@ -1070,192 +1017,209 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         )}
       </div>
 
-      <div className="sticky top-2 z-30 grid gap-2 rounded-lg border bg-background/95 p-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:grid-cols-6">
-        <Input
-          ref={searchInputRef}
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
-          onKeyDown={handleSearchKeyDown}
-          placeholder="Buscar por nota, ordem ou descrição"
-          className="lg:col-span-2"
-        />
+      <div className="sticky top-2 z-30 rounded-lg border bg-background/95 p-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="grid gap-3 xl:grid-cols-12 xl:items-start">
+          <Input
+            ref={searchInputRef}
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            onKeyDown={handleSearchKeyDown}
+            placeholder="Buscar por nota, ordem ou descrição"
+            className="xl:col-span-3"
+          />
 
-        <Select
-          value={filters.periodMode}
-          onValueChange={(value) => setFilters((prev) => ({ ...prev, periodMode: value as OrdersPeriodModeOperational }))}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Período" />
-          </SelectTrigger>
-          <SelectContent>
-            {PERIOD_MODE_LABELS.map((mode) => (
-              <SelectItem key={mode.value} value={mode.value}>{mode.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {filters.periodMode === 'year' && (
-          <Select
-            value={String(filters.year ?? years[0])}
-            onValueChange={(value) => setFilters((prev) => ({ ...prev, year: Number(value) }))}
-          >
-            <SelectTrigger><SelectValue placeholder="Ano" /></SelectTrigger>
-            <SelectContent>
-              {years.map((year) => (
-                <SelectItem key={year} value={String(year)}>{year}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        {filters.periodMode === 'year_month' && (
-          <>
+          <div className={cn(periodControlsClassName, 'xl:col-span-5')}>
             <Select
-              value={String(filters.year ?? years[0])}
-              onValueChange={(value) => setFilters((prev) => ({ ...prev, year: Number(value) }))}
+              value={filters.periodMode}
+              onValueChange={(value) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  periodMode: value as OrdersPeriodModeOperational,
+                }))
+              }
             >
-              <SelectTrigger><SelectValue placeholder="Ano" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Período" />
+              </SelectTrigger>
               <SelectContent>
-                {years.map((year) => (
-                  <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                {PERIOD_MODE_LABELS.map((mode) => (
+                  <SelectItem key={mode.value} value={mode.value}>
+                    {mode.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Select
-              value={String(filters.month ?? 1)}
-              onValueChange={(value) => setFilters((prev) => ({ ...prev, month: Number(value) }))}
-            >
-              <SelectTrigger><SelectValue placeholder="Mês" /></SelectTrigger>
-              <SelectContent>
-                {MONTH_LABELS.map((month) => (
-                  <SelectItem key={month.value} value={String(month.value)}>{month.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </>
-        )}
 
-        {filters.periodMode === 'month' && (
-          <Select
-            value={String(filters.month ?? 1)}
-            onValueChange={(value) => setFilters((prev) => ({ ...prev, month: Number(value) }))}
-          >
-            <SelectTrigger><SelectValue placeholder="Mês" /></SelectTrigger>
-            <SelectContent>
-              {MONTH_LABELS.map((month) => (
-                <SelectItem key={month.value} value={String(month.value)}>{month.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        {filters.periodMode === 'range' && (
-          <>
-            <Select
-              value={detectDatePreset(filters.startDate ?? null, filters.endDate ?? null)}
-              onValueChange={handleDatePreset}
-            >
-              <SelectTrigger><SelectValue placeholder="Período rápido" /></SelectTrigger>
-              <SelectContent>
-                {DATE_PRESETS.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              type="date"
-              value={filters.startDate ?? ''}
-              onChange={(event) => setFilters((prev) => ({ ...prev, startDate: event.target.value || null }))}
-            />
-            <Input
-              type="date"
-              value={filters.endDate ?? ''}
-              onChange={(event) => setFilters((prev) => ({ ...prev, endDate: event.target.value || null }))}
-            />
-          </>
-        )}
-
-        <Select
-          value={filters.status || 'todas'}
-          onValueChange={(value) => setFilters((prev) => ({ ...prev, status: value }))}
-        >
-          <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            {STATUS_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filters.prioridade || 'todas'}
-          onValueChange={(value) => setFilters((prev) => ({ ...prev, prioridade: value }))}
-        >
-          <SelectTrigger><SelectValue placeholder="Prioridade" /></SelectTrigger>
-          <SelectContent>
-            {PRIORIDADE_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {currentUser.canViewGlobal && (
-          <Select
-            value={filters.responsavel || 'todos'}
-            onValueChange={(value) => setFilters((prev) => ({ ...prev, responsavel: value }))}
-          >
-            <SelectTrigger><SelectValue placeholder="Responsável" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os responsáveis</SelectItem>
-              {responsavelOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        <Input
-          list="workspace-unidades"
-          value={filters.unidade}
-          onChange={(event) => setFilters((prev) => ({ ...prev, unidade: event.target.value }))}
-          placeholder="Unidade"
-        />
-        <datalist id="workspace-unidades">
-          {unitOptions.map((unit) => (
-            <option key={unit} value={unit} />
-          ))}
-        </datalist>
-
-        <div className="flex items-center justify-end gap-2 lg:col-span-2">
-          <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-            <input type="checkbox" checked={allLoadedSelected} onChange={toggleSelectAllLoaded} />
-            Selecionar carregadas
-          </label>
-          <Button
-            type="button"
-            size="sm"
-            className="min-w-[12rem] justify-center"
-            onClick={() => void handleCopyFilteredOrders()}
-            disabled={copyFilterLoading || loadingInitial || rows.length === 0}
-          >
-            {copyFilterLoading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Copy className="h-3.5 w-3.5" />
+            {filters.periodMode === 'year' && (
+              <Select value={String(filters.year ?? years[0])} onValueChange={(value) => setFilters((prev) => ({ ...prev, year: Number(value) }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Ano" />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map((year) => (
+                    <SelectItem key={year} value={String(year)}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
-            {copyFilterLoading ? 'Copiando filtro...' : 'Copiar tudo do filtro'}
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => exportOrdersToXlsx(rows)} disabled={rows.length === 0}>
-            <Download className="mr-2 h-3.5 w-3.5" />
-            Exportar planilha
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => fetchWorkspace(true)}>
-            <RefreshCcw className="mr-2 h-3.5 w-3.5" />
-            Atualizar
-          </Button>
+
+            {filters.periodMode === 'year_month' && (
+              <>
+                <Select value={String(filters.year ?? years[0])} onValueChange={(value) => setFilters((prev) => ({ ...prev, year: Number(value) }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Ano" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {years.map((year) => (
+                      <SelectItem key={year} value={String(year)}>
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={String(filters.month ?? 1)} onValueChange={(value) => setFilters((prev) => ({ ...prev, month: Number(value) }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Mês" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONTH_LABELS.map((month) => (
+                      <SelectItem key={month.value} value={String(month.value)}>
+                        {month.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
+
+            {filters.periodMode === 'month' && (
+              <Select value={String(filters.month ?? 1)} onValueChange={(value) => setFilters((prev) => ({ ...prev, month: Number(value) }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Mês" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MONTH_LABELS.map((month) => (
+                    <SelectItem key={month.value} value={String(month.value)}>
+                      {month.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {filters.periodMode === 'range' && (
+              <>
+                <Select value={detectDatePreset(filters.startDate ?? null, filters.endDate ?? null)} onValueChange={handleDatePreset}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Período rápido" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DATE_PRESETS.map((p) => (
+                      <SelectItem key={p.value} value={p.value}>
+                        {p.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="date"
+                  value={filters.startDate ?? ''}
+                  onChange={(event) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      startDate: event.target.value || null,
+                    }))
+                  }
+                />
+                <Input
+                  type="date"
+                  value={filters.endDate ?? ''}
+                  onChange={(event) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      endDate: event.target.value || null,
+                    }))
+                  }
+                />
+              </>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 xl:col-span-4 xl:justify-end">
+            <label className="inline-flex h-9 items-center gap-2 rounded-md border border-input px-3 text-xs text-muted-foreground">
+              <input type="checkbox" checked={allLoadedSelected} onChange={toggleSelectAllLoaded} className="h-4 w-4" />
+              Selecionar carregadas
+            </label>
+            <Button type="button" size="sm" className="justify-center" onClick={() => void handleCopyFilteredOrders()} disabled={copyFilterLoading || loadingInitial || rows.length === 0}>
+              {copyFilterLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
+              {copyFilterLoading ? 'Copiando filtro...' : 'Copiar filtro'}
+            </Button>
+            <OperacionaisEmCampoDialog />
+            <Button type="button" variant="outline" size="sm" onClick={() => exportOrdersToXlsx(rows)} disabled={rows.length === 0}>
+              <Download className="mr-2 h-3.5 w-3.5" />
+              Exportar planilha
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => fetchWorkspace(true)}>
+              <RefreshCcw className="mr-2 h-3.5 w-3.5" />
+              Atualizar
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+          <Select value={filters.status || 'todas'} onValueChange={(value) => setFilters((prev) => ({ ...prev, status: value }))}>
+            <SelectTrigger>
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filters.prioridade || 'todas'} onValueChange={(value) => setFilters((prev) => ({ ...prev, prioridade: value }))}>
+            <SelectTrigger>
+              <SelectValue placeholder="Prioridade" />
+            </SelectTrigger>
+            <SelectContent>
+              {PRIORIDADE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {currentUser.canViewGlobal && (
+            <Select value={filters.responsavel || 'todos'} onValueChange={(value) => setFilters((prev) => ({ ...prev, responsavel: value }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Responsável" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os responsáveis</SelectItem>
+                {responsavelOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          <Input list="workspace-unidades" value={filters.unidade} onChange={(event) => setFilters((prev) => ({ ...prev, unidade: event.target.value }))} placeholder="Unidade" />
+          <datalist id="workspace-unidades">
+            {unitOptions.map((unit) => (
+              <option key={unit} value={unit} />
+            ))}
+          </datalist>
         </div>
         {smartSearch.mode !== 'none' && (
-          <p className="text-[11px] text-muted-foreground lg:col-span-6">
+          <p className="mt-3 text-[11px] text-muted-foreground">
             {smartSearch.mode === 'responsavel'
               ? `Busca inteligente ativa: responsável "${smartSearch.matchedOwnerLabel}".`
               : smartSearch.mode === 'ordem'
@@ -1279,41 +1243,25 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         </div>
       )}
 
-      {error && (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
+      {error && <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
 
-      <div
-        ref={parentRef}
-        className="h-[68vh] overflow-auto rounded-lg border"
-      >
+      <div ref={parentRef} className="h-[68vh] overflow-auto rounded-lg border">
         {loadingInitial ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Carregando ordens...
           </div>
         ) : rows.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Nenhuma ordem para os filtros aplicados.
-          </div>
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Nenhuma ordem para os filtros aplicados.</div>
         ) : (
-          <div
-            className="relative w-full"
-            style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
-          >
+          <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
             {virtualRows.map((virtualRow) => {
               const row = rows[virtualRow.index]
               const notaId = getRowNotaId(row)
               const selected = notaId ? selectedNotaIdsSet.has(notaId) : false
 
               return (
-                <div
-                  key={row.ordem_id}
-                  className="absolute left-0 top-0 w-full px-3 py-2"
-                  style={{ transform: `translateY(${virtualRow.start}px)` }}
-                >
+                <div key={row.ordem_id} className="absolute left-0 top-0 w-full px-3 py-2" style={{ transform: `translateY(${virtualRow.start}px)` }}>
                   <OrderCompactCard
                     row={row}
                     selected={selected}
@@ -1326,7 +1274,12 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                       admins: reassignTargets,
                       skipRouterRefresh: true,
                       onReassigned: ({ notaId, novoAdminId }) => {
-                        applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])
+                        applyReassignResult([
+                          {
+                            nota_id: notaId,
+                            administrador_destino_id: novoAdminId,
+                          },
+                        ])
                       },
                     }}
                     onOpenDetails={() => setDetailRow(row)}
@@ -1363,7 +1316,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])
         }}
       />
-
     </div>
   )
 }
