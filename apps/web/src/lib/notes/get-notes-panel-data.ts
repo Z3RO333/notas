@@ -1,6 +1,10 @@
 import 'server-only'
 
-import { isFixedCdOwnerEmail, isPmplFallbackOwnerEmail } from '@/lib/admin/admin-identity-catalog'
+import {
+  isFixedCdOwnerEmail,
+  isPmplFallbackOwnerEmail,
+  resolveFixedOwnerKeyByUnit,
+} from '@/lib/admin/admin-identity-catalog'
 import type { CurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { buildAgingCounts } from '@/lib/collaborator/metrics'
 import { isOpenStatus } from '@/lib/collaborator/aging'
@@ -20,8 +24,6 @@ import type {
 import type { CollaboratorData } from '@/lib/types/collaborator'
 
 const NOTA_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, denominacao_unidade, data_criacao_sap, created_at' as const
-const NOTES_PANEL_VIEW = 'vw_notas_cockpit_convergidas' as const
-const NOTES_PANEL_CARGA_VIEW = 'vw_carga_administradores_cockpit_convergidas' as const
 const EMPTY_UUID = '00000000-0000-0000-0000-000000000000'
 const NOTA_OPERATIONAL_FIELDS = 'nota_id, numero_nota, status_operacional, em_geracao_por_admin_id, em_geracao_por_email, em_geracao_em, ultima_copia_em, ttl_minutos, numero_ordem_confirmada, confirmada_em, created_at, updated_at' as const
 const VALID_NOTES_KPI: NotesKpiFilter[] = ['notas', 'novas', 'um_dia', 'dois_mais']
@@ -142,7 +144,7 @@ export async function getNotesPanelData(params: {
     : null
 
   const [cargaResult, adminsResult] = await Promise.all([
-    supabase.from(NOTES_PANEL_CARGA_VIEW).select('*').order('nome'),
+    supabase.from('vw_carga_real_administradores').select('*').order('nome'),
     supabase
       .from('administradores')
       .select('id, nome')
@@ -154,7 +156,7 @@ export async function getNotesPanelData(params: {
   if (preloadError) throw preloadError
 
   let notesQuery = supabase
-    .from(NOTES_PANEL_VIEW)
+    .from('vw_notas_sem_ordem')
     .select(NOTA_FIELDS)
     .order('data_criacao_sap', { ascending: true })
 
@@ -191,11 +193,22 @@ export async function getNotesPanelData(params: {
   if (notesResult.error) throw notesResult.error
 
   const allCarga = (cargaResult.data ?? []) as CargaAdministrador[]
+  const hiddenCdOwnerIds = new Set(
+    allCarga
+      .filter((admin) => isFixedCdOwnerEmail(admin.email))
+      .map((admin) => admin.id)
+  )
   const operationalAdminIds = new Set(
     ((adminsResult.data ?? []) as Array<{ id: string }>).map((admin) => admin.id)
   )
   const operationalCarga = allCarga.filter((admin) => operationalAdminIds.has(admin.id))
-  const notasFiltradasBase = (notesResult.data ?? []) as NotaPanelData[]
+  const notasFiltradasBase = ((notesResult.data ?? []) as NotaPanelData[]).filter((nota) => {
+    if (nota.administrador_id && hiddenCdOwnerIds.has(nota.administrador_id)) {
+      return false
+    }
+
+    return resolveFixedOwnerKeyByUnit(getNotaUnidadeLabel(nota)) === null
+  })
   const noteIds = notasFiltradasBase.map((nota) => nota.id)
   const operationalByNotaId = await loadOperationalStateByNotaId(supabase, noteIds)
 
@@ -244,7 +257,9 @@ export async function getNotesPanelData(params: {
 
   const responsavelOptions: SelectOption[] = [
     { value: 'todos', label: 'Todos os responsáveis' },
-    ...((adminsResult.data ?? []).map((admin) => ({ value: admin.id, label: admin.nome }))),
+    ...((adminsResult.data ?? [])
+      .filter((admin) => !hiddenCdOwnerIds.has(admin.id))
+      .map((admin) => ({ value: admin.id, label: admin.nome }))),
     { value: 'sem_atribuir', label: 'Não atribuídas' },
   ]
 
