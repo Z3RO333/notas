@@ -30,6 +30,10 @@ const STRONG_REFRIGERACAO_HINTS = [
   'CENTRAIS DE AR',
 ] as const
 
+const SUELEM_TEXTO_BREVE_ALWAYS_ROUTE = new Set([
+  'AR CONDICIONADO (ATE 60.000 BTUS)',
+])
+
 const SUELEM_PMOS_KEEP_CODES = new Set([
   '5222465',
   '5223492',
@@ -222,6 +226,12 @@ export function shouldKeepRefrigeracaoOrderWithSuelem(ordemCodigo: string | null
 
 export function isSuelemKeepOrderCode(ordemCodigo: string | null | undefined): boolean {
   return shouldKeepRefrigeracaoOrderWithSuelem(ordemCodigo)
+}
+
+export function shouldForceSuelemByTextoBreve(textoBreve: string | null | undefined): boolean {
+  const normalized = normalizeRoutingText(textoBreve)
+  if (!normalized) return false
+  return SUELEM_TEXTO_BREVE_ALWAYS_ROUTE.has(normalized)
 }
 
 function hasStrongRefrigeracaoHint(text: string, keywords: readonly string[]): boolean {

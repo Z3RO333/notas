@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   isSuelemKeepOrderCode,
+  shouldForceSuelemByTextoBreve,
   shouldKeepRefrigeracaoOrderWithSuelem,
   shouldRouteOrderToRefrigeracao,
 } from '@/lib/orders/refrigeracao-routing'
@@ -16,6 +17,13 @@ describe('refrigeracao-routing', () => {
   it('exposes the same decision helper for imperative flows', () => {
     expect(isSuelemKeepOrderCode('5223492')).toBe(true)
     expect(isSuelemKeepOrderCode('9999999')).toBe(false)
+  })
+
+  it('forces Suelem routing for the canonical ar-condicionado service text', () => {
+    expect(shouldForceSuelemByTextoBreve('AR CONDICIONADO (ATÉ 60.000 BTUS)')).toBe(true)
+    expect(shouldForceSuelemByTextoBreve('AR CONDICIONADO (ATE 60.000 BTUS)')).toBe(true)
+    expect(shouldForceSuelemByTextoBreve('AR CONDICIONADO (VRF/CHILLER/SPLITAO)')).toBe(false)
+    expect(shouldForceSuelemByTextoBreve(null)).toBe(false)
   })
 
   it('routes only high-confidence refrigeracao texts', () => {

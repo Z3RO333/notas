@@ -11,6 +11,7 @@ import {
   resolveFixedOwnerKeyByUnit,
 } from '@/lib/admin/admin-identity-catalog'
 import {
+  shouldForceSuelemByTextoBreve,
   shouldKeepRefrigeracaoOrderWithSuelem,
   shouldRouteOrderToRefrigeracao,
 } from '@/lib/orders/refrigeracao-routing'
@@ -283,13 +284,18 @@ function routeOrder(row: RoutingCandidateRow, context: RouteOrderContext): Route
     }
   }
 
+  const matchesRefrigeracao = shouldRouteOrderToRefrigeracao({
+    textoBreve: row.texto_breve,
+    descricao: row.descricao,
+    keywords: context.refrigeracaoKeywords,
+  })
+
   if (
-    shouldKeepRefrigeracaoOrderWithSuelem(row.ordem_codigo)
-    && shouldRouteOrderToRefrigeracao({
-      textoBreve: row.texto_breve,
-      descricao: row.descricao,
-      keywords: context.refrigeracaoKeywords,
-    })
+    matchesRefrigeracao
+    && (
+      shouldKeepRefrigeracaoOrderWithSuelem(row.ordem_codigo)
+      || shouldForceSuelemByTextoBreve(row.texto_breve)
+    )
   ) {
     return {
       page: 'PMOS',
