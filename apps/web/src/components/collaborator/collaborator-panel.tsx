@@ -536,7 +536,6 @@ export function CollaboratorPanel({
 
         {mode === 'viewer' && (
           <NotesEmCampoDialog
-            collaborators={collaborators}
             notes={visibleNotesForEmCampo}
             unidadeOptions={unidadeOptions}
             defaultUnidade={unidadeFilter}

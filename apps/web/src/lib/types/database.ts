@@ -162,23 +162,16 @@ export interface NotaOperacaoEstado {
 
 export type NotesEmCampoHintPriority = 'interno' | 'externo' | 'equilibrado'
 export type NotesEmCampoExternalMatchMode = 'exato' | 'fallback_servico'
-export type NotesEmCampoSuggestionTargetType = 'interno' | 'externo'
+export type NotesEmCampoSuggestionTargetType = 'operacional'
 
-export interface NotesEmCampoInternalSuggestion {
-  admin_id: string
-  nome: string
-  especialidade: Especialidade
-  qtd_ordens_ativas: number
-  qtd_notas_abertas: number
-}
-
-export interface NotesEmCampoExternalSuggestion {
+export interface NotesEmCampoOperationalSuggestion {
   fornecedor_codigo: string
   fornecedor_nome: string
   total_em_campo: number
+  ordens_mesma_loja_ativas: number
   historico_loja_servico: number
   historico_servico_geral: number
-  match_mode: NotesEmCampoExternalMatchMode
+  match_mode: NotesEmCampoExternalMatchMode | null
 }
 
 export interface NotesEmCampoHint {
@@ -190,14 +183,14 @@ export interface NotesEmCampoSuggestionTarget {
   tipo: NotesEmCampoSuggestionTargetType
   codigo: string | null
   nome: string
+  ordens_mesma_loja_ativas: number
   historico_loja_servico: number
   historico_servico_geral: number
   match_mode: NotesEmCampoExternalMatchMode | null
 }
 
 export interface NotesEmCampoData {
-  internos: NotesEmCampoInternalSuggestion[]
-  externos: NotesEmCampoExternalSuggestion[]
+  operacionais: NotesEmCampoOperationalSuggestion[]
   hint: NotesEmCampoHint
 }
 
@@ -209,9 +202,11 @@ export interface NotesEmCampoNoteSuggestion {
   destino_tipo: NotesEmCampoSuggestionTargetType | null
   destino_codigo: string | null
   destino_nome: string | null
+  ordens_mesma_loja_ativas: number
   historico_loja_servico: number
   historico_servico_geral: number
   match_mode: NotesEmCampoExternalMatchMode | null
+  mensagem_consolidacao: string | null
 }
 
 export interface SyncLog {

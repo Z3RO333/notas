@@ -13,34 +13,33 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { resolveCargoLabelFromEspecialidade } from '@/lib/collaborator/cargo-presentation'
 import {
+  buildNotesEmCampoConsolidationMessage,
   buildNotesEmCampoData,
   inferNotesEmCampoService,
   pickNotesEmCampoSuggestionTarget,
 } from '@/lib/notes/em-campo'
 import { createClient } from '@/lib/supabase/client'
-import type { CollaboratorData } from '@/lib/types/collaborator'
 import type {
   NotaPanelData,
-  NotesEmCampoExternalSuggestion,
   NotesEmCampoExternalMatchMode,
   NotesEmCampoNoteSuggestion,
+  NotesEmCampoOperationalSuggestion,
 } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 
 interface NotesEmCampoDialogProps {
-  collaborators: CollaboratorData[]
   notes: NotaPanelData[]
   unidadeOptions: Array<{ value: string; label: string }>
   defaultUnidade?: string
   className?: string
 }
 
-interface OperacionalEmCampoRow {
+interface OperacionalCargaRow {
   fornecedor_codigo: string
   fornecedor_nome: string
   total_em_campo: number
+  ordens_mesma_loja_ativas: number
 }
 
 interface ServicoHistoricoRow {
@@ -48,10 +47,7 @@ interface ServicoHistoricoRow {
   total_ordens: number
 }
 
-interface ExternoSuggestionRow {
-  fornecedor_codigo: string
-  fornecedor_nome: string
-  total_em_campo: number
+interface OperacionalSuggestionRow extends OperacionalCargaRow {
   historico_loja_servico: number
   historico_servico_geral: number
   match_mode: NotesEmCampoExternalMatchMode
@@ -63,16 +59,27 @@ interface NoteScopeRow {
   servico: string | null
 }
 
-const LOAD_ONLY_MATCH_MODE: NotesEmCampoExternalMatchMode = 'fallback_servico'
-
-function toLoadOnlySuggestion(row: OperacionalEmCampoRow): NotesEmCampoExternalSuggestion {
+function toOperationalLoadSuggestion(row: OperacionalCargaRow): NotesEmCampoOperationalSuggestion {
   return {
     fornecedor_codigo: row.fornecedor_codigo,
     fornecedor_nome: row.fornecedor_nome,
     total_em_campo: row.total_em_campo,
+    ordens_mesma_loja_ativas: row.ordens_mesma_loja_ativas,
     historico_loja_servico: 0,
     historico_servico_geral: 0,
-    match_mode: LOAD_ONLY_MATCH_MODE,
+    match_mode: null,
+  }
+}
+
+function toOperationalSuggestion(row: OperacionalSuggestionRow): NotesEmCampoOperationalSuggestion {
+  return {
+    fornecedor_codigo: row.fornecedor_codigo,
+    fornecedor_nome: row.fornecedor_nome,
+    total_em_campo: row.total_em_campo,
+    ordens_mesma_loja_ativas: row.ordens_mesma_loja_ativas,
+    historico_loja_servico: row.historico_loja_servico,
+    historico_servico_geral: row.historico_servico_geral,
+    match_mode: row.match_mode,
   }
 }
 
@@ -85,6 +92,18 @@ function getPriorityStyles(priority: 'interno' | 'externo' | 'equilibrado'): str
     case 'equilibrado':
     default:
       return 'border-amber-200 bg-amber-50 text-amber-900'
+  }
+}
+
+function getPriorityLabel(priority: 'interno' | 'externo' | 'equilibrado'): string {
+  switch (priority) {
+    case 'interno':
+      return 'operacional'
+    case 'externo':
+      return 'fornecedor'
+    case 'equilibrado':
+    default:
+      return 'equilibrado'
   }
 }
 
@@ -122,7 +141,6 @@ function getNoteDateValue(nota: NotaPanelData): string {
 }
 
 export function NotesEmCampoDialog({
-  collaborators,
   notes,
   unidadeOptions,
   defaultUnidade = '',
@@ -133,59 +151,14 @@ export function NotesEmCampoDialog({
   const [selectedUnidade, setSelectedUnidade] = useState(defaultUnidade && defaultUnidade !== 'todas' ? defaultUnidade : '')
   const [selectedService, setSelectedService] = useState('')
   const [serviceOptions, setServiceOptions] = useState<Array<{ value: string; label: string }>>([])
-  const [externalCurrentLoad, setExternalCurrentLoad] = useState<NotesEmCampoExternalSuggestion[]>([])
-  const [externalSuggestions, setExternalSuggestions] = useState<NotesEmCampoExternalSuggestion[]>([])
-  const [suggestionsByGroup, setSuggestionsByGroup] = useState<Record<string, NotesEmCampoExternalSuggestion[]>>({})
-  const [loadingBase, setLoadingBase] = useState(false)
+  const [operationalLoadRows, setOperationalLoadRows] = useState<NotesEmCampoOperationalSuggestion[]>([])
+  const [operationalSuggestions, setOperationalSuggestions] = useState<NotesEmCampoOperationalSuggestion[]>([])
+  const [suggestionsByGroup, setSuggestionsByGroup] = useState<Record<string, NotesEmCampoOperationalSuggestion[]>>({})
+  const [loadingServices, setLoadingServices] = useState(false)
+  const [loadingLoads, setLoadingLoads] = useState(false)
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [loadingNoteSuggestions, setLoadingNoteSuggestions] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!open) {
-      setSelectedUnidade(defaultUnidade && defaultUnidade !== 'todas' ? defaultUnidade : '')
-      setSelectedService('')
-      setExternalSuggestions([])
-      setSuggestionsByGroup({})
-      setErrorMessage(null)
-      return
-    }
-
-    if (serviceOptions.length > 0 && externalCurrentLoad.length > 0) return
-
-    setLoadingBase(true)
-    setErrorMessage(null)
-
-    let cancelled = false
-
-    void (async () => {
-      try {
-        const [currentLoadResult, servicesResult] = await Promise.all([
-          supabase.rpc('buscar_operacionais_em_campo'),
-          supabase.rpc('listar_servicos_historicos_notas_em_campo', { p_limit: 250 }),
-        ])
-
-        if (currentLoadResult.error) throw currentLoadResult.error
-        if (servicesResult.error) throw servicesResult.error
-        if (cancelled) return
-
-        const currentLoadRows = ((currentLoadResult.data ?? []) as OperacionalEmCampoRow[]).map(toLoadOnlySuggestion)
-        const serviceRows = (servicesResult.data ?? []) as ServicoHistoricoRow[]
-
-        setExternalCurrentLoad(currentLoadRows)
-        setServiceOptions(serviceRows.map((row) => ({ value: row.texto_breve, label: row.texto_breve })))
-        setLoadingBase(false)
-      } catch (error: unknown) {
-        if (cancelled) return
-        setLoadingBase(false)
-        setErrorMessage(error instanceof Error ? error.message : 'Nao foi possivel carregar os dados de apoio.')
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [defaultUnidade, externalCurrentLoad.length, open, serviceOptions.length, supabase])
 
   const unidadeLabelByValue = useMemo(
     () => new Map(unidadeOptions.map((option) => [option.value, option.label])),
@@ -200,8 +173,79 @@ export function NotesEmCampoDialog({
   )
 
   useEffect(() => {
+    if (!open) {
+      setSelectedUnidade(defaultUnidade && defaultUnidade !== 'todas' ? defaultUnidade : '')
+      setSelectedService('')
+      setOperationalSuggestions([])
+      setSuggestionsByGroup({})
+      setErrorMessage(null)
+    }
+  }, [defaultUnidade, open])
+
+  useEffect(() => {
+    if (!open || serviceOptions.length > 0) return
+
+    setLoadingServices(true)
+    setErrorMessage(null)
+
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const { data, error } = await supabase.rpc('listar_servicos_historicos_notas_em_campo', { p_limit: 250 })
+
+        if (error) throw error
+        if (cancelled) return
+
+        const rows = (data ?? []) as ServicoHistoricoRow[]
+        setServiceOptions(rows.map((row) => ({ value: row.texto_breve, label: row.texto_breve })))
+        setLoadingServices(false)
+      } catch (error: unknown) {
+        if (cancelled) return
+        setLoadingServices(false)
+        setErrorMessage(error instanceof Error ? error.message : 'Nao foi possivel carregar os servicos.')
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, serviceOptions.length, supabase])
+
+  useEffect(() => {
+    if (!open) return
+
+    setLoadingLoads(true)
+    setErrorMessage(null)
+
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const { data, error } = await supabase.rpc('listar_operacionais_carga_notas_em_campo', {
+          p_nome_loja: selectedLoja || null,
+        })
+
+        if (error) throw error
+        if (cancelled) return
+
+        setOperationalLoadRows(((data ?? []) as OperacionalCargaRow[]).map(toOperationalLoadSuggestion))
+        setLoadingLoads(false)
+      } catch (error: unknown) {
+        if (cancelled) return
+        setLoadingLoads(false)
+        setErrorMessage(error instanceof Error ? error.message : 'Nao foi possivel carregar a carga dos operacionais.')
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, selectedLoja, supabase])
+
+  useEffect(() => {
     if (isCorrelationReady) return
-    setExternalSuggestions([])
+    setOperationalSuggestions([])
   }, [isCorrelationReady])
 
   useEffect(() => {
@@ -214,7 +258,7 @@ export function NotesEmCampoDialog({
 
     void (async () => {
       try {
-        const { data, error } = await supabase.rpc('buscar_sugestoes_operacionais_externos_notas_em_campo', {
+        const { data, error } = await supabase.rpc('buscar_sugestoes_operacionais_notas_em_campo', {
           p_nome_loja: selectedLoja,
           p_texto_breve: selectedService,
         })
@@ -222,19 +266,12 @@ export function NotesEmCampoDialog({
         if (error) throw error
         if (cancelled) return
 
-        setExternalSuggestions(((data ?? []) as ExternoSuggestionRow[]).map((row) => ({
-          fornecedor_codigo: row.fornecedor_codigo,
-          fornecedor_nome: row.fornecedor_nome,
-          total_em_campo: row.total_em_campo,
-          historico_loja_servico: row.historico_loja_servico,
-          historico_servico_geral: row.historico_servico_geral,
-          match_mode: row.match_mode,
-        })))
+        setOperationalSuggestions(((data ?? []) as OperacionalSuggestionRow[]).map(toOperationalSuggestion))
         setLoadingSuggestions(false)
       } catch (error: unknown) {
         if (cancelled) return
         setLoadingSuggestions(false)
-        setErrorMessage(error instanceof Error ? error.message : 'Nao foi possivel calcular as sugestoes de externos.')
+        setErrorMessage(error instanceof Error ? error.message : 'Nao foi possivel calcular as sugestoes de operacionais.')
       }
     })()
 
@@ -260,7 +297,7 @@ export function NotesEmCampoDialog({
   ), [notes, selectedService, selectedUnidade, serviceCatalog, unidadeLabelByValue])
 
   useEffect(() => {
-    if (!open || loadingBase) return
+    if (!open || loadingServices) return
 
     const groups = Array.from(
       new Map(
@@ -287,7 +324,7 @@ export function NotesEmCampoDialog({
     void (async () => {
       try {
         const results = await Promise.all(groups.map(async (group) => {
-          const { data, error } = await supabase.rpc('buscar_sugestoes_operacionais_externos_notas_em_campo', {
+          const { data, error } = await supabase.rpc('buscar_sugestoes_operacionais_notas_em_campo', {
             p_nome_loja: group.loja,
             p_texto_breve: group.servico,
           })
@@ -296,14 +333,7 @@ export function NotesEmCampoDialog({
 
           return [
             buildCorrelationKey(group.loja, group.servico),
-            ((data ?? []) as ExternoSuggestionRow[]).map((row) => ({
-              fornecedor_codigo: row.fornecedor_codigo,
-              fornecedor_nome: row.fornecedor_nome,
-              total_em_campo: row.total_em_campo,
-              historico_loja_servico: row.historico_loja_servico,
-              historico_servico_geral: row.historico_servico_geral,
-              match_mode: row.match_mode,
-            })),
+            ((data ?? []) as OperacionalSuggestionRow[]).map(toOperationalSuggestion),
           ] as const
         }))
 
@@ -321,15 +351,15 @@ export function NotesEmCampoDialog({
     return () => {
       cancelled = true
     }
-  }, [loadingBase, open, scopedNotes, supabase])
+  }, [loadingServices, open, scopedNotes, supabase])
 
+  const visibleOperationalRows = isCorrelationReady ? operationalSuggestions : operationalLoadRows
   const data = useMemo(
     () => buildNotesEmCampoData({
-      collaborators,
       service: selectedService,
-      externals: externalSuggestions,
+      operationals: visibleOperationalRows,
     }),
-    [collaborators, externalSuggestions, selectedService]
+    [selectedService, visibleOperationalRows]
   )
 
   const noteSuggestions = useMemo<NotesEmCampoNoteSuggestion[]>(() => (
@@ -338,9 +368,7 @@ export function NotesEmCampoDialog({
         ? buildCorrelationKey(item.loja, item.servico)
         : null
       const target = pickNotesEmCampoSuggestionTarget({
-        collaborators,
-        service: item.servico,
-        externals: correlationKey ? suggestionsByGroup[correlationKey] ?? [] : [],
+        suggestions: correlationKey ? suggestionsByGroup[correlationKey] ?? [] : [],
       })
 
       return {
@@ -351,14 +379,17 @@ export function NotesEmCampoDialog({
         destino_tipo: target?.tipo ?? null,
         destino_codigo: target?.codigo ?? null,
         destino_nome: target?.nome ?? null,
+        ordens_mesma_loja_ativas: target?.ordens_mesma_loja_ativas ?? 0,
         historico_loja_servico: target?.historico_loja_servico ?? 0,
         historico_servico_geral: target?.historico_servico_geral ?? 0,
         match_mode: target?.match_mode ?? null,
+        mensagem_consolidacao: buildNotesEmCampoConsolidationMessage({
+          loja: item.loja,
+          target,
+        }),
       }
     })
-  ), [collaborators, scopedNotes, suggestionsByGroup])
-
-  const visibleExternalRows = isCorrelationReady ? data.externos : externalCurrentLoad
+  ), [scopedNotes, suggestionsByGroup])
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -373,7 +404,7 @@ export function NotesEmCampoDialog({
         <DialogHeader>
           <DialogTitle>Em Campo no Painel de Notas</DialogTitle>
           <DialogDescription>
-            Apoio rapido para distribuicao: veja a carga atual dos internos, os externos com melhor aderencia e o encaixe sugerido por nota.
+            Apoio rapido para distribuicao: veja a carga dos operacionais, quem ja atende a loja e o melhor encaixe historico por nota.
           </DialogDescription>
         </DialogHeader>
 
@@ -381,7 +412,7 @@ export function NotesEmCampoDialog({
           <div className={cn('rounded-lg border px-4 py-3 text-sm', getPriorityStyles(data.hint.prioridade))}>
             <div className="mb-1 flex items-center gap-2">
               <Badge variant="outline" className="border-current text-[11px] uppercase tracking-wide">
-                Prioridade: {data.hint.prioridade}
+                Prioridade: {getPriorityLabel(data.hint.prioridade)}
               </Badge>
               {selectedLoja && (
                 <Badge variant="outline" className="text-[11px]">
@@ -420,7 +451,7 @@ export function NotesEmCampoDialog({
                 options={serviceOptions}
                 value={selectedService}
                 onValueChange={setSelectedService}
-                placeholder={loadingBase ? 'Carregando servicos...' : 'Escolha o servico'}
+                placeholder={loadingServices ? 'Carregando servicos...' : 'Escolha o servico'}
               />
             </div>
 
@@ -432,7 +463,7 @@ export function NotesEmCampoDialog({
                 onClick={() => {
                   setSelectedUnidade(defaultUnidade && defaultUnidade !== 'todas' ? defaultUnidade : '')
                   setSelectedService('')
-                  setExternalSuggestions([])
+                  setOperationalSuggestions([])
                   setSuggestionsByGroup({})
                   setErrorMessage(null)
                 }}
@@ -453,13 +484,13 @@ export function NotesEmCampoDialog({
               <div>
                 <h3 className="text-sm font-semibold">Sugestoes por nota</h3>
                 <p className="text-xs text-muted-foreground">
-                  A linha resume a nota, o servico identificado pela descricao e o melhor encaixe atual para distribuir.
+                  Cada linha resume a nota, o servico identificado e o operacional mais aderente neste momento.
                 </p>
               </div>
-              {(loadingBase || loadingNoteSuggestions) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              {(loadingServices || loadingNoteSuggestions) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
             </div>
 
-            {noteSuggestions.length === 0 && !loadingBase && !loadingNoteSuggestions && (
+            {noteSuggestions.length === 0 && !loadingServices && !loadingNoteSuggestions && (
               <EmptyState>
                 Nenhuma nota visivel no recorte atual para sugerir. Ajuste a loja, o servico ou os filtros do painel.
               </EmptyState>
@@ -484,9 +515,12 @@ export function NotesEmCampoDialog({
                       {suggestion.loja && (
                         <Badge variant="outline">{suggestion.loja}</Badge>
                       )}
-                      <Badge variant={suggestion.destino_tipo === 'externo' ? 'secondary' : 'outline'}>
-                        {suggestion.destino_tipo === 'externo' ? 'Externo' : suggestion.destino_tipo === 'interno' ? 'Interno' : 'Sem destino'}
+                      <Badge variant={suggestion.destino_tipo === 'operacional' ? 'secondary' : 'outline'}>
+                        {suggestion.destino_tipo === 'operacional' ? 'Operacional' : 'Sem sugestao'}
                       </Badge>
+                      {suggestion.ordens_mesma_loja_ativas > 0 && (
+                        <Badge variant="outline">{suggestion.ordens_mesma_loja_ativas} na mesma loja</Badge>
+                      )}
                       {suggestion.match_mode && (
                         <Badge variant="outline">{getMatchModeLabel(suggestion.match_mode)}</Badge>
                       )}
@@ -497,6 +531,10 @@ export function NotesEmCampoDialog({
                         <Badge variant="outline">{suggestion.historico_servico_geral} servico geral</Badge>
                       )}
                     </div>
+
+                    {suggestion.mensagem_consolidacao && (
+                      <p className="text-xs text-muted-foreground">{suggestion.mensagem_consolidacao}</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -506,87 +544,59 @@ export function NotesEmCampoDialog({
           <div className="space-y-3 rounded-xl border p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-semibold">Internos</h3>
-                <p className="text-xs text-muted-foreground">
-                  Menor carga de ordens primeiro; em seguida, menor volume de notas abertas.
-                </p>
-              </div>
-              {loadingBase && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-            </div>
-
-            <div className="space-y-2">
-              {data.internos.map((internal) => (
-                <div
-                  key={internal.admin_id}
-                  className="flex flex-col gap-2 rounded-lg border px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{internal.nome}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {resolveCargoLabelFromEspecialidade(internal.especialidade)}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary">{internal.qtd_ordens_ativas} ordens ativas</Badge>
-                    <Badge variant="outline">{internal.qtd_notas_abertas} notas abertas</Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-3 rounded-xl border p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
                 <h3 className="text-sm font-semibold">
-                  {isCorrelationReady ? 'Externos mais aderentes' : 'Externos em campo agora'}
+                  {isCorrelationReady ? 'Operacionais mais aderentes' : 'Carga atual dos operacionais'}
                 </h3>
                 <p className="text-xs text-muted-foreground">
                   {isCorrelationReady
-                    ? 'Ranking por historico do mesmo servico na loja; sem match exato, cai para o servico geral.'
-                    : 'Selecione loja e servico para comparar os fornecedores externos com mais aderencia.'}
+                    ? 'Quem ja atende a loja sobe primeiro; depois entram historico do servico e menor carga em campo.'
+                    : selectedLoja
+                      ? 'A lista destaca quem ja esta com ordem ativa nessa loja para evitar pulverizar atendimento.'
+                      : 'Use esta lista para ver quem esta mais leve no momento antes de distribuir as notas.'}
                 </p>
               </div>
-              {(loadingBase || loadingSuggestions) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              {(loadingLoads || loadingSuggestions) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
             </div>
 
-            {!isCorrelationReady && visibleExternalRows.length === 0 && !loadingBase && (
-              <EmptyState>Nenhum operacional externo em execucao no momento.</EmptyState>
-            )}
-
-            {isCorrelationReady && visibleExternalRows.length === 0 && !loadingSuggestions && (
+            {data.operacionais.length === 0 && !loadingLoads && !loadingSuggestions && (
               <EmptyState>
-                Nenhum externo com historico suficiente para este servico nessa loja. Tente outro servico ou distribua pelos internos.
+                {isCorrelationReady
+                  ? 'Nenhum operacional com historico suficiente para esta combinacao de loja e servico.'
+                  : 'Nenhum operacional em campo no momento.'}
               </EmptyState>
             )}
 
             {!isCorrelationReady && (
               <p className="text-xs text-muted-foreground">
-                Mesmo sem filtro, as sugestoes por nota acima continuam usando a descricao da nota para procurar o melhor encaixe.
+                Mesmo sem selecionar um servico, as sugestoes por nota acima continuam usando a descricao e a loja para procurar o melhor encaixe.
               </p>
             )}
 
-            {visibleExternalRows.length > 0 && (
+            {data.operacionais.length > 0 && (
               <div className="space-y-2">
-                {visibleExternalRows.map((external) => (
+                {data.operacionais.map((operational) => (
                   <div
-                    key={external.fornecedor_codigo}
+                    key={operational.fornecedor_codigo}
                     className="flex flex-col gap-2 rounded-lg border px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{external.fornecedor_nome}</p>
-                      <p className="text-xs text-muted-foreground">Cod. {external.fornecedor_codigo}</p>
+                      <p className="truncate text-sm font-medium">{operational.fornecedor_nome}</p>
+                      <p className="text-xs text-muted-foreground">Cod. {operational.fornecedor_codigo}</p>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <Badge variant="secondary">{external.total_em_campo} em campo</Badge>
-                      {isCorrelationReady && (
-                        <>
-                          <Badge variant="outline">{external.historico_loja_servico} loja + servico</Badge>
-                          <Badge variant="outline">{external.historico_servico_geral} servico geral</Badge>
-                          <Badge variant="outline">{getMatchModeLabel(external.match_mode)}</Badge>
-                        </>
+                      <Badge variant="secondary">{operational.total_em_campo} em campo</Badge>
+                      {operational.ordens_mesma_loja_ativas > 0 && (
+                        <Badge variant="outline">{operational.ordens_mesma_loja_ativas} nessa loja</Badge>
+                      )}
+                      {operational.historico_loja_servico > 0 && (
+                        <Badge variant="outline">{operational.historico_loja_servico} loja + servico</Badge>
+                      )}
+                      {operational.historico_servico_geral > 0 && (
+                        <Badge variant="outline">{operational.historico_servico_geral} servico geral</Badge>
+                      )}
+                      {operational.match_mode && (
+                        <Badge variant="outline">{getMatchModeLabel(operational.match_mode)}</Badge>
                       )}
                     </div>
                   </div>

@@ -1,121 +1,62 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildNotesEmCampoConsolidationMessage,
   buildNotesEmCampoData,
   inferNotesEmCampoService,
   pickNotesEmCampoSuggestionTarget,
-  rankNotesEmCampoInternals,
+  rankNotesEmCampoOperationalSuggestions,
 } from '@/lib/notes/em-campo'
-import type { CollaboratorData } from '@/lib/types/collaborator'
-import type { NotesEmCampoExternalSuggestion } from '@/lib/types/database'
+import type { NotesEmCampoOperationalSuggestion } from '@/lib/types/database'
 
-const collaborators: CollaboratorData[] = [
+const operationals: NotesEmCampoOperationalSuggestion[] = [
   {
-    id: 'geral-1',
-    nome: 'Mayky Castro',
-    ativo: true,
-    max_notas: 50,
-    avatar_url: null,
-    especialidade: 'geral',
-    recebe_distribuicao: true,
-    em_ferias: false,
-    qtd_nova: 0,
-    qtd_em_andamento: 0,
-    qtd_encaminhada: 0,
-    qtd_novo: 0,
-    qtd_1_dia: 0,
-    qtd_2_mais: 0,
-    qtd_abertas: 9,
-    qtd_concluidas: 0,
-    qtd_acompanhamento_ordens: 1,
+    fornecedor_codigo: '22578',
+    fornecedor_nome: 'CLAUDIOMAR LOPES DA SILVA',
+    total_em_campo: 3,
+    ordens_mesma_loja_ativas: 1,
+    historico_loja_servico: 4,
+    historico_servico_geral: 8,
+    match_mode: 'exato',
   },
   {
-    id: 'refrig-1',
-    nome: 'Suelem Silva',
-    ativo: true,
-    max_notas: 50,
-    avatar_url: null,
-    especialidade: 'refrigeracao',
-    recebe_distribuicao: true,
-    em_ferias: false,
-    qtd_nova: 0,
-    qtd_em_andamento: 0,
-    qtd_encaminhada: 0,
-    qtd_novo: 0,
-    qtd_1_dia: 0,
-    qtd_2_mais: 0,
-    qtd_abertas: 4,
-    qtd_concluidas: 0,
-    qtd_acompanhamento_ordens: 3,
+    fornecedor_codigo: '22016',
+    fornecedor_nome: 'EDESON MONTEIRO SOUSA',
+    total_em_campo: 1,
+    ordens_mesma_loja_ativas: 0,
+    historico_loja_servico: 5,
+    historico_servico_geral: 10,
+    match_mode: 'exato',
   },
   {
-    id: 'elev-1',
-    nome: 'Paula Matos',
-    ativo: true,
-    max_notas: 50,
-    avatar_url: null,
-    especialidade: 'elevadores',
-    recebe_distribuicao: true,
-    em_ferias: false,
-    qtd_nova: 0,
-    qtd_em_andamento: 0,
-    qtd_encaminhada: 0,
-    qtd_novo: 0,
-    qtd_1_dia: 0,
-    qtd_2_mais: 0,
-    qtd_abertas: 6,
-    qtd_concluidas: 0,
-    qtd_acompanhamento_ordens: 2,
+    fornecedor_codigo: '10262',
+    fornecedor_nome: 'OTAVIO LUIS MEDEIROS DE AZEVEDO',
+    total_em_campo: 0,
+    ordens_mesma_loja_ativas: 0,
+    historico_loja_servico: 0,
+    historico_servico_geral: 2,
+    match_mode: 'fallback_servico',
   },
 ]
 
 describe('buildNotesEmCampoData', () => {
-  it('prioriza internos gerais para instalacao eletrica', () => {
+  it('prioriza quem ja atende a mesma loja antes do restante', () => {
+    const ranked = rankNotesEmCampoOperationalSuggestions(operationals)
+
+    expect(ranked[0]).toMatchObject({
+      fornecedor_codigo: '22578',
+      ordens_mesma_loja_ativas: 1,
+    })
+  })
+
+  it('mantem a dica de eletrica orientada a consolidacao operacional', () => {
     const data = buildNotesEmCampoData({
-      collaborators,
       service: 'INSTALACAO ELETRICA',
-      externals: [],
+      operationals,
     })
 
     expect(data.hint.prioridade).toBe('interno')
-    expect(data.hint.mensagem).toContain('Instalacao Eletrica')
-    expect(data.internos[0]).toMatchObject({
-      admin_id: 'geral-1',
-      especialidade: 'geral',
-    })
-  })
-
-  it('prioriza refrigeracao para servicos da especialidade', () => {
-    const ranked = rankNotesEmCampoInternals(collaborators, 'AR CONDICIONADO SPLIT')
-    expect(ranked[0]).toMatchObject({
-      admin_id: 'refrig-1',
-      especialidade: 'refrigeracao',
-    })
-  })
-
-  it('mantem elevadores em modo equilibrado e preserva externos', () => {
-    const externals: NotesEmCampoExternalSuggestion[] = [
-      {
-        fornecedor_codigo: '123',
-        fornecedor_nome: 'Claudio Andrade Junior',
-        total_em_campo: 1,
-        historico_loja_servico: 2,
-        historico_servico_geral: 5,
-        match_mode: 'exato',
-      },
-    ]
-
-    const data = buildNotesEmCampoData({
-      collaborators,
-      service: 'GERADOR',
-      externals,
-    })
-
-    expect(data.hint.prioridade).toBe('equilibrado')
-    expect(data.internos[0]).toMatchObject({
-      admin_id: 'elev-1',
-      especialidade: 'elevadores',
-    })
-    expect(data.externos).toEqual(externals)
+    expect(data.hint.mensagem).toContain('operacional')
+    expect(data.operacionais[0]?.fornecedor_codigo).toBe('22578')
   })
 
   it('infer the closest service from note description', () => {
@@ -125,47 +66,32 @@ describe('buildNotesEmCampoData', () => {
     )).toBe('AR CONDICIONADO')
   })
 
-  it('uses the operational history as the primary target when there is an external fit', () => {
+  it('uses the operational already active in the same store as the main target', () => {
     const target = pickNotesEmCampoSuggestionTarget({
-      collaborators,
-      service: 'INSTALACAO ELETRICA',
-      externals: [
-        {
-          fornecedor_codigo: '9002',
-          fornecedor_nome: 'Claudio Andrade Junior',
-          total_em_campo: 1,
-          historico_loja_servico: 2,
-          historico_servico_geral: 5,
-          match_mode: 'exato',
-        },
-      ],
+      suggestions: operationals,
     })
 
     expect(target).toMatchObject({
-      tipo: 'externo',
-      nome: 'Claudio Andrade Junior',
+      tipo: 'operacional',
+      nome: 'CLAUDIOMAR LOPES DA SILVA',
+      ordens_mesma_loja_ativas: 1,
     })
   })
 
-  it('uses external as primary target when there is historical fit for non-electrical services', () => {
+  it('returns null when there is no operational suggestion', () => {
     const target = pickNotesEmCampoSuggestionTarget({
-      collaborators,
-      service: 'AR CONDICIONADO',
-      externals: [
-        {
-          fornecedor_codigo: '9003',
-          fornecedor_nome: 'HVAC',
-          total_em_campo: 1,
-          historico_loja_servico: 3,
-          historico_servico_geral: 6,
-          match_mode: 'exato',
-        },
-      ],
+      suggestions: [],
     })
 
-    expect(target).toMatchObject({
-      tipo: 'externo',
-      nome: 'HVAC',
-    })
+    expect(target).toBeNull()
+  })
+
+  it('builds a consolidation message when someone already atende a loja', () => {
+    const target = pickNotesEmCampoSuggestionTarget({ suggestions: operationals })
+
+    expect(buildNotesEmCampoConsolidationMessage({
+      loja: 'Loja Manacapuru',
+      target,
+    })).toBe('CLAUDIOMAR LOPES DA SILVA ja tem 1 ordem em Loja Manacapuru. Vale consolidar esta nota com ele.')
   })
 })
