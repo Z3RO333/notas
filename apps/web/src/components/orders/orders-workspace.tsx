@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   AlertTriangle,
+  Copy,
   Download,
   LayoutGrid,
   Loader2,
@@ -43,8 +44,9 @@ import {
 } from '@/lib/orders/owner-visibility'
 import { shouldHideOwnerOutsidePmpl } from '@/lib/admin/admin-identity-catalog'
 import { resolveCargoPresentationFromOwner } from '@/lib/collaborator/cargo-presentation'
-import { copyToClipboard } from '@/lib/orders/copy'
+import { buildCopyPayload, copyToClipboard } from '@/lib/orders/copy'
 import { isRawOrderActive } from '@/lib/orders/status-raw'
+import { fetchAllFilteredOrderCodes } from '@/lib/orders/workspace-copy'
 import { buildWorkspaceParams } from '@/lib/orders/workspace-query'
 import type {
   Especialidade,
@@ -348,6 +350,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   const [detailRow, setDetailRow] = useState<OrdemNotaAcompanhamento | null>(null)
   const [currentUser, setCurrentUser] = useState(initialUser)
   const [ownerCardsViewMode, setOwnerCardsViewMode] = useState<PanelViewMode>('list')
+  const [copyFilterLoading, setCopyFilterLoading] = useState(false)
 
   const fetchAbortRef = useRef<AbortController | null>(null)
   const parentRef = useRef<HTMLDivElement | null>(null)
@@ -388,6 +391,11 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     () => resolveSmartSearch(filters.q, searchOwnerCandidates, filters.responsavel, currentUser.canViewGlobal),
     [filters.q, searchOwnerCandidates, filters.responsavel, currentUser.canViewGlobal]
   )
+  const effectiveFilters = useMemo<OrdersWorkspaceFilters>(() => ({
+    ...filters,
+    q: smartSearch.effectiveQ,
+    responsavel: smartSearch.derivedResponsavel ?? filters.responsavel,
+  }), [filters, smartSearch.effectiveQ, smartSearch.derivedResponsavel])
   const hasSelectedOwnerFilter = hasIndividualOwnerSelection(currentUser.canViewGlobal, filters.responsavel)
   const selectedOwnerKey = hasSelectedOwnerFilter ? filters.responsavel.trim() : null
 
@@ -513,11 +521,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     }
 
     const reqId = Math.random().toString(36).slice(2, 8)
-    const effectiveFilters: OrdersWorkspaceFilters = {
-      ...filters,
-      q: smartSearch.effectiveQ,
-      responsavel: smartSearch.derivedResponsavel ?? filters.responsavel,
-    }
     const pageCursor = reset ? null : cursor
 
     console.debug(`[ordens:fetch:start] reqId=${reqId} reset=${reset}`, {
@@ -626,7 +629,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       if (reset) setLoadingInitial(false)
       setLoadingMore(false)
     }
-  }, [filters, smartSearch.effectiveQ, smartSearch.derivedResponsavel, smartSearch.mode, toast])
+  }, [effectiveFilters, smartSearch.mode, toast])
 
   useEffect(() => {
     setNextCursor(null)
@@ -720,6 +723,50 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       }))
     return options
   }, [ownerSummary])
+
+  const handleCopyFilteredOrders = useCallback(async () => {
+    setCopyFilterLoading(true)
+
+    try {
+      const { codes } = await fetchAllFilteredOrderCodes(effectiveFilters)
+      const payload = buildCopyPayload(codes)
+
+      if (!payload) {
+        toast({
+          title: 'Nenhuma ordem para copiar',
+          description: 'Nenhuma ordem do filtro atual possui código copiável.',
+          variant: 'info',
+        })
+        return
+      }
+
+      const copied = await copyToClipboard(payload)
+      if (!copied) {
+        toast({
+          title: 'Falha ao copiar filtro',
+          description: 'Não foi possível copiar para a área de transferência.',
+          variant: 'error',
+        })
+        return
+      }
+
+      toast({
+        title: 'Ordens do filtro copiadas',
+        description: `${payload.split('\n').length} ordens prontas para colar no SAP.`,
+        variant: 'success',
+      })
+    } catch (error) {
+      toast({
+        title: 'Falha ao copiar filtro',
+        description: error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar as ordens do filtro atual.',
+        variant: 'error',
+      })
+    } finally {
+      setCopyFilterLoading(false)
+    }
+  }, [effectiveFilters, toast])
 
   const visibleOwners = useMemo(() => {
     return buildVisibleOwnerSummary({
@@ -1184,6 +1231,20 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             <input type="checkbox" checked={allLoadedSelected} onChange={toggleSelectAllLoaded} />
             Selecionar carregadas
           </label>
+          <Button
+            type="button"
+            size="sm"
+            className="min-w-[12rem] justify-center"
+            onClick={() => void handleCopyFilteredOrders()}
+            disabled={copyFilterLoading || loadingInitial || rows.length === 0}
+          >
+            {copyFilterLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+            {copyFilterLoading ? 'Copiando filtro...' : 'Copiar tudo do filtro'}
+          </Button>
           <Button type="button" variant="outline" size="sm" onClick={() => exportOrdersToXlsx(rows)} disabled={rows.length === 0}>
             <Download className="mr-2 h-3.5 w-3.5" />
             Exportar planilha
