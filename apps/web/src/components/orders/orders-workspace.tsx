@@ -87,6 +87,45 @@ const MONTH_LABELS = [
   { value: 12, label: 'Dezembro' },
 ]
 
+function utcYmd(offsetDays = 0): string {
+  const d = new Date()
+  d.setUTCDate(d.getUTCDate() - offsetDays)
+  return [
+    d.getUTCFullYear(),
+    String(d.getUTCMonth() + 1).padStart(2, '0'),
+    String(d.getUTCDate()).padStart(2, '0'),
+  ].join('-')
+}
+
+function utcFirstOfMonth(): string {
+  const d = new Date()
+  return [
+    d.getUTCFullYear(),
+    String(d.getUTCMonth() + 1).padStart(2, '0'),
+    '01',
+  ].join('-')
+}
+
+const DATE_PRESETS = [
+  { value: 'hoje',  label: 'Hoje' },
+  { value: 'ontem', label: 'Ontem' },
+  { value: '7d',    label: 'Últimos 7 dias' },
+  { value: '30d',   label: 'Últimos 30 dias' },
+  { value: 'mes',   label: 'Mês atual' },
+  { value: 'custom', label: 'Personalizado' },
+] as const
+
+function detectDatePreset(startDate: string | null, endDate: string | null): string {
+  if (!startDate || !endDate) return 'custom'
+  const today = utcYmd(0)
+  if (startDate === today && endDate === today) return 'hoje'
+  if (startDate === utcYmd(1) && endDate === utcYmd(1)) return 'ontem'
+  if (startDate === utcYmd(6) && endDate === today) return '7d'
+  if (startDate === utcYmd(29) && endDate === today) return '30d'
+  if (startDate === utcFirstOfMonth() && endDate === today) return 'mes'
+  return 'custom'
+}
+
 const PERIOD_MODE_LABELS: Array<{ value: OrdersPeriodModeOperational; label: string }> = [
   { value: 'all', label: 'Todo histórico' },
   { value: 'year', label: 'Ano' },
@@ -784,6 +823,26 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     await copyFromRow(rows[0])
   }, [rows, copyFromRow])
 
+  function handleDatePreset(preset: string) {
+    const today = utcYmd(0)
+    const ranges: Record<string, { start: string; end: string }> = {
+      hoje:  { start: today,             end: today },
+      ontem: { start: utcYmd(1),         end: utcYmd(1) },
+      '7d':  { start: utcYmd(6),         end: today },
+      '30d': { start: utcYmd(29),        end: today },
+      mes:   { start: utcFirstOfMonth(), end: today },
+    }
+    const range = ranges[preset]
+    if (range) {
+      setFilters((prev) => ({
+        ...prev,
+        periodMode: 'range',
+        startDate: range.start,
+        endDate: range.end,
+      }))
+    }
+  }
+
   function handleSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key !== 'Enter') return
     event.preventDefault()
@@ -1045,6 +1104,17 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
         {filters.periodMode === 'range' && (
           <>
+            <Select
+              value={detectDatePreset(filters.startDate ?? null, filters.endDate ?? null)}
+              onValueChange={handleDatePreset}
+            >
+              <SelectTrigger><SelectValue placeholder="Período rápido" /></SelectTrigger>
+              <SelectContent>
+                {DATE_PRESETS.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input
               type="date"
               value={filters.startDate ?? ''}

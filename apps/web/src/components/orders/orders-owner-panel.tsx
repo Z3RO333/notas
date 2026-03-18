@@ -175,6 +175,7 @@ export function OrdersOwnerPanel({
   const [expandedOwnerId, setExpandedOwnerId] = useState<string | null>(null)
   const [selectedNotaIds, setSelectedNotaIds] = useState<string[]>([])
   const [avaliadasLoading, setAvaliadasLoading] = useState(false)
+  const [copyAllLoading, setCopyAllLoading] = useState(false)
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -332,7 +333,16 @@ export function OrdersOwnerPanel({
     }
   }
 
-  async function handleCopyOrders(codes: string[], mode: 'avaliadas' | 'selecionadas') {
+  async function handleCopyAll() {
+    setCopyAllLoading(true)
+    const codes = rows
+      .map((r) => (r.ordem_codigo ?? '').trim())
+      .filter(Boolean)
+    await handleCopyOrders(codes, 'todas')
+    setCopyAllLoading(false)
+  }
+
+  async function handleCopyOrders(codes: string[], mode: 'avaliadas' | 'selecionadas' | 'todas') {
     const payload = buildCopyPayload(codes)
 
     if (!payload) {
@@ -340,7 +350,9 @@ export function OrdersOwnerPanel({
         title: 'Nenhuma ordem para copiar',
         description: mode === 'avaliadas'
           ? 'Nenhuma ordem avaliada no contexto atual.'
-          : 'Selecione ao menos uma ordem.',
+          : mode === 'todas'
+            ? 'Nenhuma ordem visível com código.'
+            : 'Selecione ao menos uma ordem.',
         variant: 'info',
       })
       return
@@ -357,7 +369,11 @@ export function OrdersOwnerPanel({
     }
 
     toast({
-      title: mode === 'avaliadas' ? 'Ordens avaliadas copiadas' : 'Ordens selecionadas copiadas',
+      title: mode === 'avaliadas'
+        ? 'Ordens avaliadas copiadas'
+        : mode === 'todas'
+          ? 'Ordens visíveis copiadas'
+          : 'Ordens selecionadas copiadas',
       description: `${payload.split('\n').length} ordens prontas para colar no SAP.`,
       variant: 'success',
     })
@@ -526,6 +542,19 @@ export function OrdersOwnerPanel({
           >
             <ClipboardCheck className="h-4 w-4" />
             Copiar avaliadas
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => void handleCopyAll()}
+            isLoading={copyAllLoading}
+            disabled={rows.length === 0}
+          >
+            <Copy className="h-4 w-4" />
+            Copiar tudo ({rows.length})
           </Button>
 
           {canCopySelected && (
