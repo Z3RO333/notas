@@ -33,7 +33,7 @@ function makeRow(overrides: Partial<OrdemNotaAcompanhamento> = {}): OrdemNotaAco
     responsavel_atual_nome: overrides.responsavel_atual_nome ?? null,
     centro: overrides.centro ?? '103',
     unidade: overrides.unidade ?? 'AVENIDA',
-    status_ordem: overrides.status_ordem ?? 'em_andamento',
+    status_ordem: overrides.status_ordem ?? 'aberta',
     status_ordem_raw: overrides.status_ordem_raw ?? 'EM_EXECUCAO',
     ordem_detectada_em: overrides.ordem_detectada_em ?? '2026-03-03T10:00:00.000Z',
     status_atualizado_em: overrides.status_atualizado_em ?? '2026-03-03T10:05:00.000Z',
