@@ -7,6 +7,7 @@ import type {
 const VALID_PERIOD_MODES: OrdersPeriodModeOperational[] = ['all', 'year', 'year_month', 'month', 'range']
 const VALID_STATUS = new Set([
   'todas',
+  'ativas',
   'aberta',
   'em_tratativa',
   'em_avaliacao',

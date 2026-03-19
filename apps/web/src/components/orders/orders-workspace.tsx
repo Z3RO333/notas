@@ -108,7 +108,8 @@ const PERIOD_MODE_LABELS: Array<{
 ]
 
 const STATUS_OPTIONS = [
-  { value: 'todas', label: 'Todos os status' },
+  { value: 'ativas', label: 'Ativas (padrão)' },
+  { value: 'todas', label: 'Todo o histórico' },
   { value: 'aberta', label: 'Aberta' },
   { value: 'em_tratativa', label: 'Em execução' },
   { value: 'em_avaliacao', label: 'Em avaliação' },
@@ -262,7 +263,7 @@ function syncFiltersToUrl(filters: OrdersWorkspaceFilters) {
   setOrDelete('startDate', filters.startDate)
   setOrDelete('endDate', filters.endDate)
   setOrDelete('q', filters.q || null)
-  setOrDelete('status', filters.status && filters.status !== 'todas' ? filters.status : null)
+  setOrDelete('status', filters.status && filters.status !== 'ativas' ? filters.status : null)
   setOrDelete('responsavel', filters.responsavel && filters.responsavel !== 'todos' ? filters.responsavel : null)
   setOrDelete('unidade', filters.unidade || null)
   setOrDelete('prioridade', filters.prioridade && filters.prioridade !== 'todas' ? filters.prioridade : null)
@@ -1169,7 +1170,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         </div>
 
         <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-          <Select value={filters.status || 'todas'} onValueChange={(value) => setFilters((prev) => ({ ...prev, status: value }))}>
+          <Select value={filters.status || 'ativas'} onValueChange={(value) => setFilters((prev) => ({ ...prev, status: value }))}>
             <SelectTrigger>
               <SelectValue placeholder="Status" />
             </SelectTrigger>
