@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { HardHat, Loader2 } from 'lucide-react'
+import { HardHat, Loader2, SlidersHorizontal } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -11,8 +11,15 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  NotesEmCampoEmptyState,
+  NotesEmCampoHeroCard,
+  NotesEmCampoOperationalPanel,
+  NotesEmCampoSuggestionCard,
+  type NotesEmCampoSuggestionCardViewModel,
+} from '@/components/notas/notes-em-campo-dialog-blocks'
 import {
   buildNotesEmCampoConsolidationMessage,
   buildNotesEmCampoData,
@@ -23,7 +30,6 @@ import { createClient } from '@/lib/supabase/client'
 import type {
   NotaPanelData,
   NotesEmCampoExternalMatchMode,
-  NotesEmCampoNoteSuggestion,
   NotesEmCampoOperationalSuggestion,
 } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
@@ -83,42 +89,6 @@ function toOperationalSuggestion(row: OperacionalSuggestionRow): NotesEmCampoOpe
   }
 }
 
-function getPriorityStyles(priority: 'interno' | 'externo' | 'equilibrado'): string {
-  switch (priority) {
-    case 'interno':
-      return 'border-emerald-200 bg-emerald-50 text-emerald-900'
-    case 'externo':
-      return 'border-sky-200 bg-sky-50 text-sky-900'
-    case 'equilibrado':
-    default:
-      return 'border-amber-200 bg-amber-50 text-amber-900'
-  }
-}
-
-function getPriorityLabel(priority: 'interno' | 'externo' | 'equilibrado'): string {
-  switch (priority) {
-    case 'interno':
-      return 'operacional'
-    case 'externo':
-      return 'fornecedor'
-    case 'equilibrado':
-    default:
-      return 'equilibrado'
-  }
-}
-
-function getMatchModeLabel(value: NotesEmCampoExternalMatchMode): string {
-  return value === 'exato' ? 'Loja + servico' : 'Servico geral'
-}
-
-function EmptyState({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-      {children}
-    </div>
-  )
-}
-
 function buildCorrelationKey(loja: string, servico: string): string {
   return `${loja}::${servico}`
 }
@@ -148,6 +118,7 @@ export function NotesEmCampoDialog({
 }: NotesEmCampoDialogProps) {
   const supabase = useMemo(() => createClient(), [])
   const [open, setOpen] = useState(false)
+  const [expandedSuggestionId, setExpandedSuggestionId] = useState<string | null>(null)
   const [selectedUnidade, setSelectedUnidade] = useState(defaultUnidade && defaultUnidade !== 'todas' ? defaultUnidade : '')
   const [selectedService, setSelectedService] = useState('')
   const [serviceOptions, setServiceOptions] = useState<Array<{ value: string; label: string }>>([])
@@ -174,6 +145,7 @@ export function NotesEmCampoDialog({
 
   useEffect(() => {
     if (!open) {
+      setExpandedSuggestionId(null)
       setSelectedUnidade(defaultUnidade && defaultUnidade !== 'todas' ? defaultUnidade : '')
       setSelectedService('')
       setOperationalSuggestions([])
@@ -362,34 +334,47 @@ export function NotesEmCampoDialog({
     [selectedService, visibleOperationalRows]
   )
 
-  const noteSuggestions = useMemo<NotesEmCampoNoteSuggestion[]>(() => (
+  const noteSuggestions = useMemo<NotesEmCampoSuggestionCardViewModel[]>(() => (
     scopedNotes.map((item) => {
       const correlationKey = item.loja && item.servico
         ? buildCorrelationKey(item.loja, item.servico)
         : null
-      const target = pickNotesEmCampoSuggestionTarget({
-        suggestions: correlationKey ? suggestionsByGroup[correlationKey] ?? [] : [],
-      })
+      const groupSuggestions = correlationKey ? suggestionsByGroup[correlationKey] ?? [] : []
+      const target = pickNotesEmCampoSuggestionTarget({ suggestions: groupSuggestions })
+      const primarySuggestion = target
+        ? groupSuggestions.find((candidate) => candidate.fornecedor_codigo === target.codigo) ?? null
+        : null
 
       return {
-        nota_id: item.nota.id,
-        numero_nota: item.nota.numero_nota,
+        notaId: item.nota.id,
+        numeroNota: item.nota.numero_nota,
         loja: item.loja,
         servico: item.servico,
-        destino_tipo: target?.tipo ?? null,
-        destino_codigo: target?.codigo ?? null,
-        destino_nome: target?.nome ?? null,
-        ordens_mesma_loja_ativas: target?.ordens_mesma_loja_ativas ?? 0,
-        historico_loja_servico: target?.historico_loja_servico ?? 0,
-        historico_servico_geral: target?.historico_servico_geral ?? 0,
-        match_mode: target?.match_mode ?? null,
-        mensagem_consolidacao: buildNotesEmCampoConsolidationMessage({
+        destinoNome: target?.nome ?? null,
+        destinoCodigo: target?.codigo ?? null,
+        totalEmCampo: primarySuggestion?.total_em_campo ?? 0,
+        ordensMesmaLojaAtivas: target?.ordens_mesma_loja_ativas ?? 0,
+        historicoLojaServico: target?.historico_loja_servico ?? 0,
+        historicoServicoGeral: target?.historico_servico_geral ?? 0,
+        matchMode: target?.match_mode ?? null,
+        mensagemConsolidacao: buildNotesEmCampoConsolidationMessage({
           loja: item.loja,
           target,
         }),
+        alternativas: groupSuggestions.filter((candidate) => candidate.fornecedor_codigo !== target?.codigo),
       }
     })
   ), [scopedNotes, suggestionsByGroup])
+
+  useEffect(() => {
+    if (!noteSuggestions.some((item) => item.notaId === expandedSuggestionId)) {
+      setExpandedSuggestionId(null)
+    }
+  }, [expandedSuggestionId, noteSuggestions])
+
+  const notesWithSuggestion = noteSuggestions.filter((item) => item.destinoNome).length
+  const notesSameStore = noteSuggestions.filter((item) => item.ordensMesmaLojaAtivas > 0).length
+  const showLoadingIndicator = loadingServices || loadingLoads || loadingSuggestions || loadingNoteSuggestions
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -400,209 +385,159 @@ export function NotesEmCampoDialog({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>Em Campo no Painel de Notas</DialogTitle>
-          <DialogDescription>
-            Apoio rapido para distribuicao: veja a carga dos operacionais, quem ja atende a loja e o melhor encaixe historico por nota.
-          </DialogDescription>
+      <DialogContent className="flex max-h-[88vh] flex-col overflow-hidden p-0 sm:max-w-6xl">
+        <DialogHeader className="border-b bg-gradient-to-br from-primary/10 via-background to-background px-6 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <DialogTitle className="text-xl">Em Campo no Painel de Notas</DialogTitle>
+              <DialogDescription className="max-w-3xl text-sm leading-6">
+                Apoio rapido para distribuicao: veja o melhor encaixe por nota, identifique consolidacao por loja e use a carga atual dos operacionais como apoio.
+              </DialogDescription>
+            </div>
+            {showLoadingIndicator && <Loader2 className="mt-1 h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
+          </div>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className={cn('rounded-lg border px-4 py-3 text-sm', getPriorityStyles(data.hint.prioridade))}>
-            <div className="mb-1 flex items-center gap-2">
-              <Badge variant="outline" className="border-current text-[11px] uppercase tracking-wide">
-                Prioridade: {getPriorityLabel(data.hint.prioridade)}
-              </Badge>
-              {selectedLoja && (
-                <Badge variant="outline" className="text-[11px]">
-                  Loja: {selectedLoja}
-                </Badge>
-              )}
-              {selectedService && (
-                <Badge variant="outline" className="text-[11px]">
-                  Servico: {selectedService}
-                </Badge>
-              )}
-            </div>
-            <p>{data.hint.mensagem}</p>
-          </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className="space-y-4">
+            <NotesEmCampoHeroCard
+              priority={data.hint.prioridade}
+              hintMessage={data.hint.mensagem}
+              loja={selectedLoja}
+              servico={selectedService}
+              totalNotas={noteSuggestions.length}
+              notasComSugestao={notesWithSuggestion}
+              notasMesmaLoja={notesSameStore}
+            />
 
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="notes-em-campo-loja">
-                Loja
-              </label>
-              <SearchableSelect
-                id="notes-em-campo-loja"
-                options={unidadeOptions}
-                value={selectedUnidade}
-                onValueChange={setSelectedUnidade}
-                placeholder="Escolha a loja"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="notes-em-campo-servico">
-                Servico
-              </label>
-              <SearchableSelect
-                id="notes-em-campo-servico"
-                options={serviceOptions}
-                value={selectedService}
-                onValueChange={setSelectedService}
-                placeholder={loadingServices ? 'Carregando servicos...' : 'Escolha o servico'}
-              />
-            </div>
-
-            <div className="flex items-end">
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full md:w-auto"
-                onClick={() => {
-                  setSelectedUnidade(defaultUnidade && defaultUnidade !== 'todas' ? defaultUnidade : '')
-                  setSelectedService('')
-                  setOperationalSuggestions([])
-                  setSuggestionsByGroup({})
-                  setErrorMessage(null)
-                }}
-              >
-                Limpar
-              </Button>
-            </div>
-          </div>
-
-          {errorMessage && (
-            <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-              {errorMessage}
-            </p>
-          )}
-
-          <div className="space-y-3 rounded-xl border p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold">Sugestoes por nota</h3>
-                <p className="text-xs text-muted-foreground">
-                  Cada linha resume a nota, o servico identificado e o operacional mais aderente neste momento.
-                </p>
-              </div>
-              {(loadingServices || loadingNoteSuggestions) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-            </div>
-
-            {noteSuggestions.length === 0 && !loadingServices && !loadingNoteSuggestions && (
-              <EmptyState>
-                Nenhuma nota visivel no recorte atual para sugerir. Ajuste a loja, o servico ou os filtros do painel.
-              </EmptyState>
-            )}
-
-            {noteSuggestions.length > 0 && (
-              <div className="space-y-2">
-                {noteSuggestions.map((suggestion) => (
-                  <div
-                    key={suggestion.nota_id}
-                    className="space-y-2 rounded-lg border px-3 py-3"
-                  >
-                    <p className="text-sm font-medium">
-                      <span className="font-mono">{suggestion.numero_nota}</span>
-                      <span className="px-1 text-muted-foreground">&gt;</span>
-                      <span>{suggestion.servico ?? 'SERVICO NAO IDENTIFICADO'}</span>
-                      <span className="px-1 text-muted-foreground">&gt;</span>
-                      <span>{suggestion.destino_nome ?? 'SEM SUGESTAO'}</span>
-                    </p>
-
-                    <div className="flex flex-wrap gap-2">
-                      {suggestion.loja && (
-                        <Badge variant="outline">{suggestion.loja}</Badge>
-                      )}
-                      <Badge variant={suggestion.destino_tipo === 'operacional' ? 'secondary' : 'outline'}>
-                        {suggestion.destino_tipo === 'operacional' ? 'Operacional' : 'Sem sugestao'}
-                      </Badge>
-                      {suggestion.ordens_mesma_loja_ativas > 0 && (
-                        <Badge variant="outline">{suggestion.ordens_mesma_loja_ativas} na mesma loja</Badge>
-                      )}
-                      {suggestion.match_mode && (
-                        <Badge variant="outline">{getMatchModeLabel(suggestion.match_mode)}</Badge>
-                      )}
-                      {suggestion.historico_loja_servico > 0 && (
-                        <Badge variant="outline">{suggestion.historico_loja_servico} loja + servico</Badge>
-                      )}
-                      {suggestion.historico_servico_geral > 0 && (
-                        <Badge variant="outline">{suggestion.historico_servico_geral} servico geral</Badge>
-                      )}
-                    </div>
-
-                    {suggestion.mensagem_consolidacao && (
-                      <p className="text-xs text-muted-foreground">{suggestion.mensagem_consolidacao}</p>
-                    )}
+            <Card className="shadow-sm">
+              <CardContent className="p-4">
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="rounded-full border bg-muted/30 p-2">
+                    <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  <div>
+                    <p className="text-sm font-semibold">Refine o cenario</p>
+                    <p className="text-xs text-muted-foreground">
+                      Loja e servico ajudam o modal a priorizar consolidacao, historico e carga atual com mais precisao.
+                    </p>
+                  </div>
+                </div>
 
-          <div className="space-y-3 rounded-xl border p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold">
-                  {isCorrelationReady ? 'Operacionais mais aderentes' : 'Carga atual dos operacionais'}
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  {isCorrelationReady
-                    ? 'Quem ja atende a loja sobe primeiro; depois entram historico do servico e menor carga em campo.'
-                    : selectedLoja
-                      ? 'A lista destaca quem ja esta com ordem ativa nessa loja para evitar pulverizar atendimento.'
-                      : 'Use esta lista para ver quem esta mais leve no momento antes de distribuir as notas.'}
-                </p>
-              </div>
-              {(loadingLoads || loadingSuggestions) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-            </div>
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium" htmlFor="notes-em-campo-loja">
+                      Loja
+                    </label>
+                    <SearchableSelect
+                      id="notes-em-campo-loja"
+                      options={unidadeOptions}
+                      value={selectedUnidade}
+                      onValueChange={setSelectedUnidade}
+                      placeholder="Escolha a loja"
+                    />
+                  </div>
 
-            {data.operacionais.length === 0 && !loadingLoads && !loadingSuggestions && (
-              <EmptyState>
-                {isCorrelationReady
-                  ? 'Nenhum operacional com historico suficiente para esta combinacao de loja e servico.'
-                  : 'Nenhum operacional em campo no momento.'}
-              </EmptyState>
-            )}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium" htmlFor="notes-em-campo-servico">
+                      Servico
+                    </label>
+                    <SearchableSelect
+                      id="notes-em-campo-servico"
+                      options={serviceOptions}
+                      value={selectedService}
+                      onValueChange={setSelectedService}
+                      placeholder={loadingServices ? 'Carregando servicos...' : 'Escolha o servico'}
+                    />
+                  </div>
 
-            {!isCorrelationReady && (
-              <p className="text-xs text-muted-foreground">
-                Mesmo sem selecionar um servico, as sugestoes por nota acima continuam usando a descricao e a loja para procurar o melhor encaixe.
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full md:w-auto"
+                      onClick={() => {
+                        setExpandedSuggestionId(null)
+                        setSelectedUnidade(defaultUnidade && defaultUnidade !== 'todas' ? defaultUnidade : '')
+                        setSelectedService('')
+                        setOperationalSuggestions([])
+                        setSuggestionsByGroup({})
+                        setErrorMessage(null)
+                      }}
+                    >
+                      Limpar
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {errorMessage && (
+              <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                {errorMessage}
               </p>
             )}
 
-            {data.operacionais.length > 0 && (
-              <div className="space-y-2">
-                {data.operacionais.map((operational) => (
-                  <div
-                    key={operational.fornecedor_codigo}
-                    className="flex flex-col gap-2 rounded-lg border px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{operational.fornecedor_nome}</p>
-                      <p className="text-xs text-muted-foreground">Cod. {operational.fornecedor_codigo}</p>
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
+              <Card className="shadow-sm">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-base">Sugestoes por nota</CardTitle>
+                      <CardDescription>
+                        A primeira dobra foca no que fazer agora: nota, servico e melhor operacional para encaminhar.
+                      </CardDescription>
                     </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="secondary">{operational.total_em_campo} em campo</Badge>
-                      {operational.ordens_mesma_loja_ativas > 0 && (
-                        <Badge variant="outline">{operational.ordens_mesma_loja_ativas} nessa loja</Badge>
-                      )}
-                      {operational.historico_loja_servico > 0 && (
-                        <Badge variant="outline">{operational.historico_loja_servico} loja + servico</Badge>
-                      )}
-                      {operational.historico_servico_geral > 0 && (
-                        <Badge variant="outline">{operational.historico_servico_geral} servico geral</Badge>
-                      )}
-                      {operational.match_mode && (
-                        <Badge variant="outline">{getMatchModeLabel(operational.match_mode)}</Badge>
-                      )}
+                    <div className="text-right">
+                      <p className="text-2xl font-semibold tracking-tight">{noteSuggestions.length}</p>
+                      <p className="text-xs text-muted-foreground">nota{noteSuggestions.length !== 1 ? 's' : ''} no recorte</p>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+
+                  {!isCorrelationReady && (
+                    <p className="text-xs text-muted-foreground">
+                      Mesmo sem selecionar um servico, o modal tenta identificar o melhor encaixe usando a descricao da nota e a loja.
+                    </p>
+                  )}
+                </CardHeader>
+
+                <CardContent className="space-y-3">
+                  {noteSuggestions.length === 0 && !loadingServices && !loadingNoteSuggestions ? (
+                    <NotesEmCampoEmptyState>
+                      Nenhuma nota visivel no recorte atual para sugerir. Ajuste a loja, o servico ou os filtros do painel.
+                    </NotesEmCampoEmptyState>
+                  ) : (
+                    noteSuggestions.map((suggestion) => (
+                      <NotesEmCampoSuggestionCard
+                        key={suggestion.notaId}
+                        suggestion={suggestion}
+                        expanded={expandedSuggestionId === suggestion.notaId}
+                        onToggle={() => setExpandedSuggestionId((current) => (
+                          current === suggestion.notaId ? null : suggestion.notaId
+                        ))}
+                      />
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+
+              <NotesEmCampoOperationalPanel
+                title={isCorrelationReady ? 'Operacionais mais aderentes' : 'Carga atual dos operacionais'}
+                description={
+                  isCorrelationReady
+                    ? 'A lista abaixo funciona como apoio: consolidacao na loja primeiro, depois aderencia do servico e menor carga em campo.'
+                    : selectedLoja
+                      ? 'Sem servico filtrado, a lateral destaca primeiro quem ja esta atuando nesta loja.'
+                      : 'Use esta coluna para conferir quem esta mais leve antes de distribuir as notas.'
+                }
+                operationals={data.operacionais}
+                emptyMessage={
+                  isCorrelationReady
+                    ? 'Nenhum operacional com historico suficiente para esta combinacao de loja e servico.'
+                    : 'Nenhum operacional em campo no momento.'
+                }
+              />
+            </div>
           </div>
         </div>
       </DialogContent>

@@ -75,6 +75,15 @@ describe('NotesEmCampoDialog', () => {
               historico_servico_geral: 10,
               match_mode: 'exato',
             },
+            {
+              fornecedor_codigo: '22016',
+              fornecedor_nome: 'EDESON MONTEIRO SOUSA',
+              total_em_campo: 1,
+              ordens_mesma_loja_ativas: 0,
+              historico_loja_servico: 2,
+              historico_servico_geral: 6,
+              match_mode: 'fallback_servico',
+            },
           ],
           error: null,
         }
@@ -100,10 +109,11 @@ describe('NotesEmCampoDialog', () => {
 
     const hints = await screen.findAllByText(/Selecione loja e servico para habilitar a correlacao/i)
     expect(hints.length).toBeGreaterThan(0)
+    expect(screen.getByText('Sugestoes por nota')).toBeInTheDocument()
     expect((await screen.findAllByText('CLAUDIOMAR LOPES DA SILVA')).length).toBeGreaterThan(0)
   })
 
-  it('loads operational suggestions and consolidates by store when loja and servico are selected', async () => {
+  it('loads operational suggestions and keeps only the best option visible until details are expanded', async () => {
     const user = userEvent.setup()
 
     render(
@@ -135,7 +145,15 @@ describe('NotesEmCampoDialog', () => {
     expect(screen.getAllByText('CLAUDIOMAR LOPES DA SILVA').length).toBeGreaterThan(0)
     expect(screen.getByText('10170655')).toBeInTheDocument()
     expect(screen.getByText(/Vale consolidar esta nota com ele/i)).toBeInTheDocument()
-    expect(screen.getByText('1 na mesma loja')).toBeInTheDocument()
+    expect(screen.getByText('1 ativa(s)')).toBeInTheDocument()
     expect(screen.queryByText('Mayky Castro')).not.toBeInTheDocument()
+
+    const noteCard = screen.getByTestId('notes-em-campo-suggestion-10170655')
+    expect(noteCard).not.toHaveTextContent('Outras opcoes para esta nota')
+
+    await user.click(screen.getByRole('button', { name: /Ver detalhes/i }))
+
+    expect(noteCard).toHaveTextContent('Outras opcoes para esta nota')
+    expect(noteCard).toHaveTextContent('EDESON MONTEIRO SOUSA')
   })
 })
