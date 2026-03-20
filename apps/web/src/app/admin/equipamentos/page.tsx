@@ -25,7 +25,7 @@ type Categoria = typeof CATEGORIAS[number]
 const CATEGORIA_CONFIG: Record<Categoria, { label: string; sublabel: string; cor: string; Icon: typeof Zap }> = {
   elevadores: {
     label: 'Críticos',
-    sublabel: 'Elevadores, geradores e subestações',
+    sublabel: 'Elevadores e geradores',
     cor: '#7c3aed',
     Icon: Zap,
   },
@@ -78,37 +78,37 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
     }),
 
     // Q3 — Serviços + evolução elevadores
-    (() => {
-      let q = supabase
-        .from('vw_equipamentos_criticos')
-        .select('texto_breve, nome_loja, ano, mes, total_ordens, total_notas')
-        .eq('categoria', 'elevadores')
-        .not('nome_loja', 'is', null)
-      if (ano) q = q.eq('ano', ano)
-      if (mes) q = q.eq('mes', mes)
-      if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
-      return q.order('total_ordens', { ascending: false }).limit(5000)
-    })(),
+    supabase.rpc('buscar_equipamentos_criticos_linhas', {
+      p_categoria: 'elevadores',
+      p_ano: ano ?? null,
+      p_mes: mes ?? null,
+      p_tipo_ordem: tipoOrdem ?? null,
+    }),
 
     // Q4 — Serviços + evolução refrigeração
-    (() => {
-      let q = supabase
-        .from('vw_equipamentos_criticos')
-        .select('texto_breve, nome_loja, ano, mes, total_ordens, total_notas')
-        .eq('categoria', 'refrigeracao')
-        .not('nome_loja', 'is', null)
-      if (ano) q = q.eq('ano', ano)
-      if (mes) q = q.eq('mes', mes)
-      if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
-      return q.order('total_ordens', { ascending: false }).limit(5000)
-    })(),
+    supabase.rpc('buscar_equipamentos_criticos_linhas', {
+      p_categoria: 'refrigeracao',
+      p_ano: ano ?? null,
+      p_mes: mes ?? null,
+      p_tipo_ordem: tipoOrdem ?? null,
+    }),
 
-    // Q5 — Anos disponíveis
-    supabase
-      .from('vw_equipamentos_criticos')
-      .select('ano')
-      .not('ano', 'is', null),
+    supabase.rpc('listar_equipamentos_criticos_anos', {
+      p_tipo_ordem: tipoOrdem ?? null,
+    }),
   ])
+
+  const firstError = [
+    topElevRes.error,
+    topRefriRes.error,
+    viewElevRes.error,
+    viewRefriRes.error,
+    anosRes.error,
+  ].find(Boolean)
+
+  if (firstError) {
+    throw firstError
+  }
 
   type TopLojasRaw = { nome_loja: string; tipo_unidade: string; concluidas: number; em_aberto: number; total_ordens: number }
   type ViewRow = { texto_breve: string; nome_loja: string; ano: number; mes: number; total_ordens: number; total_notas: number }
@@ -176,9 +176,9 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
     })
   ) as Record<Categoria, GestaoEvolucaoMes[]>
 
-  // --- Anos disponíveis ---
+  // --- Anos disponíveis (derivados dos dados já carregados via SECURITY DEFINER) ---
   const anosSet = new Set<number>()
-  for (const row of (anosRes.data ?? []) as { ano: number }[]) {
+  for (const row of (anosRes.data ?? []) as Array<{ ano: number | null }>) {
     if (row.ano) anosSet.add(row.ano)
   }
   const anos = Array.from(new Set([currentYear, ...Array.from(anosSet)])).sort((a, b) => b - a)
