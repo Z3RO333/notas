@@ -691,6 +691,9 @@ export async function AdminProductivityPanel({ period }: AdminProductivityPanelP
   const adminRatePrevious = adminPreviousKpis.total > 0
     ? (adminPreviousKpis.concluidas / adminPreviousKpis.total) * 100
     : 0
+  const adminPending = adminCurrentKpis.abertas + adminCurrentKpis.em_tratativa + adminCurrentKpis.em_avaliacao
+  const adminWithProduction = adminRows.filter((row) => row.total > 0).length
+  const adminWithoutDelay = adminRows.filter((row) => row.atrasadas === 0 && row.total >= 5).length
   const adminTop = adminRows[0] ?? null
   const adminBestRate = pickBestRateAdmin(adminRows)
   const adminLowestDelay = [...adminRows]
@@ -808,7 +811,7 @@ export async function AdminProductivityPanel({ period }: AdminProductivityPanelP
             icon={Gauge}
             label="Taxa de fechamento"
             value={formatPercent(adminRate)}
-            helper={`${formatInteger(adminCurrentKpis.abertas + adminCurrentKpis.em_tratativa + adminCurrentKpis.em_avaliacao)} ainda pendentes no mês.`}
+            helper={`${formatInteger(adminPending)} ainda pendentes no mês.`}
             deltaLabel={`${formatSignedPp(adminRate, adminRatePrevious)} vs ${period.previous.label}`}
             deltaTone={resolveDeltaTone(adminRate - adminRatePrevious)}
             tone={adminRate >= 70 ? 'success' : adminRate >= 50 ? 'warning' : 'default'}
@@ -816,11 +819,11 @@ export async function AdminProductivityPanel({ period }: AdminProductivityPanelP
           <MetricCard
             icon={Users}
             label="Admins com produção"
-            value={formatInteger(adminRows.filter((row) => row.total > 0).length)}
-            helper={`${formatInteger(adminRows.filter((row) => row.atrasadas === 0 && row.total >= 5).length)} sem atraso vermelho no mês.`}
-            deltaLabel={`${formatSignedInteger(adminRows.filter((row) => row.total > 0).length - adminPreviousRankingRaw.filter((row) => toNumber(row.qtd_ordens_30d) > 0).length)} vs ${period.previous.label}`}
+            value={formatInteger(adminWithProduction)}
+            helper={`${formatInteger(adminWithoutDelay)} sem atraso vermelho no mês.`}
+            deltaLabel={`${formatSignedInteger(adminWithProduction - adminPreviousRankingRaw.filter((row) => toNumber(row.qtd_ordens_30d) > 0).length)} vs ${period.previous.label}`}
             deltaTone={resolveDeltaTone(
-              adminRows.filter((row) => row.total > 0).length - adminPreviousRankingRaw.filter((row) => toNumber(row.qtd_ordens_30d) > 0).length,
+              adminWithProduction - adminPreviousRankingRaw.filter((row) => toNumber(row.qtd_ordens_30d) > 0).length,
             )}
           />
           <MetricCard
@@ -843,13 +846,13 @@ export async function AdminProductivityPanel({ period }: AdminProductivityPanelP
               items={adminRecognition}
             />
             <SnapshotCard
-              title="Leitura rápida do mês"
+              title="Leitura rápida da produtividade"
               items={[
-                { label: 'Em aberto', value: adminCurrentKpis.abertas, tone: 'warning' },
-                { label: 'Em tratativa', value: adminCurrentKpis.em_tratativa },
-                { label: 'Em avaliação', value: adminCurrentKpis.em_avaliacao },
-                { label: 'Atrasadas', value: adminCurrentKpis.atrasadas, tone: 'danger' },
-                { label: 'Sem responsável', value: adminCurrentKpis.sem_responsavel, tone: adminCurrentKpis.sem_responsavel > 0 ? 'danger' : 'default' },
+                { label: 'Ordens tratadas', value: adminCurrentKpis.total },
+                { label: 'Ordens concluídas', value: adminCurrentKpis.concluidas },
+                { label: 'Ordens pendentes', value: adminPending, tone: 'warning' },
+                { label: 'Admins com produção', value: adminWithProduction },
+                { label: 'Admins sem atraso', value: adminWithoutDelay },
               ]}
             />
           </div>

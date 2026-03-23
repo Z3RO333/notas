@@ -95,7 +95,7 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
                   <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
                     <p className="mb-1 font-medium">{label}</p>
                     <p>Concluídas: <span className="font-semibold text-green-600">{row.concluidas.toLocaleString('pt-BR')}</span></p>
-                    <p>Em Aberto: <span className="font-semibold text-amber-500">{row.em_aberto.toLocaleString('pt-BR')}</span></p>
+                    <p>Pendentes: <span className="font-semibold text-amber-500">{row.em_aberto.toLocaleString('pt-BR')}</span></p>
                     <p>Total: <span className="font-semibold">{row.total.toLocaleString('pt-BR')}</span></p>
                     <p className="mt-1 border-t pt-1 text-muted-foreground">
                       Variação vs mês anterior: {formatSignedPercentChange(row.deltaPct)}
@@ -122,7 +122,7 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
             </Bar>
             <Bar
               dataKey="em_aberto"
-              name="Em Aberto"
+              name="Pendentes"
               fill="#f59e0b"
               radius={[6, 6, 0, 0]}
             >
