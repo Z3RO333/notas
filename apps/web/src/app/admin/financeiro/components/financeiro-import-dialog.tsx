@@ -376,7 +376,7 @@ export function FinanceiroImportDialog() {
           <DialogHeader>
             <DialogTitle>Importar Financeiro SAP</DialogTitle>
             <DialogDescription>
-              Aceita arquivo combinado ou separado. A importacao substitui por competencia; PMPL usa inicio programado com fallback em data de entrada.
+              Aceita arquivo combinado ou separado. A importacao substitui por competencia.
             </DialogDescription>
           </DialogHeader>
 
@@ -385,7 +385,7 @@ export function FinanceiroImportDialog() {
               <label className="flex cursor-pointer flex-col gap-2">
                 <span className="text-sm font-medium">Selecionar arquivo</span>
                 <span className="text-xs text-muted-foreground">
-                  Colunas esperadas: Ordem, Tipo de ordem, Data de entrada, Inicio prog., texto breve, fornecedor e custos. Quando houver valor total, ele prevalece; sem valor total, o pendente usa o maior entre estimado e material.
+                  Colunas esperadas: Ordem, Tipo de ordem, Data de entrada, Inicio prog., texto breve, fornecedor e custos.
                 </span>
                 <input
                   ref={inputRef}

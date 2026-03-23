@@ -249,7 +249,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Financeiro</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Custos operacionais por ordem. PMOS usa data de entrada; PMPL usa inicio programado com fallback em data de entrada. Quando existir valor total, ele prevalece; sem valor total, o pendente usa o maior entre estimado e material.
+            Custos operacionais por ordem.
           </p>
         </div>
         <div className="flex gap-2">

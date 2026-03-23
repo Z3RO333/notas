@@ -17,8 +17,8 @@ RETURNS TABLE(
   nome_loja    TEXT,
   ano          INTEGER,
   mes          INTEGER,
-  total_ordens INTEGER,
-  total_notas  INTEGER
+  total_ordens BIGINT,
+  total_notas  BIGINT
 )
 LANGUAGE plpgsql
 STABLE

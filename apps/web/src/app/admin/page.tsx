@@ -1,30 +1,24 @@
-import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
-import { AdminDashboardRoutingBootstrap } from '@/components/admin/admin-dashboard-routing-bootstrap'
-import { AdminNotesSection } from '@/components/admin/dashboard/admin-notes-section'
-import { AdminPeriodFilter } from '@/components/dashboard/admin-period-filter'
-import { AdminNotesSectionSkeleton } from '@/components/admin/dashboard/admin-notes-section-skeleton'
-import { AdminOrdersSectionSkeleton } from '@/components/admin/dashboard/admin-orders-section-skeleton'
-import { AdminPmosSection } from '@/components/admin/dashboard/admin-pmos-section'
-import { AdminPmplSection } from '@/components/admin/dashboard/admin-pmpl-section'
-import { DistributeButton } from '@/components/dashboard/distribute-button'
-import { DashboardHeaderActions } from '@/components/dashboard/dashboard-header-actions'
-import { RealtimeListener } from '@/components/notas/realtime-listener'
-import { resolveAdminDashboardPeriod, type AdminDashboardSearchParams } from '@/lib/dashboard/period'
-import type { OrderReassignTarget } from '@/lib/types/database'
+import { AdminProductivityFilter } from '@/components/admin/dashboard/admin-productivity-filter'
+import { AdminProductivityPanel } from '@/components/admin/dashboard/admin-productivity-panel'
+import {
+  buildProductivityYearOptions,
+  resolveAdminProductivityPeriod,
+  type AdminProductivitySearchParams,
+} from '@/lib/dashboard/productivity-month'
 
 export const dynamic = 'force-dynamic'
 
 interface AdminDashboardPageProps {
-  searchParams?: Promise<AdminDashboardSearchParams>
+  searchParams?: Promise<AdminProductivitySearchParams>
 }
 
 export default async function AdminDashboardPage({ searchParams }: AdminDashboardPageProps) {
   const currentAdminContext = await getCurrentAdminContext()
   const resolvedSearchParams = searchParams ? await searchParams : undefined
-  const period = resolveAdminDashboardPeriod(resolvedSearchParams)
+  const period = resolveAdminProductivityPeriod(resolvedSearchParams)
+  const yearOptions = buildProductivityYearOptions()
 
   if (!currentAdminContext.isAuthenticated) {
     redirect('/login')
@@ -34,62 +28,24 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
     redirect('/')
   }
 
-  const supabase = await createClient()
-  const reassignTargetsResult = await supabase
-    .from('administradores')
-    .select('id, nome')
-    .eq('role', 'admin')
-    .eq('ativo', true)
-    .eq('em_ferias', false)
-    .order('nome')
-
-  if (reassignTargetsResult.error) {
-    throw reassignTargetsResult.error
-  }
-
-  const reassignTargets = (reassignTargetsResult.data ?? []) as OrderReassignTarget[]
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="space-y-2">
           <h1 className="text-2xl font-bold tracking-tight">Painel Administrativo</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <DashboardHeaderActions />
-          <DistributeButton />
-        </div>
-      </div>
-
-      <AdminDashboardRoutingBootstrap />
-
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">Notas</h2>
-          <p className="text-sm text-muted-foreground">
-            Entrada, conversão e fechamento no período selecionado.
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            Painel estrategico de produtividade mensal, com foco total no desempenho de operacionais e administradores no mes selecionado.
           </p>
         </div>
-        <AdminPeriodFilter
-          periodPreset={period.preset}
-          startDate={period.startDate}
-          endDate={period.endDate}
+
+        <AdminProductivityFilter
+          selectedYear={period.year}
+          selectedMonth={period.month}
+          yearOptions={yearOptions}
         />
       </div>
 
-      <Suspense fallback={<AdminNotesSectionSkeleton />}>
-        <AdminNotesSection period={period} />
-      </Suspense>
-
-      <Suspense fallback={<AdminOrdersSectionSkeleton title="Acompanhamento PMOS" includeRanking />}>
-        <AdminPmosSection period={period} reassignTargets={reassignTargets} />
-      </Suspense>
-
-      <Suspense fallback={<AdminOrdersSectionSkeleton title="Acompanhamento PMPL" />}>
-        <AdminPmplSection period={period} reassignTargets={reassignTargets} />
-      </Suspense>
-
-      <RealtimeListener />
+      <AdminProductivityPanel period={period} />
     </div>
   )
 }

@@ -220,7 +220,7 @@ export default async function ComparativosPage({ searchParams }: ComparativosPag
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Financeiro</h2>
             <p className="text-sm text-muted-foreground">
-              Compare gasto realizado, compromisso total e pendente com a mesma competencia financeira usada na tela de Financeiro. Quando houver valor total, ele prevalece; sem valor total, o pendente usa o maior entre estimado e material.
+              A pagina mostra, lado a lado, gasto realizado, compromisso total e valor pendente dos dois anos selecionados.
             </p>
           </div>
           <ComparisonKpiStrip items={financeKpis} formatValue={formatCurrencyBRL} />
@@ -235,7 +235,7 @@ export default async function ComparativosPage({ searchParams }: ComparativosPag
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Fornecedores</h2>
             <p className="text-sm text-muted-foreground">
-              Ranking anual com drill-down mensal do fornecedor selecionado.
+              Ranking anual de fornecedores.
             </p>
           </div>
           <SuppliersComparisonSection
