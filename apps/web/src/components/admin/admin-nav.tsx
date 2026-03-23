@@ -6,7 +6,7 @@ import { Banknote, BarChart3, BarChartBig, HardHat, LineChart, Settings, UserCog
 import { cn } from '@/lib/utils'
 
 const links = [
-  { href: '/admin', label: 'Dashboard', icon: BarChart3, exact: true },
+  { href: '/admin', label: 'Produtividade', icon: BarChart3, exact: true },
   { href: '/admin/graficos', label: 'Gráficos', icon: LineChart },
   { href: '/admin/financeiro', label: 'Financeiro', icon: Banknote },
   { href: '/admin/comparativos', label: 'Comparativos', icon: BarChartBig },

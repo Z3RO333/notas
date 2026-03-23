@@ -32,7 +32,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
     <div className="space-y-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight">Painel Administrativo</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Produtividade Mensal</h1>
           <p className="max-w-3xl text-sm text-muted-foreground">
             Painel estratégico de produtividade mensal, com foco total no desempenho de operacionais e administradores no mês selecionado.
           </p>
