@@ -307,6 +307,8 @@ def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]
                     "priority": priority,
                 }
             else:
+                if current.get("centro") is None and centro is not None:
+                    current["centro"] = centro
                 if current.get("data_entrada") is None and data_entrada is not None:
                     current["data_entrada"] = data_entrada
                 if current.get("tipo_ordem") is None and tipo_ordem is not None:
@@ -397,6 +399,8 @@ def read_standalone_pmpl_orders(spark: SparkSession, window_days: int, sync_star
                 "priority": priority,
             }
         else:
+            if current.get("centro") is None and centro is not None:
+                current["centro"] = centro
             if current.get("data_entrada") is None and data_entrada is not None:
                 current["data_entrada"] = data_entrada
             if current.get("criado_por_sap_codigo") is None and criado_por_sap_codigo is not None:
