@@ -137,6 +137,7 @@ function OrdensDialog({ nomeLoja, ano, mes, tipoOrdem, categoria, open, onClose 
           p_categoria: categoria,
           p_ano: ano ?? null,
           p_mes: mes ?? null,
+          p_tipo_ordem: tipoOrdem ?? null,
         })
         .then(({ data }) => {
           setOrdens((data as unknown as OrdemRow[]) ?? [])

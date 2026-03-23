@@ -83,8 +83,15 @@ function formatInteger(value: number): string {
   return new Intl.NumberFormat('pt-BR').format(value)
 }
 
+function formatDecimal(value: number): string {
+  return new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(value)
+}
+
 function formatPercent(value: number): string {
-  return `${value.toFixed(1)}%`
+  return `${formatDecimal(value)}%`
 }
 
 function formatSignedInteger(value: number): string {
@@ -93,10 +100,18 @@ function formatSignedInteger(value: number): string {
   return '0'
 }
 
-function formatSignedPp(current: number, previous: number): string {
+function formatComparisonCount(current: number, previous: number, referenceLabel: string): string {
   const delta = current - previous
-  const signal = delta > 0 ? '+' : ''
-  return `${signal}${delta.toFixed(1)} p.p.`
+  if (delta > 0) return `${formatInteger(delta)} a mais que ${referenceLabel}`
+  if (delta < 0) return `${formatInteger(Math.abs(delta))} a menos que ${referenceLabel}`
+  return `Mesmo volume de ${referenceLabel}`
+}
+
+function formatComparisonRate(current: number, previous: number, referenceLabel: string): string {
+  const delta = current - previous
+  if (delta > 0) return `${formatDecimal(delta)} pontos percentuais acima de ${referenceLabel}`
+  if (delta < 0) return `${formatDecimal(Math.abs(delta))} pontos percentuais abaixo de ${referenceLabel}`
+  return `Mesmo percentual de ${referenceLabel}`
 }
 
 function resolveDeltaTone(value: number): DeltaTone {
@@ -391,7 +406,7 @@ function OperationalRankingCard({
       <CardHeader className="space-y-1">
         <CardTitle className="text-base">Ranking mensal de operacionais</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Ordenado por ordens concluídas no mês, com taxa de conclusão e variação vs mês anterior.
+          Ordenado por ordens concluídas no mês, com taxa de conclusão e variação em relação ao mês anterior.
         </p>
       </CardHeader>
       <CardContent className="px-0 pb-0">
@@ -409,7 +424,7 @@ function OperationalRankingCard({
                   <th className="pb-3 pr-3 text-right font-medium">Concluídas</th>
                   <th className="pb-3 pr-3 text-right font-medium">Taxa</th>
                   <th className="pb-3 pr-3 text-right font-medium">Lojas</th>
-                  <th className="pb-3 pr-6 text-right font-medium">Delta</th>
+                  <th className="pb-3 pr-6 text-right font-medium">Variação</th>
                 </tr>
               </thead>
               <tbody>
@@ -470,7 +485,7 @@ function AdminRankingCard({ rows }: { rows: AdminRankingView[] }) {
                   <th className="pb-3 pr-3 text-right font-medium">Taxa</th>
                   <th className="pb-3 pr-3 text-right font-medium">Tratadas</th>
                   <th className="pb-3 pr-3 text-right font-medium">Atrasadas</th>
-                  <th className="pb-3 pr-6 text-right font-medium">Delta</th>
+                  <th className="pb-3 pr-6 text-right font-medium">Variação</th>
                 </tr>
               </thead>
               <tbody>
@@ -743,7 +758,11 @@ export async function AdminProductivityPanel({ period }: AdminProductivityPanelP
             label="Ordens concluídas"
             value={formatInteger(operationalCurrentKpis.ordens_atendidas)}
             helper={`Base do mês ${period.label}.`}
-            deltaLabel={`${formatSignedInteger(operationalCurrentKpis.ordens_atendidas - operationalPreviousKpis.ordens_atendidas)} vs ${period.previous.label}`}
+            deltaLabel={formatComparisonCount(
+              operationalCurrentKpis.ordens_atendidas,
+              operationalPreviousKpis.ordens_atendidas,
+              period.previous.label,
+            )}
             deltaTone={resolveDeltaTone(operationalCurrentKpis.ordens_atendidas - operationalPreviousKpis.ordens_atendidas)}
             tone="success"
           />
@@ -752,7 +771,7 @@ export async function AdminProductivityPanel({ period }: AdminProductivityPanelP
             label="Taxa de conclusão"
             value={formatPercent(operationalRate)}
             helper={`${formatInteger(operationalCurrentKpis.total_ordens)} ordens no mês selecionado.`}
-            deltaLabel={`${formatSignedPp(operationalRate, operationalRatePrevious)} vs ${period.previous.label}`}
+            deltaLabel={formatComparisonRate(operationalRate, operationalRatePrevious, period.previous.label)}
             deltaTone={resolveDeltaTone(operationalRate - operationalRatePrevious)}
             tone={operationalRate >= 80 ? 'success' : operationalRate >= 60 ? 'warning' : 'default'}
           />
@@ -761,7 +780,11 @@ export async function AdminProductivityPanel({ period }: AdminProductivityPanelP
             label="Operacionais com produção"
             value={formatInteger(operationalRows.filter((row) => row.total_ordens > 0).length)}
             helper={`${formatInteger(operationalRows.filter((row) => row.pct_conclusao >= 80 && row.total_ordens >= 5).length)} com taxa acima de 80%.`}
-            deltaLabel={`${formatSignedInteger(operationalRows.filter((row) => row.total_ordens > 0).length - operationalPreviousRowsRaw.filter((row) => row.total_ordens > 0).length)} vs ${period.previous.label}`}
+            deltaLabel={formatComparisonCount(
+              operationalRows.filter((row) => row.total_ordens > 0).length,
+              operationalPreviousRowsRaw.filter((row) => row.total_ordens > 0).length,
+              period.previous.label,
+            )}
             deltaTone={resolveDeltaTone(
               operationalRows.filter((row) => row.total_ordens > 0).length - operationalPreviousRowsRaw.filter((row) => row.total_ordens > 0).length,
             )}
@@ -803,7 +826,11 @@ export async function AdminProductivityPanel({ period }: AdminProductivityPanelP
             label="Ordens concluídas"
             value={formatInteger(adminCurrentKpis.concluidas)}
             helper={`Total tratado no mês: ${formatInteger(adminCurrentKpis.total)} ordens.`}
-            deltaLabel={`${formatSignedInteger(adminCurrentKpis.concluidas - adminPreviousKpis.concluidas)} vs ${period.previous.label}`}
+            deltaLabel={formatComparisonCount(
+              adminCurrentKpis.concluidas,
+              adminPreviousKpis.concluidas,
+              period.previous.label,
+            )}
             deltaTone={resolveDeltaTone(adminCurrentKpis.concluidas - adminPreviousKpis.concluidas)}
             tone="success"
           />
@@ -812,7 +839,7 @@ export async function AdminProductivityPanel({ period }: AdminProductivityPanelP
             label="Taxa de fechamento"
             value={formatPercent(adminRate)}
             helper={`${formatInteger(adminPending)} ainda pendentes no mês.`}
-            deltaLabel={`${formatSignedPp(adminRate, adminRatePrevious)} vs ${period.previous.label}`}
+            deltaLabel={formatComparisonRate(adminRate, adminRatePrevious, period.previous.label)}
             deltaTone={resolveDeltaTone(adminRate - adminRatePrevious)}
             tone={adminRate >= 70 ? 'success' : adminRate >= 50 ? 'warning' : 'default'}
           />
@@ -821,7 +848,11 @@ export async function AdminProductivityPanel({ period }: AdminProductivityPanelP
             label="Admins com produção"
             value={formatInteger(adminWithProduction)}
             helper={`${formatInteger(adminWithoutDelay)} sem atraso vermelho no mês.`}
-            deltaLabel={`${formatSignedInteger(adminWithProduction - adminPreviousRankingRaw.filter((row) => toNumber(row.qtd_ordens_30d) > 0).length)} vs ${period.previous.label}`}
+            deltaLabel={formatComparisonCount(
+              adminWithProduction,
+              adminPreviousRankingRaw.filter((row) => toNumber(row.qtd_ordens_30d) > 0).length,
+              period.previous.label,
+            )}
             deltaTone={resolveDeltaTone(
               adminWithProduction - adminPreviousRankingRaw.filter((row) => toNumber(row.qtd_ordens_30d) > 0).length,
             )}

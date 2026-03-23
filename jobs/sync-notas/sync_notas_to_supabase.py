@@ -701,15 +701,31 @@ def get_sap_status_aux_export_date_column_override(spark: SparkSession) -> str |
     return _as_clean_text(spark.conf.get("cockpit.sync.sap_status_aux.export_date_column", ""))
 
 
-def create_sync_log(spark: SparkSession) -> str:
+def _ensure_supabase_healthcheck() -> None:
+    """Valida acesso básico ao Supabase antes de iniciar o ciclo."""
+    try:
+        supabase.table("sync_log").select("id").limit(1).execute()
+        logger.info("Conexao com Supabase OK. sync_log acessivel.")
+    except Exception as exc:
+        logger.error("FALHA na conexao com Supabase: %s", exc)
+        logger.error("URL: %s", SUPABASE_URL)
+        logger.error("Verifique se esta usando a SERVICE_ROLE_KEY (nao a anon key)")
+        raise
+
+
+def create_sync_log(spark: SparkSession, metadata: dict | None = None) -> str:
     """Cria entrada no sync_log e retorna o ID."""
     sync_id = str(uuid4())
     job_id = spark.conf.get("spark.databricks.job.runId", "manual")
-    supabase.table("sync_log").insert({
+    payload = {
         "id": sync_id,
         "status": "running",
         "databricks_job_id": str(job_id),
-    }).execute()
+    }
+    if metadata:
+        payload["metadata"] = metadata
+
+    supabase.table("sync_log").insert(payload).execute()
     return sync_id
 
 
@@ -2543,14 +2559,7 @@ def main():
     sap_status_aux_required = get_sap_status_aux_required(spark)
     current_step = "startup"
 
-    try:
-        supabase.table("sync_log").select("id").limit(1).execute()
-        logger.info("Conexão com Supabase OK. sync_log acessivel.")
-    except Exception as e:
-        logger.error("FALHA na conexão com Supabase: %s", e)
-        logger.error("URL: %s", SUPABASE_URL)
-        logger.error("Verifique se esta usando a SERVICE_ROLE_KEY (não a anon key)")
-        raise
+    _ensure_supabase_healthcheck()
 
     sync_id = create_sync_log(spark)
     logger.info("Sync iniciado: %s", sync_id)
@@ -3053,4 +3062,5 @@ def main():
         raise
 
 
-main()
+if __name__ == "__main__":
+    main()

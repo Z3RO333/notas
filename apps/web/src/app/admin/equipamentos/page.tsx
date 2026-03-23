@@ -223,6 +223,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
                     data={rawByCategoria[cat].topLojas}
                     ano={ano}
                     mes={mes}
+                    tipoOrdem={tipoOrdem}
                     categoria={cat}
                   />
                   <TopServicosChart data={topServByCategoria[cat] ?? []} />
