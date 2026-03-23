@@ -43,10 +43,10 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Evolucao Mensal</CardTitle>
+          <CardTitle className="text-base">Evolução Mensal</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Nenhum dado no periodo.</p>
+          <p className="text-sm text-muted-foreground">Nenhum dado no período.</p>
         </CardContent>
       </Card>
     )
@@ -70,11 +70,11 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
     <Card>
       <CardHeader className="space-y-1">
         <CardTitle className="text-base">
-          Evolucao Mensal
+          Evolução Mensal
           <span className="ml-2 text-xs font-normal text-muted-foreground">({periodLabel})</span>
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Ultima variacao do total: {formatTrendDescription(latestDelta)} vs mes anterior
+          Última variação do total: {formatTrendDescription(latestDelta)} vs mês anterior
         </p>
       </CardHeader>
       <CardContent className="h-80">
@@ -94,11 +94,11 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
                 return (
                   <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
                     <p className="mb-1 font-medium">{label}</p>
-                    <p>Concluidas: <span className="font-semibold text-green-600">{row.concluidas.toLocaleString('pt-BR')}</span></p>
+                    <p>Concluídas: <span className="font-semibold text-green-600">{row.concluidas.toLocaleString('pt-BR')}</span></p>
                     <p>Em Aberto: <span className="font-semibold text-amber-500">{row.em_aberto.toLocaleString('pt-BR')}</span></p>
                     <p>Total: <span className="font-semibold">{row.total.toLocaleString('pt-BR')}</span></p>
                     <p className="mt-1 border-t pt-1 text-muted-foreground">
-                      Variacao vs mes anterior: {formatSignedPercentChange(row.deltaPct)}
+                      Variação vs mês anterior: {formatSignedPercentChange(row.deltaPct)}
                     </p>
                   </div>
                 )
@@ -107,7 +107,7 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
             <Legend wrapperStyle={CHART_LEGEND_STYLE} />
             <Bar
               dataKey="concluidas"
-              name="Concluidas"
+              name="Concluídas"
               fill="#16a34a"
               radius={[6, 6, 0, 0]}
             >

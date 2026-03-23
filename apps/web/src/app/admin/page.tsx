@@ -34,7 +34,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
         <div className="space-y-2">
           <h1 className="text-2xl font-bold tracking-tight">Painel Administrativo</h1>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            Painel estrategico de produtividade mensal, com foco total no desempenho de operacionais e administradores no mes selecionado.
+            Painel estratégico de produtividade mensal, com foco total no desempenho de operacionais e administradores no mês selecionado.
           </p>
         </div>
 

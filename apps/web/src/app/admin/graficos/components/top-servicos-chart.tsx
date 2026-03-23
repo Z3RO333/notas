@@ -27,11 +27,11 @@ export function TopServicosChart({
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Servicos Solicitados</CardTitle>
+          <CardTitle className="text-base">Serviços Solicitados</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="py-8 text-center text-sm text-muted-foreground">
-            Sem dados para o periodo selecionado.
+            Sem dados para o período selecionado.
           </p>
         </CardContent>
       </Card>
@@ -44,13 +44,13 @@ export function TopServicosChart({
     <>
       <Card>
         <CardHeader className="space-y-1 pb-3">
-          <CardTitle className="text-base">Servicos Solicitados</CardTitle>
+          <CardTitle className="text-base">Serviços Solicitados</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Lider responde por {topPercent.toFixed(1)}% do total
+            Líder responde por {topPercent.toFixed(1)}% do total
           </p>
           {canOpenDrilldown && (
             <p className="text-xs text-muted-foreground">
-              Clique em um servico para ver as ordens refletidas.
+              Clique em um serviço para ver as ordens refletidas.
             </p>
           )}
         </CardHeader>
@@ -60,7 +60,7 @@ export function TopServicosChart({
               <thead>
                 <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
                   <th className="w-12 px-4 py-3 text-right font-medium">#</th>
-                  <th className="px-4 py-3 text-left font-medium">Servico</th>
+                  <th className="px-4 py-3 text-left font-medium">Serviço</th>
                   <th className="px-4 py-3 text-right font-medium">Ordens</th>
                   <th className="px-4 py-3 text-right font-medium">% do total</th>
                 </tr>
