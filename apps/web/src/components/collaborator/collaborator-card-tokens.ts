@@ -9,7 +9,7 @@ export const COLLABORATOR_CARD_TOKENS = {
   accent: {
     none: '',
     orange: 'border-orange-200 bg-orange-50/30 dark:border-orange-900/50 dark:bg-orange-950/20',
-    red: 'border-red-200 bg-red-50/30 dark:border-red-900/50 dark:bg-red-950/20',
+    red: 'border-red-300 bg-red-50/40 ring-1 ring-red-400/60 shadow-[0_0_0_3px_rgba(248,113,113,0.12)] dark:border-red-900/70 dark:bg-red-950/20 dark:ring-red-700/50',
   },
   variant: {
     operational: {

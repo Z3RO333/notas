@@ -41,10 +41,10 @@ export function CollaboratorMiniCard({
       variant="operational"
       name={collaborator.nome}
       avatarUrl={collaborator.avatar_url}
-      avatarAccent={highlightOverdueLeader ? 'danger' : 'none'}
       cargo={cargo}
       active={isExpanded}
       onClick={onClick}
+      accent={highlightOverdueLeader ? 'red' : 'none'}
       dimmed={Boolean(unavailable)}
       statusBadges={unavailable ? (
         <span className={COLLABORATOR_CARD_TOKENS.statusBadge}>{unavailable}</span>

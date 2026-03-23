@@ -84,8 +84,8 @@ export function CollaboratorFullCard({
       name={collaborator.nome}
       avatarUrl={collaborator.avatar_url}
       avatarSize="lg"
-      avatarAccent={highlightOverdueLeader ? 'danger' : 'none'}
       cargo={cargo}
+      accent={highlightOverdueLeader ? 'red' : 'none'}
       topSlot={adminActions ? <div className="border-b pb-3">{adminActions}</div> : null}
       primaryMetric={{
         id: 'abertas',
