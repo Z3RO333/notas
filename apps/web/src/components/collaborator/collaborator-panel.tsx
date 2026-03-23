@@ -362,6 +362,26 @@ export function CollaboratorPanel({
     filteredNotasByAdmin,
   ])
 
+  const overdueLeaderId = useMemo(() => {
+    const topCollaborator = [...visibleCollaborators]
+      .map((collaborator) => ({
+        id: collaborator.id,
+        totalAtrasadas: collaborator.qtd_1_dia + collaborator.qtd_2_mais,
+        atrasoCritico: collaborator.qtd_2_mais,
+        abertas: collaborator.qtd_abertas,
+        nome: collaborator.nome,
+      }))
+      .filter((collaborator) => collaborator.totalAtrasadas > 0)
+      .sort((left, right) => {
+        if (left.totalAtrasadas !== right.totalAtrasadas) return right.totalAtrasadas - left.totalAtrasadas
+        if (left.atrasoCritico !== right.atrasoCritico) return right.atrasoCritico - left.atrasoCritico
+        if (left.abertas !== right.abertas) return right.abertas - left.abertas
+        return left.nome.localeCompare(right.nome)
+      })[0]
+
+    return topCollaborator?.id ?? null
+  }, [visibleCollaborators])
+
   const visibleNotesForEmCampo = useMemo(() => {
     const notesMap = new Map<string, NotaPanelData>()
 
@@ -600,6 +620,7 @@ export function CollaboratorPanel({
                   key={c.id}
                   collaborator={c}
                   isExpanded={expandedId === c.id}
+                  highlightOverdueLeader={c.id === overdueLeaderId}
                   onClick={() => handleCardClick(c.id)}
                 />
               ))}
@@ -657,6 +678,7 @@ export function CollaboratorPanel({
                 key={c.id}
                 collaborator={c}
                 notas={filtered}
+                highlightOverdueLeader={c.id === overdueLeaderId}
                 adminActions={mode === 'admin' ? (
                   <CollaboratorAdminActions
                     admin={admin}

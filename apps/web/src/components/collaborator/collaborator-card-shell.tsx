@@ -36,6 +36,7 @@ interface CollaboratorCardShellProps {
   name: string
   avatarUrl?: string | null
   avatarSize?: 'sm' | 'md' | 'lg' | 'xl'
+  avatarAccent?: 'none' | 'danger'
   cargo: CollaboratorCargoPresentation
   statusBadges?: ReactNode
   headerRight?: ReactNode
@@ -99,6 +100,7 @@ export function CollaboratorCardShell({
   name,
   avatarUrl,
   avatarSize,
+  avatarAccent = 'none',
   cargo,
   statusBadges,
   headerRight,
@@ -117,6 +119,9 @@ export function CollaboratorCardShell({
   const CargoIcon = CARGO_ICON_BY_KEY[cargo.iconKey]
   const isSemResponsavel = cargo.label === 'SEM RESPONSÁVEL'
   const resolvedAccent = isSemResponsavel ? 'orange' : accent
+  const avatarAccentClassName = avatarAccent === 'danger'
+    ? 'ring-2 ring-red-500/90 ring-offset-2 ring-offset-background shadow-[0_0_0_4px_rgba(239,68,68,0.18)]'
+    : undefined
 
   return (
     <Card
@@ -137,6 +142,7 @@ export function CollaboratorCardShell({
             src={avatarUrl}
             nome={name}
             size={avatarSize ?? variantTokens.avatarSize}
+            className={avatarAccentClassName}
             fallbackIcon={isSemResponsavel ? Ghost : undefined}
           />
 

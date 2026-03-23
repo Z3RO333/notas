@@ -13,6 +13,7 @@ interface CollaboratorMiniCardProps {
   isExpanded: boolean
   onClick: () => void
   forceCargoLabel?: CollaboratorCargoLabel
+  highlightOverdueLeader?: boolean
 }
 
 function getUnavailableLabel(c: CollaboratorData): string | null {
@@ -28,6 +29,7 @@ export function CollaboratorMiniCard({
   isExpanded,
   onClick,
   forceCargoLabel,
+  highlightOverdueLeader = false,
 }: CollaboratorMiniCardProps) {
   const cargo = forceCargoLabel
     ? getCargoPresentationByLabel(forceCargoLabel)
@@ -39,6 +41,7 @@ export function CollaboratorMiniCard({
       variant="operational"
       name={collaborator.nome}
       avatarUrl={collaborator.avatar_url}
+      avatarAccent={highlightOverdueLeader ? 'danger' : 'none'}
       cargo={cargo}
       active={isExpanded}
       onClick={onClick}
