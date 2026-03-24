@@ -13,7 +13,6 @@ interface CollaboratorMiniCardProps {
   isExpanded: boolean
   onClick: () => void
   forceCargoLabel?: CollaboratorCargoLabel
-  highlightOverdueLeader?: boolean
 }
 
 function getUnavailableLabel(c: CollaboratorData): string | null {
@@ -29,12 +28,12 @@ export function CollaboratorMiniCard({
   isExpanded,
   onClick,
   forceCargoLabel,
-  highlightOverdueLeader = false,
 }: CollaboratorMiniCardProps) {
   const cargo = forceCargoLabel
     ? getCargoPresentationByLabel(forceCargoLabel)
     : resolveCargoPresentationFromEspecialidade(collaborator.especialidade)
   const unavailable = getUnavailableLabel(collaborator)
+  const isClear = collaborator.qtd_abertas === 0
 
   return (
     <CollaboratorCardShell
@@ -44,7 +43,7 @@ export function CollaboratorMiniCard({
       cargo={cargo}
       active={isExpanded}
       onClick={onClick}
-      accent={highlightOverdueLeader ? 'red' : 'none'}
+      accent={isClear ? 'green' : 'none'}
       dimmed={Boolean(unavailable)}
       statusBadges={unavailable ? (
         <span className={COLLABORATOR_CARD_TOKENS.statusBadge}>{unavailable}</span>

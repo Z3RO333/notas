@@ -47,7 +47,7 @@ interface CollaboratorCardShellProps {
   onClick?: () => void
   active?: boolean
   dimmed?: boolean
-  accent?: 'none' | 'orange' | 'red'
+  accent?: 'none' | 'green' | 'orange' | 'red'
   className?: string
 }
 

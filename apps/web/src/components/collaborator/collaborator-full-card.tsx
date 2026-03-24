@@ -17,7 +17,6 @@ interface CollaboratorFullCardProps {
   adminActions?: React.ReactNode
   trackingOrders?: OrdemAcompanhamento[]
   forceCargoLabel?: CollaboratorCargoLabel
-  highlightOverdueLeader?: boolean
 }
 
 function sortByUrgency(notas: NotaPanelData[]): NotaPanelData[] {
@@ -38,12 +37,12 @@ export function CollaboratorFullCard({
   adminActions,
   trackingOrders,
   forceCargoLabel,
-  highlightOverdueLeader = false,
 }: CollaboratorFullCardProps) {
   const cargo = forceCargoLabel
     ? getCargoPresentationByLabel(forceCargoLabel)
     : resolveCargoPresentationFromEspecialidade(collaborator.especialidade)
   const sortedNotas = sortByUrgency(notas)
+  const isClear = collaborator.qtd_abertas === 0
 
   const details = (
     <div className="space-y-3">
@@ -85,7 +84,7 @@ export function CollaboratorFullCard({
       avatarUrl={collaborator.avatar_url}
       avatarSize="lg"
       cargo={cargo}
-      accent={highlightOverdueLeader ? 'red' : 'none'}
+      accent={isClear ? 'green' : 'none'}
       topSlot={adminActions ? <div className="border-b pb-3">{adminActions}</div> : null}
       primaryMetric={{
         id: 'abertas',
