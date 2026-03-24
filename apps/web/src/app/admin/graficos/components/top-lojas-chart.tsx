@@ -115,12 +115,13 @@ interface OrdensDialogProps {
   ano?: number
   mes?: number
   tipoOrdem?: string
+  equipamento?: string
   categoria?: string  // se fornecido, usa RPC filtrada por categoria
   open: boolean
   onClose: () => void
 }
 
-function OrdensDialog({ nomeLoja, ano, mes, tipoOrdem, categoria, open, onClose }: OrdensDialogProps) {
+function OrdensDialog({ nomeLoja, ano, mes, tipoOrdem, equipamento, categoria, open, onClose }: OrdensDialogProps) {
   const [ordens, setOrdens] = useState<OrdemRow[]>([])
   const [loading, setLoading] = useState(false)
   const supabase = useMemo(() => createClient(), [])
@@ -138,6 +139,7 @@ function OrdensDialog({ nomeLoja, ano, mes, tipoOrdem, categoria, open, onClose 
           p_ano: ano ?? null,
           p_mes: mes ?? null,
           p_tipo_ordem: tipoOrdem ?? null,
+          p_equipamento: equipamento ?? null,
         })
         .then(({ data }) => {
           setOrdens((data as unknown as OrdemRow[]) ?? [])
@@ -168,7 +170,7 @@ function OrdensDialog({ nomeLoja, ano, mes, tipoOrdem, categoria, open, onClose 
         setLoading(false)
       })
     }
-  }, [open, nomeLoja, ano, mes, tipoOrdem, categoria, supabase])
+  }, [open, nomeLoja, ano, mes, tipoOrdem, equipamento, categoria, supabase])
 
   const formatDate = (d: string | null) => {
     if (!d) return '—'
@@ -234,10 +236,11 @@ interface TopLojasChartProps {
   ano?: number
   mes?: number
   tipoOrdem?: string
+  equipamento?: string
   categoria?: string  // quando passado, drill-down filtra por categoria (equipamentos)
 }
 
-export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categoria }: TopLojasChartProps) {
+export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, equipamento, categoria }: TopLojasChartProps) {
   const { showLabels } = useChartLabels()
   const [selectedLoja, setSelectedLoja] = useState<string | null>(null)
   const titulo = tipoUnidade ? TIPO_TITULO[tipoUnidade] : 'Top Unidades - Ordens Geradas'
@@ -361,6 +364,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, categori
           ano={ano}
           mes={mes}
           tipoOrdem={tipoOrdem}
+          equipamento={equipamento}
           categoria={categoria}
           open={!!selectedLoja}
           onClose={() => setSelectedLoja(null)}

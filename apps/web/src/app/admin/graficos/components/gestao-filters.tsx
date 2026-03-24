@@ -4,6 +4,11 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useCallback } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
+type GestaoFilterOption = {
+  value: string
+  label: string
+}
+
 const MES_NOMES: Record<string, string> = {
   '1': 'Janeiro', '2': 'Fevereiro', '3': 'Março', '4': 'Abril',
   '5': 'Maio', '6': 'Junho', '7': 'Julho', '8': 'Agosto',
@@ -16,9 +21,19 @@ interface GestaoFiltersProps {
   anoAtivo?: number
   mesAtivo?: number
   tipoOrdemAtivo?: string
+  equipamentos?: GestaoFilterOption[]
+  equipamentoAtivo?: string
 }
 
-export function GestaoFilters({ tiposOrdem, anos, anoAtivo, mesAtivo, tipoOrdemAtivo }: GestaoFiltersProps) {
+export function GestaoFilters({
+  tiposOrdem,
+  anos,
+  anoAtivo,
+  mesAtivo,
+  tipoOrdemAtivo,
+  equipamentos = [],
+  equipamentoAtivo,
+}: GestaoFiltersProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -87,6 +102,25 @@ export function GestaoFilters({ tiposOrdem, anos, anoAtivo, mesAtivo, tipoOrdemA
             <SelectItem value="todos">Todos tipos</SelectItem>
             {tiposOrdem.map((t) => (
               <SelectItem key={t} value={t}>{t}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {equipamentos.length > 0 && (
+        <Select
+          value={equipamentoAtivo ?? 'todos'}
+          onValueChange={(v) => updateParam('equipamento', v)}
+        >
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Equipamento" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos equipamentos</SelectItem>
+            {equipamentos.map((equipamento) => (
+              <SelectItem key={equipamento.value} value={equipamento.value}>
+                {equipamento.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>

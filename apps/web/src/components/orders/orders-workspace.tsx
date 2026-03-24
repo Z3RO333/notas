@@ -11,6 +11,7 @@ import { OrdersBulkReassignBar } from '@/components/orders/orders-bulk-reassign-
 import { OrdersDetailDrawer } from '@/components/orders/orders-detail-drawer'
 import { OrdersKpiStrip } from '@/components/orders/orders-kpi-strip'
 import { OrdersOwnerFullCard } from '@/components/orders/orders-owner-full-card'
+import { OrdersPoolCard } from '@/components/orders/orders-pool-card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
@@ -28,6 +29,7 @@ import type {
   Especialidade,
   OrderOwnerGroup,
   OrdersOwnerSummary,
+  OrdersPoolGroup,
   OrdersPeriodModeOperational,
   PanelViewMode,
   OrdersWorkspaceCursor,
@@ -305,6 +307,8 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   })
   const [ownerSummary, setOwnerSummary] = useState<OrdersOwnerSummary[]>([])
   const [reassignTargets, setReassignTargets] = useState<OrderReassignTarget[]>([])
+  const [poolGroups, setPoolGroups] = useState<Array<Omit<OrdersPoolGroup, 'rows'>>>([])
+  const [poolCentros, setPoolCentros] = useState<Record<string, string>>({})
   const [nextCursor, setNextCursor] = useState<OrdersWorkspaceCursor | null>(null)
   const [loadingInitial, setLoadingInitial] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -404,6 +408,23 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       .filter((g) => g.total > 0)
       .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, 'pt-BR'))
   }, [rows, ownerCardsViewMode, ownerSummary, filters.tipoOrdem, ownerEspecialidadeById, isPrivateScope, currentUser.adminId, selectedOwnerKey])
+
+  const poolGroupsWithRows = useMemo((): OrdersPoolGroup[] => {
+    if (!currentUser.canViewGlobal || ownerCardsViewMode !== 'cards') return []
+    const rowsByPool = new Map<string, OrdemNotaAcompanhamento[]>()
+    for (const row of rows) {
+      if (row.responsavel_atual_id !== null) continue
+      if (!row.centro) continue
+      const poolNome = poolCentros[row.centro]
+      if (!poolNome) continue
+      const bucket = rowsByPool.get(poolNome) ?? []
+      bucket.push(row)
+      rowsByPool.set(poolNome, bucket)
+    }
+    return poolGroups
+      .filter((g) => g.total > 0)
+      .map((g) => ({ ...g, rows: rowsByPool.get(g.pool_nome) ?? [] }))
+  }, [rows, poolGroups, poolCentros, ownerCardsViewMode, currentUser.canViewGlobal])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -533,6 +554,8 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         setKpis(payload.kpis)
         setOwnerSummary(payload.ownerSummary)
         setReassignTargets(payload.reassignTargets)
+        setPoolGroups(payload.poolGroups ?? [])
+        setPoolCentros(payload.poolCentros ?? {})
         setNextCursor(payload.nextCursor)
 
         if (reset) {
@@ -1013,6 +1036,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                   setSelectedNotaIds((prev) => (prev.includes(notaId) ? prev.filter((id) => id !== notaId) : [...prev, notaId]))
                 }}
               />
+            ))}
+            {poolGroupsWithRows.map((group) => (
+              <OrdersPoolCard key={group.pool_nome} group={group} />
             ))}
           </div>
         )}

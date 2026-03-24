@@ -399,12 +399,24 @@ export interface OrdersWorkspaceKpis {
   sem_responsavel: number
 }
 
+export interface OrdersPoolGroup {
+  pool_nome: string
+  pool_label: string
+  total: number
+  atrasadas: number
+  atencao: number
+  abertas: number
+  rows: OrdemNotaAcompanhamento[]
+}
+
 export interface OrdersWorkspaceResponse {
   rows: OrdemNotaAcompanhamento[]
   nextCursor: OrdersWorkspaceCursor | null
   kpis: OrdersWorkspaceKpis
   ownerSummary: OrdersOwnerSummary[]
   reassignTargets: OrderReassignTarget[]
+  poolGroups: Array<Omit<OrdersPoolGroup, 'rows'>>
+  poolCentros: Record<string, string>
   currentUser: {
     role: UserRole
     adminId: string

@@ -23,6 +23,7 @@ import type {
   OrdemNotaAcompanhamento,
   OrderReassignTarget,
   OrdersOwnerSummary,
+  OrdersPoolGroup,
   OrdersWorkspaceKpis,
   OrdersWorkspaceResponse,
   UserRole,
@@ -181,7 +182,16 @@ export async function GET(request: Request) {
     p_tipo_ordem: parsedRequest.tipoOrdem,
   } satisfies Record<string, unknown>
 
-  const [rowsResult, kpisResult, summaryResult, targetsResult] = await Promise.all([
+  const poolRpcParams = {
+    p_period_mode: parsedRequest.periodMode,
+    p_year: parsedRequest.year,
+    p_month: parsedRequest.month,
+    p_start_iso: parsedRequest.startIso,
+    p_end_exclusive_iso: parsedRequest.endExclusiveIso,
+    p_tipo_ordem: parsedRequest.tipoOrdem,
+  }
+
+  const [rowsResult, kpisResult, summaryResult, targetsResult, poolResult, poolCentrosResult] = await Promise.all([
     callRpcWithOptionalTipoOrdem<OrdemNotaAcompanhamento[]>(supabase, 'buscar_ordens_workspace', rowsRpcParams),
     callRpcWithOptionalTipoOrdem<OrdersWorkspaceKpis>(supabase, 'calcular_kpis_ordens_operacional', kpisRpcParams),
     callRpcWithOptionalTipoOrdem<Array<Partial<OrdersOwnerSummary>>>(supabase, 'calcular_resumo_colaboradores_ordens', summaryRpcParams),
@@ -194,6 +204,12 @@ export async function GET(request: Request) {
         .eq('em_ferias', false)
         .order('nome')
       : Promise.resolve({ data: [] as OrderReassignTarget[], error: null }),
+    canViewGlobal
+      ? supabase.rpc('calcular_resumo_pool_centros', poolRpcParams)
+      : Promise.resolve({ data: [], error: null }),
+    canViewGlobal
+      ? supabase.from('centros_pool').select('centro, pool_nome')
+      : Promise.resolve({ data: [], error: null }),
   ])
 
   if (rowsResult.error) {
@@ -293,12 +309,30 @@ export async function GET(request: Request) {
     }
   })
 
+  const poolGroups: Array<Omit<OrdersPoolGroup, 'rows'>> = ((poolResult.data ?? []) as Array<{
+    pool_nome: string; pool_label: string; total: number; atrasadas: number; atencao: number; abertas: number
+  }>).map((p) => ({
+    pool_nome: p.pool_nome,
+    pool_label: p.pool_label,
+    total: Number(p.total ?? 0),
+    atrasadas: Number(p.atrasadas ?? 0),
+    atencao: Number(p.atencao ?? 0),
+    abertas: Number(p.abertas ?? 0),
+  }))
+
+  const poolCentros: Record<string, string> = {}
+  for (const row of ((poolCentrosResult.data ?? []) as Array<{ centro: string; pool_nome: string }>)) {
+    poolCentros[row.centro] = row.pool_nome
+  }
+
   const response: OrdersWorkspaceResponse = {
     rows,
     nextCursor,
     kpis: kpis ?? emptyWorkspaceKpis(),
     ownerSummary,
     reassignTargets,
+    poolGroups,
+    poolCentros,
     currentUser: {
       role,
       adminId: loggedAdmin.id,

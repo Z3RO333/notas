@@ -37,6 +37,18 @@ const CATEGORIA_CONFIG: Record<Categoria, { label: string; sublabel: string; cor
   },
 }
 
+function formatEquipamentoLabel(value: string): string {
+  const upper = value.trim().toUpperCase()
+  if (!upper) return value
+
+  const keepUppercase = new Set(['VRF', 'PMPL', 'PMOS'])
+  return upper
+    .split(' ')
+    .filter(Boolean)
+    .map((token) => (keepUppercase.has(token) ? token : `${token[0]}${token.slice(1).toLowerCase()}`))
+    .join(' ')
+}
+
 interface EquipamentosPageProps {
   searchParams?: Promise<Record<string, string | undefined>>
 }
@@ -51,6 +63,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
     : (Number.isFinite(parsedAno) ? parsedAno : currentYear)
   const mes = Number.isFinite(parsedMes) ? parsedMes : undefined
   const tipoOrdem = params.tipo_ordem ?? undefined
+  const equipamento = params.equipamento ?? undefined
 
   const supabase = await createClient()
 
@@ -60,6 +73,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
     viewElevRes,
     viewRefriRes,
     anosRes,
+    equipamentosRes,
   ] = await Promise.all([
     // Q1 — Top unidades elevadores
     supabase.rpc('calcular_equipamentos_top_lojas', {
@@ -67,6 +81,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
       p_ano: ano ?? null,
       p_mes: mes ?? null,
       p_tipo_ordem: tipoOrdem ?? null,
+      p_equipamento: equipamento ?? null,
     }),
 
     // Q2 — Top unidades refrigeração
@@ -75,6 +90,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
       p_ano: ano ?? null,
       p_mes: mes ?? null,
       p_tipo_ordem: tipoOrdem ?? null,
+      p_equipamento: equipamento ?? null,
     }),
 
     // Q3 — Serviços + evolução elevadores
@@ -83,6 +99,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
       p_ano: ano ?? null,
       p_mes: mes ?? null,
       p_tipo_ordem: tipoOrdem ?? null,
+      p_equipamento: equipamento ?? null,
     }),
 
     // Q4 — Serviços + evolução refrigeração
@@ -91,9 +108,17 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
       p_ano: ano ?? null,
       p_mes: mes ?? null,
       p_tipo_ordem: tipoOrdem ?? null,
+      p_equipamento: equipamento ?? null,
     }),
 
     supabase.rpc('listar_equipamentos_criticos_anos', {
+      p_tipo_ordem: tipoOrdem ?? null,
+      p_equipamento: equipamento ?? null,
+    }),
+
+    supabase.rpc('listar_equipamentos_criticos_filtros', {
+      p_ano: ano ?? null,
+      p_mes: mes ?? null,
       p_tipo_ordem: tipoOrdem ?? null,
     }),
   ])
@@ -104,6 +129,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
     viewElevRes.error,
     viewRefriRes.error,
     anosRes.error,
+    equipamentosRes.error,
   ].find(Boolean)
 
   if (firstError) {
@@ -182,6 +208,14 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
     if (row.ano) anosSet.add(row.ano)
   }
   const anos = Array.from(new Set([currentYear, ...Array.from(anosSet)])).sort((a, b) => b - a)
+  const equipamentoOptions = Array.from(
+    new Map(
+      ((equipamentosRes.data ?? []) as Array<{ equipamento: string | null }>)
+        .map((row) => row.equipamento?.trim())
+        .filter((row): row is string => Boolean(row))
+        .map((row) => [row, { value: row, label: formatEquipamentoLabel(row) }])
+    ).values()
+  ).sort((left, right) => left.label.localeCompare(right.label, 'pt-BR'))
 
   return (
     <div className="space-y-6">
@@ -198,6 +232,8 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
         anoAtivo={ano}
         mesAtivo={mes}
         tipoOrdemAtivo={tipoOrdem}
+        equipamentos={equipamentoOptions}
+        equipamentoAtivo={equipamento}
       />
 
       <ChartLabelsProvider>
@@ -224,6 +260,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
                     ano={ano}
                     mes={mes}
                     tipoOrdem={tipoOrdem}
+                    equipamento={equipamento}
                     categoria={cat}
                   />
                   <TopServicosChart data={topServByCategoria[cat] ?? []} />
