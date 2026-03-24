@@ -8,6 +8,7 @@ import {
   Users,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { Avatar } from '@/components/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
 import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
@@ -21,6 +22,7 @@ import type {
   OrdersWorkspaceKpis,
   ProdutividadeOperacional,
 } from '@/lib/types/database'
+import { cn } from '@/lib/utils'
 
 interface AdminProductivityPanelProps {
   period: AdminProductivityPeriod
@@ -46,12 +48,14 @@ type RecognitionItem = {
 }
 
 type OperationalRankingView = ProdutividadeOperacional & {
+  avatar_url: string | null
   deltaConcluidas: number
 }
 
 type AdminRankingView = {
   administrador_id: string
   nome: string
+  avatar_url: string | null
   total: number
   concluidas: number
   abertas: number
@@ -59,6 +63,16 @@ type AdminRankingView = {
   atrasadas: number
   taxa_fechamento: number
   deltaConcluidas: number
+}
+
+type PodiumEntry = {
+  rank: 1 | 2 | 3
+  key: string
+  name: string
+  avatarUrl: string | null
+  primary: string
+  secondary: string
+  tertiary?: string
 }
 
 const EXCLUDED_ADMIN_RANKING_NAMES = new Set([
@@ -226,6 +240,7 @@ function buildOperationalRows(
 
   return currentRows.map((row) => ({
     ...row,
+    avatar_url: null,
     deltaConcluidas: row.atendidas - toNumber(previousBySupplier.get(row.fornecedor_codigo)?.atendidas),
   }))
 }
@@ -233,6 +248,7 @@ function buildOperationalRows(
 function buildAdminRows(
   currentRows: OrdemNotaRankingAdmin[],
   previousRows: OrdemNotaRankingAdmin[],
+  avatarByAdminId: Map<string, string | null>,
 ): AdminRankingView[] {
   const previousByAdmin = new Map(previousRows.map((row) => [row.administrador_id, row]))
 
@@ -245,6 +261,7 @@ function buildAdminRows(
       return {
         administrador_id: row.administrador_id,
         nome: row.nome,
+        avatar_url: avatarByAdminId.get(row.administrador_id) ?? null,
         total,
         concluidas,
         abertas: toNumber(row.qtd_abertas_30d),
@@ -269,6 +286,32 @@ function pickBestRateOperational(rows: ProdutividadeOperacional[]): Produtividad
       if (right.pct_conclusao !== left.pct_conclusao) return right.pct_conclusao - left.pct_conclusao
       return right.atendidas - left.atendidas
     })[0] ?? rows[0] ?? null
+}
+
+const PODIUM_LAYOUT: Array<1 | 2 | 3> = [2, 1, 3]
+
+function getPodiumStyle(rank: 1 | 2 | 3) {
+  if (rank === 1) {
+    return {
+      column: 'pt-0',
+      avatar: 'ring-4 ring-amber-300 shadow-[0_10px_30px_rgba(245,158,11,0.28)]',
+      pedestal: 'min-h-[10rem] border-amber-200 bg-gradient-to-b from-amber-100 via-amber-300 to-amber-600 text-amber-950',
+    }
+  }
+
+  if (rank === 2) {
+    return {
+      column: 'pt-10',
+      avatar: 'ring-4 ring-slate-300 shadow-[0_10px_26px_rgba(148,163,184,0.22)]',
+      pedestal: 'min-h-[8rem] border-slate-200 bg-gradient-to-b from-slate-50 via-slate-200 to-slate-500 text-slate-900',
+    }
+  }
+
+  return {
+    column: 'pt-14',
+    avatar: 'ring-4 ring-orange-300 shadow-[0_10px_24px_rgba(194,120,31,0.24)]',
+    pedestal: 'min-h-[7rem] border-orange-200 bg-gradient-to-b from-orange-50 via-orange-200 to-orange-500 text-orange-950',
+  }
 }
 
 function pickBestRateAdmin(rows: AdminRankingView[]): AdminRankingView | null {
@@ -389,6 +432,131 @@ function SnapshotCard({
             </div>
           )
         })}
+      </CardContent>
+    </Card>
+  )
+}
+
+function RankingPodium({
+  entries,
+  emptyMessage,
+}: {
+  entries: PodiumEntry[]
+  emptyMessage: string
+}) {
+  if (entries.length === 0) {
+    return (
+      <div className="px-6 pb-6">
+        <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+      </div>
+    )
+  }
+
+  const entryByRank = new Map(entries.map((entry) => [entry.rank, entry]))
+
+  return (
+    <div className="border-b bg-muted/10 px-6 pb-6 pt-4">
+      <div className="grid grid-cols-3 gap-3 md:gap-5">
+        {PODIUM_LAYOUT.map((rank) => {
+          const entry = entryByRank.get(rank)
+
+          if (!entry) {
+            return <div key={rank} />
+          }
+
+          const style = getPodiumStyle(rank)
+
+          return (
+            <div key={entry.key} className={cn('flex flex-col items-center justify-end', style.column)}>
+              <div className="mb-3 flex flex-col items-center text-center">
+                <Avatar
+                  src={entry.avatarUrl}
+                  nome={entry.name}
+                  size={rank === 1 ? 'xl' : 'lg'}
+                  className={style.avatar}
+                />
+                <p className="mt-3 line-clamp-2 text-sm font-semibold leading-tight">{entry.name}</p>
+                <p className="mt-1 text-xs font-semibold text-foreground/90">{entry.primary}</p>
+                <p className="text-[11px] text-muted-foreground">{entry.secondary}</p>
+                {entry.tertiary ? (
+                  <p className="text-[11px] text-muted-foreground">{entry.tertiary}</p>
+                ) : null}
+              </div>
+
+              <div className={cn('flex w-full items-center justify-center rounded-t-[1.75rem] border px-3 py-4 text-center shadow-sm', style.pedestal)}>
+                <span className="text-4xl font-black leading-none md:text-5xl">{rank}</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function OperationalPodiumCard({
+  rows,
+  totalConcluidas,
+}: {
+  rows: OperationalRankingView[]
+  totalConcluidas: number
+}) {
+  const entries: PodiumEntry[] = rows.slice(0, 3).map((row, index) => {
+    const share = totalConcluidas > 0 ? (row.atendidas / totalConcluidas) * 100 : 0
+
+    return {
+      rank: (index + 1) as 1 | 2 | 3,
+      key: row.fornecedor_codigo,
+      name: row.fornecedor_nome || row.fornecedor_codigo,
+      avatarUrl: row.avatar_url,
+      primary: `${formatInteger(row.atendidas)} concluídas`,
+      secondary: `${formatPercent(row.pct_conclusao)} de taxa`,
+      tertiary: `${formatPercent(share)} do mês`,
+    }
+  })
+
+  return (
+    <Card>
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-base">Pódio de operacionais</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Top 3 do mês por ordens concluídas, com taxa de conclusão e participação no período.
+        </p>
+      </CardHeader>
+      <CardContent className="px-0 pb-0">
+        <RankingPodium
+          entries={entries}
+          emptyMessage="Nenhum operacional com produção no mês selecionado."
+        />
+      </CardContent>
+    </Card>
+  )
+}
+
+function AdminPodiumCard({ rows }: { rows: AdminRankingView[] }) {
+  const entries: PodiumEntry[] = rows.slice(0, 3).map((row, index) => ({
+    rank: (index + 1) as 1 | 2 | 3,
+    key: row.administrador_id,
+    name: row.nome,
+    avatarUrl: row.avatar_url,
+    primary: `${formatInteger(row.concluidas)} concluídas`,
+    secondary: `${formatPercent(row.taxa_fechamento)} de taxa`,
+    tertiary: `${formatInteger(row.atrasadas)} atrasadas`,
+  }))
+
+  return (
+    <Card>
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-base">Pódio de administradores</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Top 3 do mês por ordens concluídas, com taxa de fechamento e volume de atraso.
+        </p>
+      </CardHeader>
+      <CardContent className="px-0 pb-0">
+        <RankingPodium
+          entries={entries}
+          emptyMessage="Nenhum administrador com ordens no mês selecionado."
+        />
       </CardContent>
     </Card>
   )
@@ -649,7 +817,21 @@ export async function AdminProductivityPanel({ period }: AdminProductivityPanelP
   const adminPreviousKpis = normalizeOrdersKpis(adminPreviousKpisResult.data)
   const adminCurrentRankingRaw = (adminCurrentRankingResult.data ?? []) as OrdemNotaRankingAdmin[]
   const adminPreviousRankingRaw = (adminPreviousRankingResult.data ?? []) as OrdemNotaRankingAdmin[]
-  const adminRows = buildAdminRows(adminCurrentRankingRaw, adminPreviousRankingRaw)
+  const adminAvatarById = new Map<string, string | null>()
+  const adminAvatarIds = Array.from(new Set(adminCurrentRankingRaw.map((row) => row.administrador_id).filter(Boolean)))
+  if (adminAvatarIds.length > 0) {
+    const adminAvatarResult = await supabase
+      .from('administradores')
+      .select('id, avatar_url')
+      .in('id', adminAvatarIds)
+
+    if (!adminAvatarResult.error) {
+      for (const row of adminAvatarResult.data ?? []) {
+        adminAvatarById.set(row.id, row.avatar_url)
+      }
+    }
+  }
+  const adminRows = buildAdminRows(adminCurrentRankingRaw, adminPreviousRankingRaw, adminAvatarById)
 
   const adminEvolution = adminEvolutionResults.map((result, index) => {
     const kpis = normalizeOrdersKpis(result.data)
@@ -799,7 +981,11 @@ export async function AdminProductivityPanel({ period }: AdminProductivityPanelP
         </div>
 
         <div className="grid gap-6 xl:grid-cols-3">
-          <div className="xl:col-span-2">
+          <div className="space-y-6 xl:col-span-2">
+            <OperationalPodiumCard
+              rows={operationalRows}
+              totalConcluidas={operationalCurrentKpis.ordens_atendidas}
+            />
             <OperationalRankingCard
               rows={operationalRows}
               totalConcluidas={operationalCurrentKpis.ordens_atendidas}
@@ -867,7 +1053,8 @@ export async function AdminProductivityPanel({ period }: AdminProductivityPanelP
         </div>
 
         <div className="grid gap-6 xl:grid-cols-3">
-          <div className="xl:col-span-2">
+          <div className="space-y-6 xl:col-span-2">
+            <AdminPodiumCard rows={adminRows} />
             <AdminRankingCard rows={adminRows} />
           </div>
           <div className="space-y-6">
