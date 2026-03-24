@@ -12,6 +12,7 @@ interface OrdersKpiStripProps {
   activeKpi: OrdersKpiFilter | null
   criticality: CriticalityLevel
   interactive?: boolean
+  loading?: boolean
 }
 
 function fmt(value: number | null): string {
@@ -24,6 +25,7 @@ export function OrdersKpiStrip({
   activeKpi,
   criticality,
   interactive = true,
+  loading = false,
 }: OrdersKpiStripProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -124,7 +126,9 @@ export function OrdersKpiStrip({
               <Icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent className="space-y-1">
-              <p className={`text-3xl font-bold ${item.valueClass}`}>{item.value}</p>
+              {loading
+                ? <div className="h-9 w-16 animate-pulse rounded bg-muted" />
+                : <p className={`text-3xl font-bold ${item.valueClass}`}>{item.value}</p>}
               <p className="min-h-[2rem] text-xs leading-4 text-muted-foreground">
                 {interactive
                   ? (active ? 'KPI ativo. Clique para limpar.' : item.helper)

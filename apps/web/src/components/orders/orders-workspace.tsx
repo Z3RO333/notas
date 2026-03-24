@@ -893,7 +893,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       )}
       {filters.tipoOrdem === 'PMPL' && <p className="text-xs text-muted-foreground">Ordens sem nota não permitem reatribuição por nota.</p>}
 
-      <OrdersKpiStrip kpis={workspaceKpisToOrdemNotaKpis(kpis)} activeKpi={null} criticality={getOrdersCriticalityLevel(kpis.total, kpis.atrasadas)} interactive={false} />
+      <OrdersKpiStrip kpis={workspaceKpisToOrdemNotaKpis(kpis)} activeKpi={null} criticality={getOrdersCriticalityLevel(kpis.total, kpis.atrasadas)} interactive={false} loading={loadingInitial} />
 
       {hasListScopeFilters && (
         <p className="text-xs text-muted-foreground">
