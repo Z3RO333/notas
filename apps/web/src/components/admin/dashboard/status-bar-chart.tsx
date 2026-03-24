@@ -40,20 +40,6 @@ const INSIDE_LIGHT_LABEL = createAdaptiveBarLabelRenderer({
   },
 })
 
-const INSIDE_DARK_LABEL = createAdaptiveBarLabelRenderer({
-  fill: '#111827',
-  fontSize: 10,
-  fontWeight: 700,
-  paddingX: 7,
-  fallbackPosition: 'barStart',
-  fallbackOffset: 6,
-  fallbackStroke: 'hsl(var(--card))',
-  formatter: (value) => {
-    const numericValue = Number(value)
-    return numericValue > 0 ? numericValue.toLocaleString('pt-BR') : ''
-  },
-})
-
 const INSIDE_MUTED_LABEL = createAdaptiveBarLabelRenderer({
   fill: '#ffffff',
   fontSize: 10,
@@ -135,8 +121,8 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
                 return (
                   <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
                     <p className="mb-1 font-medium">{label}</p>
-                    <p>Atendidas: <span className="font-semibold text-green-600">{row.Atendidas.toLocaleString('pt-BR')}</span> <span className="text-muted-foreground">({formatPercent(calculateShare(row.Atendidas, row.total_exibido))})</span></p>
-                    <p>Em Aberto: <span className="font-semibold text-amber-500">{row['Em Aberto'].toLocaleString('pt-BR')}</span> <span className="text-muted-foreground">({formatPercent(calculateShare(row['Em Aberto'], row.total_exibido))})</span></p>
+                    <p>Concluídas: <span className="font-semibold" style={{ color: '#1E90FF' }}>{row.Atendidas.toLocaleString('pt-BR')}</span> <span className="text-muted-foreground">({formatPercent(calculateShare(row.Atendidas, row.total_exibido))})</span></p>
+                    <p>Pendentes: <span className="font-semibold" style={{ color: '#B22222' }}>{row['Em Aberto'].toLocaleString('pt-BR')}</span> <span className="text-muted-foreground">({formatPercent(calculateShare(row['Em Aberto'], row.total_exibido))})</span></p>
                     <p>Outros: <span className="font-semibold text-slate-500">{row.Outros.toLocaleString('pt-BR')}</span> <span className="text-muted-foreground">({formatPercent(calculateShare(row.Outros, row.total_exibido))})</span></p>
                     <p className="mt-1 border-t pt-1">Total: <span className="font-semibold">{row.total_exibido.toLocaleString('pt-BR')}</span></p>
                     <p className="text-muted-foreground">
@@ -147,7 +133,7 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
               }}
             />
             <Legend wrapperStyle={CHART_LEGEND_STYLE} />
-            <Bar dataKey="Atendidas" stackId="a" fill="#16a34a">
+            <Bar dataKey="Atendidas" name="Concluídas" stackId="a" fill="#1E90FF">
               {showLabels && (
                 <LabelList
                   dataKey="Atendidas"
@@ -155,11 +141,11 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
                 />
               )}
             </Bar>
-            <Bar dataKey="Em Aberto" stackId="a" fill="#f59e0b">
+            <Bar dataKey="Em Aberto" name="Pendentes" stackId="a" fill="#B22222">
               {showLabels && (
                 <LabelList
                   dataKey="Em Aberto"
-                  content={INSIDE_DARK_LABEL}
+                  content={INSIDE_LIGHT_LABEL}
                 />
               )}
             </Bar>
