@@ -282,7 +282,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, equipame
           </p>
         </CardHeader>
         <CardContent className="px-4 pb-4 pt-0">
-          <p className="text-xs text-muted-foreground mb-2">Clique em uma barra para ver as ordens</p>
+          <p className="text-xs text-muted-foreground mb-2">Clique em uma barra para abrir as ordens da loja</p>
           <div className="h-96">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
