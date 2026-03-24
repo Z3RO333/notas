@@ -3,7 +3,6 @@
 import {
   Bar,
   CartesianGrid,
-  Cell,
   ComposedChart,
   LabelList,
   Line,
@@ -34,21 +33,6 @@ import { useChartLabels } from '@/components/charts/chart-labels-context'
 interface EvolucaoMensalChartProps {
   data: GestaoEvolucaoMes[]
 }
-
-const MONTH_BAR_COLORS = [
-  '#2563eb',
-  '#0ea5e9',
-  '#14b8a6',
-  '#22c55e',
-  '#84cc16',
-  '#eab308',
-  '#f59e0b',
-  '#f97316',
-  '#ef4444',
-  '#ec4899',
-  '#a855f7',
-  '#6366f1',
-]
 
 export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
   const { showLabels } = useChartLabels()
@@ -116,14 +100,9 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
               <Bar
                 dataKey="total_ordens"
                 name="total_ordens"
+                fill="#3b82f6"
                 radius={[6, 6, 0, 0]}
               >
-                {chartData.map((row, index) => (
-                  <Cell
-                    key={`${row.label}-${index}`}
-                    fill={MONTH_BAR_COLORS[index % MONTH_BAR_COLORS.length]}
-                  />
-                ))}
                 {showLabels && (
                   <LabelList
                     dataKey="total_ordens"

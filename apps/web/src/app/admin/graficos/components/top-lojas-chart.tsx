@@ -304,12 +304,12 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, equipame
                         <p className="font-medium mb-1">{label}</p>
                         <p>
                           Concluidas:{' '}
-                          <span className="font-semibold text-green-600">{d.concluidas.toLocaleString('pt-BR')}</span>
+                          <span className="font-semibold" style={{ color: '#1E90FF' }}>{d.concluidas.toLocaleString('pt-BR')}</span>
                           <span className="text-muted-foreground"> ({formatPercent(calculateShare(d.concluidas, d.total_exibido))})</span>
                         </p>
                         <p>
-                          Em Aberto:{' '}
-                          <span className="font-semibold text-amber-500">{d.em_aberto.toLocaleString('pt-BR')}</span>
+                          Pendentes:{' '}
+                          <span className="font-semibold" style={{ color: '#B22222' }}>{d.em_aberto.toLocaleString('pt-BR')}</span>
                           <span className="text-muted-foreground"> ({formatPercent(calculateShare(d.em_aberto, d.total_exibido))})</span>
                         </p>
                         <p className="mt-1 border-t pt-1">Total: <span className="font-semibold">{(d.concluidas + d.em_aberto).toLocaleString('pt-BR')}</span></p>
@@ -325,7 +325,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, equipame
                   dataKey="concluidas"
                   name="Concluidas"
                   stackId="a"
-                  fill="#16a34a"
+                  fill="#1E90FF"
                   minPointSize={getMinPointSizeForDataKey('concluidas')}
                   onClick={(entry) => setSelectedLoja(entry.nome_loja)}
                 >
@@ -338,9 +338,9 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, equipame
                 </Bar>
                 <Bar
                   dataKey="em_aberto"
-                  name="Em Aberto"
+                  name="Pendentes"
                   stackId="a"
-                  fill="#f59e0b"
+                  fill="#B22222"
                   radius={[0, 4, 4, 0]}
                   minPointSize={getMinPointSizeForDataKey('em_aberto')}
                   onClick={(entry) => setSelectedLoja(entry.nome_loja)}
@@ -348,7 +348,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, equipame
                   {showLabels && (
                     <LabelList
                       dataKey="em_aberto"
-                      content={INSIDE_DARK_LABEL}
+                      content={INSIDE_LIGHT_LABEL}
                     />
                   )}
                 </Bar>
