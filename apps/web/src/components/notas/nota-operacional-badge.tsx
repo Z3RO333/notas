@@ -43,55 +43,11 @@ export function NotaOperacionalBadge({
   numeroOrdemConfirmada,
 }: NotaOperacionalBadgeProps) {
   const [nowTick, setNowTick] = useState(() => Date.now())
-  const [alertaVisible, setAlertaVisible] = useState(true)
-  const [emGeracaoVisible, setEmGeracaoVisible] = useState(true)
 
   useEffect(() => {
     if (statusOperacional !== 'EM_GERACAO') return
-    const ticker = setInterval(() => setNowTick(Date.now()), 60_000)
-
-    // Ciclo: visível 5s → oculto 10s → repete
-    const SHOW_MS = 5_000
-    const HIDE_MS = 10_000
-    let t1: ReturnType<typeof setTimeout>
-    let t2: ReturnType<typeof setTimeout>
-    function cycle() {
-      setEmGeracaoVisible(true)
-      t1 = setTimeout(() => {
-        setEmGeracaoVisible(false)
-        t2 = setTimeout(cycle, HIDE_MS)
-      }, SHOW_MS)
-    }
-    cycle()
-
-    return () => {
-      clearInterval(ticker)
-      clearTimeout(t1)
-      clearTimeout(t2)
-    }
-  }, [statusOperacional])
-
-  useEffect(() => {
-    if (statusOperacional !== 'ALERTA') return
-
-    // Ciclo: visível 5s → oculto 10s → repete
-    const SHOW_MS = 5_000
-    const HIDE_MS = 10_000
-    let t1: ReturnType<typeof setTimeout>
-    let t2: ReturnType<typeof setTimeout>
-    function cycle() {
-      setAlertaVisible(true)
-      t1 = setTimeout(() => {
-        setAlertaVisible(false)
-        t2 = setTimeout(cycle, HIDE_MS)
-      }, SHOW_MS)
-    }
-    cycle()
-
-    return () => {
-      clearTimeout(t1)
-      clearTimeout(t2)
-    }
+    const timer = setInterval(() => setNowTick(Date.now()), 60_000)
+    return () => clearInterval(timer)
   }, [statusOperacional])
 
   const elapsed = useMemo(() => {
@@ -106,9 +62,7 @@ export function NotaOperacionalBadge({
   if (statusOperacional === 'EM_GERACAO') {
     const owner = humanizeEmail(emGeracaoPorEmail)
     return (
-      <span
-        className={`inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 transition-opacity duration-700 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300 ${emGeracaoVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
-      >
+      <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
         {owner ? `Em geração por ${owner}` : 'Em geração'}
         {elapsed ? `· ${elapsed}` : ''}
       </span>
@@ -118,9 +72,7 @@ export function NotaOperacionalBadge({
   if (statusOperacional === 'ALERTA') {
     const ttl = Math.max(Number(ttlMinutos ?? 60), 1)
     return (
-      <span
-        className={`inline-flex items-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-800 transition-opacity duration-700 dark:border-orange-700 dark:bg-orange-950/40 dark:text-orange-300 ${alertaVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
-      >
+      <span className="inline-flex items-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-800 dark:border-orange-700 dark:bg-orange-950/40 dark:text-orange-300">
         {`Aguardando confirmação > ${ttl} min`}
       </span>
     )
