@@ -67,24 +67,6 @@ type OpcoesRaw = {
   ano: number | null
 }
 
-type GestaoBaseRow = {
-  ordem_id: string
-  ordem_codigo: string | null
-  tipo_ordem: string | null
-  competencia_data: string | null
-  ano: number
-  mes: number
-  nome_loja: string | null
-  tipo_unidade: string | null
-  texto_breve: string | null
-  status_ordem_raw: string | null
-  nota_referencia: string | null
-}
-
-function normalizeText(value: string | null | undefined) {
-  return (value ?? '').trim()
-}
-
 export default async function GraficosPage({ searchParams }: GraficosPageProps) {
   const params = (await searchParams) ?? {}
   const currentYear = new Date().getFullYear()
@@ -101,13 +83,13 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
 
   const supabase = await createClient()
 
-  const [topLojasRes, baseRes, evolucaoRes, segmentosRes, opcoesRes] = await Promise.all([
+  const [topLojasRes, topServRes, evolucaoRes, segmentosRes, opcoesRes] = await Promise.all([
     supabase.rpc('calcular_gestao_top_lojas_por_status', {
       p_ano: ano ?? null,
       p_mes: mes ?? null,
       p_tipo_ordem: tipoOrdem ?? null,
     }),
-    supabase.rpc('listar_gestao_ordens_base_filtrada', {
+    supabase.rpc('calcular_gestao_top_servicos', {
       p_ano: ano ?? null,
       p_mes: mes ?? null,
       p_tipo_ordem: tipoOrdem ?? null,
@@ -125,7 +107,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   ])
 
   const topLojasRaw = (topLojasRes.data ?? []) as TopLojasRaw[]
-  const baseRows = (baseRes.data ?? []) as GestaoBaseRow[]
+  const topServRaw = (topServRes.data ?? []) as TopServRaw[]
   const evolucaoRaw = (evolucaoRes.data ?? []) as EvolucaoRaw[]
   const segRaw = (segmentosRes.data ?? []) as SegRaw[]
   const opcoesRaw = (opcoesRes.data ?? []) as OpcoesRaw[]
@@ -142,27 +124,17 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
 
   const topServBySegmento = Object.fromEntries(
     TIPOS.map((tipo) => {
-      const counts = new Map<string, number>()
-      for (const row of baseRows) {
-        if (row.tipo_unidade !== tipo) continue
-        const textoBreve = normalizeText(row.texto_breve)
-        if (!textoBreve) continue
-        counts.set(textoBreve, (counts.get(textoBreve) ?? 0) + 1)
-      }
-      const rows: TopServRaw[] = Array.from(counts.entries()).map(([texto_breve, total_ordens]) => ({
-        texto_breve,
-        total_ordens,
-        tipo_unidade: tipo,
-      }))
+      const rows = topServRaw
+        .filter((row) => row.tipo_unidade === tipo)
+        .sort((a, b) => b.total_ordens - a.total_ordens || a.texto_breve.localeCompare(b.texto_breve, 'pt-BR'))
       const total = rows.reduce((sum, row) => sum + row.total_ordens, 0)
       const sorted: GestaoTopServico[] = rows
+        .slice(0, 15)
         .map((row) => ({
           texto_breve: row.texto_breve,
           total_ordens: row.total_ordens,
           percentual: total > 0 ? parseFloat(((row.total_ordens / total) * 100).toFixed(1)) : 0,
         }))
-        .sort((a, b) => b.total_ordens - a.total_ordens)
-        .slice(0, 15)
       return [tipo, sorted]
     })
   ) as Record<TipoUnidade, GestaoTopServico[]>

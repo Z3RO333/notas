@@ -123,6 +123,7 @@ const PRIORIDADE_OPTIONS = [
 ]
 
 const OWNER_CARDS_VIEW_MODE_STORAGE_KEY = 'cockpit:ordens:owner-cards:view-mode'
+const AUTO_LOAD_MAX_ROWS = 300
 
 
 function formatIsoDate(value: string): string {
@@ -494,15 +495,18 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     overscan: 8,
   })
   const virtualRows = rowVirtualizer.getVirtualItems()
+  const autoLoadEnabled = ownerCardsViewMode === 'list' && rows.length < AUTO_LOAD_MAX_ROWS
+  const showManualLoadMore = ownerCardsViewMode === 'list' && rows.length >= AUTO_LOAD_MAX_ROWS
 
   useEffect(() => {
+    if (!autoLoadEnabled) return
     const last = virtualRows[virtualRows.length - 1]
     if (!last) return
     if (loadingInitial || loadingMore) return
     if (!nextCursor) return
     if (last.index < rows.length - 20) return
     fetchWorkspace(false, nextCursor)
-  }, [virtualRows, loadingInitial, loadingMore, nextCursor, rows.length, fetchWorkspace])
+  }, [autoLoadEnabled, virtualRows, loadingInitial, loadingMore, nextCursor, rows.length, fetchWorkspace])
 
   function handleTabChange(tipo: string) {
     setFilters((prev) => ({ ...prev, tipoOrdem: tipo }))
@@ -1008,7 +1012,13 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             Carregando mais ordens... ({rows.length} carregadas)
           </>
         ) : nextCursor ? (
-          <span>{rows.length} ordens carregadas — role para ver mais</span>
+          showManualLoadMore ? (
+            <Button variant="outline" size="sm" onClick={() => fetchWorkspace(false, nextCursor)}>
+              Carregar mais ({rows.length} carregadas)
+            </Button>
+          ) : (
+            <span>{rows.length} ordens carregadas — role para ver mais</span>
+          )
         ) : rows.length > 0 ? (
           <span>{rows.length} ordens carregadas</span>
         ) : null}
