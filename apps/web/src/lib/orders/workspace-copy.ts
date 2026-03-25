@@ -35,6 +35,9 @@ function resolveErrorMessage(payload: unknown, fallback: string): string {
   return normalized.length > 0 ? normalized : fallback
 }
 
+const MAX_COPY_ROWS = 2000
+const MAX_COPY_PAGES = Math.ceil(MAX_COPY_ROWS / MAX_ORDERS_WORKSPACE_LIMIT)
+
 export async function fetchAllFilteredOrderCodes(
   filters: OrdersWorkspaceFilters,
   options: {
@@ -55,7 +58,7 @@ export async function fetchAllFilteredOrderCodes(
   let cursor: OrdersWorkspaceCursor | null = null
   let pageCount = 0
 
-  while (pageCount < 1000) {
+  while (pageCount < MAX_COPY_PAGES) {
     pageCount += 1
 
     const params = buildWorkspaceParams(filters, cursor, limit)
@@ -72,6 +75,10 @@ export async function fetchAllFilteredOrderCodes(
     const payload = (await response.json()) as OrdersWorkspaceResponse
     codes.push(...extractCopyableCodes(payload))
 
+    if (codes.length >= MAX_COPY_ROWS) {
+      return { codes: codes.slice(0, MAX_COPY_ROWS) }
+    }
+
     if (!payload.nextCursor || payload.rows.length === 0) {
       return { codes }
     }
@@ -79,5 +86,5 @@ export async function fetchAllFilteredOrderCodes(
     cursor = payload.nextCursor
   }
 
-  throw new Error('Falha ao carregar ordens para copiar: paginação excedeu o limite esperado')
+  return { codes }
 }
