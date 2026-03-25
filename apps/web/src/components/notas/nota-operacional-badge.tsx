@@ -43,11 +43,19 @@ export function NotaOperacionalBadge({
   numeroOrdemConfirmada,
 }: NotaOperacionalBadgeProps) {
   const [nowTick, setNowTick] = useState(() => Date.now())
+  const [alertaVisible, setAlertaVisible] = useState(true)
 
   useEffect(() => {
     if (statusOperacional !== 'EM_GERACAO') return
     const timer = setInterval(() => setNowTick(Date.now()), 60_000)
     return () => clearInterval(timer)
+  }, [statusOperacional])
+
+  useEffect(() => {
+    if (statusOperacional !== 'ALERTA') return
+    setAlertaVisible(true)
+    const fadeTimer = setTimeout(() => setAlertaVisible(false), 5_000)
+    return () => clearTimeout(fadeTimer)
   }, [statusOperacional])
 
   const elapsed = useMemo(() => {
@@ -72,7 +80,9 @@ export function NotaOperacionalBadge({
   if (statusOperacional === 'ALERTA') {
     const ttl = Math.max(Number(ttlMinutos ?? 60), 1)
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-800 dark:border-orange-700 dark:bg-orange-950/40 dark:text-orange-300">
+      <span
+        className={`inline-flex items-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-800 transition-opacity duration-700 dark:border-orange-700 dark:bg-orange-950/40 dark:text-orange-300 ${alertaVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+      >
         {`Aguardando confirmação > ${ttl} min`}
       </span>
     )
