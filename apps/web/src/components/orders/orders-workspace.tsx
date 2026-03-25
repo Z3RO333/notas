@@ -261,14 +261,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     }
   }, [])
 
-  // Cards mode: auto-load all remaining pages (no scroll trigger)
-  useEffect(() => {
-    if (ownerCardsViewMode !== 'cards') return
-    if (!nextCursor) return
-    if (loadingInitial || loadingMore) return
-    fetchWorkspace(false, nextCursor)
-  }, [ownerCardsViewMode, nextCursor, loadingInitial, loadingMore, fetchWorkspace])
-
   const ownerById = useMemo(() => {
     const map = new Map<string, string>()
     for (const target of reassignTargets) {
@@ -702,23 +694,36 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             })}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-            {ownerGroups.map((group) => (
-              <OrdersOwnerFullCard
-                key={group.id}
-                group={group}
-                canReassign={canReassign}
-                reassignTargets={reassignTargets}
-                selectedNotaIds={selectedNotaIdsSet}
-                onToggleRowSelection={(notaId) => {
-                  setSelectedNotaIds((prev) => (prev.includes(notaId) ? prev.filter((id) => id !== notaId) : [...prev, notaId]))
-                }}
-              />
-            ))}
-            {poolGroupsWithRows.map((group) => (
-              <OrdersPoolCard key={group.pool_nome} group={group} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+              {ownerGroups.map((group) => (
+                <OrdersOwnerFullCard
+                  key={group.id}
+                  group={group}
+                  canReassign={canReassign}
+                  reassignTargets={reassignTargets}
+                  selectedNotaIds={selectedNotaIdsSet}
+                  onToggleRowSelection={(notaId) => {
+                    setSelectedNotaIds((prev) => (prev.includes(notaId) ? prev.filter((id) => id !== notaId) : [...prev, notaId]))
+                  }}
+                />
+              ))}
+              {poolGroupsWithRows.map((group) => (
+                <OrdersPoolCard key={group.pool_nome} group={group} />
+              ))}
+            </div>
+            {nextCursor && (
+              <div className="flex justify-center pt-2">
+                <Button variant="outline" size="sm" onClick={() => fetchWorkspace(false, nextCursor)} disabled={loadingMore}>
+                  {loadingMore ? (
+                    <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Carregando...</>
+                  ) : (
+                    `Carregar mais (${rows.length} carregadas)`
+                  )}
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
 

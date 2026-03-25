@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/toast'
 
-const DEBOUNCE_MS = 1000
+const DEBOUNCE_MS = 5000
 const TOAST_COOLDOWN_MS = 10_000
 
 export function RealtimeListener() {
@@ -63,15 +63,6 @@ export function RealtimeListener() {
           event: 'INSERT',
           schema: 'public',
           table: 'notas_historico',
-        },
-        debouncedRefresh
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'sync_log',
         },
         debouncedRefresh
       )
