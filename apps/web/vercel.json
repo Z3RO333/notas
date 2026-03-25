@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/ordens/routing",
+      "schedule": "*/30 * * * *"
+    }
+  ]
+}

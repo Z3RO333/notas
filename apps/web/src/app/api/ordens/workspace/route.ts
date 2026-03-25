@@ -90,27 +90,12 @@ export async function GET(request: Request) {
 
   const role = loggedAdmin.role as UserRole
   const canViewGlobal = role === 'gestor'
-  const debugOrdersRouting = process.env.DEBUG_ORDERS_ROUTING === '1' || process.env.DEBUG_ORDERS_CD_ROUTING === '1'
 
   let fixedOwnerLabelByAdminId = new Map<string, string>()
   try {
     fixedOwnerLabelByAdminId = await getFixedOwnerLabelByAdminId(supabase)
   } catch (error) {
     console.warn('[orders/workspace] nao foi possivel carregar labels fixos de CD:', error)
-  }
-
-  if (canViewGlobal) {
-    try {
-      const routingResult = await applyAutomaticOrdersRouting({
-        supabase,
-        gestorId: loggedAdmin.id,
-        debug: debugOrdersRouting,
-        motivo: 'Auto realocacao PMPL/Refrigeracao/CD (Painel de Ordens)',
-      })
-      fixedOwnerLabelByAdminId = routingResult.fixedOwnerLabelByAdminId
-    } catch (error) {
-      console.error('[orders/routing] falha ao aplicar realocacao automatica:', error)
-    }
   }
 
   const fixedOwnerAvatarByAdminId = buildFixedOwnerAvatarByAdminId(fixedOwnerLabelByAdminId)
@@ -342,4 +327,50 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json(response)
+}
+
+export async function POST(request: Request) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user?.email) {
+    return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
+  }
+
+  const { data: loggedAdmin, error: loggedAdminError } = await supabase
+    .from('administradores')
+    .select('id, role')
+    .eq('email', user.email)
+    .single()
+
+  if (loggedAdminError || !loggedAdmin) {
+    return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
+  }
+
+  if (loggedAdmin.role !== 'gestor') {
+    return NextResponse.json({ error: 'Apenas gestores podem acionar o roteamento' }, { status: 403 })
+  }
+
+  const debug = new URL(request.url).searchParams.get('debug') === '1'
+    || process.env.DEBUG_ORDERS_ROUTING === '1'
+
+  try {
+    const result = await applyAutomaticOrdersRouting({
+      supabase,
+      gestorId: loggedAdmin.id,
+      debug,
+      motivo: 'Roteamento manual PMPL/Refrigeracao/CD',
+    })
+
+    return NextResponse.json({
+      movedCount: result.movedCount,
+      pendingCount: result.pendingCount,
+      conflictCount: result.conflictCount,
+      detectedPmpl: result.detectedPmpl,
+      detectedByUnit: result.detectedByUnit,
+    })
+  } catch (error) {
+    console.error('[orders/routing] falha ao aplicar realocacao:', error)
+    return NextResponse.json({ error: 'Falha ao aplicar roteamento automatico' }, { status: 500 })
+  }
 }
