@@ -73,26 +73,16 @@ export async function GET(request: Request) {
     p_ano: ano,
     p_mes: mes,
     p_tipo_ordem: tipoOrdem,
+    p_texto_breve: servico,
+    p_tipo_unidade: tipoUnidadeRaw,
+    p_limit: limit,
   })
 
   if (rpcResult.error) {
     return NextResponse.json({ error: rpcResult.error.message }, { status: 500 })
   }
 
-  const rows = ((rpcResult.data ?? []) as GestaoBaseRow[])
-    .filter((row) => normalizeText(row.texto_breve) === servico)
-    .filter((row) => row.tipo_unidade === tipoUnidadeRaw)
-    .sort((a, b) => {
-      const aTime = Date.parse(a.competencia_data ?? '')
-      const bTime = Date.parse(b.competencia_data ?? '')
-
-      if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) {
-        return bTime - aTime
-      }
-
-      return normalizeText(a.ordem_codigo).localeCompare(normalizeText(b.ordem_codigo), 'pt-BR')
-    })
-    .slice(0, Math.max(1, Math.min(limit, 500)))
+  const rows = (rpcResult.data ?? []) as GestaoBaseRow[]
 
   return NextResponse.json({
     servico,

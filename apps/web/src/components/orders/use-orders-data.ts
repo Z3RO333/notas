@@ -32,16 +32,10 @@ function mergeRows(
   prev: OrdemNotaAcompanhamento[],
   incoming: OrdemNotaAcompanhamento[],
 ): OrdemNotaAcompanhamento[] {
-  const byId = new Map(prev.map((row) => [row.ordem_id, row]))
-  for (const row of incoming) {
-    byId.set(row.ordem_id, row)
-  }
-  return [...byId.values()].sort((a, b) => {
-    const aTime = Date.parse(a.ordem_detectada_em)
-    const bTime = Date.parse(b.ordem_detectada_em)
-    if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) return bTime - aTime
-    return b.ordem_id.localeCompare(a.ordem_id)
-  })
+  if (prev.length === 0) return incoming
+  const existingIds = new Set(prev.map((row) => row.ordem_id))
+  const newRows = incoming.filter((row) => !existingIds.has(row.ordem_id))
+  return newRows.length === 0 ? prev : [...prev, ...newRows]
 }
 
 // --- Smart search ---
