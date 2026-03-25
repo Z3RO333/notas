@@ -227,7 +227,7 @@ export function NotaCard({ nota }: NotaCardProps) {
             </button>
 
             <div className="flex flex-wrap items-center justify-end gap-2">
-{canConclude && (
+              {canConclude && (
                 <button
                   type="button"
                   onClick={handleConcluirClick}
