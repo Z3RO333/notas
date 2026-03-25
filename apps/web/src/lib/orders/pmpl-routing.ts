@@ -669,8 +669,10 @@ export async function applyAutomaticOrdersRouting({
   }
 
   const routeContext: RouteOrderContext = {
-    pmplOwnerId: pmplResolution.currentOwner?.id ?? null,
-    refrigeracaoOwnerId: refrigeracaoOwner?.id ?? null,
+    // Gestores são válidos para visualização (canAccessPmplTab) mas a RPC reatribuir_ordens_selecionadas
+    // rejeita gestores como destino. Só usar como destino de roteamento se role === 'admin'.
+    pmplOwnerId: pmplResolution.currentOwner?.role === 'admin' ? pmplResolution.currentOwner.id : null,
+    refrigeracaoOwnerId: refrigeracaoOwner?.role === 'admin' ? refrigeracaoOwner.id : null,
     fixedOwnerByKey,
     refrigeracaoKeywords,
   }
