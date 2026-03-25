@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { AlertTriangle, Copy, Download, LayoutGrid, Loader2, Clock3, RefreshCcw, Rows3, TimerReset } from 'lucide-react'
-import * as XLSX from 'xlsx'
 import { CollaboratorCardShell } from '@/components/collaborator/collaborator-card-shell'
 import { OrderCompactCard } from '@/components/orders/order-compact-card'
 import { OperacionaisEmCampoDialog } from '@/components/orders/operacionais-em-campo-dialog'
@@ -212,7 +211,8 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat('pt-BR').format(value)
 }
 
-function exportOrdersToXlsx(rows: OrdemNotaAcompanhamento[]) {
+async function exportOrdersToXlsx(rows: OrdemNotaAcompanhamento[]) {
+  const XLSX = await import('xlsx')
   const data = rows.map((row) => ({
     Ordem: row.ordem_codigo,
     Nota: row.numero_nota,
@@ -1184,7 +1184,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
               {copyFilterLoading ? 'Copiando filtro...' : 'Copiar filtro'}
             </Button>
             <OperacionaisEmCampoDialog />
-            <Button type="button" variant="outline" size="sm" onClick={() => exportOrdersToXlsx(rows)} disabled={rows.length === 0}>
+            <Button type="button" variant="outline" size="sm" onClick={() => { void exportOrdersToXlsx(rows) }} disabled={rows.length === 0}>
               <Download className="mr-2 h-3.5 w-3.5" />
               Exportar planilha
             </Button>

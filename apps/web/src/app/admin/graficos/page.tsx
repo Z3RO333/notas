@@ -11,6 +11,7 @@ import { SegmentoSummary } from './components/segmento-summary'
 import { SegmentoSection } from './components/segmento-section'
 import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
 import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
+import { PageTitleBlock } from '@/components/shared/page-title-block'
 
 export const dynamic = 'force-dynamic'
 
@@ -216,12 +217,10 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Gráficos - Inteligência Gerencial</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Padrões, recorrência e ranking por segmento de unidade.
-        </p>
-      </div>
+      <PageTitleBlock
+        title="Gráficos - Inteligência Gerencial"
+        subtitle="Padrões, recorrência e ranking por segmento de unidade."
+      />
 
       {segmentos.length > 0 && <SegmentoSummary segmentos={segmentos} />}
 

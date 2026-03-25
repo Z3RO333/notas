@@ -187,7 +187,7 @@ export default function LoginPage() {
             />
           </div>
         </div>
-        <CardTitle className="text-xl">Cockpit de Manutencao</CardTitle>
+        <CardTitle className="text-xl">Cockpit de Manutenção</CardTitle>
         <CardDescription>
           {isLogin
             ? 'Entre com suas credenciais para acessar o sistema'

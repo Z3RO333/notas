@@ -17,10 +17,10 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
 }
 
 const prioridadeLabel: Record<string, string> = {
-  '1': '1 - Muito Alta',
-  '2': '2 - Alta',
-  '3': '3 - Media',
-  '4': '4 - Baixa',
+  '1': 'Muito Alta',
+  '2': 'Alta',
+  '3': 'Média',
+  '4': 'Baixa',
 }
 
 export function NotaDetail({ nota }: NotaDetailProps) {

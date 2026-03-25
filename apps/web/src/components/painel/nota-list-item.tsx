@@ -75,8 +75,8 @@ export function NotaListItem({ nota }: NotaListItemProps) {
       emitNotaOperacaoEvent({ notaId: nota.id, state: result.data })
       toast({
         title: forceOverride
-          ? `Geracao assumida para NOTA ${nota.numero_nota}`
-          : `NOTA ${nota.numero_nota} em geracao`,
+          ? `Geração assumida para NOTA ${nota.numero_nota}`
+          : `NOTA ${nota.numero_nota} em geração`,
         variant: 'success',
       })
       return true
@@ -88,10 +88,10 @@ export function NotaListItem({ nota }: NotaListItemProps) {
         setOverrideOpen(true)
       } else {
         toast({
-          title: 'Nota ja esta em geracao',
+          title: 'Nota já está em geração',
           description: result.ownerEmail
-            ? `Responsavel atual: ${result.ownerEmail}.`
-            : 'Outro responsavel ja iniciou esta geracao.',
+            ? `Responsável atual: ${result.ownerEmail}.`
+            : 'Outro responsável já iniciou esta geração.',
           variant: 'info',
         })
       }
@@ -100,7 +100,7 @@ export function NotaListItem({ nota }: NotaListItemProps) {
 
     if (result.status === 403) {
       toast({
-        title: 'Sem permissao para iniciar geracao',
+        title: 'Sem permissão para iniciar geração',
         description: result.message,
         variant: 'error',
       })
@@ -108,7 +108,7 @@ export function NotaListItem({ nota }: NotaListItemProps) {
     }
 
     toast({
-      title: 'Falha ao marcar nota em geracao',
+      title: 'Falha ao marcar nota em geração',
       description: result.message,
       variant: 'error',
     })
@@ -223,11 +223,11 @@ export function NotaListItem({ nota }: NotaListItemProps) {
       <Dialog open={overrideOpen} onOpenChange={setOverrideOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Nota em geracao por outro responsavel</DialogTitle>
+            <DialogTitle>Nota em geração por outro responsável</DialogTitle>
             <DialogDescription>
               {conflictOwnerEmail
-                ? `A nota esta em geracao por ${conflictOwnerEmail}. Deseja assumir a geracao?`
-                : 'A nota ja esta em geracao por outro responsavel. Deseja assumir a geracao?'}
+                ? `A nota está em geração por ${conflictOwnerEmail}. Deseja assumir a geração?`
+                : 'A nota já está em geração por outro responsável. Deseja assumir a geração?'}
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 flex justify-end gap-2">
@@ -239,7 +239,7 @@ export function NotaListItem({ nota }: NotaListItemProps) {
               disabled={copyLoading}
               className="bg-amber-600 hover:bg-amber-700"
             >
-              {copyLoading ? 'Assumindo...' : 'Assumir geracao'}
+              {copyLoading ? 'Assumindo...' : 'Assumir geração'}
             </Button>
           </div>
         </DialogContent>

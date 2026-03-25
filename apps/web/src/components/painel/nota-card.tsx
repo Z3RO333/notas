@@ -23,7 +23,7 @@ import type { NotaOperacaoEstado, NotaPanelData } from '@/lib/types/database'
 const prioridadeLabel: Record<string, string> = {
   '1': 'Muito Alta',
   '2': 'Alta',
-  '3': 'Media',
+  '3': 'Média',
   '4': 'Baixa',
 }
 
@@ -77,8 +77,8 @@ export function NotaCard({ nota }: NotaCardProps) {
       emitNotaOperacaoEvent({ notaId: nota.id, state: result.data })
       toast({
         title: forceOverride
-          ? `Geracao assumida para NOTA ${nota.numero_nota}`
-          : `NOTA ${nota.numero_nota} em geracao`,
+          ? `Geração assumida para NOTA ${nota.numero_nota}`
+          : `NOTA ${nota.numero_nota} em geração`,
         variant: 'success',
       })
       return true
@@ -90,10 +90,10 @@ export function NotaCard({ nota }: NotaCardProps) {
         setOverrideOpen(true)
       } else {
         toast({
-          title: 'Nota ja esta em geracao',
+          title: 'Nota já está em geração',
           description: result.ownerEmail
-            ? `Responsavel atual: ${result.ownerEmail}.`
-            : 'Outro responsavel ja iniciou esta geracao.',
+            ? `Responsável atual: ${result.ownerEmail}.`
+            : 'Outro responsável já iniciou esta geração.',
           variant: 'info',
         })
       }
@@ -102,7 +102,7 @@ export function NotaCard({ nota }: NotaCardProps) {
 
     if (result.status === 403) {
       toast({
-        title: 'Sem permissao para iniciar geracao',
+        title: 'Sem permissão para iniciar geração',
         description: result.message,
         variant: 'error',
       })
@@ -110,7 +110,7 @@ export function NotaCard({ nota }: NotaCardProps) {
     }
 
     toast({
-      title: 'Falha ao marcar nota em geracao',
+      title: 'Falha ao marcar nota em geração',
       description: result.message,
       variant: 'error',
     })
@@ -177,15 +177,15 @@ export function NotaCard({ nota }: NotaCardProps) {
       })
       toast({
         variant: 'success',
-        title: 'Nota concluida',
-        description: `Nota #${nota.numero_nota} foi marcada como concluida.`,
+        title: 'Nota concluída',
+        description: `Nota #${nota.numero_nota} foi marcada como concluída.`,
       })
       router.refresh()
     } catch {
       toast({
         variant: 'error',
         title: 'Erro ao concluir nota',
-        description: 'Nao foi possivel concluir a nota. Verifique sua conexao e tente novamente.',
+        description: 'Não foi possível concluir a nota. Verifique sua conexão e tente novamente.',
       })
     } finally {
       setLoading(false)
@@ -275,7 +275,7 @@ export function NotaCard({ nota }: NotaCardProps) {
           <DialogHeader>
             <DialogTitle>Concluir nota #{nota.numero_nota}?</DialogTitle>
             <DialogDescription>
-              Esta acao marcara a nota como concluida e sera registrada no historico. Tem certeza?
+              Esta ação marcará a nota como concluída e será registrada no histórico. Tem certeza?
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 flex justify-end gap-2">
@@ -292,11 +292,11 @@ export function NotaCard({ nota }: NotaCardProps) {
       <Dialog open={overrideOpen} onOpenChange={setOverrideOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Nota em geracao por outro responsavel</DialogTitle>
+            <DialogTitle>Nota em geração por outro responsável</DialogTitle>
             <DialogDescription>
               {conflictOwnerEmail
-                ? `A nota esta em geracao por ${conflictOwnerEmail}. Deseja assumir a geracao?`
-                : 'A nota ja esta em geracao por outro responsavel. Deseja assumir a geracao?'}
+                ? `A nota está em geração por ${conflictOwnerEmail}. Deseja assumir a geração?`
+                : 'A nota já está em geração por outro responsável. Deseja assumir a geração?'}
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 flex justify-end gap-2">
@@ -308,7 +308,7 @@ export function NotaCard({ nota }: NotaCardProps) {
               disabled={copyLoading}
               className="bg-amber-600 hover:bg-amber-700"
             >
-              {copyLoading ? 'Assumindo...' : 'Assumir geracao'}
+              {copyLoading ? 'Assumindo...' : 'Assumir geração'}
             </Button>
           </div>
         </DialogContent>

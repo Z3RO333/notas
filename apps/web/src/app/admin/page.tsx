@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { AdminProductivityFilter } from '@/components/admin/dashboard/admin-productivity-filter'
 import { AdminProductivityPanel } from '@/components/admin/dashboard/admin-productivity-panel'
+import { PageTitleBlock } from '@/components/shared/page-title-block'
 import {
   buildProductivityYearOptions,
   resolveAdminProductivityPeriod,
@@ -30,20 +31,17 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight">Produtividade Mensal</h1>
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            Painel estratégico de produtividade mensal, com foco total no desempenho de operacionais e administradores no mês selecionado.
-          </p>
-        </div>
-
-        <AdminProductivityFilter
-          selectedYear={period.year}
-          selectedMonth={period.month}
-          yearOptions={yearOptions}
-        />
-      </div>
+      <PageTitleBlock
+        title="Produtividade Mensal"
+        subtitle="Painel estratégico de produtividade mensal, com foco total no desempenho de operacionais e administradores no mês selecionado."
+        rightSlot={
+          <AdminProductivityFilter
+            selectedYear={period.year}
+            selectedMonth={period.month}
+            yearOptions={yearOptions}
+          />
+        }
+      />
 
       <AdminProductivityPanel period={period} />
     </div>
