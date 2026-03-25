@@ -12,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { NotaOperacionalBadge } from '@/components/notas/nota-operacional-badge'
 import { useToast } from '@/components/ui/toast'
 import { getAgingBadge, getAgingBucket, isOpenStatus } from '@/lib/collaborator/aging'
 import { emitNotaOperacaoEvent, marcarNotaEmGeracao } from '@/lib/notes/copy-intent'
@@ -52,7 +51,6 @@ export function NotaListItem({ nota }: NotaListItemProps) {
   const unidadeLabel = nota.denominacao_unidade?.trim() || nota.centro?.trim() || null
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const estadoOperacional = operacaoLocal ?? buildCurrentStateFromNota(nota)
   const aging = isOpenStatus(nota.status)
     ? getAgingBadge(getAgingBucket(nota))
     : {
@@ -206,20 +204,9 @@ export function NotaListItem({ nota }: NotaListItemProps) {
               Copiado
             </span>
           ) : (
-            <>
-              <NotaOperacionalBadge
-                statusOperacional={estadoOperacional?.status_operacional ?? null}
-                emGeracaoPorEmail={estadoOperacional?.em_geracao_por_email ?? null}
-                emGeracaoEm={estadoOperacional?.em_geracao_em ?? null}
-                ttlMinutos={estadoOperacional?.ttl_minutos ?? null}
-                numeroOrdemConfirmada={estadoOperacional?.numero_ordem_confirmada ?? null}
-              />
-              {(!estadoOperacional?.status_operacional || estadoOperacional.status_operacional === 'PENDENTE') && (
-                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${aging.chip}`}>
-                  {aging.label}
-                </span>
-              )}
-            </>
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${aging.chip}`}>
+              {aging.label}
+            </span>
           )}
           <span className="w-10 text-right text-xs text-muted-foreground">{createdLabel}</span>
           <Link

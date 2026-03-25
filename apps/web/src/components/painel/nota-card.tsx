@@ -13,7 +13,6 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { NotaOperacionalBadge } from '@/components/notas/nota-operacional-badge'
 import { NotaStatusBadge } from '@/components/notas/nota-status-badge'
 import { useToast } from '@/components/ui/toast'
 import { concluirNotaRapida } from '@/lib/actions/nota-actions'
@@ -71,8 +70,6 @@ export function NotaCard({ nota }: NotaCardProps) {
 
   const prioridadeCor = nota.prioridade ? (prioridadeColor[nota.prioridade] || 'border-l-gray-300') : 'border-l-gray-300'
   const canConclude = nota.administrador_id && (nota.status === 'em_andamento' || nota.status === 'encaminhada_fornecedor')
-  const estadoOperacional = operacaoLocal ?? buildCurrentStateFromNota(nota)
-
   async function callCopyIntent(forceOverride: boolean) {
     const result = await marcarNotaEmGeracao({ notaId: nota.id, forceOverride })
     if (result.ok) {
@@ -230,15 +227,7 @@ export function NotaCard({ nota }: NotaCardProps) {
             </button>
 
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <NotaOperacionalBadge
-                statusOperacional={estadoOperacional?.status_operacional ?? null}
-                emGeracaoPorEmail={estadoOperacional?.em_geracao_por_email ?? null}
-                emGeracaoEm={estadoOperacional?.em_geracao_em ?? null}
-                ttlMinutos={estadoOperacional?.ttl_minutos ?? null}
-                numeroOrdemConfirmada={estadoOperacional?.numero_ordem_confirmada ?? null}
-              />
-
-              {canConclude && (
+{canConclude && (
                 <button
                   type="button"
                   onClick={handleConcluirClick}
