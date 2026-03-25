@@ -6,11 +6,8 @@ import { LastSyncBadge } from '@/components/shared/last-sync-badge'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { RealtimeListener } from '@/components/notas/realtime-listener'
 import { canAccessPmplTab, resolveCurrentPmplOwner } from '@/lib/orders/pmpl-routing'
-import type {
-  OrdersPeriodModeOperational,
-  OrdersWorkspaceFilters,
-  UserRole,
-} from '@/lib/types/database'
+import type { UserRole } from '@/lib/types/database'
+import { parseInitialFilters } from '@/lib/orders/url-params'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,62 +25,6 @@ interface OrdersPageProps {
     prioridade?: string | string[]
     tipoOrdem?: string | string[]
   }>
-}
-
-function firstParam(value: string | string[] | undefined): string | undefined {
-  if (!value) return undefined
-  return Array.isArray(value) ? value[0] : value
-}
-
-function parseOptionalInt(value: string | undefined): number | null {
-  if (!value) return null
-  const parsed = Number(value)
-  return Number.isInteger(parsed) ? parsed : null
-}
-
-function parseDate(value: string | undefined): string | null {
-  if (!value) return null
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
-  return value
-}
-
-function parsePeriodMode(value: string | undefined): OrdersPeriodModeOperational {
-  if (value === 'year' || value === 'year_month' || value === 'month' || value === 'range') return value
-  return 'all'
-}
-
-function formatUtcYmd(date: Date): string {
-  const year = date.getUTCFullYear()
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(date.getUTCDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function parseInitialFilters(raw: Awaited<OrdersPageProps['searchParams']>): OrdersWorkspaceFilters {
-  const now = new Date()
-  const currentYear = now.getUTCFullYear()
-  const currentMonth = now.getUTCMonth() + 1
-  const rawPeriodMode = firstParam(raw?.periodMode)
-  const defaultStartDate = `${currentYear}-01-01`
-  const defaultEndDate = formatUtcYmd(now)
-
-  const periodMode = rawPeriodMode ? parsePeriodMode(rawPeriodMode) : 'range'
-  const year = parseOptionalInt(firstParam(raw?.year)) ?? currentYear
-  const month = parseOptionalInt(firstParam(raw?.month)) ?? currentMonth
-
-  return {
-    periodMode,
-    year,
-    month,
-    startDate: parseDate(firstParam(raw?.startDate)) ?? (periodMode === 'range' ? defaultStartDate : null),
-    endDate: parseDate(firstParam(raw?.endDate)) ?? (periodMode === 'range' ? defaultEndDate : null),
-    q: (firstParam(raw?.q) ?? '').trim(),
-    status: (firstParam(raw?.status) ?? 'ativas').trim() || 'ativas',
-    responsavel: (firstParam(raw?.responsavel) ?? 'todos').trim() || 'todos',
-    unidade: (firstParam(raw?.unidade) ?? '').trim(),
-    prioridade: (firstParam(raw?.prioridade) ?? 'todas').trim() || 'todas',
-    tipoOrdem: (firstParam(raw?.tipoOrdem) ?? 'PMOS').trim() || 'PMOS',
-  }
 }
 
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {

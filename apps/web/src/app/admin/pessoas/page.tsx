@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { CollaboratorPanel } from '@/components/collaborator/collaborator-panel'
+import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { toCollaboratorData } from '@/lib/collaborator/to-collaborator-data'
 import type { CargaAdministrador, NotaPanelData } from '@/lib/types/database'
 
@@ -52,12 +53,7 @@ export default async function PessoasPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Gestão de Pessoas</h1>
-        <p className="text-sm text-muted-foreground">
-          Controle de disponibilidade, férias e carga operacional dos colaboradores.
-        </p>
-      </div>
+      <PageTitleBlock title="Gestão de Pessoas" subtitle="Controle de disponibilidade, férias e carga operacional dos colaboradores." />
 
       <div className="flex flex-wrap gap-4 text-sm">
         <div className="rounded-lg border px-4 py-2">

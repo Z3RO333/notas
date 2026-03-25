@@ -18,6 +18,7 @@ import type { CartaoKpiData } from './components/cartao-kpi-strip'
 import type { CartaoMesData } from './components/cartao-monthly-chart'
 import type { CartaoRankingRow } from './components/cartao-ranking-fornecedores'
 import { FINANCEIRO_MONTH_LABELS } from './financeiro-format'
+import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { buildMonthlyEvolution, buildRanking, buildSummary, toNumber } from './financeiro-data'
 
 export const dynamic = 'force-dynamic'
@@ -245,18 +246,16 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Financeiro</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Custos operacionais por ordem.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <CartaoImportDialog />
-          <FinanceiroImportDialog />
-        </div>
-      </div>
+      <PageTitleBlock
+        title="Financeiro"
+        subtitle="Custos operacionais por ordem."
+        rightSlot={
+          <div className="flex gap-2">
+            <CartaoImportDialog />
+            <FinanceiroImportDialog />
+          </div>
+        }
+      />
 
       <FinanceiroFilters
         anos={yearOptions}

@@ -1,8 +1,5 @@
 import { Card } from '@/components/ui/card'
-
-function Skeleton({ className }: { className?: string }) {
-  return <div className={`animate-pulse rounded-md bg-muted ${className ?? ''}`} />
-}
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function Loading() {
   return (

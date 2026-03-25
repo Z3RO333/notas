@@ -6,7 +6,7 @@ import { format } from 'date-fns'
 import { OrderReassignDialog } from '@/components/orders/order-reassign-dialog'
 import { useToast } from '@/components/ui/toast'
 import { copyToClipboard } from '@/lib/orders/copy'
-import { getSemaforoClass, getSemaforoLabel } from '@/lib/orders/metrics'
+import { getSemaforoClass, getSemaforoLabel, SEMAFORO_BORDER_LEFT_CLASS } from '@/lib/orders/metrics'
 import type { OrdemNotaAcompanhamento, OrderReassignTarget } from '@/lib/types/database'
 
 interface OrderCompactCardReassignProps {
@@ -28,12 +28,6 @@ interface OrderCompactCardProps {
   highlightQuery?: string
 }
 
-const SEMAFORO_BORDER_LEFT_CLASS = {
-  verde: 'border-l-emerald-500',
-  amarelo: 'border-l-amber-500',
-  vermelho: 'border-l-red-500',
-  neutro: 'border-l-slate-300',
-} as const
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

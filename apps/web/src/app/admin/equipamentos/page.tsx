@@ -11,6 +11,7 @@ import { EvolucaoMensalChart } from '../graficos/components/evolucao-mensal-char
 import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
 import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
 import { Zap, Thermometer } from 'lucide-react'
+import { PageTitleBlock } from '@/components/shared/page-title-block'
 
 export const dynamic = 'force-dynamic'
 
@@ -219,12 +220,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Equipamentos Críticos e Refrigeração</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Monitoramento de elevadores, geradores e refrigeração por unidade.
-        </p>
-      </div>
+      <PageTitleBlock title="Equipamentos Críticos e Refrigeração" subtitle="Monitoramento de elevadores, geradores e refrigeração por unidade." />
 
       <GestaoFilters
         tiposOrdem={['PMOS', 'PMPL']}

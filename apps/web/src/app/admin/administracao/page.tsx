@@ -1,4 +1,5 @@
 import { AdminOrderTypeOwnerManager } from '@/components/admin/admin-order-type-owner-manager'
+import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { AdminPeopleManager } from '@/components/admin/admin-people-manager'
 import { loadAdministrationPageData } from '@/lib/admin/load-administration-page-data'
 
@@ -9,12 +10,7 @@ export default async function AdministracaoPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Administracao</h1>
-        <p className="text-sm text-muted-foreground">
-          Gestao de pessoas e responsavel PMPL com substituicao automatica em ferias.
-        </p>
-      </div>
+      <PageTitleBlock title="Administração" subtitle="Gestão de pessoas e responsável PMPL com substituição automática em férias." />
 
       <AdminPeopleManager
         people={data.people}

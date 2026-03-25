@@ -10,6 +10,7 @@ import {
   type OperacionalDashboardSearchParams,
 } from '@/lib/dashboard/operacional-period'
 import { DashboardHeaderActions } from '@/components/dashboard/dashboard-header-actions'
+import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { OperacionalFilter } from '@/components/admin/dashboard/operacional-filter'
 import { readFirstParam } from '@/lib/grid/query'
 
@@ -43,24 +44,22 @@ export default async function OperacionalPage({ searchParams }: OperacionalPageP
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Operacional</h1>
-          <p className="text-sm text-muted-foreground">
-            Produtividade e serviços dos colaboradores operacionais.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <OperacionalFilter
-            operacionais={operacionais ?? []}
-            selectedFornecedor={fornecedorCodigo}
-            selectedYear={period.year}
-            selectedMonth={period.month}
-            yearOptions={yearOptions}
-          />
-          <DashboardHeaderActions />
-        </div>
-      </div>
+      <PageTitleBlock
+        title="Operacional"
+        subtitle="Produtividade e serviços dos colaboradores operacionais."
+        rightSlot={
+          <div className="flex items-center gap-3">
+            <OperacionalFilter
+              operacionais={operacionais ?? []}
+              selectedFornecedor={fornecedorCodigo}
+              selectedYear={period.year}
+              selectedMonth={period.month}
+              yearOptions={yearOptions}
+            />
+            <DashboardHeaderActions />
+          </div>
+        }
+      />
 
       <Suspense fallback={<AdminOrdersSectionSkeleton title="Operacional" />}>
         <AdminOperacionalSection period={period} fornecedorCodigo={fornecedorCodigo} />

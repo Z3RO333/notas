@@ -5,6 +5,7 @@ import { RealtimeListener } from '@/components/notas/realtime-listener'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { LastSyncBadge } from '@/components/shared/last-sync-badge'
 import { Card } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { createClient } from '@/lib/supabase/server'
 import type { NotesPageSearchParams } from '@/lib/notes/get-notes-panel-data'
 
@@ -12,10 +13,6 @@ export const dynamic = 'force-dynamic'
 
 interface NotesPageProps {
   searchParams?: Promise<NotesPageSearchParams>
-}
-
-function Skeleton({ className }: { className?: string }) {
-  return <div className={`animate-pulse rounded-md bg-muted ${className ?? ''}`} />
 }
 
 function NotesPanelPageContentFallback() {

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
+import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
 import type {
   ComparativoFinanceiroMes,
@@ -182,12 +183,7 @@ export default async function ComparativosPage({ searchParams }: ComparativosPag
 
   return (
     <div className="space-y-8">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Comparativos anuais</h1>
-        <p className="text-sm text-muted-foreground">
-          Analise lado a lado ordens, custos e fornecedores entre dois anos.
-        </p>
-      </div>
+      <PageTitleBlock title="Comparativos anuais" subtitle="Analise lado a lado ordens, custos e fornecedores entre dois anos." />
 
       <ComparativosFilters
         anos={yearPair.availableYears}

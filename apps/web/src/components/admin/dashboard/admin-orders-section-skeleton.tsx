@@ -1,12 +1,9 @@
 import { Card } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface AdminOrdersSectionSkeletonProps {
   title: string
   includeRanking?: boolean
-}
-
-function Skeleton({ className }: { className?: string }) {
-  return <div className={`animate-pulse rounded-md bg-muted ${className ?? ''}`} />
 }
 
 export function AdminOrdersSectionSkeleton({

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { AuditTable } from '@/components/admin/audit-table'
+import { PageTitleBlock } from '@/components/shared/page-title-block'
 import type { AdminAuditLog, PerspectivaReatribuicaoAdmin30d } from '@/lib/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -38,12 +39,7 @@ export default async function AuditoriaPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Auditoria</h1>
-        <p className="text-sm text-muted-foreground">
-          Registro de todas as acoes administrativas
-        </p>
-      </div>
+      <PageTitleBlock title="Auditoria" subtitle="Registro de todas as ações administrativas" />
 
       <AuditTable logs={logs} perspectiva={perspectiva} />
     </div>

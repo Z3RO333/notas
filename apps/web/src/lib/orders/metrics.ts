@@ -299,3 +299,16 @@ export function workspaceKpisToOrdemNotaKpis(kpis: OrdersWorkspaceKpis): OrdemNo
     tempo_medio_geracao_dias_30d: null,
   }
 }
+
+export const SEMAFORO_BORDER_LEFT_CLASS: Record<OrdemNotaAcompanhamento['semaforo_atraso'], string> = {
+  verde: 'border-l-emerald-500',
+  amarelo: 'border-l-amber-500',
+  vermelho: 'border-l-red-500',
+  neutro: 'border-l-slate-300',
+}
+
+export const SEMAFORO_OPTIONS = [
+  { value: 'verde' as const, label: 'Recente (0–2d)' },
+  { value: 'amarelo' as const, label: 'Atenção (3–6d)' },
+  { value: 'vermelho' as const, label: 'Atrasada (7+d)' },
+]

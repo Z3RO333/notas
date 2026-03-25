@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { OrdersBulkReassignBar } from '@/components/orders/orders-bulk-reassign-bar'
+import { SEMAFORO_OPTIONS } from '@/lib/orders/metrics'
 import { OrdersOwnerMiniCard } from '@/components/orders/orders-owner-mini-card'
 import { OrdersOwnerAccordion } from '@/components/orders/orders-owner-accordion'
 import { OrdersOwnerFullCard } from '@/components/orders/orders-owner-full-card'
@@ -443,9 +444,7 @@ export function OrdersOwnerPanel({
           onChange={(value) => replaceQuery({ prioridade: value === 'todas' ? null : value, page: 1 })}
           options={[
             { value: 'todas', label: 'Todas' },
-            { value: 'verde', label: 'Recentes (0-2d)' },
-            { value: 'amarelo', label: 'Atenção (3-6d)' },
-            { value: 'vermelho', label: 'Atrasadas (7+d)' },
+            ...SEMAFORO_OPTIONS,
           ]}
         />
 
