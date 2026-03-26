@@ -66,3 +66,4 @@ scripts/lib/*
 !scripts/__tests__/
 scripts/__tests__/*
 !scripts/__tests__/backfill_financeiro_historico.test.js
+CLAUDE.md
