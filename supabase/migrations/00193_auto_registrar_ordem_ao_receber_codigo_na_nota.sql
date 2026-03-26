@@ -92,7 +92,11 @@ BEGIN
 
     v_admin_efetivo := COALESCE(
       v_nota.administrador_id,
-      public.resolve_admin_ordem_sem_nota(v_nota.centro, v_unidade)
+      public.resolve_admin_ordem_sem_nota(
+        v_nota.centro::TEXT,
+        v_unidade::TEXT,
+        NULL::TEXT
+      )
     );
 
     INSERT INTO public.ordens_notas_acompanhamento (
@@ -154,8 +158,9 @@ BEGIN
         WHEN ordens_notas_acompanhamento.administrador_id IS NOT NULL
           THEN ordens_notas_acompanhamento.administrador_id
         ELSE public.resolve_admin_ordem_sem_nota(
-          COALESCE(NULLIF(BTRIM(ordens_notas_acompanhamento.centro), ''), v_nota.centro),
-          NULLIF(BTRIM(ordens_notas_acompanhamento.unidade), '')
+          COALESCE(NULLIF(BTRIM(ordens_notas_acompanhamento.centro), ''), v_nota.centro)::TEXT,
+          NULLIF(BTRIM(ordens_notas_acompanhamento.unidade), '')::TEXT,
+          NULL::TEXT
         )
       END,
       criado_por = COALESCE(ordens_notas_acompanhamento.criado_por, v_criado_por),
@@ -298,8 +303,54 @@ $function$;
 COMMENT ON FUNCTION public.registrar_ordens_por_notas(UUID) IS
   'Materializa ordens vinculadas a notas em lote, reutilizando o helper pontual registrar_ordem_da_nota().';
 
+CREATE OR REPLACE FUNCTION public.backfill_ordens_nota_sem_responsavel()
+RETURNS TABLE(total_candidatas INTEGER, atribuidas INTEGER)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_ordem RECORD;
+  v_destino UUID;
+  v_total INTEGER := 0;
+  v_atribuidas INTEGER := 0;
+BEGIN
+  FOR v_ordem IN
+    SELECT o.id, o.centro, o.unidade
+    FROM public.ordens_notas_acompanhamento o
+    JOIN public.notas_manutencao n ON n.id = o.nota_id
+    WHERE o.nota_id IS NOT NULL
+      AND o.administrador_id IS NULL
+      AND n.administrador_id IS NULL
+      AND NOT public.status_raw_eh_final(o.status_ordem_raw)
+  LOOP
+    v_total := v_total + 1;
+    v_destino := public.resolve_admin_ordem_sem_nota(
+      v_ordem.centro::TEXT,
+      v_ordem.unidade::TEXT,
+      NULL::TEXT
+    );
+
+    IF v_destino IS NOT NULL THEN
+      UPDATE public.ordens_notas_acompanhamento
+      SET administrador_id = v_destino, updated_at = now()
+      WHERE id = v_ordem.id;
+      v_atribuidas := v_atribuidas + 1;
+    END IF;
+  END LOOP;
+
+  RETURN QUERY
+  SELECT v_total, v_atribuidas;
+END;
+$function$;
+
+COMMENT ON FUNCTION public.backfill_ordens_nota_sem_responsavel() IS
+  'Reaplica o fallback de responsavel para ordens vinculadas a nota usando a assinatura atual de resolve_admin_ordem_sem_nota().';
+
 COMMENT ON FUNCTION public.trg_registrar_ordem_da_nota_quando_recebe_codigo() IS
   'Trigger para criar/atualizar ordens_notas_acompanhamento assim que ordem_sap ou ordem_gerada aparecem na nota.';
+
+DROP FUNCTION IF EXISTS public.resolve_admin_ordem_sem_nota(TEXT, TEXT);
 
 DO $$
 DECLARE

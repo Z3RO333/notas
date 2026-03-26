@@ -27,7 +27,7 @@ export default async function RadarPreventivoPage({
 }: RadarPreventivoPageProps) {
   const params = ((await searchParams) ?? {}) as PreventiveAnalysisSearchParams
   const currentYear = new Date().getFullYear()
-  const tipoOrdem = typeof params.tipo_ordem === 'string' ? params.tipo_ordem : undefined
+  const tipoOrdem = typeof params.tipo_ordem === 'string' ? params.tipo_ordem : 'PMOS'
   const period = resolvePreventivePeriod(params, new Date())
   const rpcParams = buildPreventiveRpcParams(period, tipoOrdem)
 
