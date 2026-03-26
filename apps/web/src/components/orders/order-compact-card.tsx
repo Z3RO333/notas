@@ -28,7 +28,6 @@ interface OrderCompactCardProps {
   highlightQuery?: string
 }
 
-
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -78,8 +77,8 @@ export function OrderCompactCard({
   const ordemCodigo = row.ordem_codigo?.trim() ?? ''
   const hasOrderCode = Boolean(ordemCodigo)
   const unidadeText = row.unidade?.trim() ? row.unidade : 'Sem unidade'
-  const responsavelText = row.responsavel_atual_nome?.trim() ? row.responsavel_atual_nome : 'Sem responsável'
-  const diasText = row.dias_em_aberto === 1 ? 'Há 1 dia' : `Há ${row.dias_em_aberto} dias`
+  const responsavelText = row.responsavel_atual_nome?.trim() ? row.responsavel_atual_nome : 'Sem responsavel'
+  const diasText = row.dias_em_aberto === 1 ? 'Ha 1 dia' : `Ha ${row.dias_em_aberto} dias`
   const dataText = row.ordem_detectada_em
     ? format(new Date(row.ordem_detectada_em), 'dd/MM/yyyy')
     : null
@@ -111,14 +110,14 @@ export function OrderCompactCard({
     if (!copied) {
       toast({
         title: `Falha ao copiar ${label}`,
-        description: 'Não foi possível copiar para a área de transferência.',
+        description: 'Nao foi possivel copiar para a area de transferencia.',
         variant: 'error',
       })
       return
     }
 
     toast({
-      title: `${label} ${value} copiada ✅`,
+      title: `${label} ${value} copiada com sucesso`,
       variant: 'success',
     })
   }
@@ -161,7 +160,6 @@ export function OrderCompactCard({
       role={isClickable ? 'button' : undefined}
       tabIndex={isClickable ? 0 : undefined}
     >
-      {/* Linha 1: identificação + semáforo + ações */}
       <div className="flex items-center gap-2">
         {showCheckbox && hasLinkedNote && (
           <input
@@ -174,54 +172,46 @@ export function OrderCompactCard({
           />
         )}
 
-        <span className="min-w-0 flex-1 font-mono text-sm font-medium leading-5 truncate">
-          <span className="flex min-w-0 items-center gap-1.5">
-            {hasLinkedNote && (
+        <span className="min-w-0 flex-1 font-mono text-sm font-medium leading-5">
+          <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+            {hasOrderCode ? (
               <button
                 type="button"
-                onClick={handleCopyNote}
-                className="inline-flex shrink-0 items-center rounded-md px-1 text-foreground transition-colors hover:bg-muted"
-                title={`Copiar NOTA ${notaNumero}`}
+                onClick={handleCopyOrder}
+                className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-blue-900 transition-colors hover:bg-blue-100 dark:border-blue-900/70 dark:bg-blue-950/40 dark:text-blue-100"
+                title={hasLinkedNote
+                  ? `Clique para copiar ORDEM ${ordemCodigo}. Alt+Clique copia NOTA ${notaNumero}.`
+                  : `Copiar ORDEM ${ordemCodigo}`
+                }
               >
-                #{renderHighlightedText(notaNumero, highlightedQuery)}
+                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-200">
+                  Ordem
+                </span>
+                <span className="truncate text-sm font-semibold">
+                  {renderHighlightedText(ordemCodigo, highlightedQuery)}
+                </span>
+                <Copy className="h-3.5 w-3.5 shrink-0 text-blue-700 dark:text-blue-200" />
               </button>
-            )}
-
-            {hasOrderCode ? (
-              <>
-                <span className="text-muted-foreground">·</span>
-                <button
-                  type="button"
-                  onClick={handleCopyOrder}
-                  className="inline-flex min-w-0 items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-blue-900 transition-colors hover:bg-blue-100"
-                  title={hasLinkedNote
-                    ? `Clique para copiar ORDEM ${ordemCodigo}. Alt+Clique copia NOTA ${notaNumero}.`
-                    : `Copiar ORDEM ${ordemCodigo}`
-                  }
-                >
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-700">Ordem</span>
-                  <span className="text-sm font-semibold">
-                    {renderHighlightedText(ordemCodigo, highlightedQuery)}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCopyOrder}
-                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-blue-700 transition-colors hover:bg-blue-100"
-                  title={`Copiar ORDEM ${ordemCodigo}`}
-                  aria-label={`Copiar ordem ${ordemCodigo}`}
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </button>
-              </>
             ) : (
-              <span className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+              <span className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-100">
                 Sem ordem
               </span>
             )}
 
+            {hasLinkedNote && (
+              <button
+                type="button"
+                onClick={handleCopyNote}
+                className="inline-flex shrink-0 items-center rounded-md border border-border/70 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted"
+                title={`Copiar NOTA ${notaNumero}`}
+              >
+                <span className="mr-1 text-[10px] font-semibold uppercase tracking-wide">Nota</span>
+                <span>#{renderHighlightedText(notaNumero, highlightedQuery)}</span>
+              </button>
+            )}
+
             {!hasLinkedNote && (
-              <span className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+              <span className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-100">
                 Sem nota
               </span>
             )}
@@ -258,14 +248,12 @@ export function OrderCompactCard({
         </div>
       </div>
 
-      {/* Linha 2: texto breve (condicional) */}
       {descricaoCard && (
-        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground leading-5">
+        <p className="mt-1 line-clamp-2 text-sm leading-5 text-muted-foreground">
           {renderHighlightedText(descricaoCard, highlightedQuery)}
         </p>
       )}
 
-      {/* Linha 3: metadados */}
       <p className="mt-1.5 text-xs text-muted-foreground">
         {renderHighlightedText(unidadeText, highlightedQuery)}
         <span className="mx-1 opacity-40">·</span>

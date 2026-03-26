@@ -247,6 +247,31 @@ function isPmplType(value: string | null | undefined): boolean {
   return normalizeTextForMatch(value) === PMPL_CONFIG_TYPE
 }
 
+function normalizeTextForLooseMatch(value: string | null | undefined): string {
+  return normalizeTextForMatch(value)
+    .replace(/[.,]/g, '')
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+const PMPL_TEXT_HINTS = [
+  'PREVENTIVA DE 1500 HORAS',
+] as const
+
+export function shouldRouteOrderToPmpl(params: {
+  tipoOrdem?: string | null
+  textoBreve?: string | null
+  descricao?: string | null
+}): boolean {
+  if (isPmplType(params.tipoOrdem)) return true
+
+  const sourceText = normalizeTextForLooseMatch(params.textoBreve) || normalizeTextForLooseMatch(params.descricao)
+  if (!sourceText) return false
+
+  return PMPL_TEXT_HINTS.some((hint) => sourceText.includes(hint))
+}
+
 async function attachTextoBreveToRoutingRows(
   supabase: RoutingSupabase,
   rows: RoutingCandidateRow[]
@@ -276,7 +301,11 @@ async function attachTextoBreveToRoutingRows(
 }
 
 function routeOrder(row: RoutingCandidateRow, context: RouteOrderContext): RouteOrderResult {
-  if (isPmplType(row.tipo_ordem)) {
+  if (shouldRouteOrderToPmpl({
+    tipoOrdem: row.tipo_ordem,
+    textoBreve: row.texto_breve,
+    descricao: row.descricao,
+  })) {
     return {
       page: 'PMPL',
       ownerId: context.pmplOwnerId,
