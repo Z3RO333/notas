@@ -83,54 +83,61 @@ export function OperacionalFilter({
   )
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-2xl border bg-card/60 p-3">
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        <User className="h-4 w-4" />
-        Operacao
-      </div>
+    <div className="grid gap-3 lg:grid-cols-[minmax(16rem,1.2fr)_minmax(10rem,0.6fr)_minmax(12rem,0.8fr)]">
+      <label className="space-y-2">
+        <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          <User className="h-4 w-4" />
+          Operacao
+        </span>
+        <select
+          value={selectedFornecedor ?? ''}
+          onChange={(event) => handleFornecedorChange(event.target.value)}
+          className={`${nativeSelectClassName} w-full min-w-0`}
+        >
+          <option value="">Todos os operacionais</option>
+          {operacionais.map((operacional) => (
+            <option key={operacional.codigo} value={operacional.codigo}>
+              {operacional.nome.split(' ').slice(0, 2).join(' ')}
+            </option>
+          ))}
+        </select>
+      </label>
 
-      <select
-        value={selectedFornecedor ?? ''}
-        onChange={(event) => handleFornecedorChange(event.target.value)}
-        className={`${nativeSelectClassName} min-w-44`}
-      >
-        <option value="">Todos os operacionais</option>
-        {operacionais.map((operacional) => (
-          <option key={operacional.codigo} value={operacional.codigo}>
-            {operacional.nome.split(' ').slice(0, 2).join(' ')}
-          </option>
-        ))}
-      </select>
+      <label className="space-y-2">
+        <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          <CalendarDays className="h-4 w-4" />
+          Ano
+        </span>
+        <select
+          value={String(selectedYear)}
+          onChange={(event) => handleYearChange(event.target.value)}
+          className={`${nativeSelectClassName} w-full min-w-0`}
+        >
+          {yearOptions.map((year) => (
+            <option key={year} value={String(year)}>
+              {year}
+            </option>
+          ))}
+        </select>
+      </label>
 
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        <CalendarDays className="h-4 w-4" />
-        Periodo
-      </div>
-
-      <select
-        value={String(selectedYear)}
-        onChange={(event) => handleYearChange(event.target.value)}
-        className={`${nativeSelectClassName} min-w-24`}
-      >
-        {yearOptions.map((year) => (
-          <option key={year} value={String(year)}>
-            {year}
-          </option>
-        ))}
-      </select>
-
-      <select
-        value={selectedMonth ? String(selectedMonth) : ''}
-        onChange={(event) => handleMonthChange(event.target.value)}
-        className={`${nativeSelectClassName} min-w-40`}
-      >
-        <option value="">Todos os meses</option>
-        {MONTH_OPTIONS.map((month) => (
-          <option key={month.value} value={month.value}>
-            {month.label}
-          </option>
-        ))}
-      </select>
+      <label className="space-y-2">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          Mes
+        </span>
+        <select
+          value={selectedMonth ? String(selectedMonth) : ''}
+          onChange={(event) => handleMonthChange(event.target.value)}
+          className={`${nativeSelectClassName} w-full min-w-0`}
+        >
+          <option value="">Todos os meses</option>
+          {MONTH_OPTIONS.map((month) => (
+            <option key={month.value} value={month.value}>
+              {month.label}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   )
 }

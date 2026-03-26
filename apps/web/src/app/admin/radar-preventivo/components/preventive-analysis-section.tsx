@@ -165,13 +165,6 @@ export function PreventiveAnalysisSection({
 
   return (
     <section className="space-y-5">
-      <div>
-        <h2 className="text-lg font-semibold tracking-tight">Radar preventivo por unidade e servico</h2>
-        <p className="text-sm text-muted-foreground">
-          A leitura agora esta organizada em camadas: primeiro o recorte, depois a prioridade executiva e so entao o mergulho nas tabelas.
-        </p>
-      </div>
-
       <Card className={cn('overflow-hidden', executiveSurface(dominantRisk))}>
         <CardContent className="grid gap-5 p-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.95fr)]">
           <div className="space-y-4">
@@ -251,14 +244,11 @@ export function PreventiveAnalysisSection({
       </Card>
 
       <Card>
-        <CardHeader className="space-y-2 pb-3">
+        <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Filter className="h-4 w-4 text-primary" />
-            Ajustes do radar
+            Filtros
           </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Reorganizei o refino para o usuario entender primeiro o recorte, depois a unidade e por ultimo o servico.
-          </p>
         </CardHeader>
         <CardContent>
           <PreventiveAnalysisFilters
@@ -285,7 +275,7 @@ export function PreventiveAnalysisSection({
               <div>
                 <CardTitle className="text-base">Modo de leitura</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  `Resumo executivo` acelera a decisao. `Analise detalhada` abre tabelas, comparativos e a fila completa.
+                  Resumo para decisao rapida; detalhada para tabelas e comparativos.
                 </p>
               </div>
               <div className="inline-flex rounded-xl border bg-muted/30 p-1">

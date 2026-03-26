@@ -2,6 +2,7 @@ import {
   Activity,
   BadgeAlert,
   Building2,
+  ChevronDown,
   Pill,
   ShoppingCart,
   Warehouse,
@@ -122,55 +123,62 @@ export function OfficialUnitSummary({ segmentos }: OfficialUnitSummaryProps) {
         })}
       </div>
 
-      <Card className="border-dashed bg-muted/10">
-        <CardContent className="space-y-4 pt-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Activity className="h-4 w-4 text-primary" />
-                Fonte oficial aplicada nas KPIs de unidades
-              </div>
-              <p className="max-w-4xl text-sm text-muted-foreground">
-                Os cards agora leem a classificacao oficial do arquivo <span className="font-medium">complemento e ajuste de lojas.xlsx</span>,
-                sem estimar unidade por ordem, join operacional ou regra solta de texto.
-              </p>
+      <details className="group rounded-2xl border border-dashed bg-muted/10">
+        <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3 px-5 py-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Activity className="h-4 w-4 text-primary" />
+              Auditoria da base oficial
             </div>
+            <p className="max-w-4xl text-sm text-muted-foreground">
+              Os KPIs usam a classificacao oficial da planilha. Expanda para ver ajustes, exclusoes e centros auditados.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
             <Badge variant="outline" className="bg-background/70">
               {OFFICIAL_REFERENCE_TOTALS.LOJA + OFFICIAL_REFERENCE_TOTALS.FARMA + OFFICIAL_REFERENCE_TOTALS.CD + OFFICIAL_REFERENCE_TOTALS.MERCADO} centros primarios auditados
             </Badge>
+            <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+              Ver detalhes
+              <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+            </span>
           </div>
+        </summary>
 
-          <div className="grid gap-4 xl:grid-cols-2">
-            <div className="rounded-xl border bg-background/50 p-4">
-              <p className="text-sm font-semibold text-foreground">Inflacao antiga que empurrava mercado e apoio para lojas</p>
-              <p className="mt-1 text-sm text-muted-foreground">{formatEntries(audit.legacyInflation.LOJA)}</p>
+        <Card className="border-0 bg-transparent shadow-none">
+          <CardContent className="space-y-4 pt-0 pb-5">
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="rounded-xl border bg-background/50 p-4">
+                <p className="text-sm font-semibold text-foreground">Inflacao antiga que empurrava mercado e apoio para lojas</p>
+                <p className="mt-1 text-sm text-muted-foreground">{formatEntries(audit.legacyInflation.LOJA)}</p>
+              </div>
+
+              <div className="rounded-xl border bg-background/50 p-4">
+                <p className="text-sm font-semibold text-foreground">Centros parecidos com farma removidos da contagem oficial</p>
+                <p className="mt-1 text-sm text-muted-foreground">{formatEntries(audit.legacyInflation.FARMA)}</p>
+              </div>
+
+              <div className="rounded-xl border bg-background/50 p-4">
+                <p className="text-sm font-semibold text-foreground">CDs de apoio que nao entram no KPI principal</p>
+                <p className="mt-1 text-sm text-muted-foreground">{formatEntries(audit.legacyInflation.CD)}</p>
+              </div>
+
+              <div className="rounded-xl border bg-background/50 p-4">
+                <p className="text-sm font-semibold text-foreground">Entradas complementares que precisaram ser adicionadas</p>
+                <p className="mt-1 text-sm text-muted-foreground">{formatEntries(audit.supplementalEntries)}</p>
+              </div>
             </div>
 
             <div className="rounded-xl border bg-background/50 p-4">
-              <p className="text-sm font-semibold text-foreground">Centros parecidos com farma removidos da contagem oficial</p>
-              <p className="mt-1 text-sm text-muted-foreground">{formatEntries(audit.legacyInflation.FARMA)}</p>
+              <p className="text-sm font-semibold text-foreground">Nota sobre loterias e recorte oficial</p>
+              <p className="mt-1 text-sm text-muted-foreground">{audit.loteriaNote}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Centros fora da KPI primaria, mas mantidos no catalogo oficial para auditoria: {formatEntries(audit.excludedEntries)}.
+              </p>
             </div>
-
-            <div className="rounded-xl border bg-background/50 p-4">
-              <p className="text-sm font-semibold text-foreground">CDs de apoio que nao entram no KPI principal</p>
-              <p className="mt-1 text-sm text-muted-foreground">{formatEntries(audit.legacyInflation.CD)}</p>
-            </div>
-
-            <div className="rounded-xl border bg-background/50 p-4">
-              <p className="text-sm font-semibold text-foreground">Entradas complementares que precisaram ser adicionadas</p>
-              <p className="mt-1 text-sm text-muted-foreground">{formatEntries(audit.supplementalEntries)}</p>
-            </div>
-          </div>
-
-          <div className="rounded-xl border bg-background/50 p-4">
-            <p className="text-sm font-semibold text-foreground">Nota sobre loterias e recorte oficial</p>
-            <p className="mt-1 text-sm text-muted-foreground">{audit.loteriaNote}</p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Centros fora da KPI primaria, mas mantidos no catalogo oficial para auditoria: {formatEntries(audit.excludedEntries)}.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </details>
     </div>
   )
 }

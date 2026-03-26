@@ -1,5 +1,3 @@
-getCurrentAdminContext auth.getUser failed: Auth session missing!
-getCurrentAdminContext auth.getUser failed: Auth session missing!
 npm error Lifecycle script `start` failed with error:
 npm error code 4294967295
 npm error path C:\NOTAS PROJETO\notas\apps\web
