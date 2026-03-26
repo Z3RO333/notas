@@ -12,15 +12,15 @@ export function DashboardHeaderActions({ exportHref = '/api/admin/export?scope=o
   const router = useRouter()
 
   return (
-    <div className="flex items-center gap-2">
-      <Button type="button" variant="outline" onClick={() => router.refresh()}>
-        <RefreshCcw className="mr-2 h-4 w-4" />
-        Refresh
+    <div className="flex flex-wrap items-center gap-2">
+      <Button type="button" variant="outline" size="sm" onClick={() => router.refresh()}>
+        <RefreshCcw className="h-4 w-4" />
+        Atualizar
       </Button>
-      <Button asChild type="button" variant="outline">
+      <Button asChild type="button" variant="outline" size="sm">
         <a href={exportHref}>
-          <Download className="mr-2 h-4 w-4" />
-          Exportar CSV
+          <Download className="h-4 w-4" />
+          Exportar
         </a>
       </Button>
     </div>

@@ -15,17 +15,19 @@ export function GridEmptyState({
   resetLabel = 'Limpar filtros',
 }: GridEmptyStateProps) {
   return (
-    <div className="rounded-lg border border-dashed p-10 text-center">
-      <Inbox className="mx-auto h-10 w-10 text-muted-foreground/40" />
-      <p className="mt-3 text-sm font-medium text-muted-foreground">{message}</p>
-      {description && (
-        <p className="mt-1 text-xs text-muted-foreground/70">{description}</p>
-      )}
-      {onReset && (
-        <Button type="button" variant="outline" size="sm" className="mt-4" onClick={onReset}>
+    <div className="rounded-2xl border border-dashed bg-card/40 p-8 text-center sm:p-10">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted/60">
+        <Inbox className="h-5 w-5 text-muted-foreground" />
+      </div>
+      <p className="mt-4 text-sm font-semibold">{message}</p>
+      {description ? (
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      ) : null}
+      {onReset ? (
+        <Button type="button" variant="outline" size="sm" className="mt-5" onClick={onReset}>
           {resetLabel}
         </Button>
-      )}
+      ) : null}
     </div>
   )
 }

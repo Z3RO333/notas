@@ -18,9 +18,9 @@ export default async function AdminLayout({
   }
 
   return (
-    <div>
+    <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-4 pb-8 pt-4 sm:px-6 lg:px-8">
       <AdminNav />
-      {children}
+      <main className="flex-1">{children}</main>
     </div>
   )
 }

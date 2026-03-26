@@ -131,12 +131,12 @@ export function PreventiveAnalysisFilters({
   }, [updateParams])
 
   return (
-    <div className="space-y-4 rounded-2xl border bg-muted/10 p-4">
+    <div className="space-y-4 rounded-2xl border bg-card/60 p-4">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm font-medium">Refine o radar</p>
           <p className="text-xs text-muted-foreground">
-            Comece pelo periodo e pelo escopo da rede. Depois afune em unidade e servico para abrir o desvio.
+            Ajuste recorte, unidade e servico para abrir o desvio certo.
           </p>
         </div>
         <Button

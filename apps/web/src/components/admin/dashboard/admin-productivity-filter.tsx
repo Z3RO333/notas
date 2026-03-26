@@ -13,7 +13,7 @@ interface AdminProductivityFilterProps {
 const MONTH_OPTIONS = [
   { value: '1', label: 'Janeiro' },
   { value: '2', label: 'Fevereiro' },
-  { value: '3', label: 'Março' },
+  { value: '3', label: 'Marco' },
   { value: '4', label: 'Abril' },
   { value: '5', label: 'Maio' },
   { value: '6', label: 'Junho' },
@@ -24,6 +24,9 @@ const MONTH_OPTIONS = [
   { value: '11', label: 'Novembro' },
   { value: '12', label: 'Dezembro' },
 ]
+
+const nativeSelectClassName =
+  'h-9 rounded-full border border-border/70 bg-background/70 px-3 py-1 text-sm shadow-none transition-colors focus:outline-none focus:ring-1 focus:ring-ring'
 
 export function AdminProductivityFilter({
   selectedYear,
@@ -45,13 +48,16 @@ export function AdminProductivityFilter({
   )
 
   return (
-    <div className="flex items-center gap-2">
-      <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl border bg-card/60 p-3">
+      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        <CalendarDays className="h-4 w-4" />
+        Periodo
+      </div>
 
       <select
         value={String(selectedYear)}
         onChange={(event) => updateQuery(Number(event.target.value), selectedMonth)}
-        className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
+        className={`${nativeSelectClassName} min-w-24`}
       >
         {yearOptions.map((year) => (
           <option key={year} value={String(year)}>
@@ -63,7 +69,7 @@ export function AdminProductivityFilter({
       <select
         value={String(selectedMonth)}
         onChange={(event) => updateQuery(selectedYear, Number(event.target.value))}
-        className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
+        className={`${nativeSelectClassName} min-w-40`}
       >
         {MONTH_OPTIONS.map((month) => (
           <option key={month.value} value={month.value}>

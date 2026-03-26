@@ -183,7 +183,7 @@ export default async function ComparativosPage({ searchParams }: ComparativosPag
 
   return (
     <div className="space-y-8">
-      <PageTitleBlock title="Comparativos anuais" subtitle="Analise lado a lado ordens, custos e fornecedores entre dois anos." />
+      <PageTitleBlock title="Comparativos anuais" subtitle="Ordens, custos e fornecedores entre dois anos." />
 
       <ComparativosFilters
         anos={yearPair.availableYears}

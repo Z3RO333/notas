@@ -248,7 +248,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
     <div className="space-y-6">
       <PageTitleBlock
         title="Financeiro"
-        subtitle="Custos operacionais por ordem."
+        subtitle="Custos por ordem, servico e fornecedor."
         rightSlot={
           <div className="flex gap-2">
             <CartaoImportDialog />

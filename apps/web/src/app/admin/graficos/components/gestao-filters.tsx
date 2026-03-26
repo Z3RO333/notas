@@ -10,10 +10,21 @@ type GestaoFilterOption = {
 }
 
 const MES_NOMES: Record<string, string> = {
-  '1': 'Janeiro', '2': 'Fevereiro', '3': 'Março', '4': 'Abril',
-  '5': 'Maio', '6': 'Junho', '7': 'Julho', '8': 'Agosto',
-  '9': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro',
+  '1': 'Janeiro',
+  '2': 'Fevereiro',
+  '3': 'Marco',
+  '4': 'Abril',
+  '5': 'Maio',
+  '6': 'Junho',
+  '7': 'Julho',
+  '8': 'Agosto',
+  '9': 'Setembro',
+  '10': 'Outubro',
+  '11': 'Novembro',
+  '12': 'Dezembro',
 }
+
+const triggerClassName = 'h-9 rounded-full border-border/70 bg-background/70 px-3 shadow-none'
 
 interface GestaoFiltersProps {
   tiposOrdem: string[]
@@ -50,81 +61,88 @@ export function GestaoFilters({
       }
       router.replace(`${pathname}?${params.toString()}`)
     },
-    [router, pathname, searchParams]
+    [router, pathname, searchParams],
   )
 
   return (
-    <div className="flex flex-wrap gap-3 items-center">
-      <span className="text-sm font-medium text-muted-foreground">Filtros:</span>
+    <div className="flex flex-col gap-3 rounded-2xl border bg-card/60 p-3 sm:p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        Recorte
+      </p>
 
-      {/* Ano */}
-      <Select
-        value={anoAtivo ? String(anoAtivo) : 'todos'}
-        onValueChange={(v) => updateParam('ano', v)}
-      >
-        <SelectTrigger className="w-28">
-          <SelectValue placeholder="Ano" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="todos">Todos anos</SelectItem>
-          {anos.map((a) => (
-            <SelectItem key={a} value={String(a)}>{a}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {/* Mês */}
-      <Select
-        value={mesAtivo ? String(mesAtivo) : 'todos'}
-        onValueChange={(v) => updateParam('mes', v)}
-      >
-        <SelectTrigger className="w-36">
-          <SelectValue placeholder="Mês" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="todos">Todos meses</SelectItem>
-          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-            <SelectItem key={m} value={String(m)}>{MES_NOMES[String(m)]}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {/* Tipo de Ordem */}
-      {tiposOrdem.length > 0 && (
+      <div className="flex flex-wrap items-center gap-2">
         <Select
-          value={tipoOrdemAtivo ?? 'todos'}
-          onValueChange={(v) => updateParam('tipo_ordem', v)}
+          value={anoAtivo ? String(anoAtivo) : 'todos'}
+          onValueChange={(value) => updateParam('ano', value)}
         >
-          <SelectTrigger className="w-36">
-            <SelectValue placeholder="Tipo" />
+          <SelectTrigger className={`${triggerClassName} w-28`}>
+            <SelectValue placeholder="Ano" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todos">Todos tipos</SelectItem>
-            {tiposOrdem.map((t) => (
-              <SelectItem key={t} value={t}>{t}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-
-      {equipamentos.length > 0 && (
-        <Select
-          value={equipamentoAtivo ?? 'todos'}
-          onValueChange={(v) => updateParam('equipamento', v)}
-        >
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Equipamento" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos equipamentos</SelectItem>
-            {equipamentos.map((equipamento) => (
-              <SelectItem key={equipamento.value} value={equipamento.value}>
-                {equipamento.label}
+            <SelectItem value="todos">Todos anos</SelectItem>
+            {anos.map((ano) => (
+              <SelectItem key={ano} value={String(ano)}>
+                {ano}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-      )}
+
+        <Select
+          value={mesAtivo ? String(mesAtivo) : 'todos'}
+          onValueChange={(value) => updateParam('mes', value)}
+        >
+          <SelectTrigger className={`${triggerClassName} w-36`}>
+            <SelectValue placeholder="Mes" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos meses</SelectItem>
+            {Array.from({ length: 12 }, (_, index) => index + 1).map((mes) => (
+              <SelectItem key={mes} value={String(mes)}>
+                {MES_NOMES[String(mes)]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {tiposOrdem.length > 0 ? (
+          <Select
+            value={tipoOrdemAtivo ?? 'todos'}
+            onValueChange={(value) => updateParam('tipo_ordem', value)}
+          >
+            <SelectTrigger className={`${triggerClassName} w-36`}>
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos tipos</SelectItem>
+              {tiposOrdem.map((tipo) => (
+                <SelectItem key={tipo} value={tipo}>
+                  {tipo}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+
+        {equipamentos.length > 0 ? (
+          <Select
+            value={equipamentoAtivo ?? 'todos'}
+            onValueChange={(value) => updateParam('equipamento', value)}
+          >
+            <SelectTrigger className={`${triggerClassName} w-48`}>
+              <SelectValue placeholder="Equipamento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos equipamentos</SelectItem>
+              {equipamentos.map((equipamento) => (
+                <SelectItem key={equipamento.value} value={equipamento.value}>
+                  {equipamento.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+      </div>
     </div>
   )
 }

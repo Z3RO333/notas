@@ -20,16 +20,20 @@ export default function GestorError({
   }, [error])
 
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
-      <AlertTriangle className="h-10 w-10 text-destructive mb-4" />
-      <h2 className="text-lg font-semibold mb-2">Erro ao carregar Visão Geral</h2>
-      <p className="text-sm text-muted-foreground mb-6 max-w-md">
-        Não foi possível carregar os dados do painel. Verifique sua conexão e tente novamente.
+    <div className="rounded-3xl border border-dashed bg-card/50 p-8 text-center shadow-sm sm:p-10">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+        <AlertTriangle className="h-6 w-6" />
+      </div>
+      <h2 className="mt-5 text-xl font-semibold tracking-tight">Nao foi possivel abrir o painel</h2>
+      <p className="mt-2 mx-auto max-w-md text-sm leading-6 text-muted-foreground">
+        Tente atualizar a tela. Se o erro continuar, use o codigo abaixo para investigacao.
       </p>
       {error.digest ? (
-        <p className="mb-4 text-xs text-muted-foreground">Código do erro: {error.digest}</p>
+        <p className="mt-4 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          Codigo: {error.digest}
+        </p>
       ) : null}
-      <Button onClick={reset}>Tentar novamente</Button>
+      <Button onClick={reset} className="mt-6">Tentar novamente</Button>
     </div>
   )
 }

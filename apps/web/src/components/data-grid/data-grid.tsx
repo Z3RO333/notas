@@ -77,19 +77,19 @@ export function DataGrid<TData>({
   }
 
   const headerCellClass = density === 'compact'
-    ? 'px-2 py-1.5 text-left font-medium text-muted-foreground'
-    : 'px-3 py-2 text-left font-medium text-muted-foreground'
+    ? 'px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground'
+    : 'px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground'
   const bodyCellClass = density === 'compact'
-    ? 'px-2 py-1.5 align-top'
-    : 'px-3 py-2 align-top'
+    ? 'px-2 py-2 align-top'
+    : 'px-3 py-2.5 align-top'
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-card">
+    <div className="overflow-hidden rounded-2xl border bg-card/70 shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b bg-muted/40">
+              <tr key={headerGroup.id} className="border-b bg-muted/25">
                 {headerGroup.headers.map((header) => (
                   <th key={header.id} className={headerCellClass}>
                     {header.isPlaceholder
@@ -103,7 +103,10 @@ export function DataGrid<TData>({
 
           <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className={`border-b last:border-b-0 hover:bg-muted/20 ${rowClassName ? rowClassName(row.original) : ''}`}>
+              <tr
+                key={row.id}
+                className={`border-b last:border-b-0 transition-colors hover:bg-muted/15 ${rowClassName ? rowClassName(row.original) : ''}`}
+              >
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className={bodyCellClass}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

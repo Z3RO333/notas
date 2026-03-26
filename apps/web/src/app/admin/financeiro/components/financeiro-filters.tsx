@@ -19,6 +19,8 @@ const MES_NOMES: Record<string, string> = {
   '12': 'Dezembro',
 }
 
+const triggerClassName = 'h-9 rounded-full border-border/70 bg-background/70 px-3 shadow-none'
+
 interface FinanceiroFiltersProps {
   anos: number[]
   anoAtivo?: number
@@ -43,42 +45,46 @@ export function FinanceiroFilters({ anos, anoAtivo, mesAtivo }: FinanceiroFilter
   }, [pathname, router, searchParams])
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <span className="text-sm font-medium text-muted-foreground">Filtros:</span>
+    <div className="flex flex-col gap-3 rounded-2xl border bg-card/60 p-3 sm:p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        Recorte financeiro
+      </p>
 
-      <Select
-        value={anoAtivo ? String(anoAtivo) : 'todos'}
-        onValueChange={(value) => updateParam('ano', value)}
-      >
-        <SelectTrigger className="w-28">
-          <SelectValue placeholder="Ano" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="todos">Todos anos</SelectItem>
-          {anos.map((ano) => (
-            <SelectItem key={ano} value={String(ano)}>
-              {ano}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="flex flex-wrap items-center gap-2">
+        <Select
+          value={anoAtivo ? String(anoAtivo) : 'todos'}
+          onValueChange={(value) => updateParam('ano', value)}
+        >
+          <SelectTrigger className={`${triggerClassName} w-28`}>
+            <SelectValue placeholder="Ano" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos anos</SelectItem>
+            {anos.map((ano) => (
+              <SelectItem key={ano} value={String(ano)}>
+                {ano}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      <Select
-        value={mesAtivo ? String(mesAtivo) : 'todos'}
-        onValueChange={(value) => updateParam('mes', value)}
-      >
-        <SelectTrigger className="w-36">
-          <SelectValue placeholder="Mes" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="todos">Todos meses</SelectItem>
-          {Array.from({ length: 12 }, (_, index) => index + 1).map((mes) => (
-            <SelectItem key={mes} value={String(mes)}>
-              {MES_NOMES[String(mes)]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <Select
+          value={mesAtivo ? String(mesAtivo) : 'todos'}
+          onValueChange={(value) => updateParam('mes', value)}
+        >
+          <SelectTrigger className={`${triggerClassName} w-36`}>
+            <SelectValue placeholder="Mes" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos meses</SelectItem>
+            {Array.from({ length: 12 }, (_, index) => index + 1).map((mes) => (
+              <SelectItem key={mes} value={String(mes)}>
+                {MES_NOMES[String(mes)]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   )
 }

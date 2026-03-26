@@ -1,0 +1,9 @@
+getCurrentAdminContext auth.getUser failed: Auth session missing!
+getCurrentAdminContext auth.getUser failed: Auth session missing!
+npm error Lifecycle script `start` failed with error:
+npm error code 4294967295
+npm error path C:\NOTAS PROJETO\notas\apps\web
+npm error workspace cockpit-distribuicao-web@0.1.0
+npm error location C:\NOTAS PROJETO\notas\apps\web
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c next start --port 3005

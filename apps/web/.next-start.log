@@ -1,0 +1,10 @@
+
+> cockpit-distribuicao-web@0.1.0 start
+> next start --port 3005
+
+   ▲ Next.js 15.5.12
+   - Local:        http://localhost:3005
+   - Network:      http://172.20.208.73:3005
+
+ ✓ Starting...
+ ✓ Ready in 660ms

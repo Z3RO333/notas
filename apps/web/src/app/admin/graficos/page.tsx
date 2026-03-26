@@ -208,8 +208,8 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   return (
     <div className="space-y-6">
       <PageTitleBlock
-        title="Graficos - Inteligencia Gerencial"
-        subtitle="Padroes, recorrencia e ranking por segmento de unidade."
+        title="Graficos Gerenciais"
+        subtitle="Padroes, recorrencia e ranking por unidade."
       />
 
       {segmentos.length > 0 && <OfficialUnitSummary segmentos={segmentos} />}
