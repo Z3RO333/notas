@@ -235,14 +235,18 @@ function normalizeOrdersKpis(data: unknown): OrdersWorkspaceKpis {
 function buildOperationalRows(
   currentRows: ProdutividadeOperacional[],
   previousRows: ProdutividadeOperacional[],
+  avatarByCode: Map<string, string | null> = new Map(),
 ): OperationalRankingView[] {
   const previousBySupplier = new Map(previousRows.map((row) => [row.fornecedor_codigo, row]))
 
-  return currentRows.map((row) => ({
-    ...row,
-    avatar_url: null,
-    deltaConcluidas: row.atendidas - toNumber(previousBySupplier.get(row.fornecedor_codigo)?.atendidas),
-  }))
+  return currentRows.map((row) => {
+    const codigoBase = row.fornecedor_codigo.replace(/\D+$/, '')
+    return {
+      ...row,
+      avatar_url: avatarByCode.get(codigoBase) ?? null,
+      deltaConcluidas: row.atendidas - toNumber(previousBySupplier.get(row.fornecedor_codigo)?.atendidas),
+    }
+  })
 }
 
 function buildAdminRows(
@@ -810,7 +814,19 @@ export async function AdminProductivityPanel({ period }: AdminProductivityPanelP
   const operationalPreviousKpis = normalizeOperacionalKpis(operationalPreviousKpisResult.data)
   const operationalCurrentRowsRaw = (operationalCurrentRowsResult.data ?? []) as ProdutividadeOperacional[]
   const operationalPreviousRowsRaw = (operationalPreviousRowsResult.data ?? []) as ProdutividadeOperacional[]
-  const operationalRows = buildOperationalRows(operationalCurrentRowsRaw, operationalPreviousRowsRaw)
+
+  const operacionalAvatarByCode = new Map<string, string | null>()
+  const operacionalAvatarResult = await supabase
+    .from('dim_operacionais')
+    .select('codigo, avatar_url')
+    .not('avatar_url', 'is', null)
+  if (!operacionalAvatarResult.error) {
+    for (const row of operacionalAvatarResult.data ?? []) {
+      operacionalAvatarByCode.set(row.codigo, row.avatar_url)
+    }
+  }
+
+  const operationalRows = buildOperationalRows(operationalCurrentRowsRaw, operationalPreviousRowsRaw, operacionalAvatarByCode)
   const operationalEvolution = (operationalEvolutionResult.data ?? []) as EvolucaoMensalOperacional[]
 
   const adminCurrentKpis = normalizeOrdersKpis(adminCurrentKpisResult.data)
