@@ -27,6 +27,7 @@ import type {
   OrdersWorkspaceHighlights,
   OrdersWorkspaceKpis,
   OrdersWorkspaceResponse,
+  TipoUnidade,
   UserRole,
 } from '@/lib/types/database'
 
@@ -34,6 +35,7 @@ type RpcError = { code?: string; message: string } | null
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>
 
 const WORKSPACE_HIGHLIGHT_LIMIT = 6
+const WORKSPACE_HIGHLIGHT_FETCH_LIMIT = 24
 
 function mapKpis(value: Partial<OrdersWorkspaceKpis> | null | undefined): OrdersWorkspaceKpis {
   return {
@@ -92,6 +94,7 @@ async function fetchWorkspaceHighlightRows(
   params: Record<string, unknown>,
   prioridade: 'vermelho' | 'amarelo',
   supportsTipoOrdem: boolean,
+  limit = WORKSPACE_HIGHLIGHT_LIMIT,
 ): Promise<{ data: OrdemNotaAcompanhamento[]; error: RpcError }> {
   const rpcParams: Record<string, unknown> = {
     ...params,
@@ -107,12 +110,50 @@ async function fetchWorkspaceHighlightRows(
     .rpc('filtrar_ordens_workspace', rpcParams)
     .order('dias_em_aberto', { ascending: false })
     .order('ordem_detectada_em', { ascending: true })
-    .limit(WORKSPACE_HIGHLIGHT_LIMIT)
+    .limit(limit)
 
   return {
     data: (result.data ?? []) as OrdemNotaAcompanhamento[],
     error: mapRpcError(result.error),
   }
+}
+
+function normalizeUnitName(value: string | null | undefined): string {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase()
+}
+
+function resolveUnitType(unidade: string | null | undefined): TipoUnidade | null {
+  const normalized = normalizeUnitName(unidade)
+  if (!normalized) return null
+  if (normalized.startsWith('CD ') || normalized.endsWith(' CD')) return 'CD'
+  if (normalized.startsWith('FARMA ') || normalized.startsWith('BEMOL FARMA ')) return 'FARMA'
+  return 'LOJA'
+}
+
+function prioritizeOldestHighlights(rows: OrdemNotaAcompanhamento[]): OrdemNotaAcompanhamento[] {
+  return [...rows]
+    .sort((a, b) => {
+      const aType = resolveUnitType(a.unidade)
+      const bType = resolveUnitType(b.unidade)
+      const aTypeScore = aType === 'CD' ? 1 : 0
+      const bTypeScore = bType === 'CD' ? 1 : 0
+      if (aTypeScore !== bTypeScore) return aTypeScore - bTypeScore
+
+      if (a.dias_em_aberto !== b.dias_em_aberto) return b.dias_em_aberto - a.dias_em_aberto
+
+      const aDetected = Date.parse(a.ordem_detectada_em)
+      const bDetected = Date.parse(b.ordem_detectada_em)
+      if (Number.isFinite(aDetected) && Number.isFinite(bDetected) && aDetected !== bDetected) {
+        return aDetected - bDetected
+      }
+
+      return a.ordem_codigo.localeCompare(b.ordem_codigo, 'pt-BR')
+    })
+    .slice(0, WORKSPACE_HIGHLIGHT_LIMIT)
 }
 
 export async function GET(request: Request) {
@@ -322,7 +363,7 @@ export async function GET(request: Request) {
     : kpisFromRpc
 
   const [oldestHighlightsResult, attentionHighlightsResult] = await Promise.all([
-    fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'vermelho', rowsResult.supportsTipoOrdem),
+    fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'vermelho', rowsResult.supportsTipoOrdem, WORKSPACE_HIGHLIGHT_FETCH_LIMIT),
     fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'amarelo', rowsResult.supportsTipoOrdem),
   ])
 
@@ -335,7 +376,7 @@ export async function GET(request: Request) {
   }
 
   const highlights: OrdersWorkspaceHighlights = {
-    oldest: oldestHighlightsResult.data,
+    oldest: prioritizeOldestHighlights(oldestHighlightsResult.data),
     attention: attentionHighlightsResult.data,
   }
 
