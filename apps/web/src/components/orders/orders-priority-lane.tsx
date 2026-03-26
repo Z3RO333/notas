@@ -93,7 +93,7 @@ export function OrdersPriorityLane({
 
       {!expanded ? (
         <div className="mt-3 text-xs text-muted-foreground">
-          Painel minimizado. Clique em "Expandir" para ver as ordens.
+          Painel minimizado. Clique em Expandir para ver as ordens.
         </div>
       ) : rows.length === 0 ? (
         <div className={`mt-3 rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground ${styles.empty}`}>

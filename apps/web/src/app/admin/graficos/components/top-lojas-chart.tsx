@@ -52,17 +52,6 @@ const INSIDE_LIGHT_LABEL = createInsideBarLabelRenderer({
   },
 })
 
-const INSIDE_DARK_LABEL = createInsideBarLabelRenderer({
-  fill: '#111827',
-  fontSize: 10,
-  fontWeight: 700,
-  paddingX: 6,
-  formatter: (value) => {
-    const numericValue = Number(value)
-    return numericValue > 0 ? numericValue.toLocaleString('pt-BR') : ''
-  },
-})
-
 const WRAPPED_CATEGORY_TICK = createWrappedCategoryTickRenderer({
   fill: CHART_CATEGORY_TICK.fill,
   fontSize: CHART_CATEGORY_TICK.fontSize,
