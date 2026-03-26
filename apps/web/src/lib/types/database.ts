@@ -710,6 +710,20 @@ export interface FinanceiroImportProgress {
 
 export type TipoUnidade = 'LOJA' | 'FARMA' | 'CD'
 
+export interface GestaoBaseOrdem {
+  ordem_id: string
+  ordem_codigo: string
+  tipo_ordem: string
+  competencia_data: string | null
+  ano: number
+  mes: number
+  nome_loja: string | null
+  tipo_unidade: TipoUnidade | null
+  texto_breve: string | null
+  status_ordem_raw: string | null
+  nota_referencia: string | null
+}
+
 export interface DashboardGestaoRow {
   nome_loja: string | null
   centro: string | null

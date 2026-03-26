@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import type {
+  GestaoBaseOrdem,
   GestaoEvolucaoMes,
   GestaoSegmentoSummary,
   GestaoTopLoja,
@@ -7,11 +8,17 @@ import type {
   TipoUnidade,
 } from '@/lib/types/database'
 import { GestaoFilters } from './components/gestao-filters'
+import { PreventiveAnalysisSection } from './components/preventive-analysis-section'
 import { SegmentoSummary } from './components/segmento-summary'
 import { SegmentoSection } from './components/segmento-section'
 import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
 import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
+import {
+  buildPreventiveAnalysis,
+  buildPreventiveRpcParams,
+  resolvePreventivePeriod,
+} from './graficos-preventiva-utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -80,37 +87,53 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
         : currentYear
   const mes = Number.isFinite(parsedMes) ? parsedMes : undefined
   const tipoOrdem = params.tipo_ordem ?? undefined
+  const preventivePeriod = resolvePreventivePeriod(params, new Date())
+  const preventiveRpcParams = buildPreventiveRpcParams(preventivePeriod, tipoOrdem)
 
   const supabase = await createClient()
 
-  const [topLojasRes, topServRes, evolucaoRes, segmentosRes, opcoesRes] = await Promise.all([
-    supabase.rpc('calcular_gestao_top_lojas_por_status', {
-      p_ano: ano ?? null,
-      p_mes: mes ?? null,
-      p_tipo_ordem: tipoOrdem ?? null,
-    }),
-    supabase.rpc('calcular_gestao_top_servicos', {
-      p_ano: ano ?? null,
-      p_mes: mes ?? null,
-      p_tipo_ordem: tipoOrdem ?? null,
-    }),
-    supabase.rpc('calcular_gestao_evolucao_mensal', {
-      p_ano: ano ?? null,
-      p_tipo_ordem: tipoOrdem ?? null,
-    }),
-    supabase.rpc('calcular_gestao_resumo_segmentos', {
-      p_ano: ano ?? null,
-      p_mes: mes ?? null,
-      p_tipo_ordem: tipoOrdem ?? null,
-    }),
-    supabase.rpc('listar_gestao_filtros'),
+  const [mainResults, preventiveResults] = await Promise.all([
+    Promise.all([
+      supabase.rpc('calcular_gestao_top_lojas_por_status', {
+        p_ano: ano ?? null,
+        p_mes: mes ?? null,
+        p_tipo_ordem: tipoOrdem ?? null,
+      }),
+      supabase.rpc('calcular_gestao_top_servicos', {
+        p_ano: ano ?? null,
+        p_mes: mes ?? null,
+        p_tipo_ordem: tipoOrdem ?? null,
+      }),
+      supabase.rpc('calcular_gestao_evolucao_mensal', {
+        p_ano: ano ?? null,
+        p_tipo_ordem: tipoOrdem ?? null,
+      }),
+      supabase.rpc('calcular_gestao_resumo_segmentos', {
+        p_ano: ano ?? null,
+        p_mes: mes ?? null,
+        p_tipo_ordem: tipoOrdem ?? null,
+      }),
+      supabase.rpc('listar_gestao_filtros'),
+    ]),
+    Promise.all(
+      preventiveRpcParams.map((rpcParams) =>
+        supabase.rpc('listar_gestao_ordens_base_filtrada', rpcParams)
+      )
+    ),
   ])
+
+  const [topLojasRes, topServRes, evolucaoRes, segmentosRes, opcoesRes] = mainResults
+  const preventiveError = preventiveResults.find((result) => result.error)?.error
+  if (preventiveError) throw preventiveError
 
   const topLojasRaw = (topLojasRes.data ?? []) as TopLojasRaw[]
   const topServRaw = (topServRes.data ?? []) as TopServRaw[]
   const evolucaoRaw = (evolucaoRes.data ?? []) as EvolucaoRaw[]
   const segRaw = (segmentosRes.data ?? []) as SegRaw[]
   const opcoesRaw = (opcoesRes.data ?? []) as OpcoesRaw[]
+  const preventiveRaw = preventiveResults.flatMap(
+    (result) => (result.data ?? []) as GestaoBaseOrdem[]
+  )
 
   const topLojasBySegmento = Object.fromEntries(
     TIPOS.map((tipo) => {
@@ -186,6 +209,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   }
   const tiposOrdem = Array.from(tiposOrdemSet).sort()
   const anos = Array.from(new Set([currentYear, ...Array.from(anosSet)])).sort((a, b) => b - a)
+  const preventiveAnalysis = buildPreventiveAnalysis(preventiveRaw, preventivePeriod, params)
 
   return (
     <div className="space-y-6">
@@ -203,6 +227,8 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
         mesAtivo={mes}
         tipoOrdemAtivo={tipoOrdem}
       />
+
+      <PreventiveAnalysisSection analysis={preventiveAnalysis} years={anos} />
 
       <ChartLabelsProvider>
         <div className="flex justify-end">
