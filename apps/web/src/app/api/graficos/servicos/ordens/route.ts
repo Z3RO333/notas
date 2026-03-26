@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { callGestaoBaseRpc } from '@/lib/graficos/gestao-base-rpc'
 import type { TipoUnidade, UserRole } from '@/lib/types/database'
 
 type GestaoBaseRow = {
@@ -69,7 +70,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Tipo de unidade invalido' }, { status: 400 })
   }
 
-  const rpcResult = await supabase.rpc('listar_gestao_ordens_base_filtrada', {
+  const rpcResult = await callGestaoBaseRpc(supabase, {
     p_ano: ano,
     p_mes: mes,
     p_tipo_ordem: tipoOrdem,

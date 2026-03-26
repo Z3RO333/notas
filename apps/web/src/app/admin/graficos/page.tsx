@@ -14,6 +14,7 @@ import { SegmentoSection } from './components/segmento-section'
 import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
 import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
+import { callGestaoBaseRpc } from '@/lib/graficos/gestao-base-rpc'
 import {
   buildPreventiveAnalysis,
   buildPreventiveRpcParams,
@@ -115,25 +116,20 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
       }),
       supabase.rpc('listar_gestao_filtros'),
     ]),
-    Promise.all(
-      preventiveRpcParams.map((rpcParams) =>
-        supabase.rpc('listar_gestao_ordens_base_filtrada', rpcParams)
-      )
-    ),
+    Promise.all(preventiveRpcParams.map((rpcParams) => callGestaoBaseRpc(supabase, rpcParams))),
   ])
 
   const [topLojasRes, topServRes, evolucaoRes, segmentosRes, opcoesRes] = mainResults
   const preventiveError = preventiveResults.find((result) => result.error)?.error
-  if (preventiveError) throw preventiveError
 
   const topLojasRaw = (topLojasRes.data ?? []) as TopLojasRaw[]
   const topServRaw = (topServRes.data ?? []) as TopServRaw[]
   const evolucaoRaw = (evolucaoRes.data ?? []) as EvolucaoRaw[]
   const segRaw = (segmentosRes.data ?? []) as SegRaw[]
   const opcoesRaw = (opcoesRes.data ?? []) as OpcoesRaw[]
-  const preventiveRaw = preventiveResults.flatMap(
-    (result) => (result.data ?? []) as GestaoBaseOrdem[]
-  )
+  const preventiveRaw = preventiveError
+    ? []
+    : preventiveResults.flatMap((result) => (result.data ?? []) as GestaoBaseOrdem[])
 
   const topLojasBySegmento = Object.fromEntries(
     TIPOS.map((tipo) => {
@@ -209,7 +205,13 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   }
   const tiposOrdem = Array.from(tiposOrdemSet).sort()
   const anos = Array.from(new Set([currentYear, ...Array.from(anosSet)])).sort((a, b) => b - a)
-  const preventiveAnalysis = buildPreventiveAnalysis(preventiveRaw, preventivePeriod, params)
+  const preventiveAnalysis = preventiveError
+    ? null
+    : buildPreventiveAnalysis(preventiveRaw, preventivePeriod, params)
+
+  if (preventiveError) {
+    console.warn('Analise preventiva dos graficos indisponivel. Mantendo painel principal carregado.', preventiveError)
+  }
 
   return (
     <div className="space-y-6">
@@ -228,7 +230,13 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
         tipoOrdemAtivo={tipoOrdem}
       />
 
-      <PreventiveAnalysisSection analysis={preventiveAnalysis} years={anos} />
+      {preventiveAnalysis ? (
+        <PreventiveAnalysisSection analysis={preventiveAnalysis} years={anos} />
+      ) : (
+        <div className="rounded-xl border border-dashed bg-muted/10 px-4 py-5 text-sm text-muted-foreground">
+          A analise preventiva ficou temporariamente indisponivel neste ambiente, mas os graficos principais continuam carregando normalmente.
+        </div>
+      )}
 
       <ChartLabelsProvider>
         <div className="flex justify-end">
