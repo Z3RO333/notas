@@ -5,7 +5,7 @@ import {
   buildPreventiveRpcParams,
   resolvePreventivePeriod,
   type PreventivePeriod,
-} from './graficos-preventiva-utils'
+} from './preventive-analysis-utils'
 
 const NOW = new Date('2026-03-26T12:00:00.000Z')
 
@@ -32,7 +32,7 @@ function makePeriod(): PreventivePeriod {
   }, NOW)
 }
 
-describe('graficos-preventiva-utils', () => {
+describe('preventive-analysis-utils', () => {
   it('resolve trailing quarter periods and rpc params across years', () => {
     const period = resolvePreventivePeriod({
       preventiva_periodo: 'trimestre',

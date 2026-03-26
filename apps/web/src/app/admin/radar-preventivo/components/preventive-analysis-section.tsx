@@ -2,12 +2,14 @@ import { AlertTriangle, Building2, ShieldAlert, Wrench } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import type { PreventiveAnalysisResult } from '../graficos-preventiva-utils'
+import type { PreventiveAnalysisResult } from '../preventive-analysis-utils'
 import { PreventiveAnalysisFilters } from './preventive-analysis-filters'
 
 interface PreventiveAnalysisSectionProps {
   analysis: PreventiveAnalysisResult
   years: number[]
+  orderTypeOptions: string[]
+  selectedOrderType?: string
 }
 
 function formatNumber(value: number): string {
@@ -41,11 +43,16 @@ function toneText(level: PreventiveAnalysisResult['focusSummary']['selectedStore
   return 'text-emerald-700 dark:text-emerald-300'
 }
 
-export function PreventiveAnalysisSection({ analysis, years }: PreventiveAnalysisSectionProps) {
+export function PreventiveAnalysisSection({
+  analysis,
+  years,
+  orderTypeOptions,
+  selectedOrderType,
+}: PreventiveAnalysisSectionProps) {
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold tracking-tight">Analise preventiva por loja e servico</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Analise preventiva por unidade e servico</h2>
         <p className="text-sm text-muted-foreground">
           Conte aberturas por categoria, destaque ausencias e compare unidades antes que a demanda vire uma ordem concentrada e cara.
         </p>
@@ -78,6 +85,8 @@ export function PreventiveAnalysisSection({ analysis, years }: PreventiveAnalysi
             unitTypeOptions={analysis.options.unitTypes}
             storeOptions={analysis.options.stores}
             serviceOptions={analysis.options.services}
+            orderTypeOptions={orderTypeOptions}
+            selectedOrderType={selectedOrderType}
           />
         </CardHeader>
 

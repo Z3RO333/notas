@@ -1,6 +1,8 @@
+import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
+import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
+import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { createClient } from '@/lib/supabase/server'
 import type {
-  GestaoBaseOrdem,
   GestaoEvolucaoMes,
   GestaoSegmentoSummary,
   GestaoTopLoja,
@@ -9,17 +11,7 @@ import type {
 } from '@/lib/types/database'
 import { GestaoFilters } from './components/gestao-filters'
 import { OfficialUnitSummary } from './components/official-unit-summary'
-import { PreventiveAnalysisSection } from './components/preventive-analysis-section'
 import { SegmentoSection } from './components/segmento-section'
-import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
-import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
-import { PageTitleBlock } from '@/components/shared/page-title-block'
-import { callGestaoBaseRpc } from '@/lib/graficos/gestao-base-rpc'
-import {
-  buildPreventiveAnalysis,
-  buildPreventiveRpcParams,
-  resolvePreventivePeriod,
-} from './graficos-preventiva-utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -88,38 +80,38 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
         : currentYear
   const mes = Number.isFinite(parsedMes) ? parsedMes : undefined
   const tipoOrdem = params.tipo_ordem ?? undefined
-  const preventivePeriod = resolvePreventivePeriod(params, new Date())
-  const preventiveRpcParams = buildPreventiveRpcParams(preventivePeriod, tipoOrdem)
 
   const supabase = await createClient()
 
-  const [mainResults, preventiveResults] = await Promise.all([
-    Promise.all([
-      supabase.rpc('calcular_gestao_top_lojas_por_status', {
-        p_ano: ano ?? null,
-        p_mes: mes ?? null,
-        p_tipo_ordem: tipoOrdem ?? null,
-      }),
-      supabase.rpc('calcular_gestao_top_servicos', {
-        p_ano: ano ?? null,
-        p_mes: mes ?? null,
-        p_tipo_ordem: tipoOrdem ?? null,
-      }),
-      supabase.rpc('calcular_gestao_evolucao_mensal', {
-        p_ano: ano ?? null,
-        p_tipo_ordem: tipoOrdem ?? null,
-      }),
-      supabase.rpc('calcular_gestao_resumo_segmentos', {
-        p_ano: ano ?? null,
-        p_mes: mes ?? null,
-        p_tipo_ordem: tipoOrdem ?? null,
-      }),
-      supabase.rpc('listar_gestao_filtros'),
-    ]),
-    Promise.all(preventiveRpcParams.map((rpcParams) => callGestaoBaseRpc(supabase, rpcParams))),
+  const [
+    topLojasRes,
+    topServRes,
+    evolucaoRes,
+    segmentosRes,
+    opcoesRes,
+  ] = await Promise.all([
+    supabase.rpc('calcular_gestao_top_lojas_por_status', {
+      p_ano: ano ?? null,
+      p_mes: mes ?? null,
+      p_tipo_ordem: tipoOrdem ?? null,
+    }),
+    supabase.rpc('calcular_gestao_top_servicos', {
+      p_ano: ano ?? null,
+      p_mes: mes ?? null,
+      p_tipo_ordem: tipoOrdem ?? null,
+    }),
+    supabase.rpc('calcular_gestao_evolucao_mensal', {
+      p_ano: ano ?? null,
+      p_tipo_ordem: tipoOrdem ?? null,
+    }),
+    supabase.rpc('calcular_gestao_resumo_segmentos', {
+      p_ano: ano ?? null,
+      p_mes: mes ?? null,
+      p_tipo_ordem: tipoOrdem ?? null,
+    }),
+    supabase.rpc('listar_gestao_filtros'),
   ])
 
-  const [topLojasRes, topServRes, evolucaoRes, segmentosRes, opcoesRes] = mainResults
   const mainError = [
     topLojasRes.error,
     topServRes.error,
@@ -127,7 +119,6 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
     segmentosRes.error,
     opcoesRes.error,
   ].find(Boolean)
-  const preventiveError = preventiveResults.find((result) => result.error)?.error
 
   if (mainError) {
     throw mainError
@@ -138,9 +129,6 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   const evolucaoRaw = (evolucaoRes.data ?? []) as EvolucaoRaw[]
   const segRaw = (segmentosRes.data ?? []) as SegRaw[]
   const opcoesRaw = (opcoesRes.data ?? []) as OpcoesRaw[]
-  const preventiveRaw = preventiveError
-    ? []
-    : preventiveResults.flatMap((result) => (result.data ?? []) as GestaoBaseOrdem[])
 
   const topLojasBySegmento = Object.fromEntries(
     TIPOS.map((tipo) => {
@@ -149,7 +137,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
         .sort((a, b) => b.total_ordens - a.total_ordens)
         .slice(0, 10)
       return [tipo, sorted]
-    })
+    }),
   ) as Record<TipoUnidade, GestaoTopLoja[]>
 
   const topServBySegmento = Object.fromEntries(
@@ -166,7 +154,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
           percentual: total > 0 ? parseFloat(((row.total_ordens / total) * 100).toFixed(1)) : 0,
         }))
       return [tipo, sorted]
-    })
+    }),
   ) as Record<TipoUnidade, GestaoTopServico[]>
 
   const evolucaoBySegmento = Object.fromEntries(
@@ -185,7 +173,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
           label: `${MES_LABELS[row.mes] ?? row.mes}/${String(row.ano).slice(2)}`,
         }))
       return [tipo, sorted]
-    })
+    }),
   ) as Record<TipoUnidade, GestaoEvolucaoMes[]>
 
   const grandTotalOrdens = segRaw.reduce((sum, row) => sum + row.total_ordens, 0)
@@ -216,19 +204,12 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   }
   const tiposOrdem = Array.from(tiposOrdemSet).sort()
   const anos = Array.from(new Set([currentYear, ...Array.from(anosSet)])).sort((a, b) => b - a)
-  const preventiveAnalysis = preventiveError
-    ? null
-    : buildPreventiveAnalysis(preventiveRaw, preventivePeriod, params, { useOfficialUnitBase: true })
-
-  if (preventiveError) {
-    console.warn('Analise preventiva dos graficos indisponivel. Mantendo painel principal carregado.', preventiveError)
-  }
 
   return (
     <div className="space-y-6">
       <PageTitleBlock
-        title="Gráficos - Inteligência Gerencial"
-        subtitle="Padrões, recorrência e ranking por segmento de unidade."
+        title="Graficos - Inteligencia Gerencial"
+        subtitle="Padroes, recorrencia e ranking por segmento de unidade."
       />
 
       {segmentos.length > 0 && <OfficialUnitSummary segmentos={segmentos} />}
@@ -240,14 +221,6 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
         mesAtivo={mes}
         tipoOrdemAtivo={tipoOrdem}
       />
-
-      {preventiveAnalysis ? (
-        <PreventiveAnalysisSection analysis={preventiveAnalysis} years={anos} />
-      ) : (
-        <div className="rounded-xl border border-dashed bg-muted/10 px-4 py-5 text-sm text-muted-foreground">
-          A analise preventiva ficou temporariamente indisponivel neste ambiente, mas os graficos principais continuam carregando normalmente.
-        </div>
-      )}
 
       <ChartLabelsProvider>
         <div className="flex justify-end">

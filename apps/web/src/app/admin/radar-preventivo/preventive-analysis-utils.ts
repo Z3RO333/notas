@@ -8,6 +8,7 @@ export type PreventiveUnitTypeFilter = TipoUnidade | 'todos'
 export interface PreventiveAnalysisSearchParams {
   ano?: string | string[]
   mes?: string | string[]
+  tipo_ordem?: string | string[]
   preventiva_periodo?: string | string[]
   preventiva_ano?: string | string[]
   preventiva_mes?: string | string[]

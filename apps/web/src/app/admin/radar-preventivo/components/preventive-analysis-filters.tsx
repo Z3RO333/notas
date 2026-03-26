@@ -8,7 +8,7 @@ import type {
   PreventiveFilterOption,
   PreventivePeriodPreset,
   PreventiveUnitTypeFilter,
-} from '../graficos-preventiva-utils'
+} from '../preventive-analysis-utils'
 
 interface PreventiveAnalysisFiltersProps {
   years: number[]
@@ -21,6 +21,8 @@ interface PreventiveAnalysisFiltersProps {
   unitTypeOptions: PreventiveFilterOption[]
   storeOptions: PreventiveFilterOption[]
   serviceOptions: PreventiveFilterOption[]
+  orderTypeOptions: string[]
+  selectedOrderType?: string
 }
 
 const MONTH_NAMES: Record<string, string> = {
@@ -66,6 +68,8 @@ export function PreventiveAnalysisFilters({
   unitTypeOptions,
   storeOptions,
   serviceOptions,
+  orderTypeOptions,
+  selectedOrderType,
 }: PreventiveAnalysisFiltersProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -98,7 +102,24 @@ export function PreventiveAnalysisFilters({
   }, [pathname, router, searchParams])
 
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+      {orderTypeOptions.length > 0 && (
+        <Select
+          value={selectedOrderType ?? 'todos'}
+          onValueChange={(value) => updateParams({ tipo_ordem: value === 'todos' ? null : value })}
+        >
+          <SelectTrigger aria-label="Tipo de ordem">
+            <SelectValue placeholder="Tipo de ordem" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os tipos</SelectItem>
+            {orderTypeOptions.map((option) => (
+              <SelectItem key={option} value={option}>{option}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
       <Select
         value={periodPreset}
         onValueChange={(value) => {
