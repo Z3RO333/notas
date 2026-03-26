@@ -37,7 +37,7 @@ export default async function OperacionalPage({ searchParams }: OperacionalPageP
   const supabase = await createClient()
   const { data: operacionais } = await supabase
     .from('dim_operacionais')
-    .select('codigo, nome')
+    .select('codigo, nome, avatar_url')
     .eq('ativo', true)
     .order('nome')
 
@@ -68,7 +68,15 @@ export default async function OperacionalPage({ searchParams }: OperacionalPageP
       </div>
 
       <Suspense fallback={<AdminOrdersSectionSkeleton title="Operacional" />}>
-        <AdminOperacionalSection period={period} fornecedorCodigo={fornecedorCodigo} />
+        <AdminOperacionalSection
+          period={period}
+          fornecedorCodigo={fornecedorCodigo}
+          avatarByCode={Object.fromEntries(
+            (operacionais ?? [])
+              .filter((o) => o.avatar_url)
+              .map((o) => [o.codigo, o.avatar_url as string]),
+          )}
+        />
       </Suspense>
     </div>
   )

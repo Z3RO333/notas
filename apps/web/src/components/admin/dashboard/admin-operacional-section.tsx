@@ -23,6 +23,7 @@ import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
 interface AdminOperacionalSectionProps {
   period: OperacionalDashboardPeriod
   fornecedorCodigo?: string | null
+  avatarByCode?: Record<string, string>
 }
 
 function KpiCard({ label, value, sub }: { label: string; value: number; sub?: ReactNode }) {
@@ -83,7 +84,7 @@ function ServicosRecorrentesList({ rows, periodLabel }: { rows: ServicoMaisFeito
   )
 }
 
-export async function AdminOperacionalSection({ period, fornecedorCodigo }: AdminOperacionalSectionProps) {
+export async function AdminOperacionalSection({ period, fornecedorCodigo, avatarByCode = {} }: AdminOperacionalSectionProps) {
   const supabase = await createClient()
   const filtro = fornecedorCodigo ?? undefined
 
@@ -238,6 +239,7 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo }: Admi
             startIso={period.startIso}
             endExclusiveIso={period.endExclusiveIso}
             fornecedorCodigo={fornecedorCodigo}
+            avatarByCode={avatarByCode}
           />
         </div>
         <ServicosRecorrentesList rows={servicos} periodLabel={period.periodLabel} />

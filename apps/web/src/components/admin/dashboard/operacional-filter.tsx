@@ -3,10 +3,12 @@
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useCallback } from 'react'
 import { CalendarDays, User } from 'lucide-react'
+import Image from 'next/image'
 
 interface Operacional {
   codigo: string
   nome: string
+  avatar_url?: string | null
 }
 
 interface OperacionalFilterProps {
@@ -89,18 +91,36 @@ export function OperacionalFilter({
           <User className="h-4 w-4" />
           Operacao
         </span>
-        <select
-          value={selectedFornecedor ?? ''}
-          onChange={(event) => handleFornecedorChange(event.target.value)}
-          className={`${nativeSelectClassName} w-full min-w-0`}
-        >
-          <option value="">Todos os operacionais</option>
-          {operacionais.map((operacional) => (
-            <option key={operacional.codigo} value={operacional.codigo}>
-              {operacional.nome.split(' ').slice(0, 2).join(' ')}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          {(() => {
+            const selected = operacionais.find((o) => o.codigo === selectedFornecedor)
+            return selected?.avatar_url ? (
+              <Image
+                src={selected.avatar_url}
+                alt={selected.nome}
+                width={28}
+                height={28}
+                className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-border"
+              />
+            ) : (
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted ring-1 ring-border">
+                <User className="h-3.5 w-3.5 text-muted-foreground" />
+              </span>
+            )
+          })()}
+          <select
+            value={selectedFornecedor ?? ''}
+            onChange={(event) => handleFornecedorChange(event.target.value)}
+            className={`${nativeSelectClassName} w-full min-w-0`}
+          >
+            <option value="">Todos os operacionais</option>
+            {operacionais.map((operacional) => (
+              <option key={operacional.codigo} value={operacional.codigo}>
+                {operacional.nome.split(' ').slice(0, 2).join(' ')}
+              </option>
+            ))}
+          </select>
+        </div>
       </label>
 
       <label className="space-y-2">

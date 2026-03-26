@@ -2,6 +2,7 @@
 
 import { Fragment, useState } from 'react'
 import { ChevronDown, ChevronRight, MapPin } from 'lucide-react'
+import Image from 'next/image'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import type { LojaPorOperacional, ProdutividadeOperacional } from '@/lib/types/database'
@@ -15,6 +16,7 @@ interface ProdutividadeTableProps {
   startIso: string
   endExclusiveIso: string
   fornecedorCodigo?: string | null
+  avatarByCode?: Record<string, string>
 }
 
 export function ProdutividadeTable({
@@ -25,6 +27,7 @@ export function ProdutividadeTable({
   startIso,
   endExclusiveIso,
   fornecedorCodigo,
+  avatarByCode = {},
 }: ProdutividadeTableProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [selectedUnit, setSelectedUnit] = useState<{ unidade: string; fornecedorCodigo?: string | null } | null>(null)
@@ -104,10 +107,27 @@ export function ProdutividadeTable({
                         ) : null}
                       </td>
                       <td className="px-4 py-2.5">
-                        <span className="font-medium">{row.fornecedor_nome || row.fornecedor_codigo}</span>
-                        {row.fornecedor_nome && (
-                          <span className="ml-1.5 text-xs text-muted-foreground">({row.fornecedor_codigo})</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {avatarByCode[row.fornecedor_codigo] ? (
+                            <Image
+                              src={avatarByCode[row.fornecedor_codigo]}
+                              alt={row.fornecedor_nome ?? row.fornecedor_codigo}
+                              width={28}
+                              height={28}
+                              className="h-7 w-7 shrink-0 rounded-full object-cover"
+                            />
+                          ) : (
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
+                              {(row.fornecedor_nome ?? row.fornecedor_codigo).charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                          <div>
+                            <span className="font-medium">{row.fornecedor_nome || row.fornecedor_codigo}</span>
+                            {row.fornecedor_nome && (
+                              <span className="ml-1.5 text-xs text-muted-foreground">({row.fornecedor_codigo})</span>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-2.5 text-right tabular-nums">
                         <span className="font-medium text-emerald-600 dark:text-emerald-400">
