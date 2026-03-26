@@ -68,6 +68,8 @@ function makePayload(
     },
     ownerSummary: [],
     reassignTargets: [],
+    poolGroups: [],
+    poolCentros: {},
     currentUser: {
       role: 'gestor',
       adminId: 'gestor-1',

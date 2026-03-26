@@ -409,6 +409,11 @@ export interface OrdersPoolGroup {
   rows: OrdemNotaAcompanhamento[]
 }
 
+export interface OrdersWorkspaceHighlights {
+  oldest: OrdemNotaAcompanhamento[]
+  attention: OrdemNotaAcompanhamento[]
+}
+
 export interface OrdersWorkspaceResponse {
   rows: OrdemNotaAcompanhamento[]
   nextCursor: OrdersWorkspaceCursor | null
@@ -417,6 +422,7 @@ export interface OrdersWorkspaceResponse {
   reassignTargets: OrderReassignTarget[]
   poolGroups: Array<Omit<OrdersPoolGroup, 'rows'>>
   poolCentros: Record<string, string>
+  highlights?: OrdersWorkspaceHighlights
   currentUser: {
     role: UserRole
     adminId: string

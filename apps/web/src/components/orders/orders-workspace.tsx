@@ -10,6 +10,7 @@ import { OrdersBulkReassignBar } from '@/components/orders/orders-bulk-reassign-
 import { OrdersDetailDrawer } from '@/components/orders/orders-detail-drawer'
 import { OrdersKpiStrip } from '@/components/orders/orders-kpi-strip'
 import { OrdersOwnerFullCard } from '@/components/orders/orders-owner-full-card'
+import { OrdersPriorityLane, PRIORITY_LANE_CONFIG } from '@/components/orders/orders-priority-lane'
 import { OrdersPoolCard } from '@/components/orders/orders-pool-card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -236,7 +237,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
   // --- Data + smart search ---
   const {
-    rows, setRows, kpis, ownerSummary, reassignTargets, poolGroups, poolCentros,
+    rows, setRows, kpis, ownerSummary, reassignTargets, poolGroups, poolCentros, highlights,
     nextCursor, loadingInitial, loadingMore, error, currentUser, parentRef, smartSearch, effectiveFilters, fetchWorkspace,
   } = useOrdersData({
     filters,
@@ -430,6 +431,16 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       }))
     return options
   }, [ownerSummary])
+  const priorityTotals = useMemo(() => {
+    return ownerSummary.reduce(
+      (acc, owner) => {
+        acc.oldest += owner.atrasadas
+        acc.attention += owner.atencao
+        return acc
+      },
+      { oldest: 0, attention: 0 },
+    )
+  }, [ownerSummary])
   const periodControlsClassName = cn(
     'grid gap-2 sm:grid-cols-2',
     filters.periodMode === 'range' ? 'xl:grid-cols-4' : filters.periodMode === 'year_month' ? 'xl:grid-cols-3' : filters.periodMode === 'all' ? 'xl:grid-cols-1' : 'xl:grid-cols-2',
@@ -597,6 +608,58 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           Os KPIs acima mostram o total canônico do período e do tipo de ordem selecionado. Os filtros abaixo afetam a carteira, a listagem e a distribuição por colaborador.
         </p>
       )}
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <OrdersPriorityLane
+          title={PRIORITY_LANE_CONFIG.oldest.title}
+          description={PRIORITY_LANE_CONFIG.oldest.description}
+          emptyMessage={PRIORITY_LANE_CONFIG.oldest.emptyMessage}
+          actionLabel={PRIORITY_LANE_CONFIG.oldest.actionLabel}
+          total={priorityTotals.oldest}
+          rows={highlights.oldest}
+          icon={PRIORITY_LANE_CONFIG.oldest.icon}
+          tone={PRIORITY_LANE_CONFIG.oldest.tone}
+          highlightQuery={smartSearch.highlightQuery}
+          canReassign={canReassign}
+          reassignTargets={reassignTargets}
+          onAction={() =>
+            setFilters((prev) => ({
+              ...prev,
+              status: 'ativas',
+              prioridade: 'vermelho',
+            }))
+          }
+          onOpenDetails={setDetailRow}
+          onReassigned={({ notaId, novoAdminId }) => {
+            applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])
+          }}
+        />
+
+        <OrdersPriorityLane
+          title={PRIORITY_LANE_CONFIG.attention.title}
+          description={PRIORITY_LANE_CONFIG.attention.description}
+          emptyMessage={PRIORITY_LANE_CONFIG.attention.emptyMessage}
+          actionLabel={PRIORITY_LANE_CONFIG.attention.actionLabel}
+          total={priorityTotals.attention}
+          rows={highlights.attention}
+          icon={PRIORITY_LANE_CONFIG.attention.icon}
+          tone={PRIORITY_LANE_CONFIG.attention.tone}
+          highlightQuery={smartSearch.highlightQuery}
+          canReassign={canReassign}
+          reassignTargets={reassignTargets}
+          onAction={() =>
+            setFilters((prev) => ({
+              ...prev,
+              status: 'ativas',
+              prioridade: 'amarelo',
+            }))
+          }
+          onOpenDetails={setDetailRow}
+          onReassigned={({ notaId, novoAdminId }) => {
+            applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])
+          }}
+        />
+      </div>
 
       <div className="rounded-lg border p-3">
         <div className="mb-3 flex items-center justify-between gap-2">

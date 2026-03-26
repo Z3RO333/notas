@@ -24,12 +24,16 @@ import type {
   OrderReassignTarget,
   OrdersOwnerSummary,
   OrdersPoolGroup,
+  OrdersWorkspaceHighlights,
   OrdersWorkspaceKpis,
   OrdersWorkspaceResponse,
   UserRole,
 } from '@/lib/types/database'
 
 type RpcError = { code?: string; message: string } | null
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>
+
+const WORKSPACE_HIGHLIGHT_LIMIT = 6
 
 function mapKpis(value: Partial<OrdersWorkspaceKpis> | null | undefined): OrdersWorkspaceKpis {
   return {
@@ -45,8 +49,16 @@ function mapKpis(value: Partial<OrdersWorkspaceKpis> | null | undefined): Orders
   }
 }
 
+function mapRpcError(error: { code?: string; message?: string } | null): RpcError {
+  if (!error?.message) return null
+  return {
+    code: error.code,
+    message: error.message,
+  }
+}
+
 async function callRpcWithOptionalTipoOrdem<T>(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SupabaseClient,
   rpcName: string,
   params: Record<string, unknown>
 ): Promise<{ data: T | null; error: RpcError; supportsTipoOrdem: boolean }> {
@@ -67,6 +79,39 @@ async function callRpcWithOptionalTipoOrdem<T>(
     data: (withTipo.data ?? null) as T | null,
     error: withTipo.error ? { code: withTipo.error.code, message: withTipo.error.message } : null,
     supportsTipoOrdem: true,
+  }
+}
+
+function buildHighlightStatus(status: string | null): string {
+  if (!status || status === 'todas') return 'ativas'
+  return status
+}
+
+async function fetchWorkspaceHighlightRows(
+  supabase: SupabaseClient,
+  params: Record<string, unknown>,
+  prioridade: 'vermelho' | 'amarelo',
+  supportsTipoOrdem: boolean,
+): Promise<{ data: OrdemNotaAcompanhamento[]; error: RpcError }> {
+  const rpcParams: Record<string, unknown> = {
+    ...params,
+    p_status: buildHighlightStatus((params.p_status as string | null | undefined) ?? null),
+    p_prioridade: prioridade,
+  }
+
+  if (!supportsTipoOrdem) {
+    delete rpcParams.p_tipo_ordem
+  }
+
+  const result = await supabase
+    .rpc('filtrar_ordens_workspace', rpcParams)
+    .order('dias_em_aberto', { ascending: false })
+    .order('ordem_detectada_em', { ascending: true })
+    .limit(WORKSPACE_HIGHLIGHT_LIMIT)
+
+  return {
+    data: (result.data ?? []) as OrdemNotaAcompanhamento[],
+    error: mapRpcError(result.error),
   }
 }
 
@@ -276,6 +321,24 @@ export async function GET(request: Request) {
     ? recomputeWorkspaceKpisFromRows(rows)
     : kpisFromRpc
 
+  const [oldestHighlightsResult, attentionHighlightsResult] = await Promise.all([
+    fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'vermelho', rowsResult.supportsTipoOrdem),
+    fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'amarelo', rowsResult.supportsTipoOrdem),
+  ])
+
+  if (oldestHighlightsResult.error) {
+    return NextResponse.json({ error: oldestHighlightsResult.error.message }, { status: 500 })
+  }
+
+  if (attentionHighlightsResult.error) {
+    return NextResponse.json({ error: attentionHighlightsResult.error.message }, { status: 500 })
+  }
+
+  const highlights: OrdersWorkspaceHighlights = {
+    oldest: oldestHighlightsResult.data,
+    attention: attentionHighlightsResult.data,
+  }
+
   const lastCursorRow = rowsFromRpc.length > 0 ? rowsFromRpc[rowsFromRpc.length - 1] : null
   const nextCursor = rowsFromRpc.length === parsedRequest.limit && lastCursorRow
     ? {
@@ -318,6 +381,7 @@ export async function GET(request: Request) {
     reassignTargets,
     poolGroups,
     poolCentros,
+    highlights,
     currentUser: {
       role,
       adminId: loggedAdmin.id,

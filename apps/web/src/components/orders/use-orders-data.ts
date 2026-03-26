@@ -9,6 +9,7 @@ import type {
   OrdersPoolGroup,
   OrdersWorkspaceCursor,
   OrdersWorkspaceFilters,
+  OrdersWorkspaceHighlights,
   OrdersWorkspaceKpis,
   OrdersWorkspaceResponse,
   UserRole,
@@ -26,6 +27,11 @@ const INITIAL_KPIS: OrdersWorkspaceKpis = {
   avaliadas: 0,
   atrasadas: 0,
   sem_responsavel: 0,
+}
+
+const INITIAL_HIGHLIGHTS: OrdersWorkspaceHighlights = {
+  oldest: [],
+  attention: [],
 }
 
 function mergeRows(
@@ -126,6 +132,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
   const [reassignTargets, setReassignTargets] = useState<OrderReassignTarget[]>([])
   const [poolGroups, setPoolGroups] = useState<Array<Omit<OrdersPoolGroup, 'rows'>>>([])
   const [poolCentros, setPoolCentros] = useState<Record<string, string>>({})
+  const [highlights, setHighlights] = useState<OrdersWorkspaceHighlights>(INITIAL_HIGHLIGHTS)
   const [nextCursor, setNextCursor] = useState<OrdersWorkspaceCursor | null>(null)
   const [loadingInitial, setLoadingInitial] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -220,6 +227,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
         setReassignTargets(payload.reassignTargets)
         setPoolGroups(payload.poolGroups ?? [])
         setPoolCentros(payload.poolCentros ?? {})
+        setHighlights(payload.highlights ?? INITIAL_HIGHLIGHTS)
         setNextCursor(payload.nextCursor)
 
         if (reset) {
@@ -234,6 +242,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
         setError(message)
         if (reset) {
           setRows([])
+          setHighlights(INITIAL_HIGHLIGHTS)
           setNextCursor(null)
         }
       } finally {
@@ -264,6 +273,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
     reassignTargets,
     poolGroups,
     poolCentros,
+    highlights,
     nextCursor,
     loadingInitial,
     loadingMore,
