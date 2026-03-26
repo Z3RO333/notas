@@ -179,6 +179,16 @@ export function getOfficialGestaoUniverseCount(unitType: TipoUnidade | 'todos'):
   return getOfficialKpiCount(unitType)
 }
 
+export function getOfficialGestaoUniverseNames(unitType: TipoUnidade | 'todos'): string[] {
+  const allowedTypes = unitType === 'todos'
+    ? new Set<TipoUnidade>(GESTAO_BASE_TYPES)
+    : new Set<TipoUnidade>([unitType])
+
+  return OFFICIAL_UNIT_CATALOG
+    .filter((entry) => entry.countedInKpi && allowedTypes.has(entry.categoria as TipoUnidade))
+    .map((entry) => entry.unidade)
+}
+
 export function getOfficialUnitAudit() {
   return {
     excludedEntries: getOfficialUnitEntries('SUPORTE').sort(sortByCentro),

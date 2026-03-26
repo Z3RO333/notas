@@ -124,6 +124,29 @@ describe('preventive-analysis-utils', () => {
     })
   })
 
+  it('ignores ineligible escalator service for Loja Matriz', () => {
+    const rows = [
+      ...makeRows('Loja Matriz', 'ELETRICA', 2),
+      ...makeRows('Loja Amazonas Shopping', 'ELETRICA', 2),
+      ...makeRows('Loja Amazonas Shopping', 'MANUT-PREVENTIVA ESCADA ROLANTE', 4),
+      ...makeRows('Loja Shopping Ponta Negra', 'MANUT-PREVENTIVA ESCADA ROLANTE', 3),
+    ]
+
+    const analysis = buildPreventiveAnalysis(rows, makePeriod(), {
+      preventiva_tipo_unidade: 'LOJA',
+      preventiva_loja: 'Loja Matriz',
+      preventiva_servico: 'MANUT-PREVENTIVA ESCADA ROLANTE',
+    })
+
+    expect(analysis.service).toBeNull()
+    expect(analysis.focusSummary.service).toBe('ELETRICA')
+    expect(analysis.storeRows.some((row) => row.service.includes('ESCADA ROLANTE'))).toBe(false)
+    expect(
+      analysis.alerts.some((alert) => alert.store === 'Loja Matriz' && alert.service.includes('ESCADA ROLANTE')),
+    ).toBe(false)
+    expect(analysis.options.services.some((service) => service.value.includes('ESCADA ROLANTE'))).toBe(false)
+  })
+
   it('can switch the denominator to the official unit base for graficos KPIs', () => {
     const rows = [
       ...makeRows('LOJA A', 'ELETRICA', 4),

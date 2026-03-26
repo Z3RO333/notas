@@ -1,6 +1,6 @@
 import { readFirstParam } from '@/lib/grid/query'
 import type { CriticalityLevel, GestaoBaseOrdem, TipoUnidade } from '@/lib/types/database'
-import { getOfficialGestaoUniverseCount } from '@/lib/units/official-unit-catalog'
+import { getOfficialGestaoUniverseCount, getOfficialGestaoUniverseNames } from '@/lib/units/official-unit-catalog'
 
 export type PreventivePeriodPreset = 'mes' | 'trimestre' | 'semestre' | 'ano'
 export type PreventiveUnitTypeFilter = TipoUnidade | 'todos'
@@ -128,6 +128,13 @@ const UNIT_LABEL: Record<PreventiveUnitTypeFilter, string> = {
   CD: 'CDs',
 }
 
+const SERVICE_STORE_INELIGIBILITY_RULES: ServiceStoreEligibilityRule[] = [
+  {
+    serviceIncludes: ['ESCADA ROLANTE'],
+    blockedStores: new Set(['LOJA MATRIZ', 'MATRIZ']),
+  },
+]
+
 type StoreMeta = {
   name: string
   totalOrders: number
@@ -137,8 +144,14 @@ type ServiceMeta = {
   name: string
   totalOrders: number
   activeStores: number
+  eligibleStores: number
   coveragePct: number
   average: number
+}
+
+type ServiceStoreEligibilityRule = {
+  serviceIncludes: string[]
+  blockedStores: Set<string>
 }
 
 interface RiskEvaluation {
@@ -171,6 +184,15 @@ function parseMonth(value: string | undefined): number | null {
 function normalizeText(value: string | undefined): string | null {
   const trimmed = value?.trim()
   return trimmed ? trimmed : null
+}
+
+function normalizeRuleKey(value: string | null | undefined): string {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase()
 }
 
 function addMonths(ref: PreventiveMonthRef, delta: number): PreventiveMonthRef {
@@ -301,7 +323,23 @@ function trimRow(row: GestaoBaseOrdem): GestaoBaseOrdem | null {
   }
 }
 
-function buildServiceMeta(rows: GestaoBaseOrdem[], totalStores: number): ServiceMeta[] {
+function isServiceEligibleForStore(store: string | null | undefined, service: string | null | undefined): boolean {
+  const storeKey = normalizeRuleKey(store)
+  const serviceKey = normalizeRuleKey(service)
+
+  if (!storeKey || !serviceKey) return true
+
+  for (const rule of SERVICE_STORE_INELIGIBILITY_RULES) {
+    if (!rule.blockedStores.has(storeKey)) continue
+    if (rule.serviceIncludes.some((token) => serviceKey.includes(token))) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function buildServiceMeta(rows: GestaoBaseOrdem[], storeUniverse: string[]): ServiceMeta[] {
   const totals = new Map<string, number>()
   const storeSets = new Map<string, Set<string>>()
 
@@ -318,12 +356,17 @@ function buildServiceMeta(rows: GestaoBaseOrdem[], totalStores: number): Service
   return Array.from(totals.entries())
     .map(([service, totalOrders]) => {
       const activeStores = storeSets.get(service)?.size ?? 0
+      const eligibleStores = Math.max(
+        storeUniverse.filter((store) => isServiceEligibleForStore(store, service)).length,
+        activeStores,
+      )
       return {
         name: service,
         totalOrders,
         activeStores,
-        coveragePct: totalStores > 0 ? activeStores / totalStores : 0,
-        average: totalStores > 0 ? totalOrders / totalStores : 0,
+        eligibleStores,
+        coveragePct: eligibleStores > 0 ? activeStores / eligibleStores : 0,
+        average: eligibleStores > 0 ? totalOrders / eligibleStores : 0,
       }
     })
     .sort((left, right) => {
@@ -472,25 +515,31 @@ export function buildPreventiveAnalysis(
   const networkStoreCount = options.useOfficialUnitBase
     ? getOfficialGestaoUniverseCount(unitType)
     : observedStoreCount
+  const storeUniverse = options.useOfficialUnitBase
+    ? getOfficialGestaoUniverseNames(unitType)
+    : stores.map((store) => store.name)
 
-  const serviceMeta = buildServiceMeta(scopedRows, networkStoreCount)
+  const serviceMeta = buildServiceMeta(scopedRows, storeUniverse)
   const serviceCounts = buildServiceCountMap(scopedRows)
 
   const selectedStore = stores.some((store) => store.name === rawStore)
     ? rawStore
     : stores[0]?.name ?? null
-  const selectedService = serviceMeta.some((service) => service.name === rawService)
+  const eligibleServiceMeta = selectedStore
+    ? serviceMeta.filter((service) => isServiceEligibleForStore(selectedStore, service.name))
+    : serviceMeta
+  const selectedService = eligibleServiceMeta.some((service) => service.name === rawService)
     ? rawService
     : null
 
   const storeRows = selectedStore
-    ? serviceMeta.map((service) => {
+    ? eligibleServiceMeta.map((service) => {
       const count = serviceCounts.get(service.name)?.get(selectedStore) ?? 0
       const risk = evaluatePreventiveRisk({
         count,
         average: service.average,
         activeStores: service.activeStores,
-        totalStores: networkStoreCount,
+        totalStores: service.eligibleStores,
       })
 
       return {
@@ -514,7 +563,7 @@ export function buildPreventiveAnalysis(
 
   const focusService = selectedService
     ?? storeRows[0]?.service
-    ?? serviceMeta[0]?.name
+    ?? (selectedStore ? (eligibleServiceMeta[0]?.name ?? null) : serviceMeta[0]?.name)
     ?? null
   const focusServiceAutoSelected = selectedService === null && focusService !== null
   const focusServiceMeta = focusService
@@ -522,13 +571,13 @@ export function buildPreventiveAnalysis(
     : null
 
   const serviceRows = focusService
-    ? stores.map((store) => {
+    ? stores.filter((store) => isServiceEligibleForStore(store.name, focusService)).map((store) => {
       const count = serviceCounts.get(focusService)?.get(store.name) ?? 0
       const risk = evaluatePreventiveRisk({
         count,
         average: focusServiceMeta?.average ?? 0,
         activeStores: focusServiceMeta?.activeStores ?? 0,
-        totalStores: networkStoreCount,
+        totalStores: focusServiceMeta?.eligibleStores ?? networkStoreCount,
       })
 
       return {
@@ -556,12 +605,14 @@ export function buildPreventiveAnalysis(
   const alerts: PreventiveAlertRow[] = []
   for (const service of relevantServices) {
     for (const store of stores) {
+      if (!isServiceEligibleForStore(store.name, service.name)) continue
+
       const count = serviceCounts.get(service.name)?.get(store.name) ?? 0
       const risk = evaluatePreventiveRisk({
         count,
         average: service.average,
         activeStores: service.activeStores,
-        totalStores: networkStoreCount,
+        totalStores: service.eligibleStores,
       })
       if (risk.level === 'saudavel') continue
 
@@ -607,7 +658,7 @@ export function buildPreventiveAnalysis(
     averagePerStore: Number((focusServiceMeta?.average ?? 0).toFixed(1)),
     totalOrders: focusServiceMeta?.totalOrders ?? 0,
     storesWithOrders: focusServiceMeta?.activeStores ?? 0,
-    storesWithoutOrders: Math.max(0, networkStoreCount - (focusServiceMeta?.activeStores ?? 0)),
+    storesWithoutOrders: Math.max(0, (focusServiceMeta?.eligibleStores ?? networkStoreCount) - (focusServiceMeta?.activeStores ?? 0)),
     selectedStoreRisk: focusStoreServiceRow?.risk ?? 'saudavel',
     autoSelected: focusServiceAutoSelected,
   }
@@ -684,7 +735,7 @@ export function buildPreventiveAnalysis(
         label: store.name,
         meta: `${store.totalOrders.toLocaleString('pt-BR')} ordens`,
       })),
-      services: serviceMeta.map((service) => ({
+      services: eligibleServiceMeta.map((service) => ({
         value: service.name,
         label: service.name,
         meta: `${service.totalOrders.toLocaleString('pt-BR')} ordens`,
