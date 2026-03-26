@@ -67,7 +67,7 @@ export default async function RadarPreventivoPage({
     <div className="space-y-6">
       <PageTitleBlock
         title="Radar Preventivo"
-        subtitle="Ausencias, desvios e risco preventivo por unidade e servico."
+        subtitle="Pintura, telhado, calha e infiltracao por unidade."
       />
 
       <ChartLabelsProvider>

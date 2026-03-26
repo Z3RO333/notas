@@ -123,7 +123,7 @@ function buildExecutiveSummary(analysis: PreventiveAnalysisResult, dominantRisk:
 
   return {
     headline: 'O recorte esta organizado, mas continua valendo acompanhar ausencias e baixa recorrencia.',
-    action: 'Use a unidade em foco para revisar servicos como pintura, civil, eletrica e refrigeracao antes do custo crescer.',
+    action: 'Use a unidade em foco para revisar pintura, telhado, calha e infiltracao antes do custo crescer.',
     reason: coverageLabel,
     serviceLabel,
     coverageLabel,

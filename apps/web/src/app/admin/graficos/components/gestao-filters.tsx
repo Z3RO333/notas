@@ -34,6 +34,10 @@ interface GestaoFiltersProps {
   tipoOrdemAtivo?: string
   equipamentos?: GestaoFilterOption[]
   equipamentoAtivo?: string
+  lojas?: string[]
+  lojaAtiva?: string
+  servicos?: string[]
+  servicoAtivo?: string
 }
 
 export function GestaoFilters({
@@ -44,6 +48,10 @@ export function GestaoFilters({
   tipoOrdemAtivo,
   equipamentos = [],
   equipamentoAtivo,
+  lojas = [],
+  lojaAtiva,
+  servicos = [],
+  servicoAtivo,
 }: GestaoFiltersProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -137,6 +145,44 @@ export function GestaoFilters({
               {equipamentos.map((equipamento) => (
                 <SelectItem key={equipamento.value} value={equipamento.value}>
                   {equipamento.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+
+        {lojas.length > 0 ? (
+          <Select
+            value={lojaAtiva ?? 'todos'}
+            onValueChange={(value) => updateParam('loja', value)}
+          >
+            <SelectTrigger className={`${triggerClassName} w-48`}>
+              <SelectValue placeholder="Loja" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas as lojas</SelectItem>
+              {lojas.map((loja) => (
+                <SelectItem key={loja} value={loja}>
+                  {loja}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+
+        {servicos.length > 0 ? (
+          <Select
+            value={servicoAtivo ?? 'todos'}
+            onValueChange={(value) => updateParam('servico', value)}
+          >
+            <SelectTrigger className={`${triggerClassName} w-56`}>
+              <SelectValue placeholder="Servico" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os servicos</SelectItem>
+              {servicos.map((servico) => (
+                <SelectItem key={servico} value={servico}>
+                  {servico}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -127,6 +127,7 @@ const UNIT_LABEL: Record<PreventiveUnitTypeFilter, string> = {
   FARMA: 'Farmas',
   CD: 'CDs',
 }
+const PREVENTIVE_SERVICE_INCLUDE_TOKENS = ['PINTURA', 'TELHADO', 'CALHA', 'INFILTRAC']
 
 const SERVICE_STORE_INELIGIBILITY_RULES: ServiceStoreEligibilityRule[] = [
   {
@@ -193,6 +194,13 @@ function normalizeRuleKey(value: string | null | undefined): string {
     .replace(/\s+/g, ' ')
     .trim()
     .toUpperCase()
+}
+
+function isRecurringPreventiveService(service: string | null | undefined): boolean {
+  const serviceKey = normalizeRuleKey(service)
+  if (!serviceKey) return false
+
+  return PREVENTIVE_SERVICE_INCLUDE_TOKENS.some((token) => serviceKey.includes(token))
 }
 
 function addMonths(ref: PreventiveMonthRef, delta: number): PreventiveMonthRef {
@@ -486,7 +494,7 @@ export function buildPreventiveAnalysis(
 ): PreventiveAnalysisResult {
   const cleanedRows = dedupeOrders(rows)
     .map(trimRow)
-    .filter((row): row is GestaoBaseOrdem => row !== null)
+    .filter((row): row is GestaoBaseOrdem => row !== null && isRecurringPreventiveService(row.texto_breve))
 
   const rawUnitType = readFirstParam(searchParams?.preventiva_tipo_unidade)
   const rawStore = normalizeText(readFirstParam(searchParams?.preventiva_loja))

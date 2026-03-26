@@ -23,6 +23,7 @@ import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
 interface AdminOperacionalSectionProps {
   period: OperacionalDashboardPeriod
   fornecedorCodigo?: string | null
+  especialidade?: string | null
   avatarByCode?: Record<string, string>
 }
 
@@ -84,9 +85,10 @@ function ServicosRecorrentesList({ rows, periodLabel }: { rows: ServicoMaisFeito
   )
 }
 
-export async function AdminOperacionalSection({ period, fornecedorCodigo, avatarByCode = {} }: AdminOperacionalSectionProps) {
+export async function AdminOperacionalSection({ period, fornecedorCodigo, especialidade, avatarByCode = {} }: AdminOperacionalSectionProps) {
   const supabase = await createClient()
   const filtro = fornecedorCodigo ?? undefined
+  const filtroEspecialidade = especialidade ?? undefined
 
   const [
     kpisResult,
@@ -102,6 +104,7 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo, avatar
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
       p_fornecedor_codigo: filtro,
+      p_especialidade: filtroEspecialidade,
     }),
     supabase.rpc('calcular_kpis_ordens_operacional', {
       p_period_mode: 'range',
@@ -122,34 +125,40 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo, avatar
       p_data_fim: period.endExclusiveIso,
       p_limit: 50,
       p_fornecedor_codigo: filtro,
+      p_especialidade: filtroEspecialidade,
     }),
     supabase.rpc('calcular_servicos_mais_feitos', {
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
       p_limit: 10,
       p_fornecedor_codigo: filtro,
+      p_especialidade: filtroEspecialidade,
     }),
     supabase.rpc('calcular_lojas_por_operacional', {
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
       p_fornecedor_codigo: filtro,
+      p_especialidade: filtroEspecialidade,
     }),
     supabase.rpc('calcular_ordens_abertas_por_loja', {
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
       p_limit: 15,
       p_fornecedor_codigo: filtro,
+      p_especialidade: filtroEspecialidade,
     }),
     supabase.rpc('calcular_evolucao_mensal_operacionais', {
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
       p_fornecedor_codigo: filtro,
+      p_especialidade: filtroEspecialidade,
     }),
     supabase.rpc('calcular_produtividade_por_loja', {
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
       p_limit: 15,
       p_fornecedor_codigo: filtro,
+      p_especialidade: filtroEspecialidade,
     }),
   ])
 

@@ -26,6 +26,7 @@ export interface GestaoBaseRpcParams {
   p_texto_breve?: string | null
   p_tipo_unidade?: TipoUnidade | null
   p_limit?: number | null
+  p_nome_loja?: string | null
 }
 
 function normalizeText(value: string | null | undefined): string {
@@ -101,6 +102,7 @@ export async function callGestaoBaseRpc(
     p_texto_breve: params.p_texto_breve ?? null,
     p_tipo_unidade: params.p_tipo_unidade ?? null,
     p_limit: params.p_limit ?? null,
+    p_nome_loja: params.p_nome_loja ?? null,
   }
 
   const pushdownResult = await supabase.rpc('listar_gestao_ordens_base_filtrada', pushdownParams)

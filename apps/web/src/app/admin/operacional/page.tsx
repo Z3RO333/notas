@@ -16,7 +16,7 @@ import { createClient } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 
 interface OperacionalPageProps {
-  searchParams?: Promise<OperacionalDashboardSearchParams & { fornecedor?: string | string[] }>
+  searchParams?: Promise<OperacionalDashboardSearchParams & { fornecedor?: string | string[]; especialidade?: string | string[] }>
 }
 
 export default async function OperacionalPage({ searchParams }: OperacionalPageProps) {
@@ -24,6 +24,7 @@ export default async function OperacionalPage({ searchParams }: OperacionalPageP
   const resolvedSearchParams = searchParams ? await searchParams : undefined
   const period = resolveOperacionalDashboardPeriod(resolvedSearchParams)
   const fornecedorCodigo = readFirstParam(resolvedSearchParams?.fornecedor) ?? null
+  const especialidade = readFirstParam(resolvedSearchParams?.especialidade) ?? null
   const yearOptions = buildOperacionalYearOptions()
 
   if (!currentAdminContext.isAuthenticated) {
@@ -37,7 +38,7 @@ export default async function OperacionalPage({ searchParams }: OperacionalPageP
   const supabase = await createClient()
   const { data: operacionais } = await supabase
     .from('dim_operacionais')
-    .select('codigo, nome, avatar_url')
+    .select('codigo, nome, avatar_url, especialidade')
     .eq('ativo', true)
     .order('nome')
 
@@ -58,6 +59,7 @@ export default async function OperacionalPage({ searchParams }: OperacionalPageP
             <OperacionalFilter
               operacionais={operacionais ?? []}
               selectedFornecedor={fornecedorCodigo}
+              selectedEspecialidade={especialidade}
               selectedYear={period.year}
               selectedMonth={period.month}
               yearOptions={yearOptions}
@@ -71,6 +73,7 @@ export default async function OperacionalPage({ searchParams }: OperacionalPageP
         <AdminOperacionalSection
           period={period}
           fornecedorCodigo={fornecedorCodigo}
+          especialidade={especialidade}
           avatarByCode={Object.fromEntries(
             (operacionais ?? [])
               .filter((o) => o.avatar_url)

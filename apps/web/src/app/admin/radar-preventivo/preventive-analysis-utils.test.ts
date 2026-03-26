@@ -57,9 +57,9 @@ describe('preventive-analysis-utils', () => {
 
   it('flags zero openings as critical risk for the selected store and service', () => {
     const rows = [
-      ...makeRows('LOJA A', 'ELETRICA', 3),
-      ...makeRows('LOJA B', 'ELETRICA', 2),
-      ...makeRows('LOJA C', 'ELETRICA', 1),
+      ...makeRows('LOJA A', 'TELHADO', 3),
+      ...makeRows('LOJA B', 'TELHADO', 2),
+      ...makeRows('LOJA C', 'TELHADO', 1),
       ...makeRows('LOJA B', 'PINTURA', 4),
       ...makeRows('LOJA C', 'PINTURA', 2),
     ]
@@ -101,11 +101,11 @@ describe('preventive-analysis-utils', () => {
 
   it('auto-selects the most relevant service and marks low volume as attention', () => {
     const rows = [
-      ...makeRows('LOJA A', 'ELETRICA', 1),
-      ...makeRows('LOJA B', 'ELETRICA', 5),
-      ...makeRows('LOJA C', 'ELETRICA', 4),
       ...makeRows('LOJA A', 'PINTURA', 1),
-      ...makeRows('LOJA B', 'PINTURA', 1),
+      ...makeRows('LOJA B', 'PINTURA', 5),
+      ...makeRows('LOJA C', 'PINTURA', 4),
+      ...makeRows('LOJA A', 'TELHADO', 1),
+      ...makeRows('LOJA B', 'TELHADO', 1),
     ]
 
     const analysis = buildPreventiveAnalysis(rows, makePeriod(), {
@@ -114,11 +114,11 @@ describe('preventive-analysis-utils', () => {
     })
 
     expect(analysis.service).toBeNull()
-    expect(analysis.focusSummary.service).toBe('ELETRICA')
+    expect(analysis.focusSummary.service).toBe('PINTURA')
     expect(analysis.focusSummary.autoSelected).toBe(true)
     expect(analysis.focusSummary.selectedStoreRisk).toBe('atencao')
     expect(analysis.storeRows[0]).toMatchObject({
-      service: 'ELETRICA',
+      service: 'PINTURA',
       count: 1,
       risk: 'atencao',
     })
@@ -126,8 +126,8 @@ describe('preventive-analysis-utils', () => {
 
   it('ignores ineligible escalator service for Loja Matriz', () => {
     const rows = [
-      ...makeRows('Loja Matriz', 'ELETRICA', 2),
-      ...makeRows('Loja Amazonas Shopping', 'ELETRICA', 2),
+      ...makeRows('Loja Matriz', 'PINTURA', 2),
+      ...makeRows('Loja Amazonas Shopping', 'PINTURA', 2),
       ...makeRows('Loja Amazonas Shopping', 'MANUT-PREVENTIVA ESCADA ROLANTE', 4),
       ...makeRows('Loja Shopping Ponta Negra', 'MANUT-PREVENTIVA ESCADA ROLANTE', 3),
     ]
@@ -139,7 +139,7 @@ describe('preventive-analysis-utils', () => {
     })
 
     expect(analysis.service).toBeNull()
-    expect(analysis.focusSummary.service).toBe('ELETRICA')
+    expect(analysis.focusSummary.service).toBe('PINTURA')
     expect(analysis.storeRows.some((row) => row.service.includes('ESCADA ROLANTE'))).toBe(false)
     expect(
       analysis.alerts.some((alert) => alert.store === 'Loja Matriz' && alert.service.includes('ESCADA ROLANTE')),
@@ -149,8 +149,8 @@ describe('preventive-analysis-utils', () => {
 
   it('can switch the denominator to the official unit base for graficos KPIs', () => {
     const rows = [
-      ...makeRows('LOJA A', 'ELETRICA', 4),
-      ...makeRows('LOJA B', 'ELETRICA', 2),
+      ...makeRows('LOJA A', 'PINTURA', 4),
+      ...makeRows('LOJA B', 'PINTURA', 2),
     ]
 
     const analysis = buildPreventiveAnalysis(rows, makePeriod(), {
@@ -163,5 +163,22 @@ describe('preventive-analysis-utils', () => {
     expect(analysis.totalStores).toBe(38)
     expect(analysis.metricCards[0]?.hint).toContain('38 unidades oficiais')
     expect(analysis.focusSummary.storesWithoutOrders).toBe(36)
+  })
+
+  it('filters out services outside the recurring preventive scope', () => {
+    const rows = [
+      ...makeRows('LOJA A', 'ELETRICA', 3),
+      ...makeRows('LOJA B', 'CALHA', 2),
+      ...makeRows('LOJA C', 'INFILTRACAO', 1),
+    ]
+
+    const analysis = buildPreventiveAnalysis(rows, makePeriod(), {
+      preventiva_tipo_unidade: 'LOJA',
+    })
+
+    expect(analysis.options.services.map((service) => service.value)).toEqual(['CALHA', 'INFILTRACAO'])
+    expect(analysis.totalOrders).toBe(3)
+    expect(analysis.options.services.some((service) => service.value === 'ELETRICA')).toBe(false)
+    expect(analysis.storeRows.some((row) => row.service === 'ELETRICA')).toBe(false)
   })
 })

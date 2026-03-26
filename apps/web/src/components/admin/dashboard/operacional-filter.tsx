@@ -9,11 +9,18 @@ interface Operacional {
   codigo: string
   nome: string
   avatar_url?: string | null
+  especialidade?: string | null
 }
+
+const ESPECIALIDADE_OPTIONS = [
+  { value: 'eletricista', label: 'Eletricistas' },
+  { value: 'mecanico_auto', label: 'Mecânicos de Auto' },
+]
 
 interface OperacionalFilterProps {
   operacionais: Operacional[]
   selectedFornecedor: string | null
+  selectedEspecialidade: string | null
   selectedYear: number
   selectedMonth: number | null
   yearOptions: number[]
@@ -40,6 +47,7 @@ const nativeSelectClassName =
 export function OperacionalFilter({
   operacionais,
   selectedFornecedor,
+  selectedEspecialidade,
   selectedYear,
   selectedMonth,
   yearOptions,
@@ -77,6 +85,15 @@ export function OperacionalFilter({
     [updateQueryParam],
   )
 
+  const handleEspecialidadeChange = useCallback(
+    (value: string) => {
+      updateQueryParam('especialidade', value || null)
+      // reset person filter when switching specialty
+      updateQueryParam('fornecedor', null)
+    },
+    [updateQueryParam],
+  )
+
   const handleMonthChange = useCallback(
     (value: string) => {
       updateQueryParam('mes', value || null)
@@ -84,8 +101,30 @@ export function OperacionalFilter({
     [updateQueryParam],
   )
 
+  const visibleOperacionais = selectedEspecialidade
+    ? operacionais.filter((o) => o.especialidade === selectedEspecialidade)
+    : operacionais
+
   return (
-    <div className="grid gap-3 lg:grid-cols-[minmax(16rem,1.2fr)_minmax(10rem,0.6fr)_minmax(12rem,0.8fr)]">
+    <div className="grid gap-3 lg:grid-cols-[minmax(12rem,0.8fr)_minmax(16rem,1.2fr)_minmax(10rem,0.6fr)_minmax(12rem,0.8fr)]">
+      <label className="space-y-2">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          Tipo
+        </span>
+        <select
+          value={selectedEspecialidade ?? ''}
+          onChange={(event) => handleEspecialidadeChange(event.target.value)}
+          className={`${nativeSelectClassName} w-full min-w-0`}
+        >
+          <option value="">Todos os tipos</option>
+          {ESPECIALIDADE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
       <label className="space-y-2">
         <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           <User className="h-4 w-4" />
@@ -93,7 +132,7 @@ export function OperacionalFilter({
         </span>
         <div className="flex items-center gap-2">
           {(() => {
-            const selected = operacionais.find((o) => o.codigo === selectedFornecedor)
+            const selected = visibleOperacionais.find((o) => o.codigo === selectedFornecedor)
             return selected?.avatar_url ? (
               <Image
                 src={selected.avatar_url}
@@ -114,7 +153,7 @@ export function OperacionalFilter({
             className={`${nativeSelectClassName} w-full min-w-0`}
           >
             <option value="">Todos os operacionais</option>
-            {operacionais.map((operacional) => (
+            {visibleOperacionais.map((operacional) => (
               <option key={operacional.codigo} value={operacional.codigo}>
                 {operacional.nome.split(' ').slice(0, 2).join(' ')}
               </option>

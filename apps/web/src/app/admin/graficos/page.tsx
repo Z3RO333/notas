@@ -80,6 +80,8 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
         : currentYear
   const mes = Number.isFinite(parsedMes) ? parsedMes : undefined
   const tipoOrdem = params.tipo_ordem ?? undefined
+  const nomeLoja = params.loja ?? undefined
+  const textoBreve = params.servico ?? undefined
 
   const supabase = await createClient()
 
@@ -94,20 +96,28 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
       p_ano: ano ?? null,
       p_mes: mes ?? null,
       p_tipo_ordem: tipoOrdem ?? null,
+      p_nome_loja: nomeLoja ?? null,
+      p_texto_breve: textoBreve ?? null,
     }),
     supabase.rpc('calcular_gestao_top_servicos', {
       p_ano: ano ?? null,
       p_mes: mes ?? null,
       p_tipo_ordem: tipoOrdem ?? null,
+      p_nome_loja: nomeLoja ?? null,
+      p_texto_breve: textoBreve ?? null,
     }),
     supabase.rpc('calcular_gestao_evolucao_mensal', {
       p_ano: ano ?? null,
       p_tipo_ordem: tipoOrdem ?? null,
+      p_nome_loja: nomeLoja ?? null,
+      p_texto_breve: textoBreve ?? null,
     }),
     supabase.rpc('calcular_gestao_resumo_segmentos', {
       p_ano: ano ?? null,
       p_mes: mes ?? null,
       p_tipo_ordem: tipoOrdem ?? null,
+      p_nome_loja: nomeLoja ?? null,
+      p_texto_breve: textoBreve ?? null,
     }),
     supabase.rpc('listar_gestao_filtros'),
   ])
@@ -205,6 +215,19 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   const tiposOrdem = Array.from(tiposOrdemSet).sort()
   const anos = Array.from(new Set([currentYear, ...Array.from(anosSet)])).sort((a, b) => b - a)
 
+  // Opções para os filtros de loja e serviço (derivadas dos dados já buscados, sem query extra)
+  const lojasDisponiveis = Array.from(
+    new Set(topLojasRaw.map((r) => r.nome_loja).filter(Boolean)),
+  ).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+
+  const servicosDisponiveis = Array.from(
+    new Set(
+      topServRaw
+        .map((r) => r.texto_breve)
+        .filter((v): v is string => Boolean(v)),
+    ),
+  ).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+
   return (
     <div className="space-y-6">
       <PageTitleBlock
@@ -220,6 +243,10 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
         anoAtivo={ano}
         mesAtivo={mes}
         tipoOrdemAtivo={tipoOrdem}
+        lojas={lojasDisponiveis}
+        lojaAtiva={nomeLoja}
+        servicos={servicosDisponiveis}
+        servicoAtivo={textoBreve}
       />
 
       <ChartLabelsProvider>
