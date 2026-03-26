@@ -1,5 +1,6 @@
 import { readFirstParam } from '@/lib/grid/query'
 import type { CriticalityLevel, GestaoBaseOrdem, TipoUnidade } from '@/lib/types/database'
+import { getOfficialGestaoUniverseCount } from '@/lib/units/official-unit-catalog'
 
 export type PreventivePeriodPreset = 'mes' | 'trimestre' | 'semestre' | 'ano'
 export type PreventiveUnitTypeFilter = TipoUnidade | 'todos'
@@ -40,6 +41,10 @@ export interface PreventiveFilterOption {
   value: string
   label: string
   meta?: string
+}
+
+export interface PreventiveAnalysisOptions {
+  useOfficialUnitBase?: boolean
 }
 
 export interface PreventiveMetricCard {
@@ -295,10 +300,9 @@ function trimRow(row: GestaoBaseOrdem): GestaoBaseOrdem | null {
   }
 }
 
-function buildServiceMeta(rows: GestaoBaseOrdem[], stores: StoreMeta[]): ServiceMeta[] {
+function buildServiceMeta(rows: GestaoBaseOrdem[], totalStores: number): ServiceMeta[] {
   const totals = new Map<string, number>()
   const storeSets = new Map<string, Set<string>>()
-  const totalStores = stores.length
 
   for (const row of rows) {
     const service = row.texto_breve
@@ -434,6 +438,7 @@ export function buildPreventiveAnalysis(
   rows: GestaoBaseOrdem[],
   period: PreventivePeriod,
   searchParams?: PreventiveAnalysisSearchParams,
+  options: PreventiveAnalysisOptions = {},
 ): PreventiveAnalysisResult {
   const cleanedRows = dedupeOrders(rows)
     .map(trimRow)
@@ -462,7 +467,12 @@ export function buildPreventiveAnalysis(
       return left.name.localeCompare(right.name, 'pt-BR')
     })
 
-  const serviceMeta = buildServiceMeta(scopedRows, stores)
+  const observedStoreCount = stores.length
+  const networkStoreCount = options.useOfficialUnitBase
+    ? getOfficialGestaoUniverseCount(unitType)
+    : observedStoreCount
+
+  const serviceMeta = buildServiceMeta(scopedRows, networkStoreCount)
   const serviceCounts = buildServiceCountMap(scopedRows)
 
   const selectedStore = stores.some((store) => store.name === rawStore)
@@ -479,7 +489,7 @@ export function buildPreventiveAnalysis(
         count,
         average: service.average,
         activeStores: service.activeStores,
-        totalStores: stores.length,
+        totalStores: networkStoreCount,
       })
 
       return {
@@ -517,7 +527,7 @@ export function buildPreventiveAnalysis(
         count,
         average: focusServiceMeta?.average ?? 0,
         activeStores: focusServiceMeta?.activeStores ?? 0,
-        totalStores: stores.length,
+        totalStores: networkStoreCount,
       })
 
       return {
@@ -550,7 +560,7 @@ export function buildPreventiveAnalysis(
         count,
         average: service.average,
         activeStores: service.activeStores,
-        totalStores: stores.length,
+        totalStores: networkStoreCount,
       })
       if (risk.level === 'saudavel') continue
 
@@ -596,21 +606,25 @@ export function buildPreventiveAnalysis(
     averagePerStore: Number((focusServiceMeta?.average ?? 0).toFixed(1)),
     totalOrders: focusServiceMeta?.totalOrders ?? 0,
     storesWithOrders: focusServiceMeta?.activeStores ?? 0,
-    storesWithoutOrders: Math.max(0, stores.length - (focusServiceMeta?.activeStores ?? 0)),
+    storesWithoutOrders: Math.max(0, networkStoreCount - (focusServiceMeta?.activeStores ?? 0)),
     selectedStoreRisk: focusStoreServiceRow?.risk ?? 'saudavel',
     autoSelected: focusServiceAutoSelected,
   }
 
   const totalOrders = scopedRows.length
-  const totalStores = stores.length
+  const totalStores = networkStoreCount
   const totalServices = serviceMeta.length
   const storeTotalOrders = selectedStore ? storeTotals.get(selectedStore) ?? 0 : 0
+
+  const coverageHint = options.useOfficialUnitBase && totalStores !== observedStoreCount
+    ? `${observedStoreCount} com ordens no recorte de ${totalStores} unidades oficiais`
+    : `${totalStores} unidades e ${totalServices} servicos monitorados`
 
   const metricCards: PreventiveMetricCard[] = [
     {
       label: 'Ordens no recorte',
       value: totalOrders.toLocaleString('pt-BR'),
-      hint: `${totalStores} unidades e ${totalServices} servicos monitorados`,
+      hint: coverageHint,
       tone: 'saudavel',
     },
     {

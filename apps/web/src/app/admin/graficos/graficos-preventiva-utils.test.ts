@@ -123,4 +123,22 @@ describe('graficos-preventiva-utils', () => {
       risk: 'atencao',
     })
   })
+
+  it('can switch the denominator to the official unit base for graficos KPIs', () => {
+    const rows = [
+      ...makeRows('LOJA A', 'ELETRICA', 4),
+      ...makeRows('LOJA B', 'ELETRICA', 2),
+    ]
+
+    const analysis = buildPreventiveAnalysis(rows, makePeriod(), {
+      preventiva_tipo_unidade: 'LOJA',
+      preventiva_loja: 'LOJA A',
+    }, {
+      useOfficialUnitBase: true,
+    })
+
+    expect(analysis.totalStores).toBe(38)
+    expect(analysis.metricCards[0]?.hint).toContain('38 unidades oficiais')
+    expect(analysis.focusSummary.storesWithoutOrders).toBe(36)
+  })
 })

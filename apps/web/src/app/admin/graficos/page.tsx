@@ -8,8 +8,8 @@ import type {
   TipoUnidade,
 } from '@/lib/types/database'
 import { GestaoFilters } from './components/gestao-filters'
+import { OfficialUnitSummary } from './components/official-unit-summary'
 import { PreventiveAnalysisSection } from './components/preventive-analysis-section'
-import { SegmentoSummary } from './components/segmento-summary'
 import { SegmentoSection } from './components/segmento-section'
 import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
 import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
@@ -207,7 +207,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   const anos = Array.from(new Set([currentYear, ...Array.from(anosSet)])).sort((a, b) => b - a)
   const preventiveAnalysis = preventiveError
     ? null
-    : buildPreventiveAnalysis(preventiveRaw, preventivePeriod, params)
+    : buildPreventiveAnalysis(preventiveRaw, preventivePeriod, params, { useOfficialUnitBase: true })
 
   if (preventiveError) {
     console.warn('Analise preventiva dos graficos indisponivel. Mantendo painel principal carregado.', preventiveError)
@@ -220,7 +220,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
         subtitle="Padrões, recorrência e ranking por segmento de unidade."
       />
 
-      {segmentos.length > 0 && <SegmentoSummary segmentos={segmentos} />}
+      {segmentos.length > 0 && <OfficialUnitSummary segmentos={segmentos} />}
 
       <GestaoFilters
         tiposOrdem={tiposOrdem}
