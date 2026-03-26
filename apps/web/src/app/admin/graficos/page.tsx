@@ -120,7 +120,18 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   ])
 
   const [topLojasRes, topServRes, evolucaoRes, segmentosRes, opcoesRes] = mainResults
+  const mainError = [
+    topLojasRes.error,
+    topServRes.error,
+    evolucaoRes.error,
+    segmentosRes.error,
+    opcoesRes.error,
+  ].find(Boolean)
   const preventiveError = preventiveResults.find((result) => result.error)?.error
+
+  if (mainError) {
+    throw mainError
+  }
 
   const topLojasRaw = (topLojasRes.data ?? []) as TopLojasRaw[]
   const topServRaw = (topServRes.data ?? []) as TopServRaw[]
