@@ -87,6 +87,7 @@ export function ProdutividadeTable({
                 const lojas = lojasMap[row.fornecedor_codigo] ?? []
                 const isExpanded = expanded.has(row.fornecedor_codigo)
                 const hasLojas = lojas.length > 0
+                const codigoBase = row.fornecedor_codigo.replace(/\D+$/, '')
                 const pctTotalGeral = totalOrdensGeralPmosPeriodo > 0
                   ? (row.atendidas / totalOrdensGeralPmosPeriodo) * 100
                   : 0
@@ -108,9 +109,9 @@ export function ProdutividadeTable({
                       </td>
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2">
-                          {avatarByCode[row.fornecedor_codigo] ? (
+                          {avatarByCode[codigoBase] ? (
                             <Image
-                              src={avatarByCode[row.fornecedor_codigo]}
+                              src={avatarByCode[codigoBase]}
                               alt={row.fornecedor_nome ?? row.fornecedor_codigo}
                               width={28}
                               height={28}
