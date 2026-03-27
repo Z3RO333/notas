@@ -12,6 +12,12 @@ import { Avatar } from '@/components/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
 import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
+import {
+  isMissingAdminProductivityPayloadRpc,
+  normalizeAdminProductivityDashboardPayload,
+  normalizeFornecedorCodigo,
+  pickOperationalAvatarCodes,
+} from '@/lib/dashboard/admin-productivity-data'
 import { EvolucaoMensalOperacionalChart } from './evolucao-mensal-operacional-chart'
 import { StatusBarChart } from './status-bar-chart'
 import type { AdminProductivityPeriod } from '@/lib/dashboard/productivity-month'
@@ -238,14 +244,16 @@ function buildOperationalRows(
   previousRows: ProdutividadeOperacional[],
   avatarByCode: Map<string, string | null> = new Map(),
 ): OperationalRankingView[] {
-  const previousBySupplier = new Map(previousRows.map((row) => [row.fornecedor_codigo, row]))
+  const previousBySupplier = new Map(
+    previousRows.map((row) => [normalizeFornecedorCodigo(row.fornecedor_codigo), row]),
+  )
 
   return currentRows.map((row) => {
-    const codigoBase = row.fornecedor_codigo.replace(/\D+$/, '')
+    const codigoBase = normalizeFornecedorCodigo(row.fornecedor_codigo)
     return {
       ...row,
       avatar_url: avatarByCode.get(codigoBase) ?? null,
-      deltaConcluidas: row.atendidas - toNumber(previousBySupplier.get(row.fornecedor_codigo)?.atendidas),
+      deltaConcluidas: row.atendidas - toNumber(previousBySupplier.get(codigoBase)?.atendidas),
     }
   })
 }
@@ -326,6 +334,121 @@ function pickBestRateAdmin(rows: AdminRankingView[]): AdminRankingView | null {
       if (right.taxa_fechamento !== left.taxa_fechamento) return right.taxa_fechamento - left.taxa_fechamento
       return right.concluidas - left.concluidas
     })[0] ?? rows[0] ?? null
+}
+
+type AdminProductivityAdminData = {
+  currentKpis: OrdersWorkspaceKpis
+  previousKpis: OrdersWorkspaceKpis
+  currentRanking: OrdemNotaRankingAdmin[]
+  previousRanking: OrdemNotaRankingAdmin[]
+  evolution: EvolucaoMensalOperacional[]
+}
+
+async function loadLegacyAdminProductivityData(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  period: AdminProductivityPeriod,
+): Promise<AdminProductivityAdminData> {
+  const adminEvolutionRequests = period.rollingMonths.map((monthWindow) => (
+    supabase.rpc('calcular_kpis_ordens_operacional', {
+      p_period_mode: 'range',
+      p_year: null,
+      p_month: null,
+      p_start_iso: monthWindow.startIso,
+      p_end_exclusive_iso: monthWindow.endExclusiveIso,
+      p_status: null,
+      p_unidade: null,
+      p_responsavel: null,
+      p_prioridade: null,
+      p_q: null,
+      p_admin_scope: null,
+      p_tipo_ordem: null,
+    })
+  ))
+
+  const [
+    adminCurrentKpisResult,
+    adminPreviousKpisResult,
+    adminCurrentRankingResult,
+    adminPreviousRankingResult,
+    ...adminEvolutionResults
+  ] = await Promise.all([
+    supabase.rpc('calcular_kpis_ordens_operacional', {
+      p_period_mode: 'range',
+      p_year: null,
+      p_month: null,
+      p_start_iso: period.startIso,
+      p_end_exclusive_iso: period.endExclusiveIso,
+      p_status: null,
+      p_unidade: null,
+      p_responsavel: null,
+      p_prioridade: null,
+      p_q: null,
+      p_admin_scope: null,
+      p_tipo_ordem: null,
+    }),
+    supabase.rpc('calcular_kpis_ordens_operacional', {
+      p_period_mode: 'range',
+      p_year: null,
+      p_month: null,
+      p_start_iso: period.previous.startIso,
+      p_end_exclusive_iso: period.previous.endExclusiveIso,
+      p_status: null,
+      p_unidade: null,
+      p_responsavel: null,
+      p_prioridade: null,
+      p_q: null,
+      p_admin_scope: null,
+      p_tipo_ordem: null,
+    }),
+    callRpcWithOptionalTipoOrdem<OrdemNotaRankingAdmin[]>(
+      supabase,
+      'calcular_ranking_ordens_admin',
+      {
+        p_start_iso: period.startIso,
+        p_end_exclusive_iso: period.endExclusiveIso,
+        p_tipo_ordem: null,
+      },
+    ),
+    callRpcWithOptionalTipoOrdem<OrdemNotaRankingAdmin[]>(
+      supabase,
+      'calcular_ranking_ordens_admin',
+      {
+        p_start_iso: period.previous.startIso,
+        p_end_exclusive_iso: period.previous.endExclusiveIso,
+        p_tipo_ordem: null,
+      },
+    ),
+    ...adminEvolutionRequests,
+  ])
+
+  const firstError = [
+    adminCurrentKpisResult.error,
+    adminPreviousKpisResult.error,
+    adminCurrentRankingResult.error,
+    adminPreviousRankingResult.error,
+    ...adminEvolutionResults.map((result) => result.error),
+  ].find(Boolean)
+
+  if (firstError) throw firstError
+
+  return {
+    currentKpis: normalizeOrdersKpis(adminCurrentKpisResult.data),
+    previousKpis: normalizeOrdersKpis(adminPreviousKpisResult.data),
+    currentRanking: (adminCurrentRankingResult.data ?? []) as OrdemNotaRankingAdmin[],
+    previousRanking: (adminPreviousRankingResult.data ?? []) as OrdemNotaRankingAdmin[],
+    evolution: adminEvolutionResults.map((result, index) => {
+      const kpis = normalizeOrdersKpis(result.data)
+      const monthWindow = period.rollingMonths[index]
+
+      return {
+        ano: monthWindow?.year ?? period.year,
+        mes: monthWindow?.month ?? period.month,
+        label: monthWindow?.label ?? period.label,
+        concluidas: kpis.concluidas,
+        em_aberto: kpis.abertas + kpis.em_tratativa + kpis.em_avaliacao,
+      }
+    }),
+  }
 }
 
 function MetricCard({
@@ -692,34 +815,13 @@ export async function AdminProductivityPanel({ period, especialidade }: AdminPro
   const supabase = await createClient()
   const filtroEspecialidade = especialidade ?? undefined
 
-  const adminEvolutionRequests = period.rollingMonths.map((monthWindow) => (
-    supabase.rpc('calcular_kpis_ordens_operacional', {
-      p_period_mode: 'range',
-      p_year: null,
-      p_month: null,
-      p_start_iso: monthWindow.startIso,
-      p_end_exclusive_iso: monthWindow.endExclusiveIso,
-      p_status: null,
-      p_unidade: null,
-      p_responsavel: null,
-      p_prioridade: null,
-      p_q: null,
-      p_admin_scope: null,
-      p_tipo_ordem: null,
-    })
-  ))
-
   const [
     operationalCurrentKpisResult,
     operationalPreviousKpisResult,
     operationalCurrentRowsResult,
     operationalPreviousRowsResult,
     operationalEvolutionResult,
-    adminCurrentKpisResult,
-    adminPreviousKpisResult,
-    adminCurrentRankingResult,
-    adminPreviousRankingResult,
-    ...adminEvolutionResults
+    adminDashboardPayloadResult,
   ] = await Promise.all([
     supabase.rpc('calcular_kpis_operacionais', {
       p_data_inicio: period.startIso,
@@ -753,53 +855,15 @@ export async function AdminProductivityPanel({ period, especialidade }: AdminPro
       p_fornecedor_codigo: null,
       p_especialidade: filtroEspecialidade,
     }),
-    supabase.rpc('calcular_kpis_ordens_operacional', {
-      p_period_mode: 'range',
-      p_year: null,
-      p_month: null,
-      p_start_iso: period.startIso,
-      p_end_exclusive_iso: period.endExclusiveIso,
-      p_status: null,
-      p_unidade: null,
-      p_responsavel: null,
-      p_prioridade: null,
-      p_q: null,
-      p_admin_scope: null,
+    supabase.rpc('calcular_dashboard_produtividade_admin', {
+      p_current_start_iso: period.startIso,
+      p_current_end_exclusive_iso: period.endExclusiveIso,
+      p_previous_start_iso: period.previous.startIso,
+      p_previous_end_exclusive_iso: period.previous.endExclusiveIso,
+      p_rolling_start_iso: period.rollingMonths[0]?.startIso ?? period.startIso,
+      p_rolling_end_exclusive_iso: period.endExclusiveIso,
       p_tipo_ordem: null,
     }),
-    supabase.rpc('calcular_kpis_ordens_operacional', {
-      p_period_mode: 'range',
-      p_year: null,
-      p_month: null,
-      p_start_iso: period.previous.startIso,
-      p_end_exclusive_iso: period.previous.endExclusiveIso,
-      p_status: null,
-      p_unidade: null,
-      p_responsavel: null,
-      p_prioridade: null,
-      p_q: null,
-      p_admin_scope: null,
-      p_tipo_ordem: null,
-    }),
-    callRpcWithOptionalTipoOrdem<OrdemNotaRankingAdmin[]>(
-      supabase,
-      'calcular_ranking_ordens_admin',
-      {
-        p_start_iso: period.startIso,
-        p_end_exclusive_iso: period.endExclusiveIso,
-        p_tipo_ordem: null,
-      },
-    ),
-    callRpcWithOptionalTipoOrdem<OrdemNotaRankingAdmin[]>(
-      supabase,
-      'calcular_ranking_ordens_admin',
-      {
-        p_start_iso: period.previous.startIso,
-        p_end_exclusive_iso: period.previous.endExclusiveIso,
-        p_tipo_ordem: null,
-      },
-    ),
-    ...adminEvolutionRequests,
   ])
 
   const firstError = [
@@ -808,11 +872,6 @@ export async function AdminProductivityPanel({ period, especialidade }: AdminPro
     operationalCurrentRowsResult.error,
     operationalPreviousRowsResult.error,
     operationalEvolutionResult.error,
-    adminCurrentKpisResult.error,
-    adminPreviousKpisResult.error,
-    adminCurrentRankingResult.error,
-    adminPreviousRankingResult.error,
-    ...adminEvolutionResults.map((result) => result.error),
   ].find(Boolean)
 
   if (firstError) throw firstError
@@ -823,23 +882,42 @@ export async function AdminProductivityPanel({ period, especialidade }: AdminPro
   const operationalPreviousRowsRaw = (operationalPreviousRowsResult.data ?? []) as ProdutividadeOperacional[]
 
   const operacionalAvatarByCode = new Map<string, string | null>()
-  const operacionalAvatarResult = await supabase
-    .from('dim_operacionais')
-    .select('codigo, avatar_url')
-    .not('avatar_url', 'is', null)
-  if (!operacionalAvatarResult.error) {
-    for (const row of operacionalAvatarResult.data ?? []) {
-      operacionalAvatarByCode.set(row.codigo, row.avatar_url)
+  const operacionalAvatarCodes = pickOperationalAvatarCodes(operationalCurrentRowsRaw)
+  if (operacionalAvatarCodes.length > 0) {
+    const operacionalAvatarResult = await supabase
+      .from('dim_operacionais')
+      .select('codigo, avatar_url')
+      .in('codigo', operacionalAvatarCodes)
+      .not('avatar_url', 'is', null)
+
+    if (!operacionalAvatarResult.error) {
+      for (const row of operacionalAvatarResult.data ?? []) {
+        operacionalAvatarByCode.set(row.codigo, row.avatar_url)
+      }
     }
   }
 
   const operationalRows = buildOperationalRows(operationalCurrentRowsRaw, operationalPreviousRowsRaw, operacionalAvatarByCode)
   const operationalEvolution = (operationalEvolutionResult.data ?? []) as EvolucaoMensalOperacional[]
 
-  const adminCurrentKpis = normalizeOrdersKpis(adminCurrentKpisResult.data)
-  const adminPreviousKpis = normalizeOrdersKpis(adminPreviousKpisResult.data)
-  const adminCurrentRankingRaw = (adminCurrentRankingResult.data ?? []) as OrdemNotaRankingAdmin[]
-  const adminPreviousRankingRaw = (adminPreviousRankingResult.data ?? []) as OrdemNotaRankingAdmin[]
+  let adminProductivityData: AdminProductivityAdminData
+  if (adminDashboardPayloadResult.error) {
+    if (isMissingAdminProductivityPayloadRpc(adminDashboardPayloadResult.error)) {
+      adminProductivityData = await loadLegacyAdminProductivityData(supabase, period)
+    } else {
+      throw adminDashboardPayloadResult.error
+    }
+  } else {
+    adminProductivityData = normalizeAdminProductivityDashboardPayload(
+      adminDashboardPayloadResult.data,
+      period.rollingMonths,
+    )
+  }
+
+  const adminCurrentKpis = adminProductivityData.currentKpis
+  const adminPreviousKpis = adminProductivityData.previousKpis
+  const adminCurrentRankingRaw = adminProductivityData.currentRanking
+  const adminPreviousRankingRaw = adminProductivityData.previousRanking
   const adminAvatarById = new Map<string, string | null>()
   const adminAvatarIds = Array.from(new Set(adminCurrentRankingRaw.map((row) => row.administrador_id).filter(Boolean)))
   if (adminAvatarIds.length > 0) {
@@ -855,19 +933,7 @@ export async function AdminProductivityPanel({ period, especialidade }: AdminPro
     }
   }
   const adminRows = buildAdminRows(adminCurrentRankingRaw, adminPreviousRankingRaw, adminAvatarById)
-
-  const adminEvolution = adminEvolutionResults.map((result, index) => {
-    const kpis = normalizeOrdersKpis(result.data)
-    const monthWindow = period.rollingMonths[index]
-
-    return {
-      ano: monthWindow?.year ?? period.year,
-      mes: monthWindow?.month ?? period.month,
-      label: monthWindow?.label ?? period.label,
-      concluidas: kpis.concluidas,
-      em_aberto: kpis.abertas + kpis.em_tratativa + kpis.em_avaliacao,
-    }
-  }) as EvolucaoMensalOperacional[]
+  const adminEvolution = adminProductivityData.evolution
 
   const operationalRate = operationalCurrentKpis.total_ordens > 0
     ? (operationalCurrentKpis.ordens_atendidas / operationalCurrentKpis.total_ordens) * 100
@@ -877,6 +943,9 @@ export async function AdminProductivityPanel({ period, especialidade }: AdminPro
     : 0
   const operationalTop = operationalRows[0] ?? null
   const operationalBestRate = pickBestRateOperational(operationalCurrentRowsRaw)
+  const operationalWithProductionCount = operationalRows.filter((row) => row.total_ordens > 0).length
+  const operationalWithProductionPreviousCount = operationalPreviousRowsRaw.filter((row) => row.total_ordens > 0).length
+  const operationalHighPerformanceCount = operationalRows.filter((row) => row.pct_conclusao >= 80 && row.total_ordens >= 5).length
   const operationalCoverage = [...operationalRows].sort((left, right) => {
     if (right.lojas_atendidas !== left.lojas_atendidas) return right.lojas_atendidas - left.lojas_atendidas
     return right.atendidas - left.atendidas
@@ -913,6 +982,7 @@ export async function AdminProductivityPanel({ period, especialidade }: AdminPro
     : 0
   const adminPending = adminCurrentKpis.abertas + adminCurrentKpis.em_tratativa + adminCurrentKpis.em_avaliacao
   const adminWithProduction = adminRows.filter((row) => row.total > 0).length
+  const adminWithProductionPrevious = adminPreviousRankingRaw.filter((row) => toNumber(row.qtd_ordens_30d) > 0).length
   const adminWithoutDelay = adminRows.filter((row) => row.atrasadas === 0 && row.total >= 5).length
   const adminTop = adminRows[0] ?? null
   const adminBestRate = pickBestRateAdmin(adminRows)
@@ -991,15 +1061,15 @@ export async function AdminProductivityPanel({ period, especialidade }: AdminPro
           <MetricCard
             icon={Users}
             label="Operacionais com produção"
-            value={formatInteger(operationalRows.filter((row) => row.total_ordens > 0).length)}
-            helper={`${formatInteger(operationalRows.filter((row) => row.pct_conclusao >= 80 && row.total_ordens >= 5).length)} com taxa acima de 80%.`}
+            value={formatInteger(operationalWithProductionCount)}
+            helper={`${formatInteger(operationalHighPerformanceCount)} com taxa acima de 80%.`}
             deltaLabel={formatComparisonCount(
-              operationalRows.filter((row) => row.total_ordens > 0).length,
-              operationalPreviousRowsRaw.filter((row) => row.total_ordens > 0).length,
+              operationalWithProductionCount,
+              operationalWithProductionPreviousCount,
               period.previous.label,
             )}
             deltaTone={resolveDeltaTone(
-              operationalRows.filter((row) => row.total_ordens > 0).length - operationalPreviousRowsRaw.filter((row) => row.total_ordens > 0).length,
+              operationalWithProductionCount - operationalWithProductionPreviousCount,
             )}
           />
           <MetricCard
@@ -1067,11 +1137,11 @@ export async function AdminProductivityPanel({ period, especialidade }: AdminPro
             helper={`${formatInteger(adminWithoutDelay)} sem atraso vermelho no mês.`}
             deltaLabel={formatComparisonCount(
               adminWithProduction,
-              adminPreviousRankingRaw.filter((row) => toNumber(row.qtd_ordens_30d) > 0).length,
+              adminWithProductionPrevious,
               period.previous.label,
             )}
             deltaTone={resolveDeltaTone(
-              adminWithProduction - adminPreviousRankingRaw.filter((row) => toNumber(row.qtd_ordens_30d) > 0).length,
+              adminWithProduction - adminWithProductionPrevious,
             )}
           />
           <MetricCard

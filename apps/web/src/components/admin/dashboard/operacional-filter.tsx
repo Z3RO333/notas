@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useCallback } from 'react'
+import { useCallback, useTransition } from 'react'
 import { CalendarDays, User } from 'lucide-react'
 import Image from 'next/image'
 
@@ -55,50 +55,56 @@ export function OperacionalFilter({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [isPending, startTransition] = useTransition()
 
-  const updateQueryParam = useCallback(
-    (key: string, value: string | null) => {
+  const updateQueryParams = useCallback(
+    (changes: Record<string, string | null>) => {
       const params = new URLSearchParams(searchParams.toString())
-      if (value) {
-        params.set(key, value)
-      } else {
-        params.delete(key)
+      for (const [key, value] of Object.entries(changes)) {
+        if (value) {
+          params.set(key, value)
+        } else {
+          params.delete(key)
+        }
       }
 
       const query = params.toString()
-      router.push(query ? `${pathname}?${query}` : pathname)
+      startTransition(() => {
+        router.replace(query ? `${pathname}?${query}` : pathname)
+      })
     },
-    [router, pathname, searchParams],
+    [pathname, router, searchParams, startTransition],
   )
 
   const handleFornecedorChange = useCallback(
     (value: string) => {
-      updateQueryParam('fornecedor', value || null)
+      updateQueryParams({ fornecedor: value || null })
     },
-    [updateQueryParam],
+    [updateQueryParams],
   )
 
   const handleYearChange = useCallback(
     (value: string) => {
-      updateQueryParam('ano', value || null)
+      updateQueryParams({ ano: value || null })
     },
-    [updateQueryParam],
+    [updateQueryParams],
   )
 
   const handleEspecialidadeChange = useCallback(
     (value: string) => {
-      updateQueryParam('especialidade', value || null)
-      // reset person filter when switching specialty
-      updateQueryParam('fornecedor', null)
+      updateQueryParams({
+        especialidade: value || null,
+        fornecedor: null,
+      })
     },
-    [updateQueryParam],
+    [updateQueryParams],
   )
 
   const handleMonthChange = useCallback(
     (value: string) => {
-      updateQueryParam('mes', value || null)
+      updateQueryParams({ mes: value || null })
     },
-    [updateQueryParam],
+    [updateQueryParams],
   )
 
   const visibleOperacionais = selectedEspecialidade
@@ -115,6 +121,7 @@ export function OperacionalFilter({
           value={selectedEspecialidade ?? ''}
           onChange={(event) => handleEspecialidadeChange(event.target.value)}
           className={`${nativeSelectClassName} w-full min-w-0`}
+          disabled={isPending}
         >
           <option value="">Todos os tipos</option>
           {ESPECIALIDADE_OPTIONS.map((opt) => (
@@ -151,6 +158,7 @@ export function OperacionalFilter({
             value={selectedFornecedor ?? ''}
             onChange={(event) => handleFornecedorChange(event.target.value)}
             className={`${nativeSelectClassName} w-full min-w-0`}
+            disabled={isPending}
           >
             <option value="">Todos os operacionais</option>
             {visibleOperacionais.map((operacional) => (
@@ -171,6 +179,7 @@ export function OperacionalFilter({
           value={String(selectedYear)}
           onChange={(event) => handleYearChange(event.target.value)}
           className={`${nativeSelectClassName} w-full min-w-0`}
+          disabled={isPending}
         >
           {yearOptions.map((year) => (
             <option key={year} value={String(year)}>
@@ -188,6 +197,7 @@ export function OperacionalFilter({
           value={selectedMonth ? String(selectedMonth) : ''}
           onChange={(event) => handleMonthChange(event.target.value)}
           className={`${nativeSelectClassName} w-full min-w-0`}
+          disabled={isPending}
         >
           <option value="">Todos os meses</option>
           {MONTH_OPTIONS.map((month) => (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, useTransition } from 'react'
 import { CalendarDays, ChevronDown, HardHat, SlidersHorizontal } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -46,6 +46,7 @@ export function AdminProductivityFilter({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [isOpen, setIsOpen] = useState(false)
+  const [isPending, startTransition] = useTransition()
 
   const updateQuery = useCallback(
     (nextYear: number, nextMonth: number, nextEspecialidade?: string | null) => {
@@ -57,9 +58,11 @@ export function AdminProductivityFilter({
       } else {
         params.delete('especialidade')
       }
-      router.push(`${pathname}?${params.toString()}`)
+      startTransition(() => {
+        router.replace(`${pathname}?${params.toString()}`)
+      })
     },
-    [pathname, router, searchParams],
+    [pathname, router, searchParams, startTransition],
   )
 
   const activeEspecialidade = selectedEspecialidade ?? ''
@@ -73,12 +76,13 @@ export function AdminProductivityFilter({
   )
 
   return (
-    <section className="rounded-3xl border bg-card/45 p-3 md:p-4">
+    <section className="rounded-3xl border bg-card/45 p-3 md:p-4" aria-busy={isPending}>
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
         className="flex w-full items-center justify-between gap-4 rounded-2xl px-2 py-1 text-left transition-colors hover:bg-muted/20"
         aria-expanded={isOpen}
+        disabled={isPending}
       >
         <div className="min-w-0 space-y-2">
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -96,7 +100,9 @@ export function AdminProductivityFilter({
         </div>
 
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="hidden sm:inline">{isOpen ? 'Recolher' : 'Expandir'}</span>
+          <span className="hidden sm:inline">
+            {isPending ? 'Atualizando...' : isOpen ? 'Recolher' : 'Expandir'}
+          </span>
           <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />
         </div>
       </button>
@@ -112,6 +118,7 @@ export function AdminProductivityFilter({
               value={String(selectedYear)}
               onChange={(event) => updateQuery(Number(event.target.value), selectedMonth, selectedEspecialidade)}
               className={nativeSelectClassName}
+              disabled={isPending}
             >
               {yearOptions.map((year) => (
                 <option key={year} value={String(year)}>
@@ -130,6 +137,7 @@ export function AdminProductivityFilter({
               value={String(selectedMonth)}
               onChange={(event) => updateQuery(selectedYear, Number(event.target.value), selectedEspecialidade)}
               className={nativeSelectClassName}
+              disabled={isPending}
             >
               {MONTH_OPTIONS.map((month) => (
                 <option key={month.value} value={month.value}>
@@ -150,6 +158,7 @@ export function AdminProductivityFilter({
                   key={opt.value}
                   type="button"
                   onClick={() => updateQuery(selectedYear, selectedMonth, opt.value || null)}
+                  disabled={isPending}
                   className={cn(
                     'h-10 rounded-full border px-4 text-sm transition-colors',
                     activeEspecialidade === opt.value

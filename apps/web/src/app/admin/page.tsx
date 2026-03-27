@@ -1,5 +1,7 @@
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { AdminProductivityFilter } from '@/components/admin/dashboard/admin-productivity-filter'
+import { AdminOrdersSectionSkeleton } from '@/components/admin/dashboard/admin-orders-section-skeleton'
 import { AdminProductivityPanel } from '@/components/admin/dashboard/admin-productivity-panel'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
@@ -42,7 +44,9 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
         selectedEspecialidade={especialidade}
       />
 
-      <AdminProductivityPanel period={period} especialidade={especialidade} />
+      <Suspense fallback={<AdminOrdersSectionSkeleton title="Produtividade" includeRanking />}>
+        <AdminProductivityPanel period={period} especialidade={especialidade} />
+      </Suspense>
     </div>
   )
 }
