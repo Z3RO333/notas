@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback } from 'react'
-import { CalendarDays, HardHat } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
+import { CalendarDays, ChevronDown, HardHat, SlidersHorizontal } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { cn } from '@/lib/utils'
 
 interface AdminProductivityFilterProps {
   selectedYear: number
@@ -33,7 +34,7 @@ const MONTH_OPTIONS = [
 ]
 
 const nativeSelectClassName =
-  'h-9 rounded-full border border-border/70 bg-background/70 px-3 py-1 text-sm shadow-none transition-colors focus:outline-none focus:ring-1 focus:ring-ring'
+  'h-11 w-full rounded-2xl border border-border/70 bg-background/80 px-4 text-sm shadow-none transition-colors focus:outline-none focus:ring-1 focus:ring-ring'
 
 export function AdminProductivityFilter({
   selectedYear,
@@ -44,6 +45,7 @@ export function AdminProductivityFilter({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [isOpen, setIsOpen] = useState(false)
 
   const updateQuery = useCallback(
     (nextYear: number, nextMonth: number, nextEspecialidade?: string | null) => {
@@ -61,61 +63,107 @@ export function AdminProductivityFilter({
   )
 
   const activeEspecialidade = selectedEspecialidade ?? ''
+  const selectedMonthLabel = useMemo(
+    () => MONTH_OPTIONS.find((month) => month.value === String(selectedMonth))?.label ?? 'Mes atual',
+    [selectedMonth],
+  )
+  const selectedEspecialidadeLabel = useMemo(
+    () => ESPECIALIDADE_OPTIONS.find((option) => option.value === activeEspecialidade)?.label ?? 'Todos',
+    [activeEspecialidade],
+  )
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-card/60 p-3">
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        <CalendarDays className="h-4 w-4" />
-        Periodo
-      </div>
-
-      <select
-        value={String(selectedYear)}
-        onChange={(event) => updateQuery(Number(event.target.value), selectedMonth, selectedEspecialidade)}
-        className={`${nativeSelectClassName} min-w-24`}
+    <section className="rounded-3xl border bg-card/45 p-3 md:p-4">
+      <button
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        className="flex w-full items-center justify-between gap-4 rounded-2xl px-2 py-1 text-left transition-colors hover:bg-muted/20"
+        aria-expanded={isOpen}
       >
-        {yearOptions.map((year) => (
-          <option key={year} value={String(year)}>
-            {year}
-          </option>
-        ))}
-      </select>
+        <div className="min-w-0 space-y-2">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <SlidersHorizontal className="h-4 w-4" />
+            Filtros do painel
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1 text-sm text-foreground">
+              {selectedMonthLabel}/{selectedYear}
+            </span>
+            <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1 text-sm text-muted-foreground">
+              {selectedEspecialidadeLabel}
+            </span>
+          </div>
+        </div>
 
-      <select
-        value={String(selectedMonth)}
-        onChange={(event) => updateQuery(selectedYear, Number(event.target.value), selectedEspecialidade)}
-        className={`${nativeSelectClassName} min-w-40`}
-      >
-        {MONTH_OPTIONS.map((month) => (
-          <option key={month.value} value={month.value}>
-            {month.label}
-          </option>
-        ))}
-      </select>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="hidden sm:inline">{isOpen ? 'Recolher' : 'Expandir'}</span>
+          <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />
+        </div>
+      </button>
 
-      <div className="mx-1 h-5 w-px bg-border/60" />
+      {isOpen ? (
+        <div className="mt-4 grid gap-4 border-t border-border/60 pt-4 xl:grid-cols-[220px_260px_minmax(0,1fr)]">
+          <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+            <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              <CalendarDays className="h-4 w-4" />
+              Ano
+            </div>
+            <select
+              value={String(selectedYear)}
+              onChange={(event) => updateQuery(Number(event.target.value), selectedMonth, selectedEspecialidade)}
+              className={nativeSelectClassName}
+            >
+              {yearOptions.map((year) => (
+                <option key={year} value={String(year)}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
 
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        <HardHat className="h-4 w-4" />
-        Operacional
-      </div>
+          <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+            <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              <CalendarDays className="h-4 w-4" />
+              Mes
+            </div>
+            <select
+              value={String(selectedMonth)}
+              onChange={(event) => updateQuery(selectedYear, Number(event.target.value), selectedEspecialidade)}
+              className={nativeSelectClassName}
+            >
+              {MONTH_OPTIONS.map((month) => (
+                <option key={month.value} value={month.value}>
+                  {month.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-      <div className="flex items-center gap-1.5">
-        {ESPECIALIDADE_OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => updateQuery(selectedYear, selectedMonth, opt.value || null)}
-            className={`h-9 rounded-full border px-3 py-1 text-sm transition-colors ${
-              activeEspecialidade === opt.value
-                ? 'border-primary/30 bg-primary/10 font-medium text-primary'
-                : 'border-border/70 bg-background/70 text-muted-foreground hover:border-border hover:text-foreground'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    </div>
+          <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+            <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              <HardHat className="h-4 w-4" />
+              Foco operacional
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {ESPECIALIDADE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => updateQuery(selectedYear, selectedMonth, opt.value || null)}
+                  className={cn(
+                    'h-10 rounded-full border px-4 text-sm transition-colors',
+                    activeEspecialidade === opt.value
+                      ? 'border-primary/30 bg-primary/10 font-medium text-primary'
+                      : 'border-border/70 bg-background/70 text-muted-foreground hover:border-border hover:text-foreground',
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
   )
 }

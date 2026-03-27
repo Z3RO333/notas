@@ -368,14 +368,14 @@ function SectionHeading({
   badge,
 }: {
   title: string
-  description: string
+  description?: string
   badge?: ReactNode
 }) {
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-      <div className="space-y-1">
+      <div className={cn('space-y-1', !description && 'space-y-0')}>
         <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>
       {badge}
     </div>
@@ -953,7 +953,6 @@ export async function AdminProductivityPanel({ period, especialidade }: AdminPro
       <section className="space-y-6">
         <SectionHeading
           title="Operacionais"
-          description="Painel mensal de produtividade dos colaboradores operacionais, com foco em concluídas, taxa de conclusão, ranking do mês e reconhecimento."
           badge={(
             <div className="flex items-center gap-2">
               {especialidade && (
