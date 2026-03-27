@@ -14,6 +14,7 @@ import { OrdersPriorityLane, PRIORITY_LANE_CONFIG } from '@/components/orders/or
 import { OrdersPoolCard } from '@/components/orders/orders-pool-card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useToast } from '@/components/ui/toast'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getOrdersCriticalityLevel, getRawStatusLabel, getSemaforoLabel, workspaceKpisToOrdemNotaKpis, SEMAFORO_OPTIONS } from '@/lib/orders/metrics'
@@ -419,8 +420,18 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
   const unitOptions = useMemo(() => {
     const units = Array.from(new Set(rows.map((row) => row.unidade).filter(Boolean) as string[]))
+    if (filters.unidade?.trim() && !units.includes(filters.unidade)) {
+      units.push(filters.unidade)
+    }
     return units.sort((a, b) => a.localeCompare(b, 'pt-BR'))
-  }, [rows])
+  }, [filters.unidade, rows])
+
+  const unitSelectOptions = useMemo(() => (
+    [
+      { value: '', label: 'Todas as unidades' },
+      ...unitOptions.map((unit) => ({ value: unit, label: unit })),
+    ]
+  ), [unitOptions])
 
   const responsavelOptions = useMemo(() => {
     const options = ownerSummary
@@ -988,12 +999,13 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             </Select>
           )}
 
-          <Input list="workspace-unidades" value={filters.unidade} onChange={(event) => setFilters((prev) => ({ ...prev, unidade: event.target.value }))} placeholder="Unidade" />
-          <datalist id="workspace-unidades">
-            {unitOptions.map((unit) => (
-              <option key={unit} value={unit} />
-            ))}
-          </datalist>
+          <SearchableSelect
+            id="workspace-unidades"
+            options={unitSelectOptions}
+            value={filters.unidade}
+            onValueChange={(value) => setFilters((prev) => ({ ...prev, unidade: value }))}
+            placeholder="Unidade"
+          />
         </div>
         {smartSearch.mode !== 'none' && (
           <p className="mt-3 text-[11px] text-muted-foreground">
