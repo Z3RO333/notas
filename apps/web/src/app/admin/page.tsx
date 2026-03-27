@@ -8,11 +8,12 @@ import {
   resolveAdminProductivityPeriod,
   type AdminProductivitySearchParams,
 } from '@/lib/dashboard/productivity-month'
+import { readFirstParam } from '@/lib/grid/query'
 
 export const dynamic = 'force-dynamic'
 
 interface AdminDashboardPageProps {
-  searchParams?: Promise<AdminProductivitySearchParams>
+  searchParams?: Promise<AdminProductivitySearchParams & { especialidade?: string | string[] }>
 }
 
 export default async function AdminDashboardPage({ searchParams }: AdminDashboardPageProps) {
@@ -20,6 +21,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
   const resolvedSearchParams = searchParams ? await searchParams : undefined
   const period = resolveAdminProductivityPeriod(resolvedSearchParams)
   const yearOptions = buildProductivityYearOptions()
+  const especialidade = readFirstParam(resolvedSearchParams?.especialidade) ?? null
 
   if (!currentAdminContext.isAuthenticated) {
     redirect('/login')
@@ -39,11 +41,12 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
             selectedYear={period.year}
             selectedMonth={period.month}
             yearOptions={yearOptions}
+            selectedEspecialidade={especialidade}
           />
         }
       />
 
-      <AdminProductivityPanel period={period} />
+      <AdminProductivityPanel period={period} especialidade={especialidade} />
     </div>
   )
 }

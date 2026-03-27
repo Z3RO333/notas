@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils'
 
 interface AdminProductivityPanelProps {
   period: AdminProductivityPeriod
+  especialidade?: string | null
 }
 
 type DeltaTone = 'positive' | 'negative' | 'neutral'
@@ -687,8 +688,9 @@ function AdminRankingCard({ rows }: { rows: AdminRankingView[] }) {
   )
 }
 
-export async function AdminProductivityPanel({ period }: AdminProductivityPanelProps) {
+export async function AdminProductivityPanel({ period, especialidade }: AdminProductivityPanelProps) {
   const supabase = await createClient()
+  const filtroEspecialidade = especialidade ?? undefined
 
   const adminEvolutionRequests = period.rollingMonths.map((monthWindow) => (
     supabase.rpc('calcular_kpis_ordens_operacional', {
@@ -723,28 +725,33 @@ export async function AdminProductivityPanel({ period }: AdminProductivityPanelP
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
       p_fornecedor_codigo: null,
+      p_especialidade: filtroEspecialidade,
     }),
     supabase.rpc('calcular_kpis_operacionais', {
       p_data_inicio: period.previous.startIso,
       p_data_fim: period.previous.endExclusiveIso,
       p_fornecedor_codigo: null,
+      p_especialidade: filtroEspecialidade,
     }),
     supabase.rpc('calcular_produtividade_operacionais', {
       p_data_inicio: period.startIso,
       p_data_fim: period.endExclusiveIso,
       p_limit: 50,
       p_fornecedor_codigo: null,
+      p_especialidade: filtroEspecialidade,
     }),
     supabase.rpc('calcular_produtividade_operacionais', {
       p_data_inicio: period.previous.startIso,
       p_data_fim: period.previous.endExclusiveIso,
       p_limit: 50,
       p_fornecedor_codigo: null,
+      p_especialidade: filtroEspecialidade,
     }),
     supabase.rpc('calcular_evolucao_mensal_operacionais', {
       p_data_inicio: period.rollingMonths[0]?.startIso ?? period.startIso,
       p_data_fim: period.endExclusiveIso,
       p_fornecedor_codigo: null,
+      p_especialidade: filtroEspecialidade,
     }),
     supabase.rpc('calcular_kpis_ordens_operacional', {
       p_period_mode: 'range',
@@ -947,7 +954,16 @@ export async function AdminProductivityPanel({ period }: AdminProductivityPanelP
         <SectionHeading
           title="Operacionais"
           description="Painel mensal de produtividade dos colaboradores operacionais, com foco em concluídas, taxa de conclusão, ranking do mês e reconhecimento."
-          badge={<span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">Mês avaliado: {period.label}</span>}
+          badge={(
+            <div className="flex items-center gap-2">
+              {especialidade && (
+                <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                  {especialidade === 'eletricista' ? 'Eletricistas' : especialidade === 'mecanico_auto' ? 'Mec. Auto' : especialidade}
+                </span>
+              )}
+              <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">Mês avaliado: {period.label}</span>
+            </div>
+          )}
         />
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
