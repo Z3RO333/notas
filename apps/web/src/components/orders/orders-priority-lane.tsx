@@ -59,7 +59,7 @@ export function OrdersPriorityLane({
   onReassigned,
 }: OrdersPriorityLaneProps) {
   const styles = TONE_STYLES[tone]
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(false)
   const ToggleIcon = expanded ? ChevronUp : ChevronDown
 
   return (
