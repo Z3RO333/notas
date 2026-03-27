@@ -253,6 +253,12 @@ export async function GET(request: Request) {
     p_tipo_ordem: parsedRequest.tipoOrdem,
   } satisfies Record<string, unknown>
 
+  const unitsRpcParams = {
+    ...summaryRpcParams,
+    p_unidade: null,
+    p_q: null,
+  } satisfies Record<string, unknown>
+
   const poolRpcParams = {
     p_period_mode: parsedRequest.periodMode,
     p_year: parsedRequest.year,
@@ -262,10 +268,11 @@ export async function GET(request: Request) {
     p_tipo_ordem: parsedRequest.tipoOrdem,
   }
 
-  const [rowsResult, kpisResult, summaryResult, targetsResult, poolResult, poolCentrosResult] = await Promise.all([
+  const [rowsResult, kpisResult, summaryResult, unitsResult, targetsResult, poolResult, poolCentrosResult] = await Promise.all([
     callRpcWithOptionalTipoOrdem<OrdemNotaAcompanhamento[]>(supabase, 'buscar_ordens_workspace', rowsRpcParams),
     callRpcWithOptionalTipoOrdem<OrdersWorkspaceKpis>(supabase, 'calcular_kpis_ordens_operacional', kpisRpcParams),
     callRpcWithOptionalTipoOrdem<Array<Partial<OrdersOwnerSummary>>>(supabase, 'calcular_resumo_colaboradores_ordens', summaryRpcParams),
+    callRpcWithOptionalTipoOrdem<Array<Pick<OrdemNotaAcompanhamento, 'unidade'>>>(supabase, 'filtrar_ordens_workspace', unitsRpcParams),
     canViewGlobal
       ? supabase
         .from('administradores')
@@ -295,11 +302,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: summaryResult.error.message }, { status: 500 })
   }
 
+  if (unitsResult.error) {
+    return NextResponse.json({ error: unitsResult.error.message }, { status: 500 })
+  }
+
   if (targetsResult.error) {
     return NextResponse.json({ error: targetsResult.error.message }, { status: 500 })
   }
 
-  const tipoOrdemSupportedByDb = rowsResult.supportsTipoOrdem && kpisResult.supportsTipoOrdem && summaryResult.supportsTipoOrdem
+  const tipoOrdemSupportedByDb = rowsResult.supportsTipoOrdem && kpisResult.supportsTipoOrdem && summaryResult.supportsTipoOrdem && unitsResult.supportsTipoOrdem
   if (parsedRequest.tipoOrdem === 'PMPL' && !tipoOrdemSupportedByDb) {
     return NextResponse.json({ error: ORDERS_TIPO_ORDEM_MIGRATION_HINT }, { status: 412 })
   }
@@ -310,6 +321,13 @@ export async function GET(request: Request) {
 
   const rowsFromRpc = (rowsResult.data ?? []) as OrdemNotaAcompanhamento[]
   let rows = rowsFromRpc
+  const unitOptions = Array.from(
+    new Set(
+      ((unitsResult.data ?? []) as Array<Pick<OrdemNotaAcompanhamento, 'unidade'>>)
+        .map((row) => row.unidade?.trim() ?? '')
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b, 'pt-BR'))
 
   let ownerSummary = ((summaryResult.data ?? []) as Array<Partial<OrdersOwnerSummary>>).map((item) => {
     const adminId = item.administrador_id ?? null
@@ -417,6 +435,7 @@ export async function GET(request: Request) {
   const response: OrdersWorkspaceResponse = {
     rows,
     nextCursor,
+    unitOptions,
     kpis: kpis ?? emptyWorkspaceKpis(),
     ownerSummary,
     reassignTargets,

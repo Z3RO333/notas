@@ -417,6 +417,7 @@ export interface OrdersWorkspaceHighlights {
 export interface OrdersWorkspaceResponse {
   rows: OrdemNotaAcompanhamento[]
   nextCursor: OrdersWorkspaceCursor | null
+  unitOptions: string[]
   kpis: OrdersWorkspaceKpis
   ownerSummary: OrdersOwnerSummary[]
   reassignTargets: OrderReassignTarget[]

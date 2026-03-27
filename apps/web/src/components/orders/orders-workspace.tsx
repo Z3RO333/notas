@@ -238,7 +238,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
   // --- Data + smart search ---
   const {
-    rows, setRows, kpis, ownerSummary, reassignTargets, poolGroups, poolCentros, highlights,
+    rows, setRows, unitOptions: fetchedUnitOptions, kpis, ownerSummary, reassignTargets, poolGroups, poolCentros, highlights,
     nextCursor, loadingInitial, loadingMore, error, currentUser, parentRef, smartSearch, effectiveFilters, fetchWorkspace,
   } = useOrdersData({
     filters,
@@ -419,12 +419,12 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   }
 
   const unitOptions = useMemo(() => {
-    const units = Array.from(new Set(rows.map((row) => row.unidade).filter(Boolean) as string[]))
+    const units = [...fetchedUnitOptions]
     if (filters.unidade?.trim() && !units.includes(filters.unidade)) {
       units.push(filters.unidade)
     }
     return units.sort((a, b) => a.localeCompare(b, 'pt-BR'))
-  }, [filters.unidade, rows])
+  }, [fetchedUnitOptions, filters.unidade])
 
   const unitSelectOptions = useMemo(() => (
     [

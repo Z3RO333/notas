@@ -55,6 +55,7 @@ function makePayload(
   return {
     rows,
     nextCursor,
+    unitOptions: [],
     kpis: {
       total: rows.length,
       abertas: 0,

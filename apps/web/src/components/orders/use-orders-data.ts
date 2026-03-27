@@ -127,6 +127,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
   const { toast } = useToast()
 
   const [rows, setRows] = useState<OrdemNotaAcompanhamento[]>([])
+  const [unitOptions, setUnitOptions] = useState<string[]>([])
   const [kpis, setKpis] = useState<OrdersWorkspaceKpis>(INITIAL_KPIS)
   const [ownerSummary, setOwnerSummary] = useState<OrdersOwnerSummary[]>([])
   const [reassignTargets, setReassignTargets] = useState<OrderReassignTarget[]>([])
@@ -222,6 +223,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
         }
 
         setCurrentUser((prev) => ({ ...payload.currentUser, userEmail: prev.userEmail }))
+        setUnitOptions(payload.unitOptions ?? [])
         setKpis(payload.kpis)
         setOwnerSummary(payload.ownerSummary)
         setReassignTargets(payload.reassignTargets)
@@ -268,6 +270,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
   return {
     rows,
     setRows,
+    unitOptions,
     kpis,
     ownerSummary,
     reassignTargets,
