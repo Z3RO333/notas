@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import type { ComponentType, ReactNode } from 'react'
 import {
   BriefcaseBusiness,
@@ -13,8 +14,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
 import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
 import {
-  isMissingAdminProductivityPayloadRpc,
-  normalizeAdminProductivityDashboardPayload,
   normalizeFornecedorCodigo,
   pickOperationalAvatarCodes,
 } from '@/lib/dashboard/admin-productivity-data'
@@ -85,6 +84,7 @@ type PodiumEntry = {
 const EXCLUDED_ADMIN_RANKING_NAMES = new Set([
   'DANIEL DAMASCENO',
   'GUSTAVO ANDRADE',
+  'BRENDA FONSECA',
 ])
 
 function toNumber(value: unknown): number {
@@ -336,120 +336,6 @@ function pickBestRateAdmin(rows: AdminRankingView[]): AdminRankingView | null {
     })[0] ?? rows[0] ?? null
 }
 
-type AdminProductivityAdminData = {
-  currentKpis: OrdersWorkspaceKpis
-  previousKpis: OrdersWorkspaceKpis
-  currentRanking: OrdemNotaRankingAdmin[]
-  previousRanking: OrdemNotaRankingAdmin[]
-  evolution: EvolucaoMensalOperacional[]
-}
-
-async function loadLegacyAdminProductivityData(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  period: AdminProductivityPeriod,
-): Promise<AdminProductivityAdminData> {
-  const adminEvolutionRequests = period.rollingMonths.map((monthWindow) => (
-    supabase.rpc('calcular_kpis_ordens_operacional', {
-      p_period_mode: 'range',
-      p_year: null,
-      p_month: null,
-      p_start_iso: monthWindow.startIso,
-      p_end_exclusive_iso: monthWindow.endExclusiveIso,
-      p_status: null,
-      p_unidade: null,
-      p_responsavel: null,
-      p_prioridade: null,
-      p_q: null,
-      p_admin_scope: null,
-      p_tipo_ordem: null,
-    })
-  ))
-
-  const [
-    adminCurrentKpisResult,
-    adminPreviousKpisResult,
-    adminCurrentRankingResult,
-    adminPreviousRankingResult,
-    ...adminEvolutionResults
-  ] = await Promise.all([
-    supabase.rpc('calcular_kpis_ordens_operacional', {
-      p_period_mode: 'range',
-      p_year: null,
-      p_month: null,
-      p_start_iso: period.startIso,
-      p_end_exclusive_iso: period.endExclusiveIso,
-      p_status: null,
-      p_unidade: null,
-      p_responsavel: null,
-      p_prioridade: null,
-      p_q: null,
-      p_admin_scope: null,
-      p_tipo_ordem: null,
-    }),
-    supabase.rpc('calcular_kpis_ordens_operacional', {
-      p_period_mode: 'range',
-      p_year: null,
-      p_month: null,
-      p_start_iso: period.previous.startIso,
-      p_end_exclusive_iso: period.previous.endExclusiveIso,
-      p_status: null,
-      p_unidade: null,
-      p_responsavel: null,
-      p_prioridade: null,
-      p_q: null,
-      p_admin_scope: null,
-      p_tipo_ordem: null,
-    }),
-    callRpcWithOptionalTipoOrdem<OrdemNotaRankingAdmin[]>(
-      supabase,
-      'calcular_ranking_ordens_admin',
-      {
-        p_start_iso: period.startIso,
-        p_end_exclusive_iso: period.endExclusiveIso,
-        p_tipo_ordem: null,
-      },
-    ),
-    callRpcWithOptionalTipoOrdem<OrdemNotaRankingAdmin[]>(
-      supabase,
-      'calcular_ranking_ordens_admin',
-      {
-        p_start_iso: period.previous.startIso,
-        p_end_exclusive_iso: period.previous.endExclusiveIso,
-        p_tipo_ordem: null,
-      },
-    ),
-    ...adminEvolutionRequests,
-  ])
-
-  const firstError = [
-    adminCurrentKpisResult.error,
-    adminPreviousKpisResult.error,
-    adminCurrentRankingResult.error,
-    adminPreviousRankingResult.error,
-    ...adminEvolutionResults.map((result) => result.error),
-  ].find(Boolean)
-
-  if (firstError) throw firstError
-
-  return {
-    currentKpis: normalizeOrdersKpis(adminCurrentKpisResult.data),
-    previousKpis: normalizeOrdersKpis(adminPreviousKpisResult.data),
-    currentRanking: (adminCurrentRankingResult.data ?? []) as OrdemNotaRankingAdmin[],
-    previousRanking: (adminPreviousRankingResult.data ?? []) as OrdemNotaRankingAdmin[],
-    evolution: adminEvolutionResults.map((result, index) => {
-      const kpis = normalizeOrdersKpis(result.data)
-      const monthWindow = period.rollingMonths[index]
-
-      return {
-        ano: monthWindow?.year ?? period.year,
-        mes: monthWindow?.month ?? period.month,
-        label: monthWindow?.label ?? period.label,
-        concluidas: kpis.concluidas,
-        em_aberto: kpis.abertas + kpis.em_tratativa + kpis.em_avaliacao,
-      }
-    }),
-  }
-}
 
 function MetricCard({
   icon: Icon,
@@ -811,17 +697,59 @@ function AdminRankingCard({ rows }: { rows: AdminRankingView[] }) {
   )
 }
 
-export async function AdminProductivityPanel({ period, especialidade }: AdminProductivityPanelProps) {
+function OperacionalSectionSkeleton() {
+  return (
+    <section className="animate-pulse space-y-6">
+      <div className="h-8 w-48 rounded-md bg-muted" />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-28 rounded-lg border bg-muted/30" />
+        ))}
+      </div>
+      <div className="grid gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
+          <div className="h-64 rounded-lg border bg-muted/30" />
+          <div className="h-72 rounded-lg border bg-muted/30" />
+        </div>
+        <div className="h-64 rounded-lg border bg-muted/30" />
+      </div>
+    </section>
+  )
+}
+
+function AdminSectionSkeleton() {
+  return (
+    <section className="animate-pulse space-y-6">
+      <div className="h-8 w-48 rounded-md bg-muted" />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-28 rounded-lg border bg-muted/30" />
+        ))}
+      </div>
+      <div className="grid gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
+          <div className="h-64 rounded-lg border bg-muted/30" />
+          <div className="h-72 rounded-lg border bg-muted/30" />
+        </div>
+        <div className="space-y-6">
+          <div className="h-48 rounded-lg border bg-muted/30" />
+          <div className="h-48 rounded-lg border bg-muted/30" />
+        </div>
+      </div>
+    </section>
+  )
+}
+
+async function OperacionalSection({ period, especialidade }: AdminProductivityPanelProps) {
   const supabase = await createClient()
   const filtroEspecialidade = especialidade ?? undefined
 
   const [
-    operationalCurrentKpisResult,
-    operationalPreviousKpisResult,
-    operationalCurrentRowsResult,
-    operationalPreviousRowsResult,
-    operationalEvolutionResult,
-    adminDashboardPayloadResult,
+    currentKpisResult,
+    previousKpisResult,
+    currentRowsResult,
+    previousRowsResult,
+    evolutionResult,
   ] = await Promise.all([
     supabase.rpc('calcular_kpis_operacionais', {
       p_data_inicio: period.startIso,
@@ -855,361 +783,391 @@ export async function AdminProductivityPanel({ period, especialidade }: AdminPro
       p_fornecedor_codigo: null,
       p_especialidade: filtroEspecialidade,
     }),
-    supabase.rpc('calcular_dashboard_produtividade_admin', {
-      p_current_start_iso: period.startIso,
-      p_current_end_exclusive_iso: period.endExclusiveIso,
-      p_previous_start_iso: period.previous.startIso,
-      p_previous_end_exclusive_iso: period.previous.endExclusiveIso,
-      p_rolling_start_iso: period.rollingMonths[0]?.startIso ?? period.startIso,
-      p_rolling_end_exclusive_iso: period.endExclusiveIso,
-      p_tipo_ordem: null,
-    }),
   ])
 
   const firstError = [
-    operationalCurrentKpisResult.error,
-    operationalPreviousKpisResult.error,
-    operationalCurrentRowsResult.error,
-    operationalPreviousRowsResult.error,
-    operationalEvolutionResult.error,
+    currentKpisResult.error,
+    previousKpisResult.error,
+    currentRowsResult.error,
+    previousRowsResult.error,
+    evolutionResult.error,
   ].find(Boolean)
 
   if (firstError) throw firstError
 
-  const operationalCurrentKpis = normalizeOperacionalKpis(operationalCurrentKpisResult.data)
-  const operationalPreviousKpis = normalizeOperacionalKpis(operationalPreviousKpisResult.data)
-  const operationalCurrentRowsRaw = (operationalCurrentRowsResult.data ?? []) as ProdutividadeOperacional[]
-  const operationalPreviousRowsRaw = (operationalPreviousRowsResult.data ?? []) as ProdutividadeOperacional[]
+  const currentKpis = normalizeOperacionalKpis(currentKpisResult.data)
+  const previousKpis = normalizeOperacionalKpis(previousKpisResult.data)
+  const currentRowsRaw = (currentRowsResult.data ?? []) as ProdutividadeOperacional[]
+  const previousRowsRaw = (previousRowsResult.data ?? []) as ProdutividadeOperacional[]
 
-  const operacionalAvatarByCode = new Map<string, string | null>()
-  const operacionalAvatarCodes = pickOperationalAvatarCodes(operationalCurrentRowsRaw)
-  if (operacionalAvatarCodes.length > 0) {
-    const operacionalAvatarResult = await supabase
+  const avatarByCode = new Map<string, string | null>()
+  const avatarCodes = pickOperationalAvatarCodes(currentRowsRaw)
+  if (avatarCodes.length > 0) {
+    const avatarResult = await supabase
       .from('dim_operacionais')
       .select('codigo, avatar_url')
-      .in('codigo', operacionalAvatarCodes)
+      .in('codigo', avatarCodes)
       .not('avatar_url', 'is', null)
 
-    if (!operacionalAvatarResult.error) {
-      for (const row of operacionalAvatarResult.data ?? []) {
-        operacionalAvatarByCode.set(row.codigo, row.avatar_url)
+    if (!avatarResult.error) {
+      for (const row of avatarResult.data ?? []) {
+        avatarByCode.set(row.codigo, row.avatar_url)
       }
     }
   }
 
-  const operationalRows = buildOperationalRows(operationalCurrentRowsRaw, operationalPreviousRowsRaw, operacionalAvatarByCode)
-  const operationalEvolution = (operationalEvolutionResult.data ?? []) as EvolucaoMensalOperacional[]
+  const rows = buildOperationalRows(currentRowsRaw, previousRowsRaw, avatarByCode)
+  const evolution = (evolutionResult.data ?? []) as EvolucaoMensalOperacional[]
 
-  let adminProductivityData: AdminProductivityAdminData
-  if (adminDashboardPayloadResult.error) {
-    if (isMissingAdminProductivityPayloadRpc(adminDashboardPayloadResult.error)) {
-      adminProductivityData = await loadLegacyAdminProductivityData(supabase, period)
-    } else {
-      throw adminDashboardPayloadResult.error
-    }
-  } else {
-    adminProductivityData = normalizeAdminProductivityDashboardPayload(
-      adminDashboardPayloadResult.data,
-      period.rollingMonths,
-    )
-  }
-
-  const adminCurrentKpis = adminProductivityData.currentKpis
-  const adminPreviousKpis = adminProductivityData.previousKpis
-  const adminCurrentRankingRaw = adminProductivityData.currentRanking
-  const adminPreviousRankingRaw = adminProductivityData.previousRanking
-  const adminAvatarById = new Map<string, string | null>()
-  const adminAvatarIds = Array.from(new Set(adminCurrentRankingRaw.map((row) => row.administrador_id).filter(Boolean)))
-  if (adminAvatarIds.length > 0) {
-    const adminAvatarResult = await supabase
-      .from('administradores')
-      .select('id, avatar_url')
-      .in('id', adminAvatarIds)
-
-    if (!adminAvatarResult.error) {
-      for (const row of adminAvatarResult.data ?? []) {
-        adminAvatarById.set(row.id, row.avatar_url)
-      }
-    }
-  }
-  const adminRows = buildAdminRows(adminCurrentRankingRaw, adminPreviousRankingRaw, adminAvatarById)
-  const adminEvolution = adminProductivityData.evolution
-
-  const operationalRate = operationalCurrentKpis.total_ordens > 0
-    ? (operationalCurrentKpis.ordens_atendidas / operationalCurrentKpis.total_ordens) * 100
+  const rate = currentKpis.total_ordens > 0
+    ? (currentKpis.ordens_atendidas / currentKpis.total_ordens) * 100
     : 0
-  const operationalRatePrevious = operationalPreviousKpis.total_ordens > 0
-    ? (operationalPreviousKpis.ordens_atendidas / operationalPreviousKpis.total_ordens) * 100
+  const ratePrevious = previousKpis.total_ordens > 0
+    ? (previousKpis.ordens_atendidas / previousKpis.total_ordens) * 100
     : 0
-  const operationalTop = operationalRows[0] ?? null
-  const operationalBestRate = pickBestRateOperational(operationalCurrentRowsRaw)
-  const operationalWithProductionCount = operationalRows.filter((row) => row.total_ordens > 0).length
-  const operationalWithProductionPreviousCount = operationalPreviousRowsRaw.filter((row) => row.total_ordens > 0).length
-  const operationalHighPerformanceCount = operationalRows.filter((row) => row.pct_conclusao >= 80 && row.total_ordens >= 5).length
-  const operationalCoverage = [...operationalRows].sort((left, right) => {
+  const top = rows[0] ?? null
+  const bestRate = pickBestRateOperational(currentRowsRaw)
+  const withProductionCount = rows.filter((row) => row.total_ordens > 0).length
+  const withProductionPreviousCount = previousRowsRaw.filter((row) => row.total_ordens > 0).length
+  const highPerformanceCount = rows.filter((row) => row.pct_conclusao >= 80 && row.total_ordens >= 5).length
+  const coverage = [...rows].sort((left, right) => {
     if (right.lojas_atendidas !== left.lojas_atendidas) return right.lojas_atendidas - left.lojas_atendidas
     return right.atendidas - left.atendidas
   })[0] ?? null
-  const operationalRecognition: RecognitionItem[] = [
-    operationalTop
+  const recognition: RecognitionItem[] = [
+    top
       ? {
         label: 'Mais concluiu',
-        name: operationalTop.fornecedor_nome || operationalTop.fornecedor_codigo,
-        value: `${formatInteger(operationalTop.atendidas)} ordens concluídas`,
+        name: top.fornecedor_nome || top.fornecedor_codigo,
+        value: `${formatInteger(top.atendidas)} ordens concluídas`,
       }
       : { label: 'Mais concluiu', name: 'Sem destaque', value: 'Nenhuma produção no mês.' },
-    operationalBestRate
+    bestRate
       ? {
         label: 'Melhor taxa',
-        name: operationalBestRate.fornecedor_nome || operationalBestRate.fornecedor_codigo,
-        value: `${formatPercent(operationalBestRate.pct_conclusao)} de conclusão`,
+        name: bestRate.fornecedor_nome || bestRate.fornecedor_codigo,
+        value: `${formatPercent(bestRate.pct_conclusao)} de conclusão`,
       }
       : { label: 'Melhor taxa', name: 'Sem destaque', value: 'Nenhuma base válida no mês.' },
-    operationalCoverage
+    coverage
       ? {
         label: 'Maior cobertura',
-        name: operationalCoverage.fornecedor_nome || operationalCoverage.fornecedor_codigo,
-        value: `${formatInteger(operationalCoverage.lojas_atendidas)} lojas atendidas`,
+        name: coverage.fornecedor_nome || coverage.fornecedor_codigo,
+        value: `${formatInteger(coverage.lojas_atendidas)} lojas atendidas`,
       }
       : { label: 'Maior cobertura', name: 'Sem destaque', value: 'Nenhuma cobertura registrada.' },
   ]
+  const trendLabel = `${period.rollingMonths[0]?.label ?? period.label} a ${period.label}`
 
-  const adminRate = adminCurrentKpis.total > 0
-    ? (adminCurrentKpis.concluidas / adminCurrentKpis.total) * 100
-    : 0
-  const adminRatePrevious = adminPreviousKpis.total > 0
-    ? (adminPreviousKpis.concluidas / adminPreviousKpis.total) * 100
-    : 0
-  const adminPending = adminCurrentKpis.abertas + adminCurrentKpis.em_tratativa + adminCurrentKpis.em_avaliacao
-  const adminWithProduction = adminRows.filter((row) => row.total > 0).length
-  const adminWithProductionPrevious = adminPreviousRankingRaw.filter((row) => toNumber(row.qtd_ordens_30d) > 0).length
-  const adminWithoutDelay = adminRows.filter((row) => row.atrasadas === 0 && row.total >= 5).length
-  const adminTop = adminRows[0] ?? null
-  const adminBestRate = pickBestRateAdmin(adminRows)
-  const adminLowestDelay = [...adminRows]
+  return (
+    <section className="space-y-6">
+      <SectionHeading
+        title="Operacionais"
+        badge={(
+          <div className="flex items-center gap-2">
+            {especialidade && (
+              <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                {especialidade === 'eletricista' ? 'Eletricistas' : especialidade === 'mecanico_auto' ? 'Mec. Auto' : especialidade}
+              </span>
+            )}
+            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">Mês avaliado: {period.label}</span>
+          </div>
+        )}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          icon={ClipboardCheck}
+          label="Ordens concluídas"
+          value={formatInteger(currentKpis.ordens_atendidas)}
+          helper={`Base do mês ${period.label}.`}
+          deltaLabel={formatComparisonCount(
+            currentKpis.ordens_atendidas,
+            previousKpis.ordens_atendidas,
+            period.previous.label,
+          )}
+          deltaTone={resolveDeltaTone(currentKpis.ordens_atendidas - previousKpis.ordens_atendidas)}
+          tone="success"
+        />
+        <MetricCard
+          icon={Gauge}
+          label="Taxa de conclusão"
+          value={formatPercent(rate)}
+          helper={`${formatInteger(currentKpis.total_ordens)} ordens no mês selecionado.`}
+          deltaLabel={formatComparisonRate(rate, ratePrevious, period.previous.label)}
+          deltaTone={resolveDeltaTone(rate - ratePrevious)}
+          tone={rate >= 80 ? 'success' : rate >= 60 ? 'warning' : 'default'}
+        />
+        <MetricCard
+          icon={Users}
+          label="Operacionais com produção"
+          value={formatInteger(withProductionCount)}
+          helper={`${formatInteger(highPerformanceCount)} com taxa acima de 80%.`}
+          deltaLabel={formatComparisonCount(
+            withProductionCount,
+            withProductionPreviousCount,
+            period.previous.label,
+          )}
+          deltaTone={resolveDeltaTone(withProductionCount - withProductionPreviousCount)}
+        />
+        <MetricCard
+          icon={Trophy}
+          label="Destaque do mês"
+          value={top ? (top.fornecedor_nome || top.fornecedor_codigo) : 'Sem base'}
+          helper={top ? `${formatInteger(top.atendidas)} concluídas e ${formatPercent(top.pct_conclusao)} de taxa.` : 'Nenhum operacional com produção no mês.'}
+          tone="success"
+        />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
+          <OperationalPodiumCard
+            rows={rows}
+            totalConcluidas={currentKpis.ordens_atendidas}
+          />
+          <OperationalRankingCard
+            rows={rows}
+            totalConcluidas={currentKpis.ordens_atendidas}
+          />
+        </div>
+        <RecognitionCard
+          title="Indicadores para reconhecimento"
+          subtitle="Leituras objetivas para premiação e acompanhamento do mês."
+          items={recognition}
+        />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <StatusBarChart rows={currentRowsRaw.slice(0, 10)} periodLabel={period.label} />
+        <EvolucaoMensalOperacionalChart rows={evolution} periodLabel={trendLabel} />
+      </div>
+    </section>
+  )
+}
+
+async function AdminSection({ period }: { period: AdminProductivityPeriod }) {
+  const supabase = await createClient()
+
+  const [
+    currentKpisResult,
+    previousKpisResult,
+    currentRankingResult,
+    previousRankingResult,
+    evolutionResult,
+  ] = await Promise.all([
+    supabase.rpc('calcular_kpis_ordens_operacional', {
+      p_period_mode: 'range',
+      p_year: null,
+      p_month: null,
+      p_start_iso: period.startIso,
+      p_end_exclusive_iso: period.endExclusiveIso,
+      p_status: null,
+      p_unidade: null,
+      p_responsavel: null,
+      p_prioridade: null,
+      p_q: null,
+      p_admin_scope: null,
+      p_tipo_ordem: null,
+    }),
+    supabase.rpc('calcular_kpis_ordens_operacional', {
+      p_period_mode: 'range',
+      p_year: null,
+      p_month: null,
+      p_start_iso: period.previous.startIso,
+      p_end_exclusive_iso: period.previous.endExclusiveIso,
+      p_status: null,
+      p_unidade: null,
+      p_responsavel: null,
+      p_prioridade: null,
+      p_q: null,
+      p_admin_scope: null,
+      p_tipo_ordem: null,
+    }),
+    callRpcWithOptionalTipoOrdem<OrdemNotaRankingAdmin[]>(supabase, 'calcular_ranking_ordens_admin', {
+      p_start_iso: period.startIso,
+      p_end_exclusive_iso: period.endExclusiveIso,
+      p_tipo_ordem: null,
+    }),
+    callRpcWithOptionalTipoOrdem<OrdemNotaRankingAdmin[]>(supabase, 'calcular_ranking_ordens_admin', {
+      p_start_iso: period.previous.startIso,
+      p_end_exclusive_iso: period.previous.endExclusiveIso,
+      p_tipo_ordem: null,
+    }),
+    supabase.rpc('calcular_evolucao_mensal_admin', {
+      p_data_inicio: period.rollingMonths[0]?.startIso ?? period.startIso,
+      p_data_fim: period.endExclusiveIso,
+    }),
+  ])
+
+  const firstError = [
+    currentKpisResult.error,
+    previousKpisResult.error,
+    currentRankingResult.error,
+    previousRankingResult.error,
+    evolutionResult.error,
+  ].find(Boolean)
+
+  if (firstError) throw firstError
+
+  const currentKpis = normalizeOrdersKpis(currentKpisResult.data)
+  const previousKpis = normalizeOrdersKpis(previousKpisResult.data)
+  const currentRankingRaw = (currentRankingResult.data ?? []) as OrdemNotaRankingAdmin[]
+  const previousRankingRaw = (previousRankingResult.data ?? []) as OrdemNotaRankingAdmin[]
+  const evolution = (evolutionResult.data ?? []) as EvolucaoMensalOperacional[]
+
+  const avatarById = new Map<string, string | null>()
+  const avatarIds = Array.from(new Set(currentRankingRaw.map((row) => row.administrador_id).filter(Boolean)))
+  if (avatarIds.length > 0) {
+    const avatarResult = await supabase
+      .from('administradores')
+      .select('id, avatar_url')
+      .in('id', avatarIds)
+
+    if (!avatarResult.error) {
+      for (const row of avatarResult.data ?? []) {
+        avatarById.set(row.id, row.avatar_url)
+      }
+    }
+  }
+
+  const rows = buildAdminRows(currentRankingRaw, previousRankingRaw, avatarById)
+
+  const rate = currentKpis.total > 0 ? (currentKpis.concluidas / currentKpis.total) * 100 : 0
+  const ratePrevious = previousKpis.total > 0 ? (previousKpis.concluidas / previousKpis.total) * 100 : 0
+  const pending = currentKpis.abertas + currentKpis.em_tratativa + currentKpis.em_avaliacao
+  const withProduction = rows.filter((row) => row.total > 0).length
+  const withProductionPrevious = previousRankingRaw.filter((row) => toNumber(row.qtd_ordens_30d) > 0).length
+  const withoutDelay = rows.filter((row) => row.atrasadas === 0 && row.total >= 5).length
+  const top = rows[0] ?? null
+  const bestRate = pickBestRateAdmin(rows)
+  const lowestDelay = [...rows]
     .filter((row) => row.total >= 5)
     .sort((left, right) => {
       if (left.atrasadas !== right.atrasadas) return left.atrasadas - right.atrasadas
       return right.concluidas - left.concluidas
-    })[0] ?? adminRows[0] ?? null
-  const adminRecognition: RecognitionItem[] = [
-    adminTop
+    })[0] ?? rows[0] ?? null
+  const recognition: RecognitionItem[] = [
+    top
       ? {
         label: 'Mais concluiu',
-        name: adminTop.nome,
-        value: `${formatInteger(adminTop.concluidas)} ordens concluídas`,
+        name: top.nome,
+        value: `${formatInteger(top.concluidas)} ordens concluídas`,
       }
       : { label: 'Mais concluiu', name: 'Sem destaque', value: 'Nenhuma produção no mês.' },
-    adminBestRate
+    bestRate
       ? {
         label: 'Melhor taxa',
-        name: adminBestRate.nome,
-        value: `${formatPercent(adminBestRate.taxa_fechamento)} de fechamento`,
+        name: bestRate.nome,
+        value: `${formatPercent(bestRate.taxa_fechamento)} de fechamento`,
       }
       : { label: 'Melhor taxa', name: 'Sem destaque', value: 'Nenhuma base válida no mês.' },
-    adminLowestDelay
+    lowestDelay
       ? {
         label: 'Melhor backlog',
-        name: adminLowestDelay.nome,
-        value: `${formatInteger(adminLowestDelay.atrasadas)} ordem(ns) atrasada(s)`,
+        name: lowestDelay.nome,
+        value: `${formatInteger(lowestDelay.atrasadas)} ordem(ns) atrasada(s)`,
       }
       : { label: 'Melhor backlog', name: 'Sem destaque', value: 'Nenhum backlog comparavel.' },
   ]
-
   const trendLabel = `${period.rollingMonths[0]?.label ?? period.label} a ${period.label}`
 
   return (
-    <div className="space-y-10">
-      <section className="space-y-6">
-        <SectionHeading
-          title="Operacionais"
-          badge={(
-            <div className="flex items-center gap-2">
-              {especialidade && (
-                <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                  {especialidade === 'eletricista' ? 'Eletricistas' : especialidade === 'mecanico_auto' ? 'Mec. Auto' : especialidade}
-                </span>
-              )}
-              <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">Mês avaliado: {period.label}</span>
-            </div>
+    <section className="space-y-6">
+      <SectionHeading
+        title="Administradores"
+        description="Painel mensal de performance dos administradores, com foco em ordens concluídas, taxa de fechamento, volume tratado e ranking do mês."
+        badge={<span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">Comparativo base: {period.previous.label}</span>}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          icon={BriefcaseBusiness}
+          label="Ordens concluídas"
+          value={formatInteger(currentKpis.concluidas)}
+          helper={`Total tratado no mês: ${formatInteger(currentKpis.total)} ordens.`}
+          deltaLabel={formatComparisonCount(
+            currentKpis.concluidas,
+            previousKpis.concluidas,
+            period.previous.label,
           )}
+          deltaTone={resolveDeltaTone(currentKpis.concluidas - previousKpis.concluidas)}
+          tone="success"
         />
+        <MetricCard
+          icon={Gauge}
+          label="Taxa de fechamento"
+          value={formatPercent(rate)}
+          helper={`${formatInteger(pending)} ainda pendentes no mês.`}
+          deltaLabel={formatComparisonRate(rate, ratePrevious, period.previous.label)}
+          deltaTone={resolveDeltaTone(rate - ratePrevious)}
+          tone={rate >= 70 ? 'success' : rate >= 50 ? 'warning' : 'default'}
+        />
+        <MetricCard
+          icon={Users}
+          label="Admins com produção"
+          value={formatInteger(withProduction)}
+          helper={`${formatInteger(withoutDelay)} sem atraso vermelho no mês.`}
+          deltaLabel={formatComparisonCount(
+            withProduction,
+            withProductionPrevious,
+            period.previous.label,
+          )}
+          deltaTone={resolveDeltaTone(withProduction - withProductionPrevious)}
+        />
+        <MetricCard
+          icon={ShieldCheck}
+          label="Destaque do mês"
+          value={top?.nome ?? 'Sem base'}
+          helper={top ? `${formatInteger(top.concluidas)} concluídas e ${formatPercent(top.taxa_fechamento)} de fechamento.` : 'Nenhum administrador com ordens no mês.'}
+          tone="success"
+        />
+      </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            icon={ClipboardCheck}
-            label="Ordens concluídas"
-            value={formatInteger(operationalCurrentKpis.ordens_atendidas)}
-            helper={`Base do mês ${period.label}.`}
-            deltaLabel={formatComparisonCount(
-              operationalCurrentKpis.ordens_atendidas,
-              operationalPreviousKpis.ordens_atendidas,
-              period.previous.label,
-            )}
-            deltaTone={resolveDeltaTone(operationalCurrentKpis.ordens_atendidas - operationalPreviousKpis.ordens_atendidas)}
-            tone="success"
-          />
-          <MetricCard
-            icon={Gauge}
-            label="Taxa de conclusão"
-            value={formatPercent(operationalRate)}
-            helper={`${formatInteger(operationalCurrentKpis.total_ordens)} ordens no mês selecionado.`}
-            deltaLabel={formatComparisonRate(operationalRate, operationalRatePrevious, period.previous.label)}
-            deltaTone={resolveDeltaTone(operationalRate - operationalRatePrevious)}
-            tone={operationalRate >= 80 ? 'success' : operationalRate >= 60 ? 'warning' : 'default'}
-          />
-          <MetricCard
-            icon={Users}
-            label="Operacionais com produção"
-            value={formatInteger(operationalWithProductionCount)}
-            helper={`${formatInteger(operationalHighPerformanceCount)} com taxa acima de 80%.`}
-            deltaLabel={formatComparisonCount(
-              operationalWithProductionCount,
-              operationalWithProductionPreviousCount,
-              period.previous.label,
-            )}
-            deltaTone={resolveDeltaTone(
-              operationalWithProductionCount - operationalWithProductionPreviousCount,
-            )}
-          />
-          <MetricCard
-            icon={Trophy}
-            label="Destaque do mês"
-            value={operationalTop ? (operationalTop.fornecedor_nome || operationalTop.fornecedor_codigo) : 'Sem base'}
-            helper={operationalTop ? `${formatInteger(operationalTop.atendidas)} concluídas e ${formatPercent(operationalTop.pct_conclusao)} de taxa.` : 'Nenhum operacional com produção no mês.'}
-            tone="success"
-          />
+      <div className="grid gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
+          <AdminPodiumCard rows={rows} />
+          <AdminRankingCard rows={rows} />
         </div>
-
-        <div className="grid gap-6 xl:grid-cols-3">
-          <div className="space-y-6 xl:col-span-2">
-            <OperationalPodiumCard
-              rows={operationalRows}
-              totalConcluidas={operationalCurrentKpis.ordens_atendidas}
-            />
-            <OperationalRankingCard
-              rows={operationalRows}
-              totalConcluidas={operationalCurrentKpis.ordens_atendidas}
-            />
-          </div>
+        <div className="space-y-6">
           <RecognitionCard
             title="Indicadores para reconhecimento"
-            subtitle="Leituras objetivas para premiação e acompanhamento do mês."
-            items={operationalRecognition}
+            subtitle="Base mensal para premiação, reconhecimento e calibragem da carteira."
+            items={recognition}
+          />
+          <SnapshotCard
+            title="Leitura rápida da produtividade"
+            items={[
+              { label: 'Ordens tratadas', value: currentKpis.total },
+              { label: 'Ordens concluídas', value: currentKpis.concluidas },
+              { label: 'Ordens pendentes', value: pending, tone: 'warning' },
+              { label: 'Admins com produção', value: withProduction },
+              { label: 'Admins sem atraso', value: withoutDelay },
+            ]}
           />
         </div>
-      </section>
+      </div>
 
-      <section className="space-y-6">
-        <SectionHeading
-          title="Administradores"
-          description="Painel mensal de performance dos administradores, com foco em ordens concluídas, taxa de fechamento, volume tratado e ranking do mês."
-          badge={<span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">Comparativo base: {period.previous.label}</span>}
-        />
+      <EvolucaoMensalOperacionalChart rows={evolution} periodLabel={trendLabel} />
+    </section>
+  )
+}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            icon={BriefcaseBusiness}
-            label="Ordens concluídas"
-            value={formatInteger(adminCurrentKpis.concluidas)}
-            helper={`Total tratado no mês: ${formatInteger(adminCurrentKpis.total)} ordens.`}
-            deltaLabel={formatComparisonCount(
-              adminCurrentKpis.concluidas,
-              adminPreviousKpis.concluidas,
-              period.previous.label,
-            )}
-            deltaTone={resolveDeltaTone(adminCurrentKpis.concluidas - adminPreviousKpis.concluidas)}
-            tone="success"
-          />
-          <MetricCard
-            icon={Gauge}
-            label="Taxa de fechamento"
-            value={formatPercent(adminRate)}
-            helper={`${formatInteger(adminPending)} ainda pendentes no mês.`}
-            deltaLabel={formatComparisonRate(adminRate, adminRatePrevious, period.previous.label)}
-            deltaTone={resolveDeltaTone(adminRate - adminRatePrevious)}
-            tone={adminRate >= 70 ? 'success' : adminRate >= 50 ? 'warning' : 'default'}
-          />
-          <MetricCard
-            icon={Users}
-            label="Admins com produção"
-            value={formatInteger(adminWithProduction)}
-            helper={`${formatInteger(adminWithoutDelay)} sem atraso vermelho no mês.`}
-            deltaLabel={formatComparisonCount(
-              adminWithProduction,
-              adminWithProductionPrevious,
-              period.previous.label,
-            )}
-            deltaTone={resolveDeltaTone(
-              adminWithProduction - adminWithProductionPrevious,
-            )}
-          />
-          <MetricCard
-            icon={ShieldCheck}
-            label="Destaque do mês"
-            value={adminTop?.nome ?? 'Sem base'}
-            helper={adminTop ? `${formatInteger(adminTop.concluidas)} concluídas e ${formatPercent(adminTop.taxa_fechamento)} de fechamento.` : 'Nenhum administrador com ordens no mês.'}
-            tone="success"
-          />
-        </div>
-
-        <div className="grid gap-6 xl:grid-cols-3">
-          <div className="space-y-6 xl:col-span-2">
-            <AdminPodiumCard rows={adminRows} />
-            <AdminRankingCard rows={adminRows} />
-          </div>
-          <div className="space-y-6">
-            <RecognitionCard
-              title="Indicadores para reconhecimento"
-              subtitle="Base mensal para premiação, reconhecimento e calibragem da carteira."
-              items={adminRecognition}
-            />
-            <SnapshotCard
-              title="Leitura rápida da produtividade"
-              items={[
-                { label: 'Ordens tratadas', value: adminCurrentKpis.total },
-                { label: 'Ordens concluídas', value: adminCurrentKpis.concluidas },
-                { label: 'Ordens pendentes', value: adminPending, tone: 'warning' },
-                { label: 'Admins com produção', value: adminWithProduction },
-                { label: 'Admins sem atraso', value: adminWithoutDelay },
-              ]}
-            />
-          </div>
-        </div>
-      </section>
-
-      <ChartLabelsProvider>
+export function AdminProductivityPanel({ period, especialidade }: AdminProductivityPanelProps) {
+  return (
+    <ChartLabelsProvider>
+      <div className="space-y-10">
         <div className="flex justify-end">
           <ChartLabelsToggle />
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-2">
-          <StatusBarChart rows={operationalCurrentRowsRaw.slice(0, 10)} periodLabel={period.label} />
-          <EvolucaoMensalOperacionalChart rows={operationalEvolution} periodLabel={trendLabel} />
-          <EvolucaoMensalOperacionalChart rows={adminEvolution} periodLabel={trendLabel} />
-          <SnapshotCard
-            title="Resumo comparativo"
-            items={[
-              {
-                label: `Operacionais concluídas em ${period.label}`,
-                value: operationalCurrentKpis.ordens_atendidas,
-              },
-              {
-                label: `Operacionais concluídas em ${period.previous.label}`,
-                value: operationalPreviousKpis.ordens_atendidas,
-              },
-              {
-                label: `Admins concluídas em ${period.label}`,
-                value: adminCurrentKpis.concluidas,
-              },
-              {
-                label: `Admins concluídas em ${period.previous.label}`,
-                value: adminPreviousKpis.concluidas,
-              },
-            ]}
-          />
-        </div>
-      </ChartLabelsProvider>
-    </div>
+        <Suspense fallback={<OperacionalSectionSkeleton />}>
+          <OperacionalSection period={period} especialidade={especialidade} />
+        </Suspense>
+
+        <Suspense fallback={<AdminSectionSkeleton />}>
+          <AdminSection period={period} />
+        </Suspense>
+      </div>
+    </ChartLabelsProvider>
   )
 }
