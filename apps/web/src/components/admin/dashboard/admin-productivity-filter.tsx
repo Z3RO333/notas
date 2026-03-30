@@ -76,11 +76,14 @@ export function AdminProductivityFilter({
   )
 
   return (
-    <section className="rounded-3xl border bg-card/45 p-3 md:p-4" aria-busy={isPending}>
+    <section
+      className="rounded-[1.75rem] border border-border/70 bg-card/75 px-3 py-3 shadow-sm supports-[backdrop-filter]:bg-card/65 md:px-4"
+      aria-busy={isPending}
+    >
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
-        className="flex w-full items-center justify-between gap-4 rounded-2xl px-2 py-1 text-left transition-colors hover:bg-muted/20"
+        className="flex w-full items-center justify-between gap-4 rounded-2xl px-2 py-1.5 text-left transition-colors hover:bg-muted/20"
         aria-expanded={isOpen}
         disabled={isPending}
       >
@@ -108,67 +111,73 @@ export function AdminProductivityFilter({
       </button>
 
       {isOpen ? (
-        <div className="mt-4 grid gap-4 border-t border-border/60 pt-4 xl:grid-cols-[220px_260px_minmax(0,1fr)]">
-          <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
-            <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              <CalendarDays className="h-4 w-4" />
-              Ano
-            </div>
-            <select
-              value={String(selectedYear)}
-              onChange={(event) => updateQuery(Number(event.target.value), selectedMonth, selectedEspecialidade)}
-              className={nativeSelectClassName}
-              disabled={isPending}
-            >
-              {yearOptions.map((year) => (
-                <option key={year} value={String(year)}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
-            <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              <CalendarDays className="h-4 w-4" />
-              Mes
-            </div>
-            <select
-              value={String(selectedMonth)}
-              onChange={(event) => updateQuery(selectedYear, Number(event.target.value), selectedEspecialidade)}
-              className={nativeSelectClassName}
-              disabled={isPending}
-            >
-              {MONTH_OPTIONS.map((month) => (
-                <option key={month.value} value={month.value}>
-                  {month.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
-            <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              <HardHat className="h-4 w-4" />
-              Foco operacional
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {ESPECIALIDADE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => updateQuery(selectedYear, selectedMonth, opt.value || null)}
+        <div className="mt-3 border-t border-border/60 pt-3">
+          <div className="max-h-[70vh] overflow-y-auto pr-1 xl:max-h-none xl:overflow-visible">
+            <div className="grid gap-4 xl:grid-cols-[220px_260px_minmax(0,1fr)]">
+              <div className="rounded-2xl border border-border/70 bg-background/75 p-4">
+                <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  <CalendarDays className="h-4 w-4" />
+                  Ano
+                </div>
+                <select
+                  aria-label="Ano"
+                  value={String(selectedYear)}
+                  onChange={(event) => updateQuery(Number(event.target.value), selectedMonth, selectedEspecialidade)}
+                  className={nativeSelectClassName}
                   disabled={isPending}
-                  className={cn(
-                    'h-10 rounded-full border px-4 text-sm transition-colors',
-                    activeEspecialidade === opt.value
-                      ? 'border-primary/30 bg-primary/10 font-medium text-primary'
-                      : 'border-border/70 bg-background/70 text-muted-foreground hover:border-border hover:text-foreground',
-                  )}
                 >
-                  {opt.label}
-                </button>
-              ))}
+                  {yearOptions.map((year) => (
+                    <option key={year} value={String(year)}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="rounded-2xl border border-border/70 bg-background/75 p-4">
+                <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  <CalendarDays className="h-4 w-4" />
+                  Mes
+                </div>
+                <select
+                  aria-label="Mes"
+                  value={String(selectedMonth)}
+                  onChange={(event) => updateQuery(selectedYear, Number(event.target.value), selectedEspecialidade)}
+                  className={nativeSelectClassName}
+                  disabled={isPending}
+                >
+                  {MONTH_OPTIONS.map((month) => (
+                    <option key={month.value} value={month.value}>
+                      {month.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="rounded-2xl border border-border/70 bg-background/75 p-4">
+                <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  <HardHat className="h-4 w-4" />
+                  Foco operacional
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {ESPECIALIDADE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => updateQuery(selectedYear, selectedMonth, opt.value || null)}
+                      disabled={isPending}
+                      className={cn(
+                        'h-10 rounded-full border px-4 text-sm transition-colors',
+                        activeEspecialidade === opt.value
+                          ? 'border-primary/30 bg-primary/10 font-medium text-primary'
+                          : 'border-border/70 bg-background/70 text-muted-foreground hover:border-border hover:text-foreground',
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>

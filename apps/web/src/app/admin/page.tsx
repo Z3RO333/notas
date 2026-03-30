@@ -1,9 +1,5 @@
-import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
-import { AdminProductivityFilter } from '@/components/admin/dashboard/admin-productivity-filter'
-import { AdminOrdersSectionSkeleton } from '@/components/admin/dashboard/admin-orders-section-skeleton'
-import { AdminProductivityPanel } from '@/components/admin/dashboard/admin-productivity-panel'
-import { PageTitleBlock } from '@/components/shared/page-title-block'
+import { AdminDashboardContent } from '@/components/admin/dashboard/admin-dashboard-content'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import {
   buildProductivityYearOptions,
@@ -34,19 +30,10 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
   }
 
   return (
-    <div className="space-y-6">
-      <PageTitleBlock title="Produtividade Mensal" />
-
-      <AdminProductivityFilter
-        selectedYear={period.year}
-        selectedMonth={period.month}
-        yearOptions={yearOptions}
-        selectedEspecialidade={especialidade}
-      />
-
-      <Suspense fallback={<AdminOrdersSectionSkeleton title="Produtividade" includeRanking />}>
-        <AdminProductivityPanel period={period} especialidade={especialidade} />
-      </Suspense>
-    </div>
+    <AdminDashboardContent
+      period={period}
+      yearOptions={yearOptions}
+      especialidade={especialidade}
+    />
   )
 }
