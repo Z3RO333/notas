@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import GraficosPage, { buildGestaoLojasDisponiveis } from './page'
+import { buildGestaoLojasDisponiveis } from './gestao-filter-options'
+import GraficosPage from './page'
 
 const rpcMock = vi.fn()
 const callGestaoBaseRpcMock = vi.fn()
