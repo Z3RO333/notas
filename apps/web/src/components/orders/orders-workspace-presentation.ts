@@ -13,9 +13,9 @@ export function resolveOrdersWorkspacePresentation(role: UserRole): OrdersWorksp
   if (role === 'viewer') {
     return {
       isViewerMode: true,
-      defaultOwnerCardsViewMode: 'cards',
+      defaultOwnerCardsViewMode: 'list',
       showPriorityLanes: false,
-      showOwnerToolbar: false,
+      showOwnerToolbar: true,
       showWorkspaceToolbar: false,
       showWorkspaceTable: false,
     }

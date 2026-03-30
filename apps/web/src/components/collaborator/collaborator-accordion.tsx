@@ -20,6 +20,7 @@ interface CollaboratorAccordionProps {
   viewMode: NotesViewMode
   adminActions?: React.ReactNode
   trackingOrders?: OrdemAcompanhamento[]
+  allowOperationalActions?: boolean
 }
 
 function sortNotas(notas: NotaPanelData[]): NotaPanelData[] {
@@ -41,6 +42,7 @@ export function CollaboratorAccordion({
   viewMode,
   adminActions,
   trackingOrders,
+  allowOperationalActions = true,
 }: CollaboratorAccordionProps) {
   const ref = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
@@ -85,7 +87,7 @@ export function CollaboratorAccordion({
               <span className="text-sm text-muted-foreground">
                 {notas.length} nota{notas.length !== 1 ? 's' : ''}
               </span>
-              {notas.length > 0 && (
+              {allowOperationalActions && notas.length > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -118,7 +120,7 @@ export function CollaboratorAccordion({
                     Lista vertical por prioridade de atraso
                   </div>
                   {sortedNotas.map((nota) => (
-                    <NotaListItem key={nota.id} nota={nota} />
+                    <NotaListItem key={nota.id} nota={nota} allowOperationalActions={allowOperationalActions} />
                   ))}
                 </div>
               ) : (
@@ -129,7 +131,7 @@ export function CollaboratorAccordion({
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {sortedNotas.map((nota) => (
-                      <NotaCard key={nota.id} nota={nota} />
+                      <NotaCard key={nota.id} nota={nota} allowOperationalActions={allowOperationalActions} />
                     ))}
                   </div>
                 </div>

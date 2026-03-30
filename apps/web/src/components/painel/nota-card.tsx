@@ -36,6 +36,7 @@ const prioridadeColor: Record<string, string> = {
 
 interface NotaCardProps {
   nota: NotaPanelData
+  allowOperationalActions?: boolean
 }
 
 function buildCurrentStateFromNota(nota: NotaPanelData): NotaOperacaoEstado | null {
@@ -57,7 +58,7 @@ function buildCurrentStateFromNota(nota: NotaPanelData): NotaOperacaoEstado | nu
   }
 }
 
-export function NotaCard({ nota }: NotaCardProps) {
+export function NotaCard({ nota, allowOperationalActions = true }: NotaCardProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
@@ -212,22 +213,28 @@ export function NotaCard({ nota }: NotaCardProps) {
           className={`group rounded-lg border border-l-4 ${prioridadeCor} bg-card p-4 transition-all hover:border-l-primary hover:shadow-md cursor-pointer`}
         >
           <div className="mb-3 flex items-start justify-between gap-2">
-            <button
-              type="button"
-              onClick={handleCopyNota}
-              className="group inline-flex items-center gap-1 rounded px-1 -mx-1 font-mono text-sm font-bold text-foreground transition-colors hover:bg-muted"
-              title={`Copiar NOTA ${nota.numero_nota}`}
-            >
-              #{nota.numero_nota}
-              {copyLoading ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Copy className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-50" />
-              )}
-            </button>
+            {allowOperationalActions ? (
+              <button
+                type="button"
+                onClick={handleCopyNota}
+                className="group inline-flex items-center gap-1 rounded px-1 -mx-1 font-mono text-sm font-bold text-foreground transition-colors hover:bg-muted"
+                title={`Copiar NOTA ${nota.numero_nota}`}
+              >
+                #{nota.numero_nota}
+                {copyLoading ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Copy className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-50" />
+                )}
+              </button>
+            ) : (
+              <span className="font-mono text-sm font-bold text-foreground">
+                #{nota.numero_nota}
+              </span>
+            )}
 
             <div className="flex flex-wrap items-center justify-end gap-2">
-              {canConclude && (
+              {allowOperationalActions && canConclude && (
                 <button
                   type="button"
                   onClick={handleConcluirClick}

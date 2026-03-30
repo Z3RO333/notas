@@ -17,6 +17,7 @@ interface CollaboratorFullCardProps {
   adminActions?: React.ReactNode
   trackingOrders?: OrdemAcompanhamento[]
   forceCargoLabel?: CollaboratorCargoLabel
+  allowOperationalActions?: boolean
 }
 
 function sortByUrgency(notas: NotaPanelData[]): NotaPanelData[] {
@@ -37,6 +38,7 @@ export function CollaboratorFullCard({
   adminActions,
   trackingOrders,
   forceCargoLabel,
+  allowOperationalActions = true,
 }: CollaboratorFullCardProps) {
   const cargo = forceCargoLabel
     ? getCargoPresentationByLabel(forceCargoLabel)
@@ -51,9 +53,9 @@ export function CollaboratorFullCard({
         {sortedNotas.length === 0 ? (
           <p className="text-xs text-muted-foreground">Nenhuma nota em aberto.</p>
         ) : (
-          <div className="max-h-[24rem] space-y-1.5 overflow-y-auto pr-1">
+            <div className="max-h-[24rem] space-y-1.5 overflow-y-auto pr-1">
             {sortedNotas.map((nota) => (
-              <NotaListItem key={nota.id} nota={nota} />
+              <NotaListItem key={nota.id} nota={nota} allowOperationalActions={allowOperationalActions} />
             ))}
           </div>
         )}

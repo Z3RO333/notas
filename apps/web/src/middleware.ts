@@ -119,10 +119,11 @@ export async function middleware(request: NextRequest) {
   }
 
   if (admin.role === 'viewer') {
+    const isNotesPage = pathname === '/' || pathname.startsWith('/notas/')
     const isOrdersPage = pathname === '/ordens' || pathname.startsWith('/ordens/')
     const isOrdersApi = pathname.startsWith('/api/ordens')
 
-    if (!isOrdersPage && !isOrdersApi) {
+    if (!isNotesPage && !isOrdersPage && !isOrdersApi) {
       const url = request.nextUrl.clone()
       url.pathname = '/ordens'
       url.search = ''

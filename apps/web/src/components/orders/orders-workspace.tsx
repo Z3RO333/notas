@@ -266,7 +266,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   // Restore persisted view mode on mount
   useEffect(() => {
     if (presentation.isViewerMode) {
-      setOwnerCardsViewMode('cards')
+      setOwnerCardsViewMode('list')
       return
     }
     const persisted = window.localStorage.getItem(OWNER_CARDS_VIEW_MODE_STORAGE_KEY)
@@ -708,7 +708,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
               </SelectContent>
             </Select>
 
-            {currentUser.canViewGlobal && kpis.sem_responsavel > 0 && (
+            {!presentation.isViewerMode && currentUser.canViewGlobal && kpis.sem_responsavel > 0 && (
               <button
                 type="button"
                 className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
@@ -722,7 +722,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                 Sem responsável: {formatNumber(kpis.sem_responsavel)}
               </button>
             )}
-            {currentUser.canViewGlobal && (
+            {!presentation.isViewerMode && currentUser.canViewGlobal && (
               <Button type="button" variant="outline" size="sm" onClick={() => setFilters((prev) => ({ ...prev, responsavel: 'todos' }))}>
                 Todos
               </Button>

@@ -48,6 +48,7 @@ export default async function NotaDetailPage({ params }: PageProps) {
       .single()
     : { data: null }
   const loggedRole = loggedAdminResult.data?.role ?? null
+  const isViewer = loggedRole === 'viewer'
 
   const hasOrder = Boolean(
     (nota.ordem_sap && nota.ordem_sap.trim().length > 0)
@@ -84,11 +85,13 @@ export default async function NotaDetailPage({ params }: PageProps) {
           <NotaDetail nota={nota} />
         </div>
         <div className="space-y-6">
-          <NotaActions
-            notaId={nota.id}
-            currentStatus={nota.status}
-            hasAdmin={!!nota.administrador_id}
-          />
+          {!isViewer && (
+            <NotaActions
+              notaId={nota.id}
+              currentStatus={nota.status}
+              hasAdmin={!!nota.administrador_id}
+            />
+          )}
           <NotaHistoricoTimeline historico={historicoResult.data ?? []} />
         </div>
       </div>

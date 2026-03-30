@@ -20,6 +20,7 @@ import type { NotaOperacaoEstado, NotaPanelData } from '@/lib/types/database'
 
 interface NotaListItemProps {
   nota: NotaPanelData
+  allowOperationalActions?: boolean
 }
 
 function buildCurrentStateFromNota(nota: NotaPanelData): NotaOperacaoEstado | null {
@@ -41,7 +42,7 @@ function buildCurrentStateFromNota(nota: NotaPanelData): NotaOperacaoEstado | nu
   }
 }
 
-export function NotaListItem({ nota }: NotaListItemProps) {
+export function NotaListItem({ nota, allowOperationalActions = true }: NotaListItemProps) {
   const { toast } = useToast()
   const [copied, setCopied] = useState(false)
   const [copyLoading, setCopyLoading] = useState(false)
@@ -181,12 +182,12 @@ export function NotaListItem({ nota }: NotaListItemProps) {
   return (
     <>
       <div
-        role="button"
-        tabIndex={0}
-        onClick={() => { void handleCopyAction() }}
-        onKeyDown={handleRowKeyDown}
-        className="flex cursor-pointer select-none items-center justify-between gap-3 rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/40"
-        title={`Clique para copiar #${nota.numero_nota}`}
+        role={allowOperationalActions ? 'button' : undefined}
+        tabIndex={allowOperationalActions ? 0 : undefined}
+        onClick={allowOperationalActions ? () => { void handleCopyAction() } : undefined}
+        onKeyDown={allowOperationalActions ? handleRowKeyDown : undefined}
+        className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 transition-colors ${allowOperationalActions ? 'cursor-pointer select-none hover:bg-muted/40' : 'bg-muted/10'}`}
+        title={allowOperationalActions ? `Clique para copiar #${nota.numero_nota}` : undefined}
       >
         <div className="min-w-0 flex-1">
           <p className="font-mono text-sm font-semibold text-foreground">

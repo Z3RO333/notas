@@ -399,6 +399,7 @@ export function CollaboratorPanel({
 
   const isAdminViewer = mode === 'viewer' && currentAdminRole === 'admin'
   const isGestorViewer = mode === 'viewer' && currentAdminRole === 'gestor'
+  const isReadOnlyViewer = currentAdminRole === 'viewer'
   const shouldShowTrackingControls = isAdminViewer && ordensAcompanhamento.length > 0
   const showTopTracking = ordensAcompanhamento.length > 0
     && (isGestorViewer || trackingPosition === 'top' || trackingPosition === 'both')
@@ -534,7 +535,7 @@ export function CollaboratorPanel({
           </Select>
         )}
 
-        {mode === 'viewer' && (
+        {mode === 'viewer' && !isReadOnlyViewer && (
           <NotesEmCampoDialog
             notes={visibleNotesForEmCampo}
             unidadeOptions={unidadeOptions}
@@ -633,6 +634,7 @@ export function CollaboratorPanel({
                   />
                 ) : undefined}
                 trackingOrders={tracking}
+                allowOperationalActions={!isReadOnlyViewer}
               />
             )
           })}
@@ -643,6 +645,7 @@ export function CollaboratorPanel({
               notas={filteredNotasSemAtribuir}
               isOpen={expandedId === 'sem-atribuir'}
               viewMode="list"
+              allowOperationalActions={!isReadOnlyViewer}
             />
           )}
         </>
@@ -664,6 +667,7 @@ export function CollaboratorPanel({
                   />
                 ) : undefined}
                 trackingOrders={tracking}
+                allowOperationalActions={!isReadOnlyViewer}
               />
             )
           })}
@@ -673,6 +677,7 @@ export function CollaboratorPanel({
               collaborator={semAtribuirCollaborator}
               notas={filteredNotasSemAtribuir}
               forceCargoLabel="SEM RESPONSÁVEL"
+              allowOperationalActions={!isReadOnlyViewer}
             />
           )}
         </div>

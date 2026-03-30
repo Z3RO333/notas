@@ -45,6 +45,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ code: 'unauthorized', message: 'Não autenticado.' }, { status: 401 })
   }
 
+  const adminResult = await supabase
+    .from('administradores')
+    .select('role, ativo')
+    .eq('email', user.email)
+    .maybeSingle()
+
+  if (adminResult.error) {
+    return NextResponse.json({ code: 'forbidden', message: 'Sem permissão para esta ação.' }, { status: 403 })
+  }
+
+  const admin = adminResult.data
+  if (!admin?.ativo || (admin.role !== 'admin' && admin.role !== 'gestor')) {
+    return NextResponse.json({ code: 'forbidden', message: 'Sem permissão para esta ação.' }, { status: 403 })
+  }
+
   let rawBody: unknown
   try {
     rawBody = await request.json()

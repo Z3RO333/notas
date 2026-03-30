@@ -32,10 +32,10 @@ vi.mock('@/lib/supabase/client', () => ({
 }))
 
 describe('TopNav', () => {
-  it('reduces navigation clutter for viewer users', () => {
+  it('keeps viewer navigation limited to notes and orders', () => {
     render(<TopNav userName="TV Ordens" userRole="viewer" />)
 
-    expect(screen.queryByText('Painel de Notas')).not.toBeInTheDocument()
+    expect(screen.getByText('Painel de Notas')).toBeInTheDocument()
     expect(screen.getByText('Painel de Ordens')).toBeInTheDocument()
     expect(screen.queryByText('Admin')).not.toBeInTheDocument()
     expect(screen.queryByText('TV Ordens')).not.toBeInTheDocument()

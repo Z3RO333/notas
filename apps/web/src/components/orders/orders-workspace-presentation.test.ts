@@ -5,9 +5,9 @@ describe('resolveOrdersWorkspacePresentation', () => {
   it('returns broadcast-oriented flags for viewer', () => {
     expect(resolveOrdersWorkspacePresentation('viewer')).toEqual({
       isViewerMode: true,
-      defaultOwnerCardsViewMode: 'cards',
+      defaultOwnerCardsViewMode: 'list',
       showPriorityLanes: false,
-      showOwnerToolbar: false,
+      showOwnerToolbar: true,
       showWorkspaceToolbar: false,
       showWorkspaceTable: false,
     })

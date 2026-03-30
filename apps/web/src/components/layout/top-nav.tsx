@@ -22,7 +22,7 @@ export function TopNav({ userName, userRole }: TopNavProps) {
   const homeHref = isViewer ? '/ordens' : '/'
 
   const links = [
-    ...(!isViewer ? [{ href: '/', label: 'Painel de Notas', icon: ClipboardList }] : []),
+    { href: '/', label: 'Painel de Notas', icon: ClipboardList },
     { href: '/ordens', label: 'Painel de Ordens', icon: ListChecks },
     ...(userRole === 'gestor'
       ? [
@@ -40,7 +40,7 @@ export function TopNav({ userName, userRole }: TopNavProps) {
   }
 
   function isLinkActive(href: string) {
-    if (href === '/') return pathname === '/'
+    if (href === '/') return pathname === '/' || pathname.startsWith('/notas/')
     if (href === '/admin') return pathname === '/admin' || (pathname.startsWith('/admin/') && !pathname.startsWith('/admin/copilot'))
     return pathname.startsWith(href)
   }
