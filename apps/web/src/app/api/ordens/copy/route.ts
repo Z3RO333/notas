@@ -30,6 +30,9 @@ export async function GET(request: Request) {
   }
 
   const role = loggedAdmin.role as UserRole
+  if (role === 'viewer') {
+    return NextResponse.json({ error: 'Viewer nao pode copiar ordens em lote' }, { status: 403 })
+  }
   const canViewGlobal = role === 'gestor'
 
   let canAccessPmpl = canViewGlobal

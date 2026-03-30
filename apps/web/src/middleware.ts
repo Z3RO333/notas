@@ -103,7 +103,12 @@ export async function middleware(request: NextRequest) {
 
   if (pathname === '/login') {
     const url = request.nextUrl.clone()
-    url.pathname = admin.role === 'gestor' ? '/admin' : '/'
+    url.pathname =
+      admin.role === 'gestor'
+        ? '/admin'
+        : admin.role === 'viewer'
+          ? '/ordens'
+          : '/'
     return NextResponse.redirect(url)
   }
 
@@ -111,6 +116,18 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)
+  }
+
+  if (admin.role === 'viewer') {
+    const isOrdersPage = pathname === '/ordens' || pathname.startsWith('/ordens/')
+    const isOrdersApi = pathname.startsWith('/api/ordens')
+
+    if (!isOrdersPage && !isOrdersApi) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/ordens'
+      url.search = ''
+      return NextResponse.redirect(url)
+    }
   }
 
   return supabaseResponse

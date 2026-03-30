@@ -17,7 +17,7 @@ export interface CurrentAdminContext {
 }
 
 function normalizeUserRole(value: string | null | undefined): UserRole | null {
-  if (value === 'admin' || value === 'gestor') return value
+  if (value === 'admin' || value === 'gestor' || value === 'viewer') return value
   return null
 }
 
@@ -70,7 +70,7 @@ const loadCurrentAdminContext = cache(async (): Promise<CurrentAdminContext> => 
     role,
     isAuthenticated: true,
     isGestor: role === 'gestor',
-    canViewGlobal: role === 'gestor',
+    canViewGlobal: role === 'gestor' || role === 'viewer',
   }
 })
 

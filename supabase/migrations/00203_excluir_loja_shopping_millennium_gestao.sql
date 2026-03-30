@@ -41,6 +41,78 @@ ON CONFLICT (raw_nome) DO UPDATE
       inclui_gestao         = EXCLUDED.inclui_gestao;
 
 -- ---------------------------------------------------------------------------
+-- 1b. Ajustes confirmados para o recorte de farma
+-- ---------------------------------------------------------------------------
+-- Eduardo Gomes foi encerrada e nao deve mais contar na gestao.
+INSERT INTO public.dim_denominacao_norm (
+  raw_nome,
+  nome_canonical,
+  tipo_unidade_override,
+  inclui_gestao
+)
+VALUES
+  ('Farma Eduardo Gomes',   'Farma Eduardo Gomes',   'FARMA', FALSE),
+  ('FARMA EDUARDO GOMES',   'Farma Eduardo Gomes',   'FARMA', FALSE)
+ON CONFLICT (raw_nome) DO UPDATE
+  SET nome_canonical        = EXCLUDED.nome_canonical,
+      tipo_unidade_override = EXCLUDED.tipo_unidade_override,
+      inclui_gestao         = EXCLUDED.inclui_gestao;
+
+-- Alias e duplicatas confirmadas do recorte farma.
+INSERT INTO public.dim_denominacao_norm (
+  raw_nome,
+  nome_canonical,
+  tipo_unidade_override,
+  inclui_gestao
+)
+VALUES
+  ('Farma Shopping',            'Farma Amazonas Shopping', 'FARMA', TRUE),
+  ('FARMA SHOPPING',            'Farma Amazonas Shopping', 'FARMA', TRUE),
+  ('Farma Rio Preto da Eva',    'Farma Rio Preto',         'FARMA', TRUE),
+  ('FARMA RIO PRETO DA EVA',    'Farma Rio Preto',         'FARMA', TRUE),
+  ('FARMA CAREIRO',             'Farma Careiro',           'FARMA', TRUE),
+  ('FARMA MANAUARA',            'Farma Manauara',          'FARMA', TRUE)
+ON CONFLICT (raw_nome) DO UPDATE
+  SET nome_canonical        = EXCLUDED.nome_canonical,
+      tipo_unidade_override = EXCLUDED.tipo_unidade_override,
+      inclui_gestao         = EXCLUDED.inclui_gestao;
+
+-- Alias historico: "Loja Shopping" corresponde a Loja Amazonas Shopping e nao
+-- deve seguir como unidade separada no recorte gerencial.
+INSERT INTO public.dim_denominacao_norm (
+  raw_nome,
+  nome_canonical,
+  tipo_unidade_override,
+  inclui_gestao
+)
+VALUES
+  ('Loja Shopping',       'Loja Amazonas Shopping', 'LOJA', TRUE),
+  ('LOJA SHOPPING',       'Loja Amazonas Shopping', 'LOJA', TRUE),
+  ('SHOPPING',            'Loja Amazonas Shopping', 'LOJA', TRUE)
+ON CONFLICT (raw_nome) DO UPDATE
+  SET nome_canonical        = EXCLUDED.nome_canonical,
+      tipo_unidade_override = EXCLUDED.tipo_unidade_override,
+      inclui_gestao         = EXCLUDED.inclui_gestao;
+
+-- Loterias que operam dentro de lojas oficiais devem colapsar no canônico da
+-- loja correspondente, sem inflar a contagem de unidades no resumo gerencial.
+INSERT INTO public.dim_denominacao_norm (
+  raw_nome,
+  nome_canonical,
+  tipo_unidade_override,
+  inclui_gestao
+)
+VALUES
+  ('Loteria Cidade Nova',          'Loja Cidade Nova',         'LOJA', TRUE),
+  ('LOTERIA CIDADE NOVA',          'Loja Cidade Nova',         'LOJA', TRUE),
+  ('Loteria Porto Velho Centro',   'Loja Porto Velho Centro',  'LOJA', TRUE),
+  ('LOTERIA PORTO VELHO CENTRO',   'Loja Porto Velho Centro',  'LOJA', TRUE)
+ON CONFLICT (raw_nome) DO UPDATE
+  SET nome_canonical        = EXCLUDED.nome_canonical,
+      tipo_unidade_override = EXCLUDED.tipo_unidade_override,
+      inclui_gestao         = EXCLUDED.inclui_gestao;
+
+-- ---------------------------------------------------------------------------
 -- 2. Base gerencial canonica: respeita a exclusao na dimensao
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.listar_gestao_ordens_base_filtrada(

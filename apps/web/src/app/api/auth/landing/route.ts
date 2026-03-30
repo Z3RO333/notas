@@ -44,6 +44,10 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${origin}/admin`)
     }
 
+    if (authorization.admin.role === 'viewer') {
+      return NextResponse.redirect(`${origin}/ordens`)
+    }
+
     return NextResponse.redirect(`${origin}/`)
   } catch (error) {
     console.error('GET /api/auth/landing failed:', error)

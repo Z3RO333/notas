@@ -18,9 +18,11 @@ export function TopNav({ userName, userRole }: TopNavProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
+  const isViewer = userRole === 'viewer'
+  const homeHref = isViewer ? '/ordens' : '/'
 
   const links = [
-    { href: '/', label: 'Painel de Notas', icon: ClipboardList },
+    ...(!isViewer ? [{ href: '/', label: 'Painel de Notas', icon: ClipboardList }] : []),
     { href: '/ordens', label: 'Painel de Ordens', icon: ListChecks },
     ...(userRole === 'gestor'
       ? [
@@ -46,7 +48,7 @@ export function TopNav({ userName, userRole }: TopNavProps) {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-14 items-center px-6">
-        <Link href="/" className="flex items-center gap-2 mr-8">
+        <Link href={homeHref} className="mr-8 flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white">
             <Image src="/login-logo.png" alt="Cockpit" width={22} height={22} />
           </div>
@@ -80,7 +82,7 @@ export function TopNav({ userName, userRole }: TopNavProps) {
 
         <div className="flex items-center gap-3">
           <ThemeSelector className="hidden md:flex" />
-          {userName && (
+          {userName && !isViewer && (
             <span className="text-sm text-muted-foreground hidden sm:inline">
               {userName}
             </span>

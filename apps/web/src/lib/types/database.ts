@@ -14,7 +14,7 @@ export type NotaStatusOperacional =
   | 'ALERTA'
   | 'CONFIRMADA_VIROU_ORDEM'
 
-export type UserRole = 'admin' | 'gestor'
+export type UserRole = 'admin' | 'gestor' | 'viewer'
 export type OrderWindowFilter = 30 | 90 | 180
 export type OrderOwnerMode = 'atual' | 'origem'
 export type PanelViewMode = 'list' | 'cards'

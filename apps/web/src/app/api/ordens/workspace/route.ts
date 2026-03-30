@@ -175,7 +175,8 @@ export async function GET(request: Request) {
   }
 
   const role = loggedAdmin.role as UserRole
-  const canViewGlobal = role === 'gestor'
+  const canViewGlobal = role === 'gestor' || role === 'viewer'
+  const canManageWorkspace = role === 'gestor'
 
   let fixedOwnerLabelByAdminId = new Map<string, string>()
   try {
@@ -273,7 +274,7 @@ export async function GET(request: Request) {
     callRpcWithOptionalTipoOrdem<OrdersWorkspaceKpis>(supabase, 'calcular_kpis_ordens_operacional', kpisRpcParams),
     callRpcWithOptionalTipoOrdem<Array<Partial<OrdersOwnerSummary>>>(supabase, 'calcular_resumo_colaboradores_ordens', summaryRpcParams),
     callRpcWithOptionalTipoOrdem<Array<Pick<OrdemNotaAcompanhamento, 'unidade'>>>(supabase, 'filtrar_ordens_workspace', unitsRpcParams),
-    canViewGlobal
+    canManageWorkspace
       ? supabase
         .from('administradores')
         .select('id, nome, avatar_url, especialidade')
@@ -380,22 +381,29 @@ export async function GET(request: Request) {
     ? recomputeWorkspaceKpisFromRows(rows)
     : kpisFromRpc
 
-  const [oldestHighlightsResult, attentionHighlightsResult] = await Promise.all([
-    fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'vermelho', rowsResult.supportsTipoOrdem, WORKSPACE_HIGHLIGHT_FETCH_LIMIT),
-    fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'amarelo', rowsResult.supportsTipoOrdem),
-  ])
-
-  if (oldestHighlightsResult.error) {
-    return NextResponse.json({ error: oldestHighlightsResult.error.message }, { status: 500 })
+  let highlights: OrdersWorkspaceHighlights = {
+    oldest: [],
+    attention: [],
   }
 
-  if (attentionHighlightsResult.error) {
-    return NextResponse.json({ error: attentionHighlightsResult.error.message }, { status: 500 })
-  }
+  if (role !== 'viewer') {
+    const [oldestHighlightsResult, attentionHighlightsResult] = await Promise.all([
+      fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'vermelho', rowsResult.supportsTipoOrdem, WORKSPACE_HIGHLIGHT_FETCH_LIMIT),
+      fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'amarelo', rowsResult.supportsTipoOrdem),
+    ])
 
-  const highlights: OrdersWorkspaceHighlights = {
-    oldest: prioritizeOldestHighlights(oldestHighlightsResult.data),
-    attention: attentionHighlightsResult.data,
+    if (oldestHighlightsResult.error) {
+      return NextResponse.json({ error: oldestHighlightsResult.error.message }, { status: 500 })
+    }
+
+    if (attentionHighlightsResult.error) {
+      return NextResponse.json({ error: attentionHighlightsResult.error.message }, { status: 500 })
+    }
+
+    highlights = {
+      oldest: prioritizeOldestHighlights(oldestHighlightsResult.data),
+      attention: attentionHighlightsResult.data,
+    }
   }
 
   const lastCursorRow = rowsFromRpc.length > 0 ? rowsFromRpc[rowsFromRpc.length - 1] : null

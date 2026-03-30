@@ -12,6 +12,7 @@ import { OrdersKpiStrip } from '@/components/orders/orders-kpi-strip'
 import { OrdersOwnerFullCard } from '@/components/orders/orders-owner-full-card'
 import { OrdersPriorityLane, PRIORITY_LANE_CONFIG } from '@/components/orders/orders-priority-lane'
 import { OrdersPoolCard } from '@/components/orders/orders-pool-card'
+import { resolveOrdersWorkspacePresentation } from '@/components/orders/orders-workspace-presentation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SearchableSelect } from '@/components/ui/searchable-select'
@@ -181,7 +182,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   const years = useMemo(() => makeYearOptions(), [])
   const [selectedNotaIds, setSelectedNotaIds] = useState<string[]>([])
   const [detailRow, setDetailRow] = useState<OrdemNotaAcompanhamento | null>(null)
-  const [ownerCardsViewMode, setOwnerCardsViewMode] = useState<PanelViewMode>('list')
+  const [ownerCardsViewMode, setOwnerCardsViewMode] = useState<PanelViewMode>(
+    () => resolveOrdersWorkspacePresentation(initialUser.role).defaultOwnerCardsViewMode
+  )
   const [copyFilterLoading, setCopyFilterLoading] = useState(false)
 
   // --- Filter state ---
@@ -246,7 +249,11 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     onResetSuccess: handleResetSuccess,
   })
 
-  const canReassign = currentUser.canViewGlobal
+  const presentation = useMemo(
+    () => resolveOrdersWorkspacePresentation(currentUser.role),
+    [currentUser.role],
+  )
+  const canReassign = currentUser.role === 'gestor' && currentUser.canViewGlobal
   const isPrivateScope = !currentUser.canViewGlobal
 
   // Guard: reset tipoOrdem when user loses PMPL access (bridges data + filter hooks)
@@ -258,11 +265,15 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
   // Restore persisted view mode on mount
   useEffect(() => {
+    if (presentation.isViewerMode) {
+      setOwnerCardsViewMode('cards')
+      return
+    }
     const persisted = window.localStorage.getItem(OWNER_CARDS_VIEW_MODE_STORAGE_KEY)
     if (persisted === 'list' || persisted === 'cards') {
       setOwnerCardsViewMode(persisted)
     }
-  }, [])
+  }, [presentation.isViewerMode])
 
   const ownerById = useMemo(() => {
     const map = new Map<string, string>()
@@ -517,8 +528,8 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     overscan: 8,
   })
   const virtualRows = rowVirtualizer.getVirtualItems()
-  const autoLoadEnabled = ownerCardsViewMode === 'list' && rows.length < AUTO_LOAD_MAX_ROWS
-  const showManualLoadMore = ownerCardsViewMode === 'list' && rows.length >= AUTO_LOAD_MAX_ROWS
+  const autoLoadEnabled = presentation.showWorkspaceTable && ownerCardsViewMode === 'list' && rows.length < AUTO_LOAD_MAX_ROWS
+  const showManualLoadMore = presentation.showWorkspaceTable && ownerCardsViewMode === 'list' && rows.length >= AUTO_LOAD_MAX_ROWS
 
   useEffect(() => {
     if (!autoLoadEnabled) return
@@ -535,6 +546,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   }
 
   function handleOwnerCardsViewModeChange(value: string) {
+    if (presentation.isViewerMode) return
     const next: PanelViewMode = value === 'cards' ? 'cards' : 'list'
     setOwnerCardsViewMode(next)
     window.localStorage.setItem(OWNER_CARDS_VIEW_MODE_STORAGE_KEY, next)
@@ -614,13 +626,13 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
       <OrdersKpiStrip kpis={workspaceKpisToOrdemNotaKpis(kpis)} activeKpi={null} criticality={getOrdersCriticalityLevel(kpis.total, kpis.atrasadas)} interactive={false} loading={loadingInitial} />
 
-      {hasListScopeFilters && (
+      {!presentation.isViewerMode && hasListScopeFilters && (
         <p className="text-xs text-muted-foreground">
           Os KPIs acima mostram o total canônico do período e do tipo de ordem selecionado. Os filtros abaixo afetam a carteira, a listagem e a distribuição por colaborador.
         </p>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      {presentation.showPriorityLanes && <div className="grid gap-4 xl:grid-cols-2">
         <OrdersPriorityLane
           title={PRIORITY_LANE_CONFIG.oldest.title}
           description={PRIORITY_LANE_CONFIG.oldest.description}
@@ -670,12 +682,12 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])
           }}
         />
-      </div>
+      </div>}
 
       <div className="rounded-lg border p-3">
         <div className="mb-3 flex items-center justify-between gap-2">
           <p className="text-sm font-semibold">Carteira por colaborador</p>
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          {presentation.showOwnerToolbar && <div className="flex flex-wrap items-center justify-end gap-2">
             <Select value={ownerCardsViewMode} onValueChange={handleOwnerCardsViewModeChange}>
               <SelectTrigger className="w-44">
                 <SelectValue placeholder="Visualização" />
@@ -715,7 +727,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                 Todos
               </Button>
             )}
-          </div>
+          </div>}
         </div>
 
         {ownerCardsViewMode === 'list' ? (
@@ -805,7 +817,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         )}
       </div>
 
-      <div className="sticky top-2 z-30 rounded-lg border bg-background/95 p-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      {presentation.showWorkspaceToolbar && <div className="sticky top-2 z-30 rounded-lg border bg-background/95 p-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="grid gap-3 xl:grid-cols-12 xl:items-start">
           <Input
             ref={searchInputRef}
@@ -1018,7 +1030,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                   : 'Busca inteligente ativa: texto em descrição e termos relacionados.'}
           </p>
         )}
-      </div>
+      </div>}
 
       {canReassign && selectedNotaIds.length > 0 && (
         <div className="sticky bottom-4 z-40">
@@ -1034,6 +1046,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
       {error && <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
 
+      {presentation.showWorkspaceTable && <>
       <div ref={parentRef} className="h-[68vh] overflow-auto rounded-lg border">
         {loadingInitial ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -1111,6 +1124,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])
         }}
       />
+      </>}
     </div>
   )
 }

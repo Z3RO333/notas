@@ -18,9 +18,10 @@ describe('auth shared utils', () => {
     expect(isBemolEmail('user@example.com')).toBe(false)
   })
 
-  it('accepts only admin and gestor roles', () => {
+  it('accepts admin, gestor and viewer roles', () => {
     expect(isAllowedAuthRole('admin')).toBe(true)
     expect(isAllowedAuthRole('gestor')).toBe(true)
+    expect(isAllowedAuthRole('viewer')).toBe(true)
     expect(isAllowedAuthRole('colab')).toBe(false)
   })
 
