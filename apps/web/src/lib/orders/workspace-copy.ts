@@ -47,7 +47,7 @@ export async function fetchAllFilteredOrderCodes(
     signal?: AbortSignal
   } = {},
 ): Promise<OrdersFilterCopyResult> {
-  const endpoint = options.endpoint ?? '/api/ordens/workspace'
+  const endpoint = options.endpoint ?? '/api/ordens/copy'
   const fetchImpl = options.fetchImpl ?? fetch
   const limit = Math.min(
     Math.max(options.limit ?? MAX_ORDERS_WORKSPACE_LIMIT, 1),

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import GraficosPage from './page'
+import GraficosPage, { buildGestaoLojasDisponiveis } from './page'
 
 const rpcMock = vi.fn()
 const callGestaoBaseRpcMock = vi.fn()
@@ -15,6 +15,18 @@ vi.mock('@/lib/graficos/gestao-base-rpc', () => ({
 }))
 
 describe('GraficosPage', () => {
+  it('dedupes loja options ignoring case and accents while keeping the readable label', () => {
+    expect(
+      buildGestaoLojasDisponiveis([
+        { nome_loja: 'FARMA CAREIRO', tipo_unidade: 'FARMA' },
+        { nome_loja: 'Farma Careiro', tipo_unidade: 'FARMA' },
+        { nome_loja: 'Loja Maues', tipo_unidade: 'LOJA' },
+        { nome_loja: 'Loja Maués', tipo_unidade: 'LOJA' },
+        { nome_loja: 'Contabilidade', tipo_unidade: 'ESCRITORIO' },
+      ]),
+    ).toEqual(['Farma Careiro', 'Loja Maués'])
+  })
+
   it('throws the main rpc error instead of silently rendering empty charts', async () => {
     rpcMock.mockReset()
     callGestaoBaseRpcMock.mockReset()
