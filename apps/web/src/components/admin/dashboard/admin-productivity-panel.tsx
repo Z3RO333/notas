@@ -87,6 +87,22 @@ const EXCLUDED_ADMIN_RANKING_NAMES = new Set([
   'BRENDA FONSECA',
 ])
 
+function resolvePeriodScopeLabel(period: AdminProductivityPeriod): 'ano' | 'mês' {
+  return period.month === null ? 'ano' : 'mês'
+}
+
+function resolveSelectedScopeLabel(period: AdminProductivityPeriod): 'ano selecionado' | 'mês selecionado' {
+  return period.month === null ? 'ano selecionado' : 'mês selecionado'
+}
+
+function resolveEvaluatedBadgeLabel(period: AdminProductivityPeriod): 'Ano avaliado' | 'Mês avaliado' {
+  return period.month === null ? 'Ano avaliado' : 'Mês avaliado'
+}
+
+function resolveHighlightLabel(period: AdminProductivityPeriod): 'Destaque do ano' | 'Destaque do mês' {
+  return period.month === null ? 'Destaque do ano' : 'Destaque do mês'
+}
+
 function toNumber(value: unknown): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
@@ -511,9 +527,11 @@ function RankingPodium({
 function OperationalPodiumCard({
   rows,
   totalConcluidas,
+  scopeLabel,
 }: {
   rows: OperationalRankingView[]
   totalConcluidas: number
+  scopeLabel: 'ano' | 'mês'
 }) {
   const entries: PodiumEntry[] = rows.slice(0, 3).map((row, index) => {
     const share = totalConcluidas > 0 ? (row.atendidas / totalConcluidas) * 100 : 0
@@ -525,7 +543,7 @@ function OperationalPodiumCard({
       avatarUrl: row.avatar_url,
       primary: `${formatInteger(row.atendidas)} concluídas`,
       secondary: `${formatPercent(row.pct_conclusao)} de taxa`,
-      tertiary: `${formatPercent(share)} do mês`,
+      tertiary: `${formatPercent(share)} do ${scopeLabel}`,
     }
   })
 
@@ -534,20 +552,26 @@ function OperationalPodiumCard({
       <CardHeader className="space-y-1">
         <CardTitle className="text-base">Pódio de operacionais</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Top 3 do mês por ordens concluídas, com taxa de conclusão e participação no período.
+          Top 3 do {scopeLabel} por ordens concluídas, com taxa de conclusão e participação no período.
         </p>
       </CardHeader>
       <CardContent className="px-0 pb-0">
         <RankingPodium
           entries={entries}
-          emptyMessage="Nenhum operacional com produção no mês selecionado."
+          emptyMessage="Nenhum operacional com produção no período selecionado."
         />
       </CardContent>
     </Card>
   )
 }
 
-function AdminPodiumCard({ rows }: { rows: AdminRankingView[] }) {
+function AdminPodiumCard({
+  rows,
+  scopeLabel,
+}: {
+  rows: AdminRankingView[]
+  scopeLabel: 'ano' | 'mês'
+}) {
   const entries: PodiumEntry[] = rows.slice(0, 3).map((row, index) => ({
     rank: (index + 1) as 1 | 2 | 3,
     key: row.administrador_id,
@@ -563,13 +587,13 @@ function AdminPodiumCard({ rows }: { rows: AdminRankingView[] }) {
       <CardHeader className="space-y-1">
         <CardTitle className="text-base">Pódio de administradores</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Top 3 do mês por ordens concluídas, com taxa de fechamento e volume de atraso.
+          Top 3 do {scopeLabel} por ordens concluídas, com taxa de fechamento e volume de atraso.
         </p>
       </CardHeader>
       <CardContent className="px-0 pb-0">
         <RankingPodium
           entries={entries}
-          emptyMessage="Nenhum administrador com ordens no mês selecionado."
+          emptyMessage="Nenhum administrador com ordens no período selecionado."
         />
       </CardContent>
     </Card>
@@ -579,22 +603,24 @@ function AdminPodiumCard({ rows }: { rows: AdminRankingView[] }) {
 function OperationalRankingCard({
   rows,
   totalConcluidas,
+  scopeLabel,
 }: {
   rows: OperationalRankingView[]
   totalConcluidas: number
+  scopeLabel: 'ano' | 'mês'
 }) {
   return (
     <Card>
       <CardHeader className="space-y-1">
-        <CardTitle className="text-base">Ranking mensal de operacionais</CardTitle>
+        <CardTitle className="text-base">Ranking de operacionais</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Ordenado por ordens concluídas no mês, com taxa de conclusão e variação em relação ao mês anterior.
+          Ordenado por ordens concluídas no {scopeLabel}, com taxa de conclusão e variação em relação à base anterior.
         </p>
       </CardHeader>
       <CardContent className="px-0 pb-0">
         {rows.length === 0 ? (
           <div className="px-6 pb-6">
-            <p className="text-sm text-muted-foreground">Nenhum operacional com produção no mês selecionado.</p>
+            <p className="text-sm text-muted-foreground">Nenhum operacional com produção no período selecionado.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -618,7 +644,7 @@ function OperationalRankingCard({
                       <td className="px-6 py-3 font-semibold text-muted-foreground">#{index + 1}</td>
                       <td className="py-3 pr-3">
                         <p className="font-medium">{row.fornecedor_nome || row.fornecedor_codigo}</p>
-                        <p className="text-xs text-muted-foreground">{formatPercent(share)} das concluídas do mês</p>
+                        <p className="text-xs text-muted-foreground">{formatPercent(share)} das concluídas do {scopeLabel}</p>
                       </td>
                       <td className="py-3 pr-3 text-right font-semibold text-emerald-700 dark:text-emerald-300">
                         {formatInteger(row.atendidas)}
@@ -642,19 +668,25 @@ function OperationalRankingCard({
   )
 }
 
-function AdminRankingCard({ rows }: { rows: AdminRankingView[] }) {
+function AdminRankingCard({
+  rows,
+  scopeLabel,
+}: {
+  rows: AdminRankingView[]
+  scopeLabel: 'ano' | 'mês'
+}) {
   return (
     <Card>
       <CardHeader className="space-y-1">
-        <CardTitle className="text-base">Ranking mensal de administradores</CardTitle>
+        <CardTitle className="text-base">Ranking de administradores</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Ordenado por ordens concluídas no mês, com taxa de fechamento e backlog atrasado.
+          Ordenado por ordens concluídas no {scopeLabel}, com taxa de fechamento e backlog atrasado.
         </p>
       </CardHeader>
       <CardContent className="px-0 pb-0">
         {rows.length === 0 ? (
           <div className="px-6 pb-6">
-            <p className="text-sm text-muted-foreground">Nenhum administrador com ordens no mês selecionado.</p>
+            <p className="text-sm text-muted-foreground">Nenhum administrador com ordens no período selecionado.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -841,14 +873,14 @@ async function OperacionalSection({ period, especialidade }: AdminProductivityPa
         name: top.fornecedor_nome || top.fornecedor_codigo,
         value: `${formatInteger(top.atendidas)} ordens concluídas`,
       }
-      : { label: 'Mais concluiu', name: 'Sem destaque', value: 'Nenhuma produção no mês.' },
+      : { label: 'Mais concluiu', name: 'Sem destaque', value: 'Nenhuma produção no período.' },
     bestRate
       ? {
         label: 'Melhor taxa',
         name: bestRate.fornecedor_nome || bestRate.fornecedor_codigo,
         value: `${formatPercent(bestRate.pct_conclusao)} de conclusão`,
       }
-      : { label: 'Melhor taxa', name: 'Sem destaque', value: 'Nenhuma base válida no mês.' },
+      : { label: 'Melhor taxa', name: 'Sem destaque', value: 'Nenhuma base válida no período.' },
     coverage
       ? {
         label: 'Maior cobertura',
@@ -857,7 +889,13 @@ async function OperacionalSection({ period, especialidade }: AdminProductivityPa
       }
       : { label: 'Maior cobertura', name: 'Sem destaque', value: 'Nenhuma cobertura registrada.' },
   ]
-  const trendLabel = `${period.rollingMonths[0]?.label ?? period.label} a ${period.label}`
+  const scopeLabel = resolvePeriodScopeLabel(period)
+  const selectedScopeLabel = resolveSelectedScopeLabel(period)
+  const evaluatedBadgeLabel = resolveEvaluatedBadgeLabel(period)
+  const highlightLabel = resolveHighlightLabel(period)
+  const trendLabel = period.month === null
+    ? period.label
+    : `${period.rollingMonths[0]?.label ?? period.label} a ${period.label}`
 
   return (
     <section className="space-y-6">
@@ -870,7 +908,7 @@ async function OperacionalSection({ period, especialidade }: AdminProductivityPa
                 {especialidade === 'eletricista' ? 'Eletricistas' : especialidade === 'mecanico_auto' ? 'Mec. Auto' : especialidade}
               </span>
             )}
-            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">Mês avaliado: {period.label}</span>
+            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">{evaluatedBadgeLabel}: {period.label}</span>
           </div>
         )}
       />
@@ -880,7 +918,7 @@ async function OperacionalSection({ period, especialidade }: AdminProductivityPa
           icon={ClipboardCheck}
           label="Ordens concluídas"
           value={formatInteger(currentKpis.ordens_atendidas)}
-          helper={`Base do mês ${period.label}.`}
+          helper={`Base do ${scopeLabel} ${period.label}.`}
           deltaLabel={formatComparisonCount(
             currentKpis.ordens_atendidas,
             previousKpis.ordens_atendidas,
@@ -893,7 +931,7 @@ async function OperacionalSection({ period, especialidade }: AdminProductivityPa
           icon={Gauge}
           label="Taxa de conclusão"
           value={formatPercent(rate)}
-          helper={`${formatInteger(currentKpis.total_ordens)} ordens no mês selecionado.`}
+          helper={`${formatInteger(currentKpis.total_ordens)} ordens no ${selectedScopeLabel}.`}
           deltaLabel={formatComparisonRate(rate, ratePrevious, period.previous.label)}
           deltaTone={resolveDeltaTone(rate - ratePrevious)}
           tone={rate >= 80 ? 'success' : rate >= 60 ? 'warning' : 'default'}
@@ -912,9 +950,9 @@ async function OperacionalSection({ period, especialidade }: AdminProductivityPa
         />
         <MetricCard
           icon={Trophy}
-          label="Destaque do mês"
+          label={highlightLabel}
           value={top ? (top.fornecedor_nome || top.fornecedor_codigo) : 'Sem base'}
-          helper={top ? `${formatInteger(top.atendidas)} concluídas e ${formatPercent(top.pct_conclusao)} de taxa.` : 'Nenhum operacional com produção no mês.'}
+          helper={top ? `${formatInteger(top.atendidas)} concluídas e ${formatPercent(top.pct_conclusao)} de taxa.` : 'Nenhum operacional com produção no período.'}
           tone="success"
         />
       </div>
@@ -924,15 +962,17 @@ async function OperacionalSection({ period, especialidade }: AdminProductivityPa
           <OperationalPodiumCard
             rows={rows}
             totalConcluidas={currentKpis.ordens_atendidas}
+            scopeLabel={scopeLabel}
           />
           <OperationalRankingCard
             rows={rows}
             totalConcluidas={currentKpis.ordens_atendidas}
+            scopeLabel={scopeLabel}
           />
         </div>
         <RecognitionCard
           title="Indicadores para reconhecimento"
-          subtitle="Leituras objetivas para premiação e acompanhamento do mês."
+          subtitle="Leituras objetivas para premiação e acompanhamento do período."
           items={recognition}
         />
       </div>
@@ -1053,14 +1093,14 @@ async function AdminSection({ period }: { period: AdminProductivityPeriod }) {
         name: top.nome,
         value: `${formatInteger(top.concluidas)} ordens concluídas`,
       }
-      : { label: 'Mais concluiu', name: 'Sem destaque', value: 'Nenhuma produção no mês.' },
+      : { label: 'Mais concluiu', name: 'Sem destaque', value: 'Nenhuma produção no período.' },
     bestRate
       ? {
         label: 'Melhor taxa',
         name: bestRate.nome,
         value: `${formatPercent(bestRate.taxa_fechamento)} de fechamento`,
       }
-      : { label: 'Melhor taxa', name: 'Sem destaque', value: 'Nenhuma base válida no mês.' },
+      : { label: 'Melhor taxa', name: 'Sem destaque', value: 'Nenhuma base válida no período.' },
     lowestDelay
       ? {
         label: 'Melhor backlog',
@@ -1069,13 +1109,18 @@ async function AdminSection({ period }: { period: AdminProductivityPeriod }) {
       }
       : { label: 'Melhor backlog', name: 'Sem destaque', value: 'Nenhum backlog comparavel.' },
   ]
-  const trendLabel = `${period.rollingMonths[0]?.label ?? period.label} a ${period.label}`
+  const scopeLabel = resolvePeriodScopeLabel(period)
+  const selectedScopeLabel = resolveSelectedScopeLabel(period)
+  const highlightLabel = resolveHighlightLabel(period)
+  const trendLabel = period.month === null
+    ? period.label
+    : `${period.rollingMonths[0]?.label ?? period.label} a ${period.label}`
 
   return (
     <section className="space-y-6">
       <SectionHeading
         title="Administradores"
-        description="Painel mensal de performance dos administradores, com foco em ordens concluídas, taxa de fechamento, volume tratado e ranking do mês."
+        description="Painel de performance dos administradores, com foco em ordens concluídas, taxa de fechamento, volume tratado e ranking do período."
         badge={<span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">Comparativo base: {period.previous.label}</span>}
       />
 
@@ -1084,7 +1129,7 @@ async function AdminSection({ period }: { period: AdminProductivityPeriod }) {
           icon={BriefcaseBusiness}
           label="Ordens concluídas"
           value={formatInteger(currentKpis.concluidas)}
-          helper={`Total tratado no mês: ${formatInteger(currentKpis.total)} ordens.`}
+          helper={`Total tratado no ${scopeLabel}: ${formatInteger(currentKpis.total)} ordens.`}
           deltaLabel={formatComparisonCount(
             currentKpis.concluidas,
             previousKpis.concluidas,
@@ -1097,7 +1142,7 @@ async function AdminSection({ period }: { period: AdminProductivityPeriod }) {
           icon={Gauge}
           label="Taxa de fechamento"
           value={formatPercent(rate)}
-          helper={`${formatInteger(pending)} ainda pendentes no mês.`}
+          helper={`${formatInteger(pending)} ainda pendentes no ${scopeLabel}.`}
           deltaLabel={formatComparisonRate(rate, ratePrevious, period.previous.label)}
           deltaTone={resolveDeltaTone(rate - ratePrevious)}
           tone={rate >= 70 ? 'success' : rate >= 50 ? 'warning' : 'default'}
@@ -1106,7 +1151,7 @@ async function AdminSection({ period }: { period: AdminProductivityPeriod }) {
           icon={Users}
           label="Admins com produção"
           value={formatInteger(withProduction)}
-          helper={`${formatInteger(withoutDelay)} sem atraso vermelho no mês.`}
+          helper={`${formatInteger(withoutDelay)} sem atraso vermelho no ${scopeLabel}.`}
           deltaLabel={formatComparisonCount(
             withProduction,
             withProductionPrevious,
@@ -1116,22 +1161,22 @@ async function AdminSection({ period }: { period: AdminProductivityPeriod }) {
         />
         <MetricCard
           icon={ShieldCheck}
-          label="Destaque do mês"
+          label={highlightLabel}
           value={top?.nome ?? 'Sem base'}
-          helper={top ? `${formatInteger(top.concluidas)} concluídas e ${formatPercent(top.taxa_fechamento)} de fechamento.` : 'Nenhum administrador com ordens no mês.'}
+          helper={top ? `${formatInteger(top.concluidas)} concluídas e ${formatPercent(top.taxa_fechamento)} de fechamento.` : 'Nenhum administrador com ordens no período.'}
           tone="success"
         />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
-          <AdminPodiumCard rows={rows} />
-          <AdminRankingCard rows={rows} />
+          <AdminPodiumCard rows={rows} scopeLabel={scopeLabel} />
+          <AdminRankingCard rows={rows} scopeLabel={scopeLabel} />
         </div>
         <div className="space-y-6">
           <RecognitionCard
             title="Indicadores para reconhecimento"
-            subtitle="Base mensal para premiação, reconhecimento e calibragem da carteira."
+            subtitle="Base do período para premiação, reconhecimento e calibragem da carteira."
             items={recognition}
           />
           <SnapshotCard
@@ -1140,7 +1185,7 @@ async function AdminSection({ period }: { period: AdminProductivityPeriod }) {
               { label: 'Ordens tratadas', value: currentKpis.total },
               { label: 'Ordens concluídas', value: currentKpis.concluidas },
               { label: 'Ordens pendentes', value: pending, tone: 'warning' },
-              { label: 'Admins com produção', value: withProduction },
+              { label: `Admins com produção no ${selectedScopeLabel}`, value: withProduction },
               { label: 'Admins sem atraso', value: withoutDelay },
             ]}
           />

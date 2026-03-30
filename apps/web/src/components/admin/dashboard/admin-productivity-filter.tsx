@@ -3,11 +3,12 @@
 import { useCallback, useMemo, useState, useTransition } from 'react'
 import { CalendarDays, ChevronDown, HardHat, SlidersHorizontal } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { ALL_PRODUCTIVITY_MONTHS_PARAM } from '@/lib/dashboard/productivity-month'
 import { cn } from '@/lib/utils'
 
 interface AdminProductivityFilterProps {
   selectedYear: number
-  selectedMonth: number
+  selectedMonth: number | null
   yearOptions: number[]
   selectedEspecialidade?: string | null
 }
@@ -19,6 +20,7 @@ const ESPECIALIDADE_OPTIONS = [
 ]
 
 const MONTH_OPTIONS = [
+  { value: ALL_PRODUCTIVITY_MONTHS_PARAM, label: 'Todos os meses (total)' },
   { value: '1', label: 'Janeiro' },
   { value: '2', label: 'Fevereiro' },
   { value: '3', label: 'Marco' },
@@ -49,10 +51,14 @@ export function AdminProductivityFilter({
   const [isPending, startTransition] = useTransition()
 
   const updateQuery = useCallback(
-    (nextYear: number, nextMonth: number, nextEspecialidade?: string | null) => {
+    (nextYear: number, nextMonth: number | null, nextEspecialidade?: string | null) => {
       const params = new URLSearchParams(searchParams.toString())
       params.set('ano', String(nextYear))
-      params.set('mes', String(nextMonth))
+      if (nextMonth === null) {
+        params.set('mes', ALL_PRODUCTIVITY_MONTHS_PARAM)
+      } else {
+        params.set('mes', String(nextMonth))
+      }
       if (nextEspecialidade) {
         params.set('especialidade', nextEspecialidade)
       } else {
@@ -66,9 +72,11 @@ export function AdminProductivityFilter({
   )
 
   const activeEspecialidade = selectedEspecialidade ?? ''
-  const selectedMonthLabel = useMemo(
-    () => MONTH_OPTIONS.find((month) => month.value === String(selectedMonth))?.label ?? 'Mes atual',
-    [selectedMonth],
+  const selectedPeriodLabel = useMemo(
+    () => (selectedMonth === null
+      ? `Ano ${selectedYear}`
+      : (MONTH_OPTIONS.find((month) => month.value === String(selectedMonth))?.label ?? 'Mes atual')),
+    [selectedMonth, selectedYear],
   )
   const selectedEspecialidadeLabel = useMemo(
     () => ESPECIALIDADE_OPTIONS.find((option) => option.value === activeEspecialidade)?.label ?? 'Todos',
@@ -94,7 +102,7 @@ export function AdminProductivityFilter({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1 text-sm text-foreground">
-              {selectedMonthLabel}/{selectedYear}
+              {selectedPeriodLabel}
             </span>
             <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1 text-sm text-muted-foreground">
               {selectedEspecialidadeLabel}
@@ -141,8 +149,12 @@ export function AdminProductivityFilter({
                 </div>
                 <select
                   aria-label="Mes"
-                  value={String(selectedMonth)}
-                  onChange={(event) => updateQuery(selectedYear, Number(event.target.value), selectedEspecialidade)}
+                  value={selectedMonth === null ? ALL_PRODUCTIVITY_MONTHS_PARAM : String(selectedMonth)}
+                  onChange={(event) => updateQuery(
+                    selectedYear,
+                    event.target.value === ALL_PRODUCTIVITY_MONTHS_PARAM ? null : Number(event.target.value),
+                    selectedEspecialidade,
+                  )}
                   className={nativeSelectClassName}
                   disabled={isPending}
                 >

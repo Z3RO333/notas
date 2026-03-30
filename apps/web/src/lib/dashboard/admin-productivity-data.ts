@@ -103,8 +103,10 @@ export function normalizeAdminProductivityDashboardPayload(
     previousKpis: normalizeOrdersKpis(raw.previous_kpis),
     currentRanking: normalizeRankingRows(raw.current_ranking),
     previousRanking: normalizeRankingRows(raw.previous_ranking),
-    evolution: rollingMonths.map((monthWindow) => {
-      const monthData = evolutionByMonth.get(`${monthWindow.year}-${monthWindow.month}`)
+    evolution: rollingMonths
+      .filter((monthWindow): monthWindow is ProductivityMonthWindow & { month: number } => monthWindow.month !== null)
+      .map((monthWindow) => {
+        const monthData = evolutionByMonth.get(`${monthWindow.year}-${monthWindow.month}`)
       return {
         ano: monthWindow.year,
         mes: monthWindow.month,
@@ -112,7 +114,7 @@ export function normalizeAdminProductivityDashboardPayload(
         concluidas: monthData?.concluidas ?? 0,
         em_aberto: monthData?.em_aberto ?? 0,
       }
-    }),
+      }),
   }
 }
 
