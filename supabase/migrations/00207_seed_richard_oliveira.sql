@@ -19,7 +19,7 @@ VALUES (
   'richardoliveira@bemol.com.br',
   'admin',
   TRUE,
-  50,
+  0,
   'cd_manaus',
   FALSE,
   FALSE
