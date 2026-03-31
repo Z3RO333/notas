@@ -3,6 +3,7 @@
 import { BEMOL_EMAIL_DOMAIN } from '@/lib/auth/shared'
 import {
   getGestorActionContext,
+  getGestorOrMaintainerActionContext,
   isMissingRpcFunctionError,
   revalidateCockpitPaths,
   runBestEffortAutomaticOrdersRouting,
@@ -260,7 +261,7 @@ export async function reatribuirOrdensSelecionadas(params: {
 }
 
 export async function salvarPessoaAdmin(params: SalvarPessoaAdminParams) {
-  const { supabase, admin } = await getGestorActionContext()
+  const { supabase, admin } = await getGestorOrMaintainerActionContext()
   const nome = params.nome.trim()
   const email = params.email.trim().toLowerCase()
   const role = params.role
@@ -372,7 +373,7 @@ export async function salvarPessoaAdmin(params: SalvarPessoaAdminParams) {
 }
 
 export async function salvarConfigResponsavelPmpl(params: SalvarConfigResponsavelPmplParams) {
-  const { supabase, admin } = await getGestorActionContext()
+  const { supabase, admin } = await getGestorOrMaintainerActionContext()
   const responsavelId = params.responsavelId?.trim()
   const substitutoId = params.substitutoId?.trim() || null
 

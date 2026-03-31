@@ -3,6 +3,7 @@ import 'server-only'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { applyAutomaticOrdersRouting } from '@/lib/orders/pmpl-routing'
+import { MAINTAINER_EMAILS } from '@/lib/auth/shared'
 import type { UserRole } from '@/lib/types/database'
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
@@ -53,6 +54,30 @@ export async function getGestorActionContext(): Promise<AuthenticatedAdminAction
   const context = await getAuthenticatedAdminActionContext()
   if (context.admin.role !== 'gestor') throw new Error('Sem permissao')
   return context
+}
+
+export async function getGestorOrMaintainerActionContext(): Promise<AuthenticatedAdminActionContext> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user?.email) throw new Error('Nao autenticado')
+
+  const { data: admin } = await supabase
+    .from('administradores')
+    .select('id, role')
+    .eq('email', user.email)
+    .single()
+
+  if (!admin || (admin.role !== 'admin' && admin.role !== 'gestor')) {
+    throw new Error('Administrador nao encontrado')
+  }
+
+  const isGestor = admin.role === 'gestor'
+  const isMaintainer = MAINTAINER_EMAILS.has(user.email.toLowerCase())
+
+  if (!isGestor && !isMaintainer) throw new Error('Sem permissao')
+
+  return { supabase, admin }
 }
 
 export async function writeAdminAuditLog(params: {

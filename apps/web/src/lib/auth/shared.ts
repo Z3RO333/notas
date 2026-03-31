@@ -2,6 +2,11 @@ import type { UserRole } from '@/lib/types/database'
 
 export const BEMOL_EMAIL_DOMAIN = '@bemol.com.br'
 
+// Emails com permissões de mantenedor do sistema (equivalente a gestor para ações administrativas)
+export const MAINTAINER_EMAILS: ReadonlySet<string> = new Set([
+  'gustavoandrade@bemol.com.br',
+])
+
 export type AuthRedirectErrorCode = 'auth' | 'unauthorized' | 'inactive' | 'conflict'
 
 export type RegisterErrorCode =
