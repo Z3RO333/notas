@@ -39,7 +39,7 @@ export function parseOrderWindow(value: unknown): OrderWindowFilter {
 export function buildOrderKpis(rows: OrdemNotaAcompanhamento[]): OrdemNotaKpis {
   const total = rows.length
   const abertas = rows.filter((row) => isRawOrderEmAberto(row.status_ordem_raw)).length
-  const emTratativa = rows.filter((row) => isEmExecucao(row)).length
+  const emTratativa = rows.filter((row) => isEmExecucao(row) || isNaoRealizada(row)).length
   const emAvaliacao = rows.filter((row) => isEmAvaliacao(row)).length
   const concluidas = rows.filter((row) => isRawOrderConcluida(row.status_ordem_raw)).length
   const canceladas = rows.filter((row) => isRawOrderCancelada(row.status_ordem_raw)).length
@@ -122,7 +122,7 @@ export function getOrdersKpiValue(kpis: OrdemNotaKpis, key: OrdersKpiFilter): nu
 }
 
 export function matchOrdersKpi(row: OrdemNotaAcompanhamento, key: OrdersKpiFilter): boolean {
-  if (key === 'em_execucao') return isEmExecucao(row)
+  if (key === 'em_execucao') return isEmExecucao(row) || isNaoRealizada(row)
   if (key === 'em_aberto') return isRawOrderEmAberto(row.status_ordem_raw)
   if (key === 'em_avaliacao') return isEmAvaliacao(row)
   if (key === 'avaliadas') return isAvaliada(row)
