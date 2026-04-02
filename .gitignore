@@ -67,3 +67,6 @@ scripts/lib/*
 scripts/__tests__/*
 !scripts/__tests__/backfill_financeiro_historico.test.js
 CLAUDE.md
+apps/web/.codex-dev-server.log
+apps/web/.codex-dev-server.err.log
+.claude/settings.local.json

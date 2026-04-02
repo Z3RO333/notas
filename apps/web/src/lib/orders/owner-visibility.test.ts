@@ -79,6 +79,7 @@ describe('owner-visibility', () => {
       currentAdminId: 'gestor-id',
       tipoOrdem: 'PMOS',
       responsavel: 'todos',
+      hasScopedFilters: false,
     })
 
     expect(toOwnerKeys(visible)).toEqual([
@@ -97,6 +98,7 @@ describe('owner-visibility', () => {
       currentAdminId: 'gestor-id',
       tipoOrdem: 'PMOS',
       responsavel: 'owner-carlos',
+      hasScopedFilters: true,
     })
 
     expect(toOwnerKeys(visible)).toEqual(['owner-carlos'])
@@ -110,9 +112,27 @@ describe('owner-visibility', () => {
       currentAdminId: 'gestor-id',
       tipoOrdem: 'PMOS',
       responsavel: 'owner-brenda',
+      hasScopedFilters: true,
     })
 
     expect(toOwnerKeys(visible)).toEqual(['owner-brenda'])
+  })
+
+  it('does not pin fixed owners after narrowing the dataset with search or filters', () => {
+    const visible = buildVisibleOwnerSummary({
+      ownerSummary: OWNER_SUMMARY_FIXTURE,
+      canViewGlobal: true,
+      isPrivateScope: false,
+      currentAdminId: 'gestor-id',
+      tipoOrdem: 'PMOS',
+      responsavel: 'todos',
+      hasScopedFilters: true,
+    })
+
+    expect(toOwnerKeys(visible)).toEqual([
+      'owner-carlos',
+      UNASSIGNED_ORDER_OWNER_KEY,
+    ])
   })
 
   it('does not pin fixed owners on PMPL tab', () => {
@@ -123,6 +143,7 @@ describe('owner-visibility', () => {
       currentAdminId: 'gestor-id',
       tipoOrdem: 'PMPL',
       responsavel: 'todos',
+      hasScopedFilters: false,
     })
 
     expect(toOwnerKeys(visible)).toEqual([
@@ -140,6 +161,7 @@ describe('owner-visibility', () => {
       currentAdminId: 'owner-carlos',
       tipoOrdem: 'PMOS',
       responsavel: 'todos',
+      hasScopedFilters: false,
     })
 
     expect(toOwnerKeys(visible)).toEqual(['owner-carlos'])

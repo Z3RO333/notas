@@ -518,8 +518,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       currentAdminId: currentUser.adminId,
       tipoOrdem: filters.tipoOrdem,
       responsavel: filters.responsavel,
+      hasScopedFilters: hasListScopeFilters,
     })
-  }, [ownerSummary, filters.tipoOrdem, filters.responsavel, currentUser.canViewGlobal, currentUser.adminId, isPrivateScope])
+  }, [ownerSummary, filters.tipoOrdem, filters.responsavel, currentUser.canViewGlobal, currentUser.adminId, isPrivateScope, hasListScopeFilters])
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,

@@ -24,6 +24,7 @@ interface BuildVisibleOwnerSummaryParams {
   currentAdminId: string
   tipoOrdem: string
   responsavel: string | null | undefined
+  hasScopedFilters: boolean
 }
 
 function compareByTotalAndName(
@@ -37,7 +38,15 @@ function compareByTotalAndName(
 export function buildVisibleOwnerSummary(params: BuildVisibleOwnerSummaryParams): OrdersOwnerSummary[] {
   const selectionActive = hasIndividualOwnerSelection(params.canViewGlobal, params.responsavel)
   const selectedOwnerKey = selectionActive ? (params.responsavel ?? '').trim() : null
-  const shouldPinFixedOwners = params.canViewGlobal && params.tipoOrdem !== 'PMPL' && !selectionActive
+  // Brenda/Adriano only stay pinned in the broad PMOS overview.
+  // Once the user narrows the universe with search or dataset filters,
+  // the cards must reflect only the filtered result set.
+  const shouldPinFixedOwners = (
+    params.canViewGlobal
+    && params.tipoOrdem !== 'PMPL'
+    && !selectionActive
+    && !params.hasScopedFilters
+  )
   const shouldHideOwner = params.tipoOrdem !== 'PMPL'
 
   const scopedOwnerSummary = params.isPrivateScope
