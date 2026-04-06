@@ -60,6 +60,7 @@ scripts/
 !scripts/
 scripts/*
 !scripts/backfill_financeiro_historico.js
+!scripts/reconcile_pmos_cockpit_from_excel.py
 !scripts/lib/
 scripts/lib/*
 !scripts/lib/backfill_financeiro_historico.js

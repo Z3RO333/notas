@@ -127,6 +127,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
   const { toast } = useToast()
 
   const [rows, setRows] = useState<OrdemNotaAcompanhamento[]>([])
+  const [pendingSyncRows, setPendingSyncRows] = useState<OrdemNotaAcompanhamento[]>([])
   const [unitOptions, setUnitOptions] = useState<string[]>([])
   const [kpis, setKpis] = useState<OrdersWorkspaceKpis>(INITIAL_KPIS)
   const [ownerSummary, setOwnerSummary] = useState<OrdersOwnerSummary[]>([])
@@ -234,6 +235,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
 
         if (reset) {
           setRows(payload.rows)
+          setPendingSyncRows(payload.pendingSyncRows ?? [])
           await onResetSuccess(payload.rows)
         } else {
           setRows((prev) => mergeRows(prev, payload.rows))
@@ -244,6 +246,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
         setError(message)
         if (reset) {
           setRows([])
+          setPendingSyncRows([])
           setHighlights(INITIAL_HIGHLIGHTS)
           setNextCursor(null)
         }
@@ -270,6 +273,8 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
   return {
     rows,
     setRows,
+    pendingSyncRows,
+    setPendingSyncRows,
     unitOptions,
     kpis,
     ownerSummary,

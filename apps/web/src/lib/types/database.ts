@@ -330,6 +330,7 @@ export interface OrdemNotaAcompanhamento {
   envolvidos_admin_ids: string[] | null
   descricao: string | null
   tipo_ordem: string | null
+  aguardando_confirmacao_sync?: boolean
 }
 
 export interface OrderOwnerGroup {
@@ -416,6 +417,7 @@ export interface OrdersWorkspaceHighlights {
 
 export interface OrdersWorkspaceResponse {
   rows: OrdemNotaAcompanhamento[]
+  pendingSyncRows?: OrdemNotaAcompanhamento[]
   nextCursor: OrdersWorkspaceCursor | null
   unitOptions: string[]
   kpis: OrdersWorkspaceKpis

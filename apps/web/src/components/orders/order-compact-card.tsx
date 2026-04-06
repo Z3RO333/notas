@@ -219,6 +219,12 @@ export function OrderCompactCard({
         </span>
 
         <div className="flex shrink-0 items-center gap-1" onClick={(event) => event.stopPropagation()}>
+          {row.aguardando_confirmacao_sync && (
+            <span className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-100">
+              Aguardando confirmacao do sync
+            </span>
+          )}
+
           <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${getSemaforoClass(row.semaforo_atraso)}`}>
             {getSemaforoLabel(row.semaforo_atraso)}
           </span>

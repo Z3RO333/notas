@@ -10,6 +10,7 @@ import { OrdersBulkReassignBar } from '@/components/orders/orders-bulk-reassign-
 import { OrdersDetailDrawer } from '@/components/orders/orders-detail-drawer'
 import { OrdersKpiStrip } from '@/components/orders/orders-kpi-strip'
 import { OrdersOwnerFullCard } from '@/components/orders/orders-owner-full-card'
+import { OrdersPendingSyncSection } from '@/components/orders/orders-pending-sync-section'
 import { OrdersPriorityLane, PRIORITY_LANE_CONFIG } from '@/components/orders/orders-priority-lane'
 import { OrdersPoolCard } from '@/components/orders/orders-pool-card'
 import { resolveOrdersWorkspacePresentation } from '@/components/orders/orders-workspace-presentation'
@@ -241,7 +242,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
   // --- Data + smart search ---
   const {
-    rows, setRows, unitOptions: fetchedUnitOptions, kpis, ownerSummary, reassignTargets, poolGroups, poolCentros, highlights,
+    rows, setRows, pendingSyncRows, setPendingSyncRows, unitOptions: fetchedUnitOptions, kpis, ownerSummary, reassignTargets, poolGroups, poolCentros, highlights,
     nextCursor, loadingInitial, loadingMore, error, currentUser, parentRef, smartSearch, effectiveFilters, fetchWorkspace,
   } = useOrdersData({
     filters,
@@ -424,6 +425,19 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       }
       return updated.filter((row) => row.responsavel_atual_id === filters.responsavel)
     })
+
+    setPendingSyncRows((prev) => prev.map((row) => {
+      const notaId = getRowNotaId(row)
+      if (!notaId) return row
+      const destino = assignByNota.get(notaId)
+      if (!destino) return row
+
+      return {
+        ...row,
+        responsavel_atual_id: destino,
+        responsavel_atual_nome: ownerById.get(destino) ?? row.responsavel_atual_nome,
+      }
+    }))
 
     setSelectedNotaIds([])
     fetchWorkspace(true)
@@ -632,6 +646,17 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           Os KPIs acima mostram o total canônico do período e do tipo de ordem selecionado. Os filtros abaixo afetam a carteira, a listagem e a distribuição por colaborador.
         </p>
       )}
+
+      <OrdersPendingSyncSection
+        rows={pendingSyncRows}
+        highlightQuery={smartSearch.highlightQuery}
+        canReassign={canReassign}
+        reassignTargets={reassignTargets}
+        onOpenDetails={setDetailRow}
+        onReassigned={({ notaId, novoAdminId }) => {
+          applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])
+        }}
+      />
 
       {presentation.showPriorityLanes && <div className="grid gap-4 xl:grid-cols-2">
         <OrdersPriorityLane

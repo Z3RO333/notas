@@ -127,6 +127,12 @@ export function OrdersDetailDrawer({
         </div>
       ) : (
         <div className="space-y-4">
+          {current.aguardando_confirmacao_sync && (
+            <div className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-100">
+              Aguardando confirmacao do sync
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-lg border p-3">
               <p className="text-xs text-muted-foreground">Status</p>

@@ -36,6 +36,7 @@ type SupabaseClient = Awaited<ReturnType<typeof createClient>>
 
 const WORKSPACE_HIGHLIGHT_LIMIT = 6
 const WORKSPACE_HIGHLIGHT_FETCH_LIMIT = 24
+const WORKSPACE_PENDING_SYNC_LIMIT = 24
 
 function mapKpis(value: Partial<OrdersWorkspaceKpis> | null | undefined): OrdersWorkspaceKpis {
   return {
@@ -57,6 +58,23 @@ function mapRpcError(error: { code?: string; message?: string } | null): RpcErro
     code: error.code,
     message: error.message,
   }
+}
+
+function hasRpcToken(
+  error: { message?: string; details?: string | null; hint?: string | null } | null,
+  token: string
+): boolean {
+  if (!error) return false
+  const haystack = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase()
+  return haystack.includes(token.toLowerCase())
+}
+
+function isMissingRpc(
+  error: { code?: string; message?: string; details?: string | null; hint?: string | null } | null
+): boolean {
+  if (!error) return false
+  if (error.code === 'PGRST202') return true
+  return hasRpcToken(error, 'schema cache') || hasRpcToken(error, 'does not exist')
 }
 
 async function callRpcWithOptionalTipoOrdem<T>(
@@ -82,6 +100,34 @@ async function callRpcWithOptionalTipoOrdem<T>(
     error: withTipo.error ? { code: withTipo.error.code, message: withTipo.error.message } : null,
     supportsTipoOrdem: true,
   }
+}
+
+async function callOptionalRpc<T>(
+  supabase: SupabaseClient,
+  rpcName: string,
+  params: Record<string, unknown>
+): Promise<{ data: T | null; error: RpcError; available: boolean }> {
+  const result = await supabase.rpc(rpcName, params)
+  if (isMissingRpc(result.error)) {
+    return {
+      data: null,
+      error: null,
+      available: false,
+    }
+  }
+
+  return {
+    data: (result.data ?? null) as T | null,
+    error: result.error ? { code: result.error.code, message: result.error.message } : null,
+    available: true,
+  }
+}
+
+function markRowsAsPendingSync(rows: OrdemNotaAcompanhamento[]): OrdemNotaAcompanhamento[] {
+  return rows.map((row) => ({
+    ...row,
+    aguardando_confirmacao_sync: true,
+  }))
 }
 
 function buildHighlightStatus(status: string | null): string {
@@ -260,6 +306,24 @@ export async function GET(request: Request) {
     p_q: null,
   } satisfies Record<string, unknown>
 
+  const shouldLoadPendingSyncRows = !parsedRequest.cursorDetectada && !parsedRequest.cursorOrdemId
+
+  const pendingSyncRpcParams = {
+    p_period_mode: parsedRequest.periodMode,
+    p_year: parsedRequest.year,
+    p_month: parsedRequest.month,
+    p_start_iso: parsedRequest.startIso,
+    p_end_exclusive_iso: parsedRequest.endExclusiveIso,
+    p_status: parsedRequest.status,
+    p_unidade: parsedRequest.unidade,
+    p_responsavel: responsavelFilter,
+    p_prioridade: parsedRequest.prioridade,
+    p_q: parsedRequest.q,
+    p_admin_scope: adminScope,
+    p_limit: WORKSPACE_PENDING_SYNC_LIMIT,
+    p_tipo_ordem: parsedRequest.tipoOrdem,
+  } satisfies Record<string, unknown>
+
   const poolRpcParams = {
     p_period_mode: parsedRequest.periodMode,
     p_year: parsedRequest.year,
@@ -269,7 +333,7 @@ export async function GET(request: Request) {
     p_tipo_ordem: parsedRequest.tipoOrdem,
   }
 
-  const [rowsResult, kpisResult, summaryResult, unitsResult, targetsResult, poolResult, poolCentrosResult] = await Promise.all([
+  const [rowsResult, kpisResult, summaryResult, unitsResult, targetsResult, poolResult, poolCentrosResult, pendingSyncResult] = await Promise.all([
     callRpcWithOptionalTipoOrdem<OrdemNotaAcompanhamento[]>(supabase, 'buscar_ordens_workspace', rowsRpcParams),
     callRpcWithOptionalTipoOrdem<OrdersWorkspaceKpis>(supabase, 'calcular_kpis_ordens_operacional', kpisRpcParams),
     callRpcWithOptionalTipoOrdem<Array<Partial<OrdersOwnerSummary>>>(supabase, 'calcular_resumo_colaboradores_ordens', summaryRpcParams),
@@ -289,6 +353,9 @@ export async function GET(request: Request) {
     canViewGlobal
       ? supabase.from('centros_pool').select('centro, pool_nome')
       : Promise.resolve({ data: [], error: null }),
+    shouldLoadPendingSyncRows
+      ? callOptionalRpc<OrdemNotaAcompanhamento[]>(supabase, 'buscar_ordens_sync_pendente_workspace', pendingSyncRpcParams)
+      : Promise.resolve({ data: [] as OrdemNotaAcompanhamento[], error: null, available: false }),
   ])
 
   if (rowsResult.error) {
@@ -309,6 +376,10 @@ export async function GET(request: Request) {
 
   if (targetsResult.error) {
     return NextResponse.json({ error: targetsResult.error.message }, { status: 500 })
+  }
+
+  if (pendingSyncResult.error) {
+    return NextResponse.json({ error: pendingSyncResult.error.message }, { status: 500 })
   }
 
   const tipoOrdemSupportedByDb = rowsResult.supportsTipoOrdem && kpisResult.supportsTipoOrdem && summaryResult.supportsTipoOrdem && unitsResult.supportsTipoOrdem
@@ -352,6 +423,9 @@ export async function GET(request: Request) {
   })
 
   const kpisFromRpc = mapKpis(kpisResult.data)
+  const pendingSyncRows = shouldLoadPendingSyncRows
+    ? markRowsAsPendingSync((pendingSyncResult.data ?? []) as OrdemNotaAcompanhamento[])
+    : []
 
   let discardedRows = 0
   let discardedSummary = 0
@@ -442,6 +516,7 @@ export async function GET(request: Request) {
 
   const response: OrdersWorkspaceResponse = {
     rows,
+    pendingSyncRows,
     nextCursor,
     unitOptions,
     kpis: kpis ?? emptyWorkspaceKpis(),

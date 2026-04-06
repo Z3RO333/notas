@@ -20,6 +20,18 @@ function normalizeRowUuid(value: unknown): string | null {
   return asUuid(value)
 }
 
+function hasMessage(error: { message?: string; details?: string | null; hint?: string | null } | null, token: string): boolean {
+  if (!error) return false
+  const haystack = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase()
+  return haystack.includes(token.toLowerCase())
+}
+
+function isMissingRelation(
+  error: { code?: string; message?: string; details?: string | null; hint?: string | null } | null
+): boolean {
+  return error?.code === '42P01' || error?.code === 'PGRST205' || hasMessage(error, 'does not exist')
+}
+
 function buildOrderEvent(row: {
   id: string
   status_anterior: string | null
@@ -40,7 +52,7 @@ function buildOrderEvent(row: {
     origem: 'ordem',
     created_at: row.created_at,
     titulo,
-    descricao: partes.join(' • ') || 'Atualizacao de status da ordem',
+    descricao: partes.join(' - ') || 'Atualizacao de status da ordem',
   }
 }
 
@@ -64,7 +76,7 @@ function buildNotaEvent(row: {
     origem: 'nota',
     created_at: row.created_at,
     titulo,
-    descricao: partes.join(' • ') || 'Atualizacao da nota',
+    descricao: partes.join(' - ') || 'Atualizacao da nota',
   }
 }
 
@@ -73,7 +85,7 @@ export async function GET(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user?.email) {
-    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
   }
 
   const { data: loggedAdmin, error: loggedAdminError } = await supabase
@@ -83,7 +95,7 @@ export async function GET(request: Request) {
     .single()
 
   if (loggedAdminError || !loggedAdmin) {
-    return NextResponse.json({ error: 'Administrador não encontrado' }, { status: 403 })
+    return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
   }
 
   const role = loggedAdmin.role as UserRole
@@ -92,11 +104,12 @@ export async function GET(request: Request) {
   const notaId = asUuid(searchParams.get('notaId'))
 
   if (!ordemId && !notaId) {
-    return NextResponse.json({ error: 'ordemId ou notaId inválido' }, { status: 400 })
+    return NextResponse.json({ error: 'ordemId ou notaId invalido' }, { status: 400 })
   }
 
   const lookupField = ordemId ? 'ordem_id' : 'nota_id'
   const lookupValue = ordemId ?? notaId!
+
   const ordemResult = await supabase
     .from('vw_ordens_notas_painel')
     .select('*')
@@ -108,17 +121,39 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: ordemResult.error.message }, { status: 500 })
   }
 
-  if (!ordemResult.data) {
+  let ordem = ordemResult.data as OrdemNotaAcompanhamento | null
+
+  if (!ordem) {
+    const pendingResult = await supabase
+      .from('vw_ordens_notas_sync_pendente')
+      .select('*')
+      .eq(lookupField, lookupValue)
+      .limit(1)
+      .maybeSingle()
+
+    if (pendingResult.error && !isMissingRelation(pendingResult.error)) {
+      return NextResponse.json({ error: pendingResult.error.message }, { status: 500 })
+    }
+
+    if (pendingResult.data) {
+      ordem = {
+        ...(pendingResult.data as OrdemNotaAcompanhamento),
+        aguardando_confirmacao_sync: true,
+      }
+    }
+  }
+
+  if (!ordem) {
     return NextResponse.json(
-      { error: ordemId ? 'Ordem não encontrada' : 'Ordem não encontrada para esta nota' },
+      { error: ordemId ? 'Ordem nao encontrada' : 'Ordem nao encontrada para esta nota' },
       { status: 404 }
     )
   }
 
-  const ordem = ordemResult.data as OrdemNotaAcompanhamento
   if (role !== 'gestor' && ordem.responsavel_atual_id !== loggedAdmin.id) {
     return NextResponse.json({ error: 'Sem permissao para visualizar esta ordem' }, { status: 403 })
   }
+
   const linkedNotaId = normalizeRowUuid((ordem as { nota_id?: unknown }).nota_id)
 
   const ordemHistoricoResult = await supabase
@@ -127,6 +162,7 @@ export async function GET(request: Request) {
     .eq('ordem_id', ordem.ordem_id)
     .order('created_at', { ascending: false })
     .limit(10)
+
   if (ordemHistoricoResult.error) {
     return NextResponse.json({ error: ordemHistoricoResult.error.message }, { status: 500 })
   }
@@ -169,9 +205,7 @@ export async function GET(request: Request) {
     }>).map(buildNotaEvent)
   }
 
-  const envolvidosIds = Array.from(
-    new Set((ordem.envolvidos_admin_ids ?? []).filter(Boolean))
-  )
+  const envolvidosIds = Array.from(new Set((ordem.envolvidos_admin_ids ?? []).filter(Boolean)))
 
   const envolvidosResult = envolvidosIds.length > 0
     ? await supabase
