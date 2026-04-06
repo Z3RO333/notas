@@ -656,6 +656,8 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         onReassigned={({ notaId, novoAdminId }) => {
           applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])
         }}
+        collapsible={currentUser.role === 'gestor' && currentUser.canViewGlobal}
+        defaultCollapsed={currentUser.role === 'gestor' && currentUser.canViewGlobal}
       />
 
       {presentation.showPriorityLanes && <div className="grid gap-4 xl:grid-cols-2">

@@ -1,7 +1,9 @@
 'use client'
 
-import { RefreshCcw } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ChevronDown, ChevronUp, RefreshCcw } from 'lucide-react'
 import { OrderCompactCard } from '@/components/orders/order-compact-card'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type {
   OrdemNotaAcompanhamento,
@@ -15,6 +17,8 @@ interface OrdersPendingSyncSectionProps {
   reassignTargets?: OrderReassignTarget[]
   onOpenDetails?: (row: OrdemNotaAcompanhamento) => void
   onReassigned?: (payload: { notaId: string; novoAdminId: string }) => void
+  collapsible?: boolean
+  defaultCollapsed?: boolean
 }
 
 export function OrdersPendingSyncSection({
@@ -24,30 +28,50 @@ export function OrdersPendingSyncSection({
   reassignTargets = [],
   onOpenDetails,
   onReassigned,
+  collapsible = false,
+  defaultCollapsed = false,
 }: OrdersPendingSyncSectionProps) {
+  const [expanded, setExpanded] = useState(!defaultCollapsed)
+
+  useEffect(() => {
+    setExpanded(!defaultCollapsed)
+  }, [defaultCollapsed])
+
   if (rows.length === 0) return null
 
   return (
     <Card className="border-amber-300 bg-amber-50/40 dark:border-amber-900/60 dark:bg-amber-950/20">
-      <CardHeader className="pb-3">
+      <CardHeader className={expanded || !collapsible ? 'pb-3' : 'pb-4'}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2 text-base">
               <RefreshCcw className="h-4 w-4 text-amber-700 dark:text-amber-300" />
               Aguardando confirmacao do sync
             </CardTitle>
-            <p className="text-sm text-muted-foreground">
+            {(expanded || !collapsible) && (
+              <p className="text-sm text-muted-foreground">
               Essas ordens ja aparecem aqui, mas so entram nos KPIs oficiais depois da confirmacao do sync.
-            </p>
+              </p>
+            )}
           </div>
 
-          <span className="inline-flex rounded-full border border-amber-300 bg-background/90 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:border-amber-900/70 dark:bg-background dark:text-amber-200">
-            {rows.length} {rows.length === 1 ? 'ordem' : 'ordens'}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex rounded-full border border-amber-300 bg-background/90 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:border-amber-900/70 dark:bg-background dark:text-amber-200">
+              {rows.length} {rows.length === 1 ? 'ordem' : 'ordens'}
+            </span>
+
+            {collapsible && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setExpanded((current) => !current)}>
+                {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {expanded ? 'Recolher' : 'Expandir'}
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
 
-      <CardContent className="grid gap-2 xl:grid-cols-2">
+      {expanded && (
+        <CardContent className="grid gap-2 xl:grid-cols-2">
         {rows.map((row) => (
           <OrderCompactCard
             key={row.ordem_id}
@@ -64,7 +88,8 @@ export function OrdersPendingSyncSection({
             highlightQuery={highlightQuery}
           />
         ))}
-      </CardContent>
+        </CardContent>
+      )}
     </Card>
   )
 }
