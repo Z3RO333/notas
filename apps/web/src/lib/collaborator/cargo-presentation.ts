@@ -45,7 +45,7 @@ const CARGO_PRESENTATION_BY_LABEL: Record<CollaboratorCargoLabel, Omit<Collabora
     iconKey: 'building',
   },
   'CD TURISMO': {
-    badgeClassName: 'bg-teal-100 text-teal-800',
+    badgeClassName: 'bg-blue-100 text-blue-800',
     iconKey: 'warehouse',
   },
   GERAL: {
