@@ -525,7 +525,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   }, [effectiveFilters, toast])
 
   const visibleOwners = useMemo(() => {
-    return buildVisibleOwnerSummary({
+    const owners = buildVisibleOwnerSummary({
       ownerSummary,
       canViewGlobal: currentUser.canViewGlobal,
       isPrivateScope,
@@ -534,7 +534,8 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       responsavel: filters.responsavel,
       hasScopedFilters: hasListScopeFilters,
     })
-  }, [ownerSummary, filters.tipoOrdem, filters.responsavel, currentUser.canViewGlobal, currentUser.adminId, isPrivateScope, hasListScopeFilters])
+    return presentation.isViewerMode ? owners.filter((o) => o.administrador_id !== null) : owners
+  }, [ownerSummary, filters.tipoOrdem, filters.responsavel, currentUser.canViewGlobal, currentUser.adminId, isPrivateScope, hasListScopeFilters, presentation.isViewerMode])
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
@@ -647,18 +648,20 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         </p>
       )}
 
-      <OrdersPendingSyncSection
-        rows={pendingSyncRows}
-        highlightQuery={smartSearch.highlightQuery}
-        canReassign={canReassign}
-        reassignTargets={reassignTargets}
-        onOpenDetails={setDetailRow}
-        onReassigned={({ notaId, novoAdminId }) => {
-          applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])
-        }}
-        collapsible={currentUser.role === 'gestor' && currentUser.canViewGlobal}
-        defaultCollapsed={currentUser.role === 'gestor' && currentUser.canViewGlobal}
-      />
+      {!presentation.isViewerMode && (
+        <OrdersPendingSyncSection
+          rows={pendingSyncRows}
+          highlightQuery={smartSearch.highlightQuery}
+          canReassign={canReassign}
+          reassignTargets={reassignTargets}
+          onOpenDetails={setDetailRow}
+          onReassigned={({ notaId, novoAdminId }) => {
+            applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])
+          }}
+          collapsible={currentUser.role === 'gestor' && currentUser.canViewGlobal}
+          defaultCollapsed={currentUser.role === 'gestor' && currentUser.canViewGlobal}
+        />
+      )}
 
       {presentation.showPriorityLanes && <div className="grid gap-4 xl:grid-cols-2">
         <OrdersPriorityLane
