@@ -25,6 +25,7 @@ import { UNASSIGNED_ORDER_OWNER_KEY, buildVisibleOwnerSummary, hasIndividualOwne
 import { shouldHideOwnerOutsidePmpl } from '@/lib/admin/admin-identity-catalog'
 import { resolveCargoPresentationFromOwner } from '@/lib/collaborator/cargo-presentation'
 import { buildCopyPayload, copyToClipboard } from '@/lib/orders/copy'
+import { isPrivateOwnerLookupActive as hasPrivateOwnerLookup } from '@/lib/orders/private-owner-lookup'
 import { isRawOrderActive } from '@/lib/orders/status-raw'
 import { fetchAllFilteredOrderCodes } from '@/lib/orders/workspace-copy'
 import { useOrdersFilters, sanitizeText } from '@/components/orders/use-orders-filters'
@@ -256,6 +257,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   )
   const canReassign = currentUser.role === 'gestor' && currentUser.canViewGlobal
   const isPrivateScope = !currentUser.canViewGlobal
+  const privateOwnerLookupActive = isPrivateScope && hasPrivateOwnerLookup(effectiveFilters.q)
 
   // Guard: reset tipoOrdem when user loses PMPL access (bridges data + filter hooks)
   useEffect(() => {
@@ -642,13 +644,19 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
       <OrdersKpiStrip kpis={workspaceKpisToOrdemNotaKpis(kpis)} activeKpi={null} criticality={getOrdersCriticalityLevel(kpis.total, kpis.atrasadas)} interactive={false} loading={loadingInitial} />
 
-      {!presentation.isViewerMode && hasListScopeFilters && (
+      {!presentation.isViewerMode && hasListScopeFilters && !privateOwnerLookupActive && (
         <p className="text-xs text-muted-foreground">
           Os KPIs acima mostram o total canônico do período e do tipo de ordem selecionado. Os filtros abaixo afetam a carteira, a listagem e a distribuição por colaborador.
         </p>
       )}
 
-      {!presentation.isViewerMode && (
+      {privateOwnerLookupActive && (
+        <p className="text-xs text-muted-foreground">
+          Busca pontual ativa: administradores conseguem localizar quem esta com a ordem ou nota pesquisada sem abrir a carteira completa dos outros.
+        </p>
+      )}
+
+      {!presentation.isViewerMode && !privateOwnerLookupActive && (
         <OrdersPendingSyncSection
           rows={pendingSyncRows}
           highlightQuery={smartSearch.highlightQuery}
@@ -663,7 +671,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         />
       )}
 
-      {presentation.showPriorityLanes && <div className="grid gap-4 xl:grid-cols-2">
+      {presentation.showPriorityLanes && !privateOwnerLookupActive && <div className="grid gap-4 xl:grid-cols-2">
         <OrdersPriorityLane
           title={PRIORITY_LANE_CONFIG.oldest.title}
           description={PRIORITY_LANE_CONFIG.oldest.description}
@@ -715,7 +723,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         />
       </div>}
 
-      <div className="rounded-lg border p-3">
+      {!privateOwnerLookupActive && <div className="rounded-lg border p-3">
         <div className="mb-3 flex items-center justify-between gap-2">
           <p className="text-sm font-semibold">Carteira por colaborador</p>
           {presentation.showOwnerToolbar && <div className="flex flex-wrap items-center justify-end gap-2">
@@ -846,7 +854,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             )}
           </>
         )}
-      </div>
+      </div>}
 
       {presentation.showWorkspaceToolbar && <div className="sticky top-2 z-30 rounded-lg border bg-background/95 p-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="grid gap-3 xl:grid-cols-12 xl:items-start">
@@ -1148,6 +1156,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         onOpenChange={(next) => !next && setDetailRow(null)}
         ordemId={detailRow?.ordem_id ?? null}
         notaId={detailRow ? getRowNotaId(detailRow) : null}
+        lookupQuery={privateOwnerLookupActive ? effectiveFilters.q : null}
         row={detailRow}
         canReassign={canReassign}
         reassignTargets={reassignTargets}

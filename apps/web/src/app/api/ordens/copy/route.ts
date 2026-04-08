@@ -4,6 +4,11 @@ import {
   isRpcWithoutTipoOrdemSupport,
   parseOrdersWorkspaceRequest,
 } from '@/lib/orders/workspace-query'
+import {
+  fetchPrivateOwnerLookupRows,
+  mergeWorkspaceLookupRows,
+} from '@/lib/orders/private-owner-lookup.server'
+import { matchesPrivateOwnerLookupRow } from '@/lib/orders/private-owner-lookup'
 import { createClient } from '@/lib/supabase/server'
 import {
   canAccessPmplTab,
@@ -52,6 +57,9 @@ export async function GET(request: Request) {
   const parsedRequest = parseOrdersWorkspaceRequest(new URL(request.url).searchParams, canAccessPmpl)
   const adminScope = canViewGlobal ? null : loggedAdmin.id
   const responsavelFilter = canViewGlobal ? parsedRequest.responsavel : null
+  const privateOwnerLookupResult = !canViewGlobal && role === 'admin'
+    ? await fetchPrivateOwnerLookupRows(supabase, parsedRequest)
+    : { rows: [] as OrdemNotaAcompanhamento[], error: null, lookupToken: null }
 
   const rpcParams: Record<string, unknown> = {
     p_period_mode: parsedRequest.periodMode,
@@ -86,14 +94,26 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: rpcResult.error.message }, { status: 500 })
   }
 
+  if (privateOwnerLookupResult.error) {
+    return NextResponse.json({ error: privateOwnerLookupResult.error }, { status: 500 })
+  }
+
   const rowsFromRpc = (rpcResult.data ?? []) as OrdemNotaAcompanhamento[]
 
-  const rows = canViewGlobal
-    ? rowsFromRpc
-    : rowsFromRpc.filter((row) => row.responsavel_atual_id === loggedAdmin.id)
+  const rows = privateOwnerLookupResult.lookupToken
+    ? mergeWorkspaceLookupRows(
+      rowsFromRpc.filter((row) => row.responsavel_atual_id === loggedAdmin.id)
+        .filter((row) => matchesPrivateOwnerLookupRow(row, privateOwnerLookupResult.lookupToken)),
+      privateOwnerLookupResult.rows,
+    )
+    : canViewGlobal
+        ? rowsFromRpc
+        : rowsFromRpc.filter((row) => row.responsavel_atual_id === loggedAdmin.id)
 
   const lastRow = rowsFromRpc.length > 0 ? rowsFromRpc[rowsFromRpc.length - 1] : null
-  const nextCursor = rowsFromRpc.length === parsedRequest.limit && lastRow
+  const nextCursor = privateOwnerLookupResult.lookupToken
+    ? null
+    : rowsFromRpc.length === parsedRequest.limit && lastRow
     ? {
       ordem_detectada_em: lastRow.ordem_detectada_em,
       ordem_id: lastRow.ordem_id,

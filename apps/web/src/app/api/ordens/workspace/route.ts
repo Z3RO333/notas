@@ -12,6 +12,11 @@ import {
   isRpcWithoutTipoOrdemSupport,
   parseOrdersWorkspaceRequest,
 } from '@/lib/orders/workspace-query'
+import {
+  fetchPrivateOwnerLookupRows,
+  mergeWorkspaceLookupRows,
+} from '@/lib/orders/private-owner-lookup.server'
+import { matchesPrivateOwnerLookupRow } from '@/lib/orders/private-owner-lookup'
 import { createClient } from '@/lib/supabase/server'
 import {
   applyAutomaticOrdersRouting,
@@ -172,6 +177,16 @@ function normalizeUnitName(value: string | null | undefined): string {
     .toUpperCase()
 }
 
+function buildUnitOptionsFromRows(rows: Array<Pick<OrdemNotaAcompanhamento, 'unidade'>>): string[] {
+  return Array.from(
+    new Set(
+      rows
+        .map((row) => row.unidade?.trim() ?? '')
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+}
+
 function resolveUnitType(unidade: string | null | undefined): TipoUnidade | null {
   const normalized = normalizeUnitName(unidade)
   if (!normalized) return null
@@ -251,6 +266,9 @@ export async function GET(request: Request) {
   const parsedRequest = parseOrdersWorkspaceRequest(new URL(request.url).searchParams, canAccessPmpl)
   const adminScope = canViewGlobal ? null : loggedAdmin.id
   const responsavelFilter = canViewGlobal ? parsedRequest.responsavel : null
+  const privateOwnerLookupPromise = !canViewGlobal && role === 'admin'
+    ? fetchPrivateOwnerLookupRows(supabase, parsedRequest)
+    : Promise.resolve({ rows: [] as OrdemNotaAcompanhamento[], error: null, lookupToken: null })
 
   const rowsRpcParams = {
     p_period_mode: parsedRequest.periodMode,
@@ -333,7 +351,7 @@ export async function GET(request: Request) {
     p_tipo_ordem: parsedRequest.tipoOrdem,
   }
 
-  const [rowsResult, kpisResult, summaryResult, unitsResult, targetsResult, poolResult, poolCentrosResult, pendingSyncResult] = await Promise.all([
+  const [rowsResult, kpisResult, summaryResult, unitsResult, targetsResult, poolResult, poolCentrosResult, pendingSyncResult, privateOwnerLookupResult] = await Promise.all([
     callRpcWithOptionalTipoOrdem<OrdemNotaAcompanhamento[]>(supabase, 'buscar_ordens_workspace', rowsRpcParams),
     callRpcWithOptionalTipoOrdem<OrdersWorkspaceKpis>(supabase, 'calcular_kpis_ordens_operacional', kpisRpcParams),
     callRpcWithOptionalTipoOrdem<Array<Partial<OrdersOwnerSummary>>>(supabase, 'calcular_resumo_colaboradores_ordens', summaryRpcParams),
@@ -356,6 +374,7 @@ export async function GET(request: Request) {
     shouldLoadPendingSyncRows
       ? callOptionalRpc<OrdemNotaAcompanhamento[]>(supabase, 'buscar_ordens_sync_pendente_workspace', pendingSyncRpcParams)
       : Promise.resolve({ data: [] as OrdemNotaAcompanhamento[], error: null, available: false }),
+    privateOwnerLookupPromise,
   ])
 
   if (rowsResult.error) {
@@ -382,6 +401,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: pendingSyncResult.error.message }, { status: 500 })
   }
 
+  if (privateOwnerLookupResult.error) {
+    return NextResponse.json({ error: privateOwnerLookupResult.error }, { status: 500 })
+  }
+
   const tipoOrdemSupportedByDb = rowsResult.supportsTipoOrdem && kpisResult.supportsTipoOrdem && summaryResult.supportsTipoOrdem && unitsResult.supportsTipoOrdem
   if (parsedRequest.tipoOrdem === 'PMPL' && !tipoOrdemSupportedByDb) {
     return NextResponse.json({ error: ORDERS_TIPO_ORDEM_MIGRATION_HINT }, { status: 412 })
@@ -393,13 +416,7 @@ export async function GET(request: Request) {
 
   const rowsFromRpc = (rowsResult.data ?? []) as OrdemNotaAcompanhamento[]
   let rows = rowsFromRpc
-  const unitOptions = Array.from(
-    new Set(
-      ((unitsResult.data ?? []) as Array<Pick<OrdemNotaAcompanhamento, 'unidade'>>)
-        .map((row) => row.unidade?.trim() ?? '')
-        .filter(Boolean),
-    ),
-  ).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  let unitOptions = buildUnitOptionsFromRows((unitsResult.data ?? []) as Array<Pick<OrdemNotaAcompanhamento, 'unidade'>>)
 
   let ownerSummary = ((summaryResult.data ?? []) as Array<Partial<OrdersOwnerSummary>>).map((item) => {
     const adminId = item.administrador_id ?? null
@@ -451,16 +468,35 @@ export async function GET(request: Request) {
     }
   }
 
-  const kpis = (!canViewGlobal && (discardedRows > 0 || discardedSummary > 0))
+  const privateLookupRows = privateOwnerLookupResult.lookupToken
+    ? mergeWorkspaceLookupRows(
+      rows.filter((row) => matchesPrivateOwnerLookupRow(row, privateOwnerLookupResult.lookupToken)),
+      privateOwnerLookupResult.rows,
+    )
+    : []
+  const privateOwnerLookupActive = privateOwnerLookupResult.lookupToken !== null
+
+  let pendingRowsForResponse = pendingSyncRows
+
+  if (privateOwnerLookupActive) {
+    rows = privateLookupRows
+    unitOptions = buildUnitOptionsFromRows(rows)
+    ownerSummary = []
+    pendingRowsForResponse = []
+  }
+
+  const kpis = privateOwnerLookupActive
     ? recomputeWorkspaceKpisFromRows(rows)
-    : kpisFromRpc
+    : (!canViewGlobal && (discardedRows > 0 || discardedSummary > 0))
+        ? recomputeWorkspaceKpisFromRows(rows)
+        : kpisFromRpc
 
   let highlights: OrdersWorkspaceHighlights = {
     oldest: [],
     attention: [],
   }
 
-  if (role !== 'viewer') {
+  if (!privateOwnerLookupActive && role !== 'viewer') {
     const [oldestHighlightsResult, attentionHighlightsResult] = await Promise.all([
       fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'vermelho', rowsResult.supportsTipoOrdem, WORKSPACE_HIGHLIGHT_FETCH_LIMIT),
       fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'amarelo', rowsResult.supportsTipoOrdem),
@@ -481,7 +517,9 @@ export async function GET(request: Request) {
   }
 
   const lastCursorRow = rowsFromRpc.length > 0 ? rowsFromRpc[rowsFromRpc.length - 1] : null
-  const nextCursor = rowsFromRpc.length === parsedRequest.limit && lastCursorRow
+  const nextCursor = privateOwnerLookupActive
+    ? null
+    : rowsFromRpc.length === parsedRequest.limit && lastCursorRow
     ? {
       ordem_detectada_em: lastCursorRow.ordem_detectada_em,
       ordem_id: lastCursorRow.ordem_id,
@@ -516,7 +554,7 @@ export async function GET(request: Request) {
 
   const response: OrdersWorkspaceResponse = {
     rows,
-    pendingSyncRows,
+    pendingSyncRows: pendingRowsForResponse,
     nextCursor,
     unitOptions,
     kpis: kpis ?? emptyWorkspaceKpis(),

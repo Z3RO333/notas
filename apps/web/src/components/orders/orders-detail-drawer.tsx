@@ -23,6 +23,7 @@ interface OrdersDetailDrawerProps {
   onOpenChange: (next: boolean) => void
   ordemId: string | null
   notaId: string | null
+  lookupQuery?: string | null
   row: OrdemNotaAcompanhamento | null
   canReassign: boolean
   reassignTargets: OrderReassignTarget[]
@@ -47,6 +48,7 @@ export function OrdersDetailDrawer({
   onOpenChange,
   ordemId,
   notaId,
+  lookupQuery = null,
   row,
   canReassign,
   reassignTargets,
@@ -78,6 +80,9 @@ export function OrdersDetailDrawer({
         } else if (safeNotaId) {
           params.set('notaId', safeNotaId)
         }
+        if (lookupQuery?.trim()) {
+          params.set('lookupQ', lookupQuery.trim())
+        }
 
         const response = await fetch(`/api/ordens/detalhe?${params.toString()}`, {
           signal: controller.signal,
@@ -100,7 +105,7 @@ export function OrdersDetailDrawer({
 
     run()
     return () => controller.abort()
-  }, [open, ordemId, notaId])
+  }, [open, ordemId, notaId, lookupQuery])
 
   const current = useMemo(() => data?.ordem ?? row, [data, row])
   const ordemCodigo = current?.ordem_codigo?.trim() ? current.ordem_codigo : 'Sem ordem'

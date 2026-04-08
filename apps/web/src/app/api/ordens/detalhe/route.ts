@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import {
+  matchesPrivateOwnerLookupRow,
+  normalizePrivateOwnerLookupValue,
+} from '@/lib/orders/private-owner-lookup'
 import type {
   OrderDetailDrawerData,
   OrderTimelineEvent,
@@ -102,6 +106,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const ordemId = asUuid(searchParams.get('ordemId'))
   const notaId = asUuid(searchParams.get('notaId'))
+  const lookupToken = normalizePrivateOwnerLookupValue(searchParams.get('lookupQ'))
 
   if (!ordemId && !notaId) {
     return NextResponse.json({ error: 'ordemId ou notaId invalido' }, { status: 400 })
@@ -150,7 +155,11 @@ export async function GET(request: Request) {
     )
   }
 
-  if (role !== 'gestor' && ordem.responsavel_atual_id !== loggedAdmin.id) {
+  const canAccessByLookup = role === 'admin'
+    && lookupToken !== null
+    && matchesPrivateOwnerLookupRow(ordem, lookupToken)
+
+  if (role !== 'gestor' && ordem.responsavel_atual_id !== loggedAdmin.id && !canAccessByLookup) {
     return NextResponse.json({ error: 'Sem permissao para visualizar esta ordem' }, { status: 403 })
   }
 
