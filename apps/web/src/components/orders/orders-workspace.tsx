@@ -26,7 +26,7 @@ import { shouldHideOwnerOutsidePmpl } from '@/lib/admin/admin-identity-catalog'
 import { resolveCargoPresentationFromOwner } from '@/lib/collaborator/cargo-presentation'
 import { buildCopyPayload, copyToClipboard } from '@/lib/orders/copy'
 import { isPrivateOwnerLookupActive as hasPrivateOwnerLookup } from '@/lib/orders/private-owner-lookup'
-import { toggleSelectedNotaIds, toggleVisibleNotaIds } from '@/lib/orders/selection'
+import { getSelectedOrderCodes, mergeKnownOrderCodes, toggleSelectedNotaIds, toggleVisibleNotaIds } from '@/lib/orders/selection'
 import { isRawOrderActive } from '@/lib/orders/status-raw'
 import { fetchAllFilteredOrderCodes } from '@/lib/orders/workspace-copy'
 import { useOrdersFilters, sanitizeText } from '@/components/orders/use-orders-filters'
@@ -184,6 +184,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   const { toast } = useToast()
   const years = useMemo(() => makeYearOptions(), [])
   const [selectedNotaIds, setSelectedNotaIds] = useState<string[]>([])
+  const [knownOrderCodesByNotaId, setKnownOrderCodesByNotaId] = useState<Record<string, string>>({})
   const [detailRow, setDetailRow] = useState<OrdemNotaAcompanhamento | null>(null)
   const [ownerCardsViewMode, setOwnerCardsViewMode] = useState<PanelViewMode>(
     () => resolveOrdersWorkspacePresentation(initialUser.role).defaultOwnerCardsViewMode
@@ -258,6 +259,14 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   const canReassign = currentUser.role === 'gestor' && currentUser.canViewGlobal
   const isPrivateScope = !currentUser.canViewGlobal
   const privateOwnerLookupActive = isPrivateScope && hasPrivateOwnerLookup(effectiveFilters.q)
+  const rowOrderCodeEntries = useMemo(
+    () =>
+      rows.map((row) => ({
+        notaId: getRowNotaId(row),
+        orderCode: row.ordem_codigo,
+      })),
+    [rows],
+  )
 
   // Guard: reset tipoOrdem when user loses PMPL access (bridges data + filter hooks)
   useEffect(() => {
@@ -265,6 +274,10 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     if (filters.tipoOrdem !== 'PMPL') return
     setFilters((prev) => ({ ...prev, tipoOrdem: 'PMOS' }))
   }, [currentUser.canAccessPmpl, filters.tipoOrdem, setFilters])
+
+  useEffect(() => {
+    setKnownOrderCodesByNotaId((prev) => mergeKnownOrderCodes(prev, rowOrderCodeEntries))
+  }, [rowOrderCodeEntries])
 
   // Restore persisted view mode on mount
   useEffect(() => {
@@ -294,6 +307,15 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   }, [reassignTargets])
 
   const selectedNotaIdsSet = useMemo(() => new Set(selectedNotaIds), [selectedNotaIds])
+  const orderCodesByNotaId = useMemo(
+    () => mergeKnownOrderCodes(knownOrderCodesByNotaId, rowOrderCodeEntries),
+    [knownOrderCodesByNotaId, rowOrderCodeEntries],
+  )
+  const selectedOrderCodes = useMemo(
+    () => getSelectedOrderCodes(selectedNotaIds, orderCodesByNotaId),
+    [selectedNotaIds, orderCodesByNotaId],
+  )
+  const copyUsesSelection = selectedNotaIds.length > 0
   const hasListScopeFilters = Boolean(
     filters.q ||
     (filters.status && filters.status !== 'todas') ||
@@ -481,17 +503,34 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     filters.periodMode === 'range' ? 'xl:grid-cols-4' : filters.periodMode === 'year_month' ? 'xl:grid-cols-3' : filters.periodMode === 'all' ? 'xl:grid-cols-1' : 'xl:grid-cols-2',
   )
 
-  const handleCopyFilteredOrders = useCallback(async () => {
+  const copyButtonLabel = useMemo(() => {
+    if (!copyUsesSelection) {
+      return copyFilterLoading ? 'Copiando filtro...' : 'Copiar filtro'
+    }
+
+    if (copyFilterLoading) {
+      return selectedNotaIds.length === 1 ? 'Copiando 1 ordem...' : `Copiando ${selectedNotaIds.length} ordens...`
+    }
+
+    return selectedNotaIds.length === 1 ? 'Copiar 1 ordem' : `Copiar ${selectedNotaIds.length} ordens`
+  }, [copyFilterLoading, copyUsesSelection, selectedNotaIds.length])
+
+  const handleCopyOrders = useCallback(async () => {
+    const copyingSelectedOrders = selectedNotaIds.length > 0
     setCopyFilterLoading(true)
 
     try {
-      const { codes } = await fetchAllFilteredOrderCodes(effectiveFilters)
+      const codes = copyingSelectedOrders
+        ? selectedOrderCodes
+        : (await fetchAllFilteredOrderCodes(effectiveFilters)).codes
       const payload = buildCopyPayload(codes)
 
       if (!payload) {
         toast({
-          title: 'Nenhuma ordem para copiar',
-          description: 'Nenhuma ordem do filtro atual possui código copiável.',
+          title: copyingSelectedOrders ? 'Nenhuma ordem marcada para copiar' : 'Nenhuma ordem para copiar',
+          description: copyingSelectedOrders
+            ? 'As ordens marcadas ainda não possuem código copiável.'
+            : 'Nenhuma ordem do filtro atual possui código copiável.',
           variant: 'info',
         })
         return
@@ -500,7 +539,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       const copied = await copyToClipboard(payload)
       if (!copied) {
         toast({
-          title: 'Falha ao copiar filtro',
+          title: copyingSelectedOrders ? 'Falha ao copiar selecionadas' : 'Falha ao copiar filtro',
           description: 'Não foi possível copiar para a área de transferência.',
           variant: 'error',
         })
@@ -508,20 +547,24 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       }
 
       toast({
-        title: 'Ordens do filtro copiadas',
+        title: copyingSelectedOrders ? 'Ordens selecionadas copiadas' : 'Ordens do filtro copiadas',
         description: `${payload.split('\n').length} ordens prontas para colar no SAP.`,
         variant: 'success',
       })
     } catch (error) {
       toast({
-        title: 'Falha ao copiar filtro',
-        description: error instanceof Error ? error.message : 'Não foi possível carregar as ordens do filtro atual.',
+        title: copyingSelectedOrders ? 'Falha ao copiar selecionadas' : 'Falha ao copiar filtro',
+        description: error instanceof Error
+          ? error.message
+          : copyingSelectedOrders
+            ? 'Não foi possível preparar as ordens selecionadas.'
+            : 'Não foi possível carregar as ordens do filtro atual.',
         variant: 'error',
       })
     } finally {
       setCopyFilterLoading(false)
     }
-  }, [effectiveFilters, toast])
+  }, [effectiveFilters, selectedNotaIds.length, selectedOrderCodes, toast])
 
   const visibleOwners = useMemo(() => {
     const owners = buildVisibleOwnerSummary({
@@ -986,9 +1029,15 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
               <input type="checkbox" checked={allLoadedSelected} onChange={toggleSelectAllLoaded} className="h-4 w-4" />
               Selecionar carregadas
             </label>
-            <Button type="button" size="sm" className="justify-center" onClick={() => void handleCopyFilteredOrders()} disabled={copyFilterLoading || loadingInitial || rows.length === 0}>
+            <Button
+              type="button"
+              size="sm"
+              className="justify-center"
+              onClick={() => void handleCopyOrders()}
+              disabled={copyFilterLoading || (!copyUsesSelection && (loadingInitial || rows.length === 0))}
+            >
               {copyFilterLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
-              {copyFilterLoading ? 'Copiando filtro...' : 'Copiar filtro'}
+              {copyButtonLabel}
             </Button>
             <OperacionaisEmCampoDialog />
             <Button type="button" variant="outline" size="sm" onClick={() => { void exportOrdersToXlsx(rows) }} disabled={rows.length === 0}>
