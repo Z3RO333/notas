@@ -37,6 +37,10 @@ function normalizeHighlightQuery(value: string | null | undefined): string {
   return query.length >= 2 ? query : ''
 }
 
+function stopEventPropagation(event: React.SyntheticEvent) {
+  event.stopPropagation()
+}
+
 function renderHighlightedText(value: string, query: string) {
   if (!query) return value
   const pattern = new RegExp(`(${escapeRegExp(query)})`, 'ig')
@@ -165,7 +169,7 @@ export function OrderCompactCard({
           <input
             type="checkbox"
             checked={selected}
-            onClick={handleToggleSelection}
+            onClick={stopEventPropagation}
             onChange={handleToggleSelection}
             aria-label={`Selecionar nota ${notaNumero}`}
             className="shrink-0"

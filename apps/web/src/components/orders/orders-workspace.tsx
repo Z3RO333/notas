@@ -26,6 +26,7 @@ import { shouldHideOwnerOutsidePmpl } from '@/lib/admin/admin-identity-catalog'
 import { resolveCargoPresentationFromOwner } from '@/lib/collaborator/cargo-presentation'
 import { buildCopyPayload, copyToClipboard } from '@/lib/orders/copy'
 import { isPrivateOwnerLookupActive as hasPrivateOwnerLookup } from '@/lib/orders/private-owner-lookup'
+import { toggleSelectedNotaIds, toggleVisibleNotaIds } from '@/lib/orders/selection'
 import { isRawOrderActive } from '@/lib/orders/status-raw'
 import { fetchAllFilteredOrderCodes } from '@/lib/orders/workspace-copy'
 import { useOrdersFilters, sanitizeText } from '@/components/orders/use-orders-filters'
@@ -232,7 +233,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
   const handleResetSuccess = useCallback(
     async (resetRows: OrdemNotaAcompanhamento[]) => {
-      setSelectedNotaIds([])
       if (pendingSearchEnterActionRef.current) {
         pendingSearchEnterActionRef.current = false
         await copyFromRow(resetRows[0])
@@ -378,16 +378,13 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   function toggleSelection(notaId: string) {
     const normalizedNotaId = normalizeNotaId(notaId)
     if (!normalizedNotaId) return
-    setSelectedNotaIds((prev) => {
-      if (prev.includes(normalizedNotaId)) return prev.filter((id) => id !== normalizedNotaId)
-      return [...prev, normalizedNotaId]
-    })
+    setSelectedNotaIds((prev) => toggleSelectedNotaIds(prev, normalizedNotaId))
   }
 
   function toggleSelectAllLoaded() {
-    setSelectedNotaIds(() => {
-      if (allLoadedSelected) return []
-      return Array.from(new Set(rowsWithLinkedNote.map((row) => getRowNotaId(row)).filter(Boolean) as string[]))
+    setSelectedNotaIds((prev) => {
+      const visibleNotaIds = rowsWithLinkedNote.map((row) => getRowNotaId(row)).filter(Boolean) as string[]
+      return toggleVisibleNotaIds(prev, visibleNotaIds, allLoadedSelected)
     })
   }
 
@@ -832,9 +829,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                   canReassign={canReassign}
                   reassignTargets={reassignTargets}
                   selectedNotaIds={selectedNotaIdsSet}
-                  onToggleRowSelection={(notaId) => {
-                    setSelectedNotaIds((prev) => (prev.includes(notaId) ? prev.filter((id) => id !== notaId) : [...prev, notaId]))
-                  }}
+                  onToggleRowSelection={toggleSelection}
                 />
               ))}
               {poolGroupsWithRows.map((group) => (
@@ -1106,7 +1101,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                   <OrderCompactCard
                     row={row}
                     selected={selected}
-                    showCheckbox
+                    showCheckbox={canReassign}
                     highlightQuery={smartSearch.highlightQuery}
                     onToggleSelection={toggleSelection}
                     showReassign={canReassign && reassignTargets.length > 0}
