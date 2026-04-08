@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { DEV_ORDERS_VIEW_AS_PARAM, resolveMaintainerViewRoleOverride } from '@/lib/auth/shared'
 import {
   buildFixedOwnerAvatarByAdminId,
   resolveFixedOwnerAvatarByName,
@@ -235,7 +236,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
   }
 
-  const role = loggedAdmin.role as UserRole
+  const url = new URL(request.url)
+  const actualRole = loggedAdmin.role as UserRole
+  const role = resolveMaintainerViewRoleOverride(
+    url.searchParams.get(DEV_ORDERS_VIEW_AS_PARAM),
+    user.email,
+  ) ?? actualRole
   const canViewGlobal = role === 'gestor' || role === 'viewer'
   const canManageWorkspace = role === 'gestor'
 
@@ -263,7 +269,7 @@ export async function GET(request: Request) {
     }
   }
 
-  const parsedRequest = parseOrdersWorkspaceRequest(new URL(request.url).searchParams, canAccessPmpl)
+  const parsedRequest = parseOrdersWorkspaceRequest(url.searchParams, canAccessPmpl)
   const adminScope = canViewGlobal ? null : loggedAdmin.id
   const responsavelFilter = canViewGlobal ? parsedRequest.responsavel : null
   const privateOwnerLookupPromise = !canViewGlobal && role === 'admin'

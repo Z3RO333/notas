@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { DEV_ORDERS_VIEW_AS_PARAM, resolveMaintainerViewRoleOverride } from '@/lib/auth/shared'
 import {
   ORDERS_TIPO_ORDEM_MIGRATION_HINT,
   isRpcWithoutTipoOrdemSupport,
@@ -34,7 +35,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
   }
 
-  const role = loggedAdmin.role as UserRole
+  const url = new URL(request.url)
+  const actualRole = loggedAdmin.role as UserRole
+  const role = resolveMaintainerViewRoleOverride(
+    url.searchParams.get(DEV_ORDERS_VIEW_AS_PARAM),
+    user.email,
+  ) ?? actualRole
   if (role === 'viewer') {
     return NextResponse.json({ error: 'Viewer nao pode copiar ordens em lote' }, { status: 403 })
   }
@@ -54,7 +60,7 @@ export async function GET(request: Request) {
     }
   }
 
-  const parsedRequest = parseOrdersWorkspaceRequest(new URL(request.url).searchParams, canAccessPmpl)
+  const parsedRequest = parseOrdersWorkspaceRequest(url.searchParams, canAccessPmpl)
   const adminScope = canViewGlobal ? null : loggedAdmin.id
   const responsavelFilter = canViewGlobal ? parsedRequest.responsavel : null
   const privateOwnerLookupResult = !canViewGlobal && role === 'admin'

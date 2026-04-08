@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { DEV_ORDERS_VIEW_AS_PARAM } from '@/lib/auth/shared'
 import { useToast } from '@/components/ui/toast'
 import { buildWorkspaceParams } from '@/lib/orders/workspace-query'
 import { sanitizeText } from '@/components/orders/use-orders-filters'
@@ -110,10 +111,13 @@ function resolveSmartSearch(
 
 export interface OrdersDataUser {
   role: UserRole
+  actualRole: UserRole
   adminId: string
   canViewGlobal: boolean
   canAccessPmpl: boolean
   userEmail: string
+  developerViewRole: UserRole | null
+  canUseDeveloperViewSwitcher: boolean
 }
 
 interface UseOrdersDataOptions {
@@ -187,6 +191,9 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
 
       try {
         const params = buildWorkspaceParams(effectiveFilters, pageCursor, BATCH_SIZE)
+        if (currentUser.developerViewRole) {
+          params.set(DEV_ORDERS_VIEW_AS_PARAM, currentUser.developerViewRole)
+        }
         const response = await fetch(`/api/ordens/workspace?${params.toString()}`, {
           signal: controller.signal,
           cache: 'no-store',
@@ -223,7 +230,13 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
           }
         }
 
-        setCurrentUser((prev) => ({ ...payload.currentUser, userEmail: prev.userEmail }))
+        setCurrentUser((prev) => ({
+          ...payload.currentUser,
+          userEmail: prev.userEmail,
+          actualRole: prev.actualRole,
+          developerViewRole: prev.developerViewRole,
+          canUseDeveloperViewSwitcher: prev.canUseDeveloperViewSwitcher,
+        }))
         setUnitOptions(payload.unitOptions ?? [])
         setKpis(payload.kpis)
         setOwnerSummary(payload.ownerSummary)
@@ -259,7 +272,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [effectiveFilters, smartSearch.mode, onResetSuccess, toast],
+    [currentUser.developerViewRole, effectiveFilters, smartSearch.mode, onResetSuccess, toast],
   )
 
   // Trigger fresh fetch whenever effectiveFilters change; scroll list to top

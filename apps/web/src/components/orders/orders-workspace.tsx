@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { AlertTriangle, Copy, Download, LayoutGrid, Loader2, Clock3, RefreshCcw, Rows3, TimerReset } from 'lucide-react'
 import { CollaboratorCardShell } from '@/components/collaborator/collaborator-card-shell'
@@ -19,6 +20,8 @@ import { Input } from '@/components/ui/input'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useToast } from '@/components/ui/toast'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DEV_ORDERS_VIEW_AS_PARAM } from '@/lib/auth/shared'
+import { updateSearchParams } from '@/lib/grid/query'
 import { getOrdersCriticalityLevel, getRawStatusLabel, getSemaforoLabel, workspaceKpisToOrdemNotaKpis, SEMAFORO_OPTIONS } from '@/lib/orders/metrics'
 import { cn } from '@/lib/utils'
 import { UNASSIGNED_ORDER_OWNER_KEY, buildVisibleOwnerSummary, hasIndividualOwnerSelection, toOrderOwnerKey } from '@/lib/orders/owner-visibility'
@@ -46,10 +49,13 @@ interface OrdersWorkspaceProps {
   initialFilters: OrdersWorkspaceFilters
   initialUser: {
     role: UserRole
+    actualRole: UserRole
     adminId: string
     canViewGlobal: boolean
     canAccessPmpl: boolean
     userEmail: string
+    developerViewRole: UserRole | null
+    canUseDeveloperViewSwitcher: boolean
   }
 }
 
@@ -181,6 +187,9 @@ function getRowNotaId(row: OrdemNotaAcompanhamento): string | null {
 }
 
 export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspaceProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const years = useMemo(() => makeYearOptions(), [])
   const [selectedNotaIds, setSelectedNotaIds] = useState<string[]>([])
@@ -259,6 +268,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   const canReassign = currentUser.role === 'gestor' && currentUser.canViewGlobal
   const isPrivateScope = !currentUser.canViewGlobal
   const privateOwnerLookupActive = isPrivateScope && hasPrivateOwnerLookup(effectiveFilters.q)
+  const developerViewActive = currentUser.developerViewRole !== null
   const rowOrderCodeEntries = useMemo(
     () =>
       rows.map((row) => ({
@@ -278,6 +288,14 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   useEffect(() => {
     setKnownOrderCodesByNotaId((prev) => mergeKnownOrderCodes(prev, rowOrderCodeEntries))
   }, [rowOrderCodeEntries])
+
+  const handleDeveloperViewChange = useCallback((value: string) => {
+    const next = updateSearchParams(new URLSearchParams(searchParams.toString()), {
+      [DEV_ORDERS_VIEW_AS_PARAM]: value === 'real' ? null : value,
+    })
+    const nextUrl = next.toString() ? `${pathname}?${next.toString()}` : pathname
+    router.replace(nextUrl, { scroll: false })
+  }, [pathname, router, searchParams])
 
   // Restore persisted view mode on mount
   useEffect(() => {
@@ -522,7 +540,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     try {
       const codes = copyingSelectedOrders
         ? selectedOrderCodes
-        : (await fetchAllFilteredOrderCodes(effectiveFilters)).codes
+        : (await fetchAllFilteredOrderCodes(effectiveFilters, {
+          developerViewRole: currentUser.developerViewRole,
+        })).codes
       const payload = buildCopyPayload(codes)
 
       if (!payload) {
@@ -564,7 +584,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     } finally {
       setCopyFilterLoading(false)
     }
-  }, [effectiveFilters, selectedNotaIds.length, selectedOrderCodes, toast])
+  }, [currentUser.developerViewRole, effectiveFilters, selectedNotaIds.length, selectedOrderCodes, toast])
 
   const visibleOwners = useMemo(() => {
     const owners = buildVisibleOwnerSummary({
@@ -658,6 +678,35 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
   return (
     <div className="space-y-4">
+      {currentUser.canUseDeveloperViewSwitcher && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed bg-muted/30 px-3 py-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">Modo dev de visualizacao</p>
+            <p className="text-xs text-muted-foreground">
+              Perfil real: {currentUser.actualRole}. A simulacao muda a leitura da tela, mas acoes que alteram dados continuam validando sua permissao real.
+            </p>
+          </div>
+
+          <Select value={currentUser.developerViewRole ?? 'real'} onValueChange={handleDeveloperViewChange}>
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder="Simular perfil" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="real">Usar perfil real</SelectItem>
+              <SelectItem value="admin">Simular admin</SelectItem>
+              <SelectItem value="gestor">Simular gestor</SelectItem>
+              <SelectItem value="viewer">Simular viewer</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {developerViewActive && (
+            <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
+              Simulando: {currentUser.role}
+            </span>
+          )}
+        </div>
+      )}
+
       {currentUser.canAccessPmpl && (
         <div className="flex gap-1 rounded-lg border bg-muted/50 p-1 w-fit">
           <button
@@ -1201,6 +1250,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         ordemId={detailRow?.ordem_id ?? null}
         notaId={detailRow ? getRowNotaId(detailRow) : null}
         lookupQuery={privateOwnerLookupActive ? effectiveFilters.q : null}
+        developerViewRole={currentUser.developerViewRole}
         row={detailRow}
         canReassign={canReassign}
         reassignTargets={reassignTargets}

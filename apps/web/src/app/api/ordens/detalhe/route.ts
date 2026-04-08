@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { DEV_ORDERS_VIEW_AS_PARAM, resolveMaintainerViewRoleOverride } from '@/lib/auth/shared'
 import { createClient } from '@/lib/supabase/server'
 import {
   matchesPrivateOwnerLookupRow,
@@ -102,8 +103,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
   }
 
-  const role = loggedAdmin.role as UserRole
   const { searchParams } = new URL(request.url)
+  const actualRole = loggedAdmin.role as UserRole
+  const role = resolveMaintainerViewRoleOverride(
+    searchParams.get(DEV_ORDERS_VIEW_AS_PARAM),
+    user.email,
+  ) ?? actualRole
+  const canViewGlobal = role === 'gestor' || role === 'viewer'
   const ordemId = asUuid(searchParams.get('ordemId'))
   const notaId = asUuid(searchParams.get('notaId'))
   const lookupToken = normalizePrivateOwnerLookupValue(searchParams.get('lookupQ'))
@@ -159,7 +165,7 @@ export async function GET(request: Request) {
     && lookupToken !== null
     && matchesPrivateOwnerLookupRow(ordem, lookupToken)
 
-  if (role !== 'gestor' && ordem.responsavel_atual_id !== loggedAdmin.id && !canAccessByLookup) {
+  if (!canViewGlobal && ordem.responsavel_atual_id !== loggedAdmin.id && !canAccessByLookup) {
     return NextResponse.json({ error: 'Sem permissao para visualizar esta ordem' }, { status: 403 })
   }
 

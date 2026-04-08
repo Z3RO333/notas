@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { AlertCircle, ArrowRightLeft, Clock3, Loader2 } from 'lucide-react'
+import { DEV_ORDERS_VIEW_AS_PARAM } from '@/lib/auth/shared'
 import { DrawerDetalhes } from '@/components/shared/drawer-detalhes'
 import { Button } from '@/components/ui/button'
 import { OrderReassignDialog } from '@/components/orders/order-reassign-dialog'
@@ -16,6 +17,7 @@ import type {
   OrderDetailDrawerData,
   OrdemNotaAcompanhamento,
   OrderReassignTarget,
+  UserRole,
 } from '@/lib/types/database'
 
 interface OrdersDetailDrawerProps {
@@ -24,6 +26,7 @@ interface OrdersDetailDrawerProps {
   ordemId: string | null
   notaId: string | null
   lookupQuery?: string | null
+  developerViewRole?: UserRole | null
   row: OrdemNotaAcompanhamento | null
   canReassign: boolean
   reassignTargets: OrderReassignTarget[]
@@ -49,6 +52,7 @@ export function OrdersDetailDrawer({
   ordemId,
   notaId,
   lookupQuery = null,
+  developerViewRole = null,
   row,
   canReassign,
   reassignTargets,
@@ -83,6 +87,9 @@ export function OrdersDetailDrawer({
         if (lookupQuery?.trim()) {
           params.set('lookupQ', lookupQuery.trim())
         }
+        if (developerViewRole) {
+          params.set(DEV_ORDERS_VIEW_AS_PARAM, developerViewRole)
+        }
 
         const response = await fetch(`/api/ordens/detalhe?${params.toString()}`, {
           signal: controller.signal,
@@ -105,7 +112,7 @@ export function OrdersDetailDrawer({
 
     run()
     return () => controller.abort()
-  }, [open, ordemId, notaId, lookupQuery])
+  }, [developerViewRole, lookupQuery, notaId, open, ordemId])
 
   const current = useMemo(() => data?.ordem ?? row, [data, row])
   const ordemCodigo = current?.ordem_codigo?.trim() ? current.ordem_codigo : 'Sem ordem'

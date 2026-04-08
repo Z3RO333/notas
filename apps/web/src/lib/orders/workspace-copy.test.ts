@@ -102,11 +102,15 @@ describe('workspace-copy', () => {
         ], null),
       })
 
-    const result = await fetchAllFilteredOrderCodes(baseFilters, { fetchImpl })
+    const result = await fetchAllFilteredOrderCodes(baseFilters, {
+      developerViewRole: 'gestor',
+      fetchImpl,
+    })
 
     expect(result.codes).toEqual(['5224003', '5224004'])
     expect(fetchImpl).toHaveBeenCalledTimes(2)
     expect(fetchImpl.mock.calls[0]?.[0]).toContain('/api/ordens/copy?')
+    expect(fetchImpl.mock.calls[0]?.[0]).toContain('devViewAs=gestor')
     expect(fetchImpl.mock.calls[0]?.[0]).toContain('unidade=AVENIDA')
     expect(fetchImpl.mock.calls[1]?.[0]).toContain('cursorOrdemId=22222222-2222-4222-8222-222222222222')
   })

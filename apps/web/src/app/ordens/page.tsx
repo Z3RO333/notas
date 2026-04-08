@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
+import { isMaintainerEmail, resolveMaintainerViewRoleOverride } from '@/lib/auth/shared'
 import { OrdersWorkspace } from '@/components/orders/orders-workspace'
 import { LastSyncBadge } from '@/components/shared/last-sync-badge'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
@@ -24,6 +25,7 @@ interface OrdersPageProps {
     unidade?: string | string[]
     prioridade?: string | string[]
     tipoOrdem?: string | string[]
+    devViewAs?: string | string[]
   }>
 }
 
@@ -41,8 +43,13 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     redirect('/login')
   }
 
-  const role = currentAdminContext.role as UserRole
-  const canViewGlobal = currentAdminContext.canViewGlobal
+  const actualRole = currentAdminContext.role as UserRole
+  const developerViewRole = resolveMaintainerViewRoleOverride(
+    resolvedSearchParams?.devViewAs,
+    currentAdminContext.email,
+  )
+  const role = developerViewRole ?? actualRole
+  const canViewGlobal = role === 'gestor' || role === 'viewer'
 
   let canAccessPmpl = canViewGlobal
   if (!canViewGlobal) {
@@ -71,10 +78,13 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
 
   const initialUser = {
     role,
+    actualRole,
     adminId: currentAdminContext.adminId,
     canViewGlobal,
     canAccessPmpl,
     userEmail: currentAdminContext.email,
+    developerViewRole,
+    canUseDeveloperViewSwitcher: isMaintainerEmail(currentAdminContext.email),
   }
 
   return (
@@ -84,7 +94,11 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         rightSlot={<LastSyncBadge timestamp={latestSyncResult.data?.finished_at ?? null} status={latestSyncResult.data?.status ?? null} />}
       />
 
-      <OrdersWorkspace initialFilters={initialFilters} initialUser={initialUser} />
+      <OrdersWorkspace
+        key={`${initialUser.adminId}:${initialUser.developerViewRole ?? 'real'}`}
+        initialFilters={initialFilters}
+        initialUser={initialUser}
+      />
       <RealtimeListener />
     </div>
   )

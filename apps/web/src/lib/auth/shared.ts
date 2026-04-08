@@ -1,6 +1,7 @@
 import type { UserRole } from '@/lib/types/database'
 
 export const BEMOL_EMAIL_DOMAIN = '@bemol.com.br'
+export const DEV_ORDERS_VIEW_AS_PARAM = 'devViewAs'
 
 // Emails com permissões de mantenedor do sistema (equivalente a gestor para ações administrativas)
 export const MAINTAINER_EMAILS: ReadonlySet<string> = new Set([
@@ -24,6 +25,11 @@ export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase()
 }
 
+export function isMaintainerEmail(value: string | null | undefined): boolean {
+  if (!value) return false
+  return MAINTAINER_EMAILS.has(normalizeEmail(value))
+}
+
 export function isBemolEmail(value: string): boolean {
   const normalized = normalizeEmail(value)
   return normalized.endsWith(BEMOL_EMAIL_DOMAIN) && normalized.length > BEMOL_EMAIL_DOMAIN.length
@@ -31,6 +37,18 @@ export function isBemolEmail(value: string): boolean {
 
 export function isAllowedAuthRole(role: string | null | undefined): role is UserRole {
   return role === 'admin' || role === 'gestor' || role === 'viewer'
+}
+
+export function resolveMaintainerViewRoleOverride(
+  requestedRole: string | string[] | null | undefined,
+  email: string | null | undefined,
+): UserRole | null {
+  if (!isMaintainerEmail(email)) return null
+
+  const rawValue = Array.isArray(requestedRole) ? requestedRole[0] : requestedRole
+  if (!isAllowedAuthRole(rawValue)) return null
+
+  return rawValue
 }
 
 export function mapLoginErrorMessage(rawMessage: string): string {
