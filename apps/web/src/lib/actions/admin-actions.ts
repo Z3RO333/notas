@@ -2,6 +2,13 @@
 
 import { BEMOL_EMAIL_DOMAIN } from '@/lib/auth/shared'
 import {
+  getSaturdayScheduleMonthWindow,
+  mergeSaturdayScheduleRows,
+  normalizeSaturdayScheduleEntries,
+  normalizeSaturdayScheduleMonthKey,
+  validateSaturdayScheduleEntries,
+} from '@/lib/admin/saturday-distribution-schedule'
+import {
   getGestorActionContext,
   getGestorOrMaintainerActionContext,
   isMissingRpcFunctionError,
@@ -10,7 +17,13 @@ import {
   runBestEffortVacationCoverageRedistribution,
   writeAdminAuditLog,
 } from '@/lib/actions/admin-action-support'
-import type { Especialidade } from '@/lib/types/database'
+import type {
+  EscalaDistribuicaoSabado,
+  EscalaDistribuicaoSabadoParticipante,
+  Especialidade,
+  SaturdayDistributionScheduleEntryInput,
+  SaturdayDistributionScheduleMonthPayload,
+} from '@/lib/types/database'
 
 type BulkReassignMode = 'destino_unico' | 'round_robin'
 
@@ -36,11 +49,46 @@ interface SalvarConfigResponsavelPmplParams {
   substitutoId?: string | null
 }
 
+type SaturdayScheduleRow = Pick<EscalaDistribuicaoSabado, 'id' | 'data_escala' | 'hora_fim'>
+type SaturdayScheduleParticipantRow = Pick<EscalaDistribuicaoSabadoParticipante, 'escala_id' | 'administrador_id'>
+
 function normalizeDateInput(value: string | null | undefined): string | null {
   if (!value) return null
   const trimmed = value.trim()
   if (!trimmed) return null
   return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null
+}
+
+async function loadSaturdayScheduleEntriesForMonth(params: {
+  supabase: Awaited<ReturnType<typeof getGestorActionContext>>['supabase']
+  monthKey: string
+}): Promise<SaturdayDistributionScheduleEntryInput[]> {
+  const window = getSaturdayScheduleMonthWindow(params.monthKey)
+
+  const { data: scheduleData, error: scheduleError } = await params.supabase
+    .from('escala_distribuicao_sabado')
+    .select('id, data_escala, hora_fim')
+    .gte('data_escala', window.startDate)
+    .lt('data_escala', window.endExclusiveDate)
+    .order('data_escala', { ascending: true })
+
+  if (scheduleError) throw new Error(scheduleError.message)
+
+  const schedules = (scheduleData ?? []) as SaturdayScheduleRow[]
+  const scheduleIds = schedules.map((item) => item.id)
+
+  let participants: SaturdayScheduleParticipantRow[] = []
+  if (scheduleIds.length > 0) {
+    const { data: participantData, error: participantError } = await params.supabase
+      .from('escala_distribuicao_sabado_participantes')
+      .select('escala_id, administrador_id')
+      .in('escala_id', scheduleIds)
+
+    if (participantError) throw new Error(participantError.message)
+    participants = (participantData ?? []) as SaturdayScheduleParticipantRow[]
+  }
+
+  return mergeSaturdayScheduleRows(schedules, participants)
 }
 
 export async function toggleDistribuicao(adminId: string, valor: boolean, motivo?: string) {
@@ -467,4 +515,164 @@ export async function salvarConfigResponsavelPmpl(params: SalvarConfigResponsave
 
   revalidateCockpitPaths()
   return afterData
+}
+
+export async function salvarEscalaDistribuicaoSabado(
+  params: SaturdayDistributionScheduleMonthPayload,
+) {
+  const { supabase, admin } = await getGestorActionContext()
+  const monthKey = normalizeSaturdayScheduleMonthKey(params.monthKey)
+  const entries = normalizeSaturdayScheduleEntries(monthKey, params.entries)
+  const validationErrors = validateSaturdayScheduleEntries(monthKey, entries)
+
+  if (validationErrors.length > 0) {
+    throw new Error(validationErrors[0])
+  }
+
+  const activeEntries = entries.filter((entry) => entry.administrador_ids.length > 0)
+  const participantIds = Array.from(new Set(activeEntries.flatMap((entry) => entry.administrador_ids)))
+
+  if (participantIds.length > 0) {
+    const { data: admins, error: adminsError } = await supabase
+      .from('administradores')
+      .select('id, role, especialidade')
+      .in('id', participantIds)
+
+    if (adminsError) throw new Error(adminsError.message)
+
+    if ((admins ?? []).length !== participantIds.length) {
+      throw new Error('Um ou mais participantes da escala nao foram encontrados.')
+    }
+
+    for (const target of admins ?? []) {
+      if (target.role !== 'admin' || target.especialidade !== 'geral') {
+        throw new Error('A escala de sabado aceita apenas administradores do pool geral.')
+      }
+    }
+  }
+
+  const beforeEntries = await loadSaturdayScheduleEntriesForMonth({
+    supabase,
+    monthKey,
+  })
+
+  const window = getSaturdayScheduleMonthWindow(monthKey)
+  const { data: existingRowsData, error: existingRowsError } = await supabase
+    .from('escala_distribuicao_sabado')
+    .select('id, data_escala')
+    .gte('data_escala', window.startDate)
+    .lt('data_escala', window.endExclusiveDate)
+
+  if (existingRowsError) throw new Error(existingRowsError.message)
+
+  const existingRows = (existingRowsData ?? []) as Array<{ id: string; data_escala: string }>
+  const activeDateSet = new Set(activeEntries.map((entry) => entry.data_escala))
+  const idsToDelete = existingRows
+    .filter((row) => !activeDateSet.has(row.data_escala))
+    .map((row) => row.id)
+
+  if (idsToDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('escala_distribuicao_sabado')
+      .delete()
+      .in('id', idsToDelete)
+
+    if (deleteError) throw new Error(deleteError.message)
+  }
+
+  if (activeEntries.length > 0) {
+    const { error: upsertError } = await supabase
+      .from('escala_distribuicao_sabado')
+      .upsert(
+        activeEntries.map((entry) => ({
+          data_escala: entry.data_escala,
+          hora_fim: entry.hora_fim,
+          atualizado_por: admin.id,
+          updated_at: new Date().toISOString(),
+        })),
+        { onConflict: 'data_escala' },
+      )
+
+    if (upsertError) throw new Error(upsertError.message)
+  }
+
+  const { data: refreshedRowsData, error: refreshedRowsError } = await supabase
+    .from('escala_distribuicao_sabado')
+    .select('id, data_escala')
+    .gte('data_escala', window.startDate)
+    .lt('data_escala', window.endExclusiveDate)
+
+  if (refreshedRowsError) throw new Error(refreshedRowsError.message)
+
+  const refreshedRows = (refreshedRowsData ?? []) as Array<{ id: string; data_escala: string }>
+  const activeRows = refreshedRows.filter((row) => activeDateSet.has(row.data_escala))
+  const activeRowIds = activeRows.map((row) => row.id)
+
+  if (activeRowIds.length > 0) {
+    const { error: deleteParticipantsError } = await supabase
+      .from('escala_distribuicao_sabado_participantes')
+      .delete()
+      .in('escala_id', activeRowIds)
+
+    if (deleteParticipantsError) throw new Error(deleteParticipantsError.message)
+
+    const rowIdByDate = new Map(activeRows.map((row) => [row.data_escala, row.id]))
+    const participantRows = activeEntries.flatMap((entry) => (
+      entry.administrador_ids.map((adminId) => ({
+        escala_id: rowIdByDate.get(entry.data_escala) as string,
+        administrador_id: adminId,
+      }))
+    ))
+
+    if (participantRows.length > 0) {
+      const { error: insertParticipantsError } = await supabase
+        .from('escala_distribuicao_sabado_participantes')
+        .insert(participantRows)
+
+      if (insertParticipantsError) throw new Error(insertParticipantsError.message)
+    }
+  }
+
+  const afterEntries = await loadSaturdayScheduleEntriesForMonth({
+    supabase,
+    monthKey,
+  })
+
+  const { error: auditConfigError } = await supabase
+    .from('auditoria_config')
+    .insert({
+      tipo: 'escala_distribuicao_sabado',
+      antes: {
+        mes_referencia: monthKey,
+        escalas: beforeEntries,
+      },
+      depois: {
+        mes_referencia: monthKey,
+        escalas: afterEntries,
+      },
+      atualizado_por: admin.id,
+    })
+
+  if (auditConfigError) {
+    console.error('Falha ao gravar auditoria_config da escala de sabado:', auditConfigError.message)
+  }
+
+  await writeAdminAuditLog({
+    supabase,
+    gestorId: admin.id,
+    acao: 'salvar_escala_sabado',
+    alvoId: null,
+    detalhes: {
+      mes_referencia: monthKey,
+      sabados_configurados: afterEntries.length,
+      datas_ativas: afterEntries.map((entry) => entry.data_escala),
+    },
+  })
+
+  revalidateCockpitPaths()
+
+  return {
+    monthKey,
+    configuredSaturdayCount: afterEntries.length,
+  }
 }

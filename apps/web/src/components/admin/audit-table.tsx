@@ -20,6 +20,7 @@ const acaoLabels: Record<string, { label: string; color: string }> = {
   desativar_admin: { label: 'Desativou admin', color: 'text-red-700 dark:text-red-300' },
   reatribuir_nota: { label: 'Reatribuiu nota', color: 'text-indigo-700 dark:text-indigo-300' },
   reatribuir_lote: { label: 'Reatribuiu em lote', color: 'text-indigo-700 dark:text-indigo-300' },
+  salvar_escala_sabado: { label: 'Salvou escala de sabado', color: 'text-blue-700 dark:text-blue-300' },
 }
 
 export function AuditTable({ logs, perspectiva }: AuditTableProps) {

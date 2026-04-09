@@ -452,6 +452,32 @@ export interface AuditoriaConfig {
   updated_at: string
 }
 
+export interface EscalaDistribuicaoSabado {
+  id: string
+  data_escala: string
+  hora_fim: string
+  atualizado_por: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface EscalaDistribuicaoSabadoParticipante {
+  escala_id: string
+  administrador_id: string
+  created_at: string
+}
+
+export interface SaturdayDistributionScheduleEntryInput {
+  data_escala: string
+  hora_fim: string | null
+  administrador_ids: string[]
+}
+
+export interface SaturdayDistributionScheduleMonthPayload {
+  monthKey: string
+  entries: SaturdayDistributionScheduleEntryInput[]
+}
+
 export interface OrderTimelineEvent {
   id: string
   origem: 'ordem' | 'nota'

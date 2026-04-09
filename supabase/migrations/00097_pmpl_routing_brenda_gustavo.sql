@@ -152,6 +152,7 @@ END $$;
 -- PASSO 0: criado_por não se aplica a PMPL (PMPL sempre roteado por tipo/centro)
 -- PASSO 2: PMPL sub-rota CD MANAUS → cd_manaus specialist (Brenda)
 
+DROP FUNCTION IF EXISTS public.atribuir_responsavel_ordens_standalone();
 CREATE OR REPLACE FUNCTION public.atribuir_responsavel_ordens_standalone()
 RETURNS TABLE(
   total_candidatas integer, responsaveis_preenchidos integer,

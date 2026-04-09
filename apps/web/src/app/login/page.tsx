@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
+import { buildPasswordResetRedirectTo } from '@/lib/auth/password-reset'
 import {
   mapLoginErrorMessage,
   mapRedirectErrorMessage,
@@ -150,7 +151,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const supabase = createClient()
-      const redirectTo = `${window.location.origin}/api/auth/callback`
+      const redirectTo = buildPasswordResetRedirectTo(window.location.origin)
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
         redirectTo,
       })

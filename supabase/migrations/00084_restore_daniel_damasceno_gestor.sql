@@ -2,7 +2,7 @@
 -- Daniel Damasceno foi removido da tabela administradores.
 -- Reinsere com role=gestor, auth_user_id já vinculado ao login existente.
 
-INSERT INTO public.administradores (nome, email, role, ativo, especialidade, max_notas, auth_user_id)
+INSERT INTO public.administradores (nome, email, role, ativo, especialidade, max_notas, recebe_distribuicao, auth_user_id)
 VALUES (
   'Daniel Damasceno',
   'danieldamasceno@bemol.com.br',
@@ -10,12 +10,13 @@ VALUES (
   true,
   'geral',
   9999,
-  '1a18abf7-9180-4a85-8836-93c97428b0eb'
+  false,
+  NULL
 )
 ON CONFLICT (email) DO UPDATE
-  SET nome          = EXCLUDED.nome,
-      role          = EXCLUDED.role,
-      ativo         = EXCLUDED.ativo,
-      especialidade = EXCLUDED.especialidade,
-      max_notas     = EXCLUDED.max_notas,
-      auth_user_id  = EXCLUDED.auth_user_id;
+  SET nome                = EXCLUDED.nome,
+      role                = EXCLUDED.role,
+      ativo               = EXCLUDED.ativo,
+      especialidade       = EXCLUDED.especialidade,
+      max_notas           = EXCLUDED.max_notas,
+      recebe_distribuicao = EXCLUDED.recebe_distribuicao;
