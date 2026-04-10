@@ -83,6 +83,7 @@ export function ProductivityTable({ data, notasConcluidas, totalAbertas, totalCo
     geral: resolveCargoLabelFromEspecialidade('geral'),
     cd_manaus: resolveCargoLabelFromEspecialidade('cd_manaus'),
     cd_taruma: resolveCargoLabelFromEspecialidade('cd_taruma'),
+    criticos: resolveCargoLabelFromEspecialidade('criticos'),
   }
 
   return (
@@ -129,6 +130,7 @@ export function ProductivityTable({ data, notasConcluidas, totalAbertas, totalCo
               <SelectItem value="geral">{filterLabelByEspecialidade.geral}</SelectItem>
               <SelectItem value="cd_manaus">{filterLabelByEspecialidade.cd_manaus}</SelectItem>
               <SelectItem value="cd_taruma">{filterLabelByEspecialidade.cd_taruma}</SelectItem>
+              <SelectItem value="criticos">{filterLabelByEspecialidade.criticos}</SelectItem>
             </SelectContent>
           </Select>
         </div>

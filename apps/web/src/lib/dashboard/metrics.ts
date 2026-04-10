@@ -40,6 +40,7 @@ const ESPECIALIDADE_LABEL: Record<Especialidade, string> = {
   geral: 'GERAL',
   cd_manaus: 'CD MANAUS',
   cd_taruma: 'CD TURISMO',
+  criticos: 'CRÍTICOS',
 }
 
 function toNumber(value: unknown): number {

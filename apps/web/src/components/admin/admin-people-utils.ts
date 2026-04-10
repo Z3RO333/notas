@@ -7,6 +7,7 @@ export const ESPECIALIDADE_OPTIONS: Array<{ value: Especialidade; label: string 
   { value: 'elevadores', label: 'Elevadores' },
   { value: 'cd_manaus', label: 'CD Manaus' },
   { value: 'cd_taruma', label: 'CD Taruma' },
+  { value: 'criticos', label: 'Críticos' },
 ]
 
 export const EMPTY_PERSON_FORM: PersonFormState = {
