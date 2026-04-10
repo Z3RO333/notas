@@ -2,6 +2,7 @@ import type { ComponentType, ReactNode } from 'react'
 import {
   BarChart3,
   Building2,
+  Flame,
   Ghost,
   Snowflake,
   UserX,
@@ -56,6 +57,7 @@ const CARGO_ICON_BY_KEY: Record<CollaboratorCargoIconKey, ComponentType<{ classN
   snowflake: Snowflake,
   building: Building2,
   warehouse: Warehouse,
+  flame: Flame,
   users: Users,
   'user-x': UserX,
 }

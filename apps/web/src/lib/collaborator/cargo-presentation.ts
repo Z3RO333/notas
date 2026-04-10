@@ -14,6 +14,7 @@ export type CollaboratorCargoLabel =
   | typeof REFRIGERACAO_LABEL
   | 'CD MANAUS'
   | 'CD TURISMO'
+  | 'CRÍTICOS'
   | 'GERAL'
   | typeof SEM_RESPONSAVEL_LABEL
 
@@ -22,6 +23,7 @@ export type CollaboratorCargoIconKey =
   | 'snowflake'
   | 'building'
   | 'warehouse'
+  | 'flame'
   | 'users'
   | 'user-x'
 
@@ -48,6 +50,10 @@ const CARGO_PRESENTATION_BY_LABEL: Record<CollaboratorCargoLabel, Omit<Collabora
     badgeClassName: 'bg-blue-100 text-blue-800',
     iconKey: 'warehouse',
   },
+  'CRÍTICOS': {
+    badgeClassName: 'bg-red-100 text-red-800',
+    iconKey: 'flame',
+  },
   GERAL: {
     badgeClassName: 'bg-gray-100 text-gray-800',
     iconKey: 'users',
@@ -65,6 +71,7 @@ function normalizeEspecialidade(value: string | null | undefined): Especialidade
     || value === 'geral'
     || value === 'cd_manaus'
     || value === 'cd_taruma'
+    || value === 'criticos'
   ) {
     return value
   }
@@ -126,6 +133,8 @@ export function resolveCargoLabelFromEspecialidade(especialidade: string | null 
       return 'CD MANAUS'
     case 'cd_taruma':
       return 'CD TURISMO'
+    case 'criticos':
+      return 'CRÍTICOS'
     case 'geral':
     case 'unknown':
     default:
