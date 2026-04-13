@@ -2,13 +2,10 @@
 
 import logging
 import re
-import subprocess
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import uuid4
-
-subprocess.check_call(["pip", "install", "supabase"])
 
 from pyspark.sql import SparkSession
 from supabase import Client, create_client
@@ -119,8 +116,6 @@ FAST_SAP_STATUS_AUX_EXPORT_DATE_COLUMN = None
 FAST_COPY_INTENT_TTL_MINUTES = 60
 FAST_COPY_INTENT_CONFIRM_REPAIR_MINUTES = 15
 FAST_RUN_COCKPIT_SYNC = True
-
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sync_job_fast")
@@ -535,9 +530,11 @@ def _read_sap_status_aux_rows(
     local_path = _to_local_dbfs_path(path)
     try:
         import pandas as pd
-    except Exception:
-        subprocess.check_call(["pip", "install", "pandas", "openpyxl"])
-        import pandas as pd
+    except ImportError as exc:
+        raise RuntimeError(
+            "pandas/openpyxl não estão instalados no cluster. "
+            "Instale as bibliotecas no ambiente Databricks antes de executar o job."
+        ) from exc
 
     sheet = xlsx_sheet if xlsx_sheet else 0
     frame = pd.read_excel(local_path, sheet_name=sheet, dtype=str)
@@ -1097,6 +1094,8 @@ def finalize_sync_log(
 
 def main() -> None:
     spark = SparkSession.builder.getOrCreate()
+    global supabase
+    supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     current_step = "startup"
     read_count = 0
     inserted = 0

@@ -2,11 +2,8 @@
 
 import logging
 import re
-import subprocess
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
-
-subprocess.check_call(["pip", "install", "supabase"])
 
 from pyspark.sql import SparkSession
 from supabase import Client, create_client
@@ -64,8 +61,6 @@ MEDIUM_PMPL_MIN_AGE_DAYS = 0
 MEDIUM_RUN_OWNER_ASSIGNMENT = True
 MEDIUM_RUN_OWNER_REALIGN = True
 MEDIUM_RUN_COCKPIT_SYNC = True
-
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sync_job_medium")
@@ -534,6 +529,8 @@ def run_cockpit_convergencia_sync(sync_id: str) -> dict:
 
 def main() -> None:
     spark = SparkSession.builder.getOrCreate()
+    global supabase
+    supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     current_step = "startup"
     pmpl_standalone_inseridas = 0
     pmpl_standalone_atualizadas = 0

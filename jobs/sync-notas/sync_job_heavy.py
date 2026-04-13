@@ -2,11 +2,8 @@
 
 import logging
 import re
-import subprocess
 from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
-
-subprocess.check_call(["pip", "install", "supabase"])
 
 from pyspark.sql import SparkSession
 from supabase import Client, create_client
@@ -38,8 +35,6 @@ HEAVY_SYNC_START_DATE = "2026-01-01"
 HEAVY_ORDERS_REF_V2_LOOKBACK_DAYS = 2
 HEAVY_ORDERS_REF_V2_TOLERATED_FAILURES = 3
 HEAVY_RUN_COCKPIT_SYNC = True
-
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sync_job_heavy")
@@ -610,6 +605,8 @@ def run_cockpit_convergencia_sync(sync_id: str) -> dict:
 
 def main() -> None:
     spark = SparkSession.builder.getOrCreate()
+    global supabase
+    supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     current_step = "startup"
     ordens_tipo_ref_inseridas = 0
     ordens_tipo_ref_atualizadas = 0
