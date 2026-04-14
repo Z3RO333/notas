@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { PostgrestError } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { OperacionalDashboardPeriod } from '@/lib/dashboard/operacional-period'
@@ -25,6 +26,51 @@ interface AdminOperacionalSectionProps {
   fornecedorCodigo?: string | null
   especialidade?: string | null
   avatarByCode?: Record<string, string>
+}
+
+function includesToken(haystack: string | null | undefined, token: string): boolean {
+  return (haystack ?? '').toLowerCase().includes(token.toLowerCase())
+}
+
+function isRpcWithoutOptionalParamSupport(
+  error: Pick<PostgrestError, 'code' | 'message' | 'details' | 'hint'> | null,
+  paramName: string,
+): boolean {
+  if (!error) return false
+
+  return (
+    error.code === 'PGRST202'
+    || error.code === '42883'
+    || includesToken(error.message, paramName)
+    || includesToken(error.details, paramName)
+    || includesToken(error.hint, paramName)
+  )
+}
+
+async function callRpcWithOptionalParam<T>(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  rpcName: string,
+  params: Record<string, unknown>,
+  optionalParam: string,
+): Promise<{ data: T | null; error: PostgrestError | null }> {
+  const withParam = await supabase.rpc(rpcName, params)
+  if (withParam.error && isRpcWithoutOptionalParamSupport(withParam.error, optionalParam)) {
+    const fallbackParams = { ...params }
+    delete fallbackParams[optionalParam]
+
+    console.warn(`[admin/operacional] RPC ${rpcName} sem suporte a ${optionalParam}; repetindo chamada sem esse parametro.`)
+
+    const fallback = await supabase.rpc(rpcName, fallbackParams)
+    return {
+      data: (fallback.data ?? null) as T | null,
+      error: fallback.error,
+    }
+  }
+
+  return {
+    data: (withParam.data ?? null) as T | null,
+    error: withParam.error,
+  }
 }
 
 function KpiCard({ label, value, sub }: { label: string; value: number; sub?: ReactNode }) {
@@ -100,66 +146,106 @@ export async function AdminOperacionalSection({ period, fornecedorCodigo, especi
     evolucaoResult,
     produtividadeLojaResult,
   ] = await Promise.all([
-    supabase.rpc('calcular_kpis_operacionais', {
-      p_data_inicio: period.startIso,
-      p_data_fim: period.endExclusiveIso,
-      p_fornecedor_codigo: filtro,
-      p_especialidade: filtroEspecialidade,
-    }),
-    supabase.rpc('calcular_kpis_ordens_operacional', {
-      p_period_mode: 'range',
-      p_year: null,
-      p_month: null,
-      p_start_iso: period.startIso,
-      p_end_exclusive_iso: period.endExclusiveIso,
-      p_status: null,
-      p_unidade: null,
-      p_responsavel: null,
-      p_prioridade: null,
-      p_q: null,
-      p_admin_scope: null,
-      p_tipo_ordem: 'PMOS',
-    }),
-    supabase.rpc('calcular_produtividade_operacionais', {
-      p_data_inicio: period.startIso,
-      p_data_fim: period.endExclusiveIso,
-      p_limit: 50,
-      p_fornecedor_codigo: filtro,
-      p_especialidade: filtroEspecialidade,
-    }),
-    supabase.rpc('calcular_servicos_mais_feitos', {
-      p_data_inicio: period.startIso,
-      p_data_fim: period.endExclusiveIso,
-      p_limit: 10,
-      p_fornecedor_codigo: filtro,
-      p_especialidade: filtroEspecialidade,
-    }),
-    supabase.rpc('calcular_lojas_por_operacional', {
-      p_data_inicio: period.startIso,
-      p_data_fim: period.endExclusiveIso,
-      p_fornecedor_codigo: filtro,
-      p_especialidade: filtroEspecialidade,
-    }),
-    supabase.rpc('calcular_ordens_abertas_por_loja', {
-      p_data_inicio: period.startIso,
-      p_data_fim: period.endExclusiveIso,
-      p_limit: 15,
-      p_fornecedor_codigo: filtro,
-      p_especialidade: filtroEspecialidade,
-    }),
-    supabase.rpc('calcular_evolucao_mensal_operacionais', {
-      p_data_inicio: period.startIso,
-      p_data_fim: period.endExclusiveIso,
-      p_fornecedor_codigo: filtro,
-      p_especialidade: filtroEspecialidade,
-    }),
-    supabase.rpc('calcular_produtividade_por_loja', {
-      p_data_inicio: period.startIso,
-      p_data_fim: period.endExclusiveIso,
-      p_limit: 15,
-      p_fornecedor_codigo: filtro,
-      p_especialidade: filtroEspecialidade,
-    }),
+    callRpcWithOptionalParam<OperacionalKpis[]>(
+      supabase,
+      'calcular_kpis_operacionais',
+      {
+        p_data_inicio: period.startIso,
+        p_data_fim: period.endExclusiveIso,
+        p_fornecedor_codigo: filtro,
+        p_especialidade: filtroEspecialidade,
+      },
+      'p_especialidade',
+    ),
+    callRpcWithOptionalParam<OrdersWorkspaceKpis>(
+      supabase,
+      'calcular_kpis_ordens_operacional',
+      {
+        p_period_mode: 'range',
+        p_year: null,
+        p_month: null,
+        p_start_iso: period.startIso,
+        p_end_exclusive_iso: period.endExclusiveIso,
+        p_status: null,
+        p_unidade: null,
+        p_responsavel: null,
+        p_prioridade: null,
+        p_q: null,
+        p_admin_scope: null,
+        p_tipo_ordem: 'PMOS',
+      },
+      'p_tipo_ordem',
+    ),
+    callRpcWithOptionalParam<ProdutividadeOperacional[]>(
+      supabase,
+      'calcular_produtividade_operacionais',
+      {
+        p_data_inicio: period.startIso,
+        p_data_fim: period.endExclusiveIso,
+        p_limit: 50,
+        p_fornecedor_codigo: filtro,
+        p_especialidade: filtroEspecialidade,
+      },
+      'p_especialidade',
+    ),
+    callRpcWithOptionalParam<ServicoMaisFeito[]>(
+      supabase,
+      'calcular_servicos_mais_feitos',
+      {
+        p_data_inicio: period.startIso,
+        p_data_fim: period.endExclusiveIso,
+        p_limit: 10,
+        p_fornecedor_codigo: filtro,
+        p_especialidade: filtroEspecialidade,
+      },
+      'p_especialidade',
+    ),
+    callRpcWithOptionalParam<LojaPorOperacional[]>(
+      supabase,
+      'calcular_lojas_por_operacional',
+      {
+        p_data_inicio: period.startIso,
+        p_data_fim: period.endExclusiveIso,
+        p_fornecedor_codigo: filtro,
+        p_especialidade: filtroEspecialidade,
+      },
+      'p_especialidade',
+    ),
+    callRpcWithOptionalParam<OrdensAbertasLoja[]>(
+      supabase,
+      'calcular_ordens_abertas_por_loja',
+      {
+        p_data_inicio: period.startIso,
+        p_data_fim: period.endExclusiveIso,
+        p_limit: 15,
+        p_fornecedor_codigo: filtro,
+        p_especialidade: filtroEspecialidade,
+      },
+      'p_especialidade',
+    ),
+    callRpcWithOptionalParam<EvolucaoMensalOperacional[]>(
+      supabase,
+      'calcular_evolucao_mensal_operacionais',
+      {
+        p_data_inicio: period.startIso,
+        p_data_fim: period.endExclusiveIso,
+        p_fornecedor_codigo: filtro,
+        p_especialidade: filtroEspecialidade,
+      },
+      'p_especialidade',
+    ),
+    callRpcWithOptionalParam<ProdutividadeLoja[]>(
+      supabase,
+      'calcular_produtividade_por_loja',
+      {
+        p_data_inicio: period.startIso,
+        p_data_fim: period.endExclusiveIso,
+        p_limit: 15,
+        p_fornecedor_codigo: filtro,
+        p_especialidade: filtroEspecialidade,
+      },
+      'p_especialidade',
+    ),
   ])
 
   const firstError = [

@@ -24,6 +24,7 @@ interface OperacionalFilterProps {
   selectedYear: number
   selectedMonth: number | null
   yearOptions: number[]
+  supportsEspecialidade?: boolean
 }
 
 const MONTH_OPTIONS = [
@@ -44,6 +45,12 @@ const MONTH_OPTIONS = [
 const nativeSelectClassName =
   'h-9 rounded-full border border-border/70 bg-background/70 px-3 py-1 text-sm shadow-none transition-colors focus:outline-none focus:ring-1 focus:ring-ring'
 
+function getOperacionalShortLabel(operacional: Operacional): string {
+  const nome = (operacional.nome ?? '').trim()
+  if (!nome) return operacional.codigo
+  return nome.split(/\s+/).slice(0, 2).join(' ')
+}
+
 export function OperacionalFilter({
   operacionais,
   selectedFornecedor,
@@ -51,6 +58,7 @@ export function OperacionalFilter({
   selectedYear,
   selectedMonth,
   yearOptions,
+  supportsEspecialidade = true,
 }: OperacionalFilterProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -112,25 +120,29 @@ export function OperacionalFilter({
     : operacionais
 
   return (
-    <div className="grid gap-3 lg:grid-cols-[minmax(12rem,0.8fr)_minmax(16rem,1.2fr)_minmax(10rem,0.6fr)_minmax(12rem,0.8fr)]">
-      <label className="space-y-2">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-          Tipo
-        </span>
-        <select
-          value={selectedEspecialidade ?? ''}
-          onChange={(event) => handleEspecialidadeChange(event.target.value)}
-          className={`${nativeSelectClassName} w-full min-w-0`}
-          disabled={isPending}
-        >
-          <option value="">Todos os tipos</option>
-          {ESPECIALIDADE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </label>
+    <div className={supportsEspecialidade
+      ? 'grid gap-3 lg:grid-cols-[minmax(12rem,0.8fr)_minmax(16rem,1.2fr)_minmax(10rem,0.6fr)_minmax(12rem,0.8fr)]'
+      : 'grid gap-3 lg:grid-cols-[minmax(16rem,1.2fr)_minmax(10rem,0.6fr)_minmax(12rem,0.8fr)]'}>
+      {supportsEspecialidade ? (
+        <label className="space-y-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Tipo
+          </span>
+          <select
+            value={selectedEspecialidade ?? ''}
+            onChange={(event) => handleEspecialidadeChange(event.target.value)}
+            className={`${nativeSelectClassName} w-full min-w-0`}
+            disabled={isPending}
+          >
+            <option value="">Todos os tipos</option>
+            {ESPECIALIDADE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
 
       <label className="space-y-2">
         <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -163,7 +175,7 @@ export function OperacionalFilter({
             <option value="">Todos os operacionais</option>
             {visibleOperacionais.map((operacional) => (
               <option key={operacional.codigo} value={operacional.codigo}>
-                {operacional.nome.split(' ').slice(0, 2).join(' ')}
+                {getOperacionalShortLabel(operacional)}
               </option>
             ))}
           </select>

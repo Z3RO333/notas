@@ -1,12 +1,29 @@
 """Databricks entrypoint: heavy sync for references, enrichment, and backfill."""
 
+import importlib
 import logging
 import re
+import subprocess
+import sys
 from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
 
+
+def _ensure_runtime_dependency(package_name: str, module_name: str | None = None) -> None:
+    target_module = module_name or package_name
+    try:
+        importlib.import_module(target_module)
+    except ModuleNotFoundError:
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(
+                f"Nao foi possivel instalar a dependencia '{package_name}' em runtime. "
+                "Anexe a biblioteca ao cluster/job Databricks ou habilite pip install no ambiente."
+            ) from exc
+
+
 from pyspark.sql import SparkSession
-from supabase import Client, create_client
 
 
 SUPABASE_URL = dbutils.secrets.get(scope="cockpit", key="SUPABASE_URL")
@@ -605,6 +622,8 @@ def run_cockpit_convergencia_sync(sync_id: str) -> dict:
 
 def main() -> None:
     spark = SparkSession.builder.getOrCreate()
+    _ensure_runtime_dependency("supabase")
+    from supabase import create_client
     global supabase
     supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     current_step = "startup"

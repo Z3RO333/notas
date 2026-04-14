@@ -13,15 +13,32 @@ Fluxo:
 
 # Imports stdlib primeiro (antes do pip install) para evitar NameError em ambientes
 # Databricks onde o subprocess.check_call pode resetar o kernel Python.
+import importlib
 import logging
 import re
 import subprocess
+import sys
 import unicodedata
 from decimal import Decimal
 from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
 
-subprocess.check_call(["pip", "install", "supabase"])
+
+def _ensure_runtime_dependency(package_name: str, module_name: str | None = None) -> None:
+    target_module = module_name or package_name
+    try:
+        importlib.import_module(target_module)
+    except ModuleNotFoundError:
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(
+                f"Nao foi possivel instalar a dependencia '{package_name}' em runtime. "
+                "Anexe a biblioteca ao cluster/job Databricks ou habilite pip install no ambiente."
+            ) from exc
+
+
+_ensure_runtime_dependency("supabase")
 
 from pyspark.sql import SparkSession
 from supabase import Client, create_client

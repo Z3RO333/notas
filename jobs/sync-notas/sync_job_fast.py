@@ -1,19 +1,40 @@
 """Databricks entrypoint: fast sync for notes, distribution, and cockpit."""
 
+import importlib
 import logging
 import re
+import subprocess
+import sys
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import uuid4
 
+
+def _ensure_runtime_dependency(package_name: str, module_name: str | None = None) -> None:
+    target_module = module_name or package_name
+    try:
+        importlib.import_module(target_module)
+    except ModuleNotFoundError:
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(
+                f"Nao foi possivel instalar a dependencia '{package_name}' em runtime. "
+                "Anexe a biblioteca ao cluster/job Databricks ou habilite pip install no ambiente."
+            ) from exc
+
+
 from pyspark.sql import SparkSession
-from supabase import Client, create_client
 
 
 SUPABASE_URL = dbutils.secrets.get(scope="cockpit", key="SUPABASE_URL")
 SUPABASE_SERVICE_KEY = dbutils.secrets.get(scope="cockpit", key="SUPABASE_SERVICE_ROLE_KEY")
-STREAMING_TABLE = "manutencao.streaming.notas_qm"
+PRIMARY_NOTES_SOURCE_TABLE = "manutencao.gold.vw_notas_base_latest"
+NOTES_SOURCE_FALLBACK_TABLES = (
+    "manutencao.streaming.notas_qm",
+)
+STREAMING_TABLE = PRIMARY_NOTES_SOURCE_TABLE
 
 MAX_WATERMARK_FUTURE_DAYS = 1
 BOOTSTRAP_CHECKPOINT_SCAN_LIMIT = 500
@@ -94,13 +115,23 @@ NOTA_UPDATED_AT_COLUMNS_CANDIDATES = [
     "__timestamp",
     "DATA_ATUALIZACAO",
 ]
+NOTA_RECENCY_COLUMNS_CANDIDATES = [
+    *NOTA_UPDATED_AT_COLUMNS_CANDIDATES,
+    "HORA_MODIFICACAO",
+    "HORA_NOTA",
+    "DATA_CRIACAO",
+    "DATA_ENTRADA",
+    "DATA_ABERTURA",
+    "DT_CRIACAO",
+    "DT_ENTRADA",
+]
 
 JOB_NAME = "fast"
 
 # Config local deste notebook/arquivo.
 FAST_WINDOW_DAYS = 30
 FAST_FORCE_WINDOW = False
-FAST_IGNORE_WATERMARK = True
+FAST_IGNORE_WATERMARK = False
 FAST_SYNC_START_DATE = "2026-01-01"
 FAST_BOOTSTRAP_MODE = "auto"
 FAST_RUN_SAP_STATUS_AUX = True
@@ -246,17 +277,45 @@ def _extract_note_source_timestamp(row_dict: dict) -> str | None:
     return None
 
 
-def _summarize_note_source_columns(spark: SparkSession) -> dict:
-    columns = spark.table(STREAMING_TABLE).columns
+def _summarize_note_source_columns(spark: SparkSession, source_table: str) -> dict:
+    columns = spark.table(source_table).columns
     upper_columns = {col.upper() for col in columns}
     return {
+        "source_table": source_table,
         "source_columns_total": len(columns),
         "source_has_centro_para_centro_trab": "CENTRO_PARA_CENTRO_TRAB" in upper_columns,
         "source_has_data_atualizacao": "DATA_ATUALIZACAO" in upper_columns,
+        "source_has_hora_modificacao": "HORA_MODIFICACAO" in upper_columns,
+        "source_has_hora_nota": "HORA_NOTA" in upper_columns,
         "source_has_status": "STATUS" in upper_columns,
         "source_has_status_obj_admin": "STATUS_OBJ_ADMIN" in upper_columns,
         "source_has_ordem": "ORDEM" in upper_columns,
     }
+
+
+def _table_exists_for_read(spark: SparkSession, table_name: str) -> bool:
+    try:
+        spark.table(table_name).columns
+        return True
+    except Exception:
+        return False
+
+
+def _resolve_notes_source_table(spark: SparkSession) -> str:
+    for candidate in (PRIMARY_NOTES_SOURCE_TABLE, *NOTES_SOURCE_FALLBACK_TABLES):
+        if _table_exists_for_read(spark, candidate):
+            if candidate != PRIMARY_NOTES_SOURCE_TABLE:
+                logger.warning(
+                    "Fonte primaria %s indisponivel. Usando fallback %s.",
+                    PRIMARY_NOTES_SOURCE_TABLE,
+                    candidate,
+                )
+            else:
+                logger.info("Fonte de notas resolvida para %s.", candidate)
+            return candidate
+
+    candidates = ", ".join((PRIMARY_NOTES_SOURCE_TABLE, *NOTES_SOURCE_FALLBACK_TABLES))
+    raise RuntimeError(f"Nenhuma fonte de notas disponivel no Databricks. Candidatas: {candidates}")
 
 
 def _watermark_is_too_future(iso_date: str, max_future_days: int = MAX_WATERMARK_FUTURE_DAYS) -> bool:
@@ -291,33 +350,65 @@ def _build_date_expr_from_columns(columns: list[str]) -> str:
     return "coalesce(" + ", ".join(parts) + ")"
 
 
-def _build_data_criacao_date_expr(spark: SparkSession) -> str:
-    candidates = ["DATA_CRIACAO", "DATA_ENTRADA", "DATA_ABERTURA", "DT_CRIACAO", "DT_ENTRADA"]
-    existing = _resolve_existing_columns(spark, STREAMING_TABLE, candidates)
+def _build_notes_source_recency_date_expr(spark: SparkSession, source_table: str) -> str:
+    existing = _resolve_existing_columns(spark, source_table, NOTA_RECENCY_COLUMNS_CANDIDATES)
     if not existing:
         logger.warning(
             "Nenhuma coluna de data candidata encontrada na tabela %s. Candidatas=%s",
-            STREAMING_TABLE,
-            candidates,
+            source_table,
+            NOTA_RECENCY_COLUMNS_CANDIDATES,
         )
     return _build_date_expr_from_columns(existing)
 
 
-def _log_empty_result_diagnostics(spark: SparkSession, effective_start: str, data_criacao_expr: str):
+def _collect_notes_source_range_metrics(
+    spark: SparkSession,
+    source_table: str,
+    source_recency_expr: str,
+) -> dict[str, object]:
+    try:
+        row = spark.sql(f"""
+            SELECT
+              COUNT(*) AS total_rows,
+              MIN({source_recency_expr}) AS min_recency,
+              MAX({source_recency_expr}) AS max_recency
+            FROM {source_table}
+        """).collect()[0]
+    except Exception as exc:
+        logger.warning("Falha ao coletar range da fonte %s: %s", source_table, exc)
+        return {
+            "source_total_rows": None,
+            "source_min_recency": None,
+            "source_max_recency": None,
+        }
+
+    return {
+        "source_total_rows": int(row["total_rows"] or 0),
+        "source_min_recency": str(row["min_recency"]) if row["min_recency"] is not None else None,
+        "source_max_recency": str(row["max_recency"]) if row["max_recency"] is not None else None,
+    }
+
+
+def _log_empty_result_diagnostics(
+    spark: SparkSession,
+    source_table: str,
+    effective_start: str,
+    source_recency_expr: str,
+):
     try:
         summary_row = spark.sql(f"""
             SELECT
               COUNT(*) AS total_rows,
-              SUM(CASE WHEN {data_criacao_expr} IS NULL THEN 1 ELSE 0 END) AS data_criacao_invalidas,
-              MIN({data_criacao_expr}) AS min_data_criacao,
-              MAX({data_criacao_expr}) AS max_data_criacao
-            FROM {STREAMING_TABLE}
+              SUM(CASE WHEN {source_recency_expr} IS NULL THEN 1 ELSE 0 END) AS recency_invalidas,
+              MIN({source_recency_expr}) AS min_recency,
+              MAX({source_recency_expr}) AS max_recency
+            FROM {source_table}
         """).collect()[0]
 
         filtered_row = spark.sql(f"""
             SELECT COUNT(*) AS total_filtradas
-            FROM {STREAMING_TABLE}
-            WHERE {data_criacao_expr} >= date('{effective_start}')
+            FROM {source_table}
+            WHERE {source_recency_expr} >= date('{effective_start}')
         """).collect()[0]
 
         sample_rows = [
@@ -325,26 +416,51 @@ def _log_empty_result_diagnostics(spark: SparkSession, effective_start: str, dat
             for row in spark.sql(f"""
                 SELECT
                   DATA_CRIACAO,
+                  DATA_ATUALIZACAO,
                   NUMERO_NOTA,
-                  {data_criacao_expr} AS data_criacao_norm
-                FROM {STREAMING_TABLE}
-                ORDER BY {data_criacao_expr} DESC, DATA_CRIACAO DESC
+                  {source_recency_expr} AS recency_norm
+                FROM {source_table}
+                ORDER BY {source_recency_expr} DESC, DATA_CRIACAO DESC
                 LIMIT 5
             """).collect()
         ]
 
         logger.warning(
-            "Diagnostico source vazio: total_rows=%s, invalidas_data_criacao=%s, min_data=%s, max_data=%s, total_filtradas=%s, effective_start=%s",
+            "Diagnostico source vazio: tabela=%s total_rows=%s invalidas_recencia=%s min_recencia=%s max_recencia=%s total_filtradas=%s effective_start=%s",
+            source_table,
             summary_row["total_rows"],
-            summary_row["data_criacao_invalidas"],
-            summary_row["min_data_criacao"],
-            summary_row["max_data_criacao"],
+            summary_row["recency_invalidas"],
+            summary_row["min_recency"],
+            summary_row["max_recency"],
             filtered_row["total_filtradas"],
             effective_start,
         )
-        logger.warning("Amostra DATA_CRIACAO (top 5): %s", sample_rows)
+        logger.warning("Amostra de recencia da fonte (top 5): %s", sample_rows)
     except Exception as diag_error:
         logger.warning("Falha ao gerar diagnostico de source vazio: %s", diag_error)
+
+
+def _raise_if_source_result_is_inconsistent(batch_metrics: dict[str, object]) -> None:
+    source_rows_read = int(batch_metrics.get("source_rows_read") or 0)
+    if source_rows_read > 0:
+        return
+
+    source_total_rows = batch_metrics.get("source_total_rows")
+    effective_start = _normalize_iso_date(batch_metrics.get("source_effective_start"))
+    source_max_recency = _normalize_iso_date(batch_metrics.get("source_max_recency"))
+
+    if source_total_rows is None or not effective_start or not source_max_recency:
+        return
+
+    if int(source_total_rows) <= 0:
+        return
+
+    if source_max_recency >= effective_start:
+        raise RuntimeError(
+            "Fonte retornou zero linhas para o recorte atual apesar de possuir dados elegiveis. "
+            f"source_table={batch_metrics.get('source_table')} effective_start={effective_start} "
+            f"source_max_recency={source_max_recency} source_total_rows={source_total_rows}"
+        )
 
 
 def _ensure_supabase_healthcheck() -> None:
@@ -373,6 +489,17 @@ def create_sync_log(spark: SparkSession, metadata: dict | None = None) -> str:
 
 
 def get_watermark() -> str | None:
+    streaming_result = (
+        supabase.table("notas_manutencao")
+        .select("streaming_timestamp")
+        .not_.is_("streaming_timestamp", "null")
+        .order("streaming_timestamp", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if streaming_result.data and streaming_result.data[0].get("streaming_timestamp"):
+        return streaming_result.data[0]["streaming_timestamp"]
+
     result = (
         supabase.table("notas_manutencao")
         .select("data_criacao_sap")
@@ -386,7 +513,7 @@ def get_watermark() -> str | None:
     return None
 
 
-def has_bootstrap_checkpoint(sync_start_date: str) -> bool:
+def has_bootstrap_checkpoint(source_table: str, sync_start_date: str) -> bool:
     result = (
         supabase.table("sync_log")
         .select("status, metadata")
@@ -402,7 +529,7 @@ def has_bootstrap_checkpoint(sync_start_date: str) -> bool:
             continue
         if (
             metadata.get("full_bootstrap") is True
-            and metadata.get("streaming_table") == STREAMING_TABLE
+            and metadata.get("streaming_table") == source_table
             and metadata.get("sync_start_date") == sync_start_date
         ):
             return True
@@ -410,23 +537,23 @@ def has_bootstrap_checkpoint(sync_start_date: str) -> bool:
     return False
 
 
-def should_run_full_bootstrap(bootstrap_mode: str, sync_start_date: str) -> bool:
+def should_run_full_bootstrap(bootstrap_mode: str, source_table: str, sync_start_date: str) -> bool:
     if bootstrap_mode == "force":
         logger.info("Bootstrap forcado por config local.")
         return True
     if bootstrap_mode == "off":
         logger.info("Bootstrap desativado por config local.")
         return False
-    if has_bootstrap_checkpoint(sync_start_date):
+    if has_bootstrap_checkpoint(source_table, sync_start_date):
         logger.info(
             "Bootstrap auto nao necessario: checkpoint encontrado para tabela=%s e sync_start_date=%s.",
-            STREAMING_TABLE,
+            source_table,
             sync_start_date,
         )
         return False
     logger.info(
         "Bootstrap auto ativado: nenhum checkpoint para tabela=%s e sync_start_date=%s.",
-        STREAMING_TABLE,
+        source_table,
         sync_start_date,
     )
     return True
@@ -798,6 +925,7 @@ def run_sap_status_aux_sync(spark: SparkSession, sync_id: str) -> dict:
 
 def read_new_notes(
     spark: SparkSession,
+    source_table: str,
     window_days: int,
     force_window: bool,
     ignore_watermark: bool,
@@ -815,18 +943,19 @@ def read_new_notes(
         window_days,
     )
 
-    data_criacao_expr = _build_data_criacao_date_expr(spark)
-    source_metrics = _summarize_note_source_columns(spark)
+    source_recency_expr = _build_notes_source_recency_date_expr(spark, source_table)
+    source_metrics = _summarize_note_source_columns(spark, source_table)
+    source_range_metrics = _collect_notes_source_range_metrics(spark, source_table, source_recency_expr)
 
     if full_bootstrap:
         df = spark.sql(f"""
             SELECT *
             FROM (
-                SELECT *, {data_criacao_expr} AS DATA_CRIACAO_NORM
-                FROM {STREAMING_TABLE}
+                SELECT *, {source_recency_expr} AS SOURCE_RECENCY_NORM
+                FROM {source_table}
             ) t
-            WHERE DATA_CRIACAO_NORM >= date('{sync_start_date}')
-            ORDER BY DATA_CRIACAO_NORM ASC, NUMERO_NOTA ASC
+            WHERE SOURCE_RECENCY_NORM >= date('{sync_start_date}')
+            ORDER BY SOURCE_RECENCY_NORM ASC, NUMERO_NOTA ASC
         """)
         effective_start = sync_start_date
     elif force_window:
@@ -844,16 +973,21 @@ def read_new_notes(
         df = spark.sql(f"""
             SELECT *
             FROM (
-                SELECT *, {data_criacao_expr} AS DATA_CRIACAO_NORM
-                FROM {STREAMING_TABLE}
+                SELECT *, {source_recency_expr} AS SOURCE_RECENCY_NORM
+                FROM {source_table}
             ) t
-            WHERE DATA_CRIACAO_NORM >= date('{effective_start}')
-            ORDER BY DATA_CRIACAO_NORM ASC, NUMERO_NOTA ASC
+            WHERE SOURCE_RECENCY_NORM >= date('{effective_start}')
+            ORDER BY SOURCE_RECENCY_NORM ASC, NUMERO_NOTA ASC
         """)
 
     rows = df.collect()
     if not rows:
-        _log_empty_result_diagnostics(spark, effective_start or sync_start_date, data_criacao_expr)
+        _log_empty_result_diagnostics(
+            spark,
+            source_table,
+            effective_start or sync_start_date,
+            source_recency_expr,
+        )
 
     notes: list[dict] = []
     missing_centro = 0
@@ -925,6 +1059,7 @@ def read_new_notes(
 
     batch_metrics = {
         **source_metrics,
+        **source_range_metrics,
         "source_rows_read": len(rows),
         "source_notes_valid": len(notes),
         "source_notes_skipped_missing_numero": skipped_sem_numero,
@@ -940,10 +1075,12 @@ def read_new_notes(
         "source_distinct_centros": len(distinct_centros),
         "source_effective_start": effective_start,
         "source_watermark_raw": watermark,
-        "source_data_criacao_expr": data_criacao_expr,
+        "source_recency_expr": source_recency_expr,
+        "source_data_criacao_expr": source_recency_expr,
         "source_raw_data_payload_mode": "object",
         "source_raw_data_payload_object_count": len(notes),
     }
+    _raise_if_source_result_is_inconsistent(batch_metrics)
     return notes, batch_metrics
 
 
@@ -1094,8 +1231,11 @@ def finalize_sync_log(
 
 def main() -> None:
     spark = SparkSession.builder.getOrCreate()
+    _ensure_runtime_dependency("supabase")
+    from supabase import create_client
     global supabase
     supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    notes_source_table = _resolve_notes_source_table(spark)
     current_step = "startup"
     read_count = 0
     inserted = 0
@@ -1129,14 +1269,15 @@ def main() -> None:
     }
 
     _ensure_supabase_healthcheck()
-    sync_id = create_sync_log(spark, metadata={"job": JOB_NAME})
+    sync_id = create_sync_log(spark, metadata={"job": JOB_NAME, "streaming_table": notes_source_table})
 
     try:
-        full_bootstrap = should_run_full_bootstrap(FAST_BOOTSTRAP_MODE, FAST_SYNC_START_DATE)
+        full_bootstrap = should_run_full_bootstrap(FAST_BOOTSTRAP_MODE, notes_source_table, FAST_SYNC_START_DATE)
 
         current_step = "read_new_notes"
         notes, note_batch_metrics = read_new_notes(
             spark,
+            source_table=notes_source_table,
             window_days=FAST_WINDOW_DAYS,
             force_window=FAST_FORCE_WINDOW,
             ignore_watermark=FAST_IGNORE_WATERMARK,
@@ -1199,7 +1340,9 @@ def main() -> None:
                 "sync_start_date": FAST_SYNC_START_DATE,
                 "bootstrap_mode": FAST_BOOTSTRAP_MODE,
                 "full_bootstrap": full_bootstrap,
-                "streaming_table": STREAMING_TABLE,
+                "streaming_table": notes_source_table,
+                "source_primary_table": PRIMARY_NOTES_SOURCE_TABLE,
+                "source_fallback_used": notes_source_table != PRIMARY_NOTES_SOURCE_TABLE,
                 **note_batch_metrics,
                 "sap_status_aux_status": sap_status_aux_metrics.get("status"),
                 "sap_status_aux_error": sap_status_aux_metrics.get("error"),
@@ -1235,7 +1378,9 @@ def main() -> None:
                 "sync_start_date": FAST_SYNC_START_DATE,
                 "bootstrap_mode": FAST_BOOTSTRAP_MODE,
                 "full_bootstrap": full_bootstrap,
-                "streaming_table": STREAMING_TABLE,
+                "streaming_table": notes_source_table,
+                "source_primary_table": PRIMARY_NOTES_SOURCE_TABLE,
+                "source_fallback_used": notes_source_table != PRIMARY_NOTES_SOURCE_TABLE,
                 **note_batch_metrics,
                 "sap_status_aux_status": sap_status_aux_metrics.get("status"),
                 "sap_status_aux_error": sap_status_aux_metrics.get("error"),
