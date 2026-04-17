@@ -10,6 +10,9 @@ export default defineConfig({
     setupFiles: ['./src/tests/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     exclude: ['src/tests/e2e/**'],
+    alias: {
+      'server-only': 'C:/NOTAS PROJETO/notas/apps/web/src/tests/mocks/server-only.ts',
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],

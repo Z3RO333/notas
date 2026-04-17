@@ -15,6 +15,14 @@ vi.mock('@/lib/graficos/gestao-base-rpc', () => ({
   callGestaoBaseRpc: (...args: unknown[]) => callGestaoBaseRpcMock(...args),
 }))
 
+vi.mock('@/lib/auth/current-admin-context', () => ({
+  getCurrentAdminContext: vi.fn(async () => ({
+    adminId: 'test-admin-id',
+    isGestor: true,
+    nome: 'Test Admin',
+  })),
+}))
+
 describe('GraficosPage', () => {
   it('dedupes loja options ignoring case and accents while keeping the readable label', () => {
     expect(
