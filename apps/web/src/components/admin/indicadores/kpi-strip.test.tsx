@@ -22,7 +22,7 @@ describe('KpiStrip', () => {
     expect(screen.getByText('161')).toBeInTheDocument()
   })
 
-  it('shows em breve for null tempo values', () => {
+  it('shows em dash for null tempo values', () => {
     render(<KpiStrip kpis={{ ...mockKpis, tempo_medio_nota_ordem: null, tempo_medio_conclusao: null }} />)
     const placeholders = screen.getAllByText('—')
     expect(placeholders).toHaveLength(2)
