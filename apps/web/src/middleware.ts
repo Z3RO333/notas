@@ -11,8 +11,8 @@ function copySupabaseCookies(source: NextResponse, target: NextResponse) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Public auth routes stay reachable without a session.
-  if (pathname.startsWith('/api/auth')) {
+  // Public routes — no session required.
+  if (pathname.startsWith('/api/auth') || pathname === '/api/health') {
     return NextResponse.next()
   }
 
