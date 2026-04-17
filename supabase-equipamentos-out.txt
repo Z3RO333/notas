@@ -1,2 +1,0 @@
-equipamentos_top_lojas_antiga,equipamentos_top_lojas_nova,equipamentos_linhas_antiga,equipamentos_linhas_nova,equipamentos_anos_antiga,equipamentos_anos_nova,equipamentos_filtros
-"calcular_equipamentos_top_lojas(text,integer,integer,text)",NULL,"buscar_equipamentos_criticos_linhas(text,integer,integer,text)",NULL,listar_equipamentos_criticos_anos(text),NULL,NULL
