@@ -50,8 +50,9 @@ AS $$
   kpis_ordens AS (
     SELECT
       COUNT(*) FILTER (
-        WHERE COALESCE(op.concluido_em, op.ordem_detectada_em) >= p_start_iso
-          AND COALESCE(op.concluido_em, op.ordem_detectada_em) <  p_end_exclusive_iso
+        WHERE op.concluido_em IS NOT NULL
+          AND op.concluido_em >= p_start_iso
+          AND op.concluido_em <  p_end_exclusive_iso
       )::INTEGER AS total_concluidas,
       ROUND(
         AVG(op.dias_para_gerar_ordem) FILTER (
