@@ -57,6 +57,19 @@ Observacao:
 
 ## Como rodar localmente
 
+### Atalhos pela raiz do workspace
+
+Na maior parte do dia a dia, voce pode rodar tudo pela raiz do repositorio:
+
+```bash
+npm run dev
+npm run build
+npm run lint
+npm run test
+```
+
+Esses atalhos orquestram a aplicacao em `apps/web` sem precisar trocar de diretoria manualmente.
+
 ### Opcao 1: app web apontando para um ambiente Supabase ja existente
 
 ```bash
@@ -95,6 +108,17 @@ Portas locais do Supabase definidas em `supabase/config.toml`:
 ## Comandos uteis
 
 ### Aplicacao web
+
+```bash
+npm run dev
+npm run build
+npm run lint
+npm run test
+npm run test:coverage
+npm run test:e2e
+```
+
+Se preferir executar direto no workspace da app:
 
 ```bash
 cd apps/web
