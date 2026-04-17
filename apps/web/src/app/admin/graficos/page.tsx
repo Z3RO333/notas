@@ -13,8 +13,43 @@ import { buildGestaoLojasDisponiveis } from './gestao-filter-options'
 import { GestaoFilters } from './components/gestao-filters'
 import { OfficialUnitSummary } from './components/official-unit-summary'
 import { SegmentoSection } from './components/segmento-section'
+import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
+import { IndicadoresSection } from '@/components/admin/indicadores/indicadores-section'
+import type {
+  KpisNotasOrdens,
+  ResumoDiarioRow,
+  LojaIndicadoresRow,
+  ColaboradorIndicadoresRow,
+} from '@/lib/types/indicadores'
 
 export const dynamic = 'force-dynamic'
+
+function resolvePeriodoIndicadores(params: Record<string, string | undefined>): {
+  startDate: string
+  endDate: string
+  startIso: string
+  endExclusiveIso: string
+} {
+  const now = new Date()
+  const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0) // último dia do mês
+
+  const toDateStr = (d: Date) => d.toISOString().slice(0, 10)
+
+  const startDate = params.start ?? toDateStr(defaultStart)
+  const endDate = params.end ?? toDateStr(defaultEnd)
+
+  // end param é inclusivo (YYYY-MM-DD); convertemos para exclusive adicionando 1 dia
+  const endExclusive = new Date(endDate)
+  endExclusive.setDate(endExclusive.getDate() + 1)
+
+  return {
+    startDate,
+    endDate,
+    startIso: `${startDate}T00:00:00+00:00`,
+    endExclusiveIso: `${toDateStr(endExclusive)}T00:00:00+00:00`,
+  }
+}
 
 const MES_LABELS: Record<number, string> = {
   1: 'Jan',
@@ -85,6 +120,48 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   const textoBreve = params.servico ?? undefined
 
   const supabase = await createClient()
+
+  // ── Indicadores ────────────────────────────────────────────────────────────
+  const adminCtx = await getCurrentAdminContext()
+  const { startDate, endDate, startIso, endExclusiveIso } = resolvePeriodoIndicadores(params)
+  const adminScope = adminCtx.isGestor ? null : (adminCtx.adminId ?? null)
+
+  const [kpisRes, resumoDiarioRes, lojasRes, colaboradoresRes] = await Promise.all([
+    supabase.rpc('calcular_kpis_notas_ordens', {
+      p_start_iso: startIso,
+      p_end_exclusive_iso: endExclusiveIso,
+      p_admin_id: adminScope,
+    }),
+    supabase.rpc('calcular_resumo_diario_notas_ordens', {
+      p_start_iso: startIso,
+      p_end_exclusive_iso: endExclusiveIso,
+      p_admin_id: adminScope,
+    }),
+    supabase.rpc('calcular_indicadores_por_loja_notas', {
+      p_start_iso: startIso,
+      p_end_exclusive_iso: endExclusiveIso,
+      p_admin_id: adminScope,
+    }),
+    adminCtx.isGestor
+      ? supabase.rpc('calcular_indicadores_por_colaborador', {
+          p_start_iso: startIso,
+          p_end_exclusive_iso: endExclusiveIso,
+        })
+      : Promise.resolve({ data: [], error: null }),
+  ])
+
+  const kpis = (kpisRes.data ?? {
+    total_notas: 0,
+    notas_convertidas: 0,
+    taxa_conversao: 0,
+    tempo_medio_nota_ordem: null,
+    tempo_medio_conclusao: null,
+    total_ordens_concluidas: 0,
+  }) as KpisNotasOrdens
+  const resumoDiario = (resumoDiarioRes.data ?? []) as ResumoDiarioRow[]
+  const lojas = (lojasRes.data ?? []) as LojaIndicadoresRow[]
+  const colaboradores = (colaboradoresRes.data ?? []) as ColaboradorIndicadoresRow[]
+  // ── fim indicadores ────────────────────────────────────────────────────────
 
   const [
     topLojasRes,
@@ -233,6 +310,18 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
         title="Graficos Gerenciais"
         subtitle="Padroes, recorrencia e ranking por unidade."
       />
+
+      <IndicadoresSection
+        isGestor={adminCtx.isGestor}
+        startDate={startDate}
+        endDate={endDate}
+        kpis={kpis}
+        resumoDiario={resumoDiario}
+        lojas={lojas}
+        colaboradores={colaboradores}
+      />
+
+      <hr className="border-border/40" />
 
       {segmentos.length > 0 && <OfficialUnitSummary segmentos={segmentos} />}
 
