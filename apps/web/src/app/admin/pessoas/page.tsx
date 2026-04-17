@@ -3,13 +3,48 @@ import { CollaboratorPanel } from '@/components/collaborator/collaborator-panel'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { toCollaboratorData } from '@/lib/collaborator/to-collaborator-data'
 import type { CargaAdministrador, NotaPanelData } from '@/lib/types/database'
+import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
+import { AdminPessoalCard } from '@/components/admin/indicadores/admin-pessoal-card'
+import type { KpisNotasOrdens } from '@/lib/types/indicadores'
 
 export const dynamic = 'force-dynamic'
 
 const NOTA_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, data_criacao_sap, created_at' as const
 
 export default async function PessoasPage() {
+  const adminCtx = await getCurrentAdminContext()
   const supabase = await createClient()
+
+  // Para admin: calcular KPIs pessoais do mês corrente
+  let adminKpis: KpisNotasOrdens | null = null
+  if (!adminCtx.isGestor && adminCtx.adminId) {
+    const now = new Date()
+    const startIso = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+    const endExclIso = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
+    const { data } = await supabase.rpc('calcular_kpis_notas_ordens', {
+      p_start_iso: startIso,
+      p_end_exclusive_iso: endExclIso,
+      p_admin_id: adminCtx.adminId,
+    })
+    adminKpis = (data ?? null) as KpisNotasOrdens | null
+  }
+
+  // Para admin: mostrar só o card pessoal
+  if (!adminCtx.isGestor && adminCtx.adminId && adminKpis) {
+    return (
+      <div className="space-y-6">
+        <PageTitleBlock
+          title="Minha Visão"
+          subtitle="Seus indicadores operacionais no mês corrente."
+        />
+        <AdminPessoalCard
+          nome={adminCtx.userName ?? 'Colaborador'}
+          avatarUrl={null}
+          kpis={adminKpis}
+        />
+      </div>
+    )
+  }
 
   const [cargaResult, notasResult, adminsResult] = await Promise.all([
     supabase.from('vw_carga_real_administradores').select('*').order('nome'),
