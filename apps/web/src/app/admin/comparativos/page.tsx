@@ -201,7 +201,7 @@ export default async function ComparativosPage({ searchParams }: ComparativosPag
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Ordens</h2>
             <p className="text-sm text-muted-foreground">
-              Volume anual e evolucao mensal de ordens abertas e executadas.
+              Volume anual e variacao mensal de ordens abertas e executadas.
             </p>
           </div>
           <ComparisonKpiStrip items={ordersKpis} formatValue={formatInteger} />

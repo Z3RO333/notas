@@ -41,7 +41,7 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Evolucao Mensal</CardTitle>
+          <CardTitle className="text-base">Variacao Mensal</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="py-8 text-center text-sm text-muted-foreground">
@@ -64,7 +64,7 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
   return (
     <Card>
       <CardHeader className="space-y-1">
-        <CardTitle className="text-base">Evolucao Mensal - Ordens</CardTitle>
+        <CardTitle className="text-base">Variacao Mensal - Ordens</CardTitle>
         <p className="text-xs text-muted-foreground">
           Ultima variacao: {formatTrendDescription(latestDelta)} vs mes anterior
         </p>

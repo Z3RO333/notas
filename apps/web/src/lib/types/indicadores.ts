@@ -29,3 +29,16 @@ export interface ColaboradorIndicadoresRow {
   taxa_conversao: number
   tempo_medio_nota_ordem: number | null
 }
+
+export interface LojaOrdensIndicadoresRow {
+  unidade: string
+  ordens_concluidas: number
+  tempo_medio_conclusao: number | null
+}
+
+export interface ColaboradorOrdensIndicadoresRow {
+  administrador_id: string
+  nome: string
+  ordens_concluidas: number
+  tempo_medio_conclusao: number | null
+}

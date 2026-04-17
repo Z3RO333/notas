@@ -20,6 +20,8 @@ import type {
   ResumoDiarioRow,
   LojaIndicadoresRow,
   ColaboradorIndicadoresRow,
+  LojaOrdensIndicadoresRow,
+  ColaboradorOrdensIndicadoresRow,
 } from '@/lib/types/indicadores'
 
 export const dynamic = 'force-dynamic'
@@ -126,7 +128,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   const { startDate, endDate, startIso, endExclusiveIso } = resolvePeriodoIndicadores(params)
   const adminScope = adminCtx.isGestor ? null : (adminCtx.adminId ?? null)
 
-  const [kpisRes, resumoDiarioRes, lojasRes, colaboradoresRes] = await Promise.all([
+  const [kpisRes, resumoDiarioRes, lojasRes, colaboradoresRes, lojasOrdensRes, colaboradoresOrdensRes] = await Promise.all([
     supabase.rpc('calcular_kpis_notas_ordens', {
       p_start_iso: startIso,
       p_end_exclusive_iso: endExclusiveIso,
@@ -148,6 +150,18 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
           p_end_exclusive_iso: endExclusiveIso,
         })
       : Promise.resolve({ data: [], error: null }),
+    supabase.rpc('calcular_indicadores_por_loja_ordens', {
+      p_start_iso: startIso,
+      p_end_exclusive_iso: endExclusiveIso,
+      p_admin_id: adminScope,
+    }),
+    adminCtx.isGestor
+      ? supabase.rpc('calcular_indicadores_por_colaborador_ordens', {
+          p_start_iso: startIso,
+          p_end_exclusive_iso: endExclusiveIso,
+          p_admin_id: adminScope,
+        })
+      : Promise.resolve({ data: [], error: null }),
   ])
 
   const kpis = (kpisRes.data ?? {
@@ -161,6 +175,8 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   const resumoDiario = (resumoDiarioRes.data ?? []) as ResumoDiarioRow[]
   const lojas = (lojasRes.data ?? []) as LojaIndicadoresRow[]
   const colaboradores = (colaboradoresRes.data ?? []) as ColaboradorIndicadoresRow[]
+  const lojasOrdens = (lojasOrdensRes.data ?? []) as LojaOrdensIndicadoresRow[]
+  const colaboradoresOrdens = (colaboradoresOrdensRes.data ?? []) as ColaboradorOrdensIndicadoresRow[]
   // ── fim indicadores ────────────────────────────────────────────────────────
 
   const [
@@ -319,6 +335,8 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
         resumoDiario={resumoDiario}
         lojas={lojas}
         colaboradores={colaboradores}
+        lojasOrdens={lojasOrdens}
+        colaboradoresOrdens={colaboradoresOrdens}
       />
 
       <section className="space-y-5 rounded-[28px] border border-border/60 bg-card/35 p-4 shadow-sm sm:p-5 lg:p-6">
@@ -360,7 +378,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
           <div className="space-y-1">
             <h2 className="text-lg font-semibold tracking-tight">Desdobramento por segmento</h2>
             <p className="text-sm text-muted-foreground">
-              Cada bloco abaixo aprofunda lojas, servicos e evolucao mensal do recorte escolhido.
+              Cada bloco abaixo aprofunda lojas, servicos e variacao mensal do recorte escolhido.
             </p>
           </div>
           <div className="flex justify-end">

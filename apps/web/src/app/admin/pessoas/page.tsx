@@ -1,16 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { CollaboratorPanel } from '@/components/collaborator/collaborator-panel'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
-import { toCollaboratorData } from '@/lib/collaborator/to-collaborator-data'
-import type { CargaAdministrador, NotaPanelData } from '@/lib/types/database'
+import type { CargaAdministrador } from '@/lib/types/database'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { AdminPessoalCard } from '@/components/admin/indicadores/admin-pessoal-card'
 import type { KpisNotasOrdens } from '@/lib/types/indicadores'
 import { Card, CardContent } from '@/components/ui/card'
+import { getNotesPanelData } from '@/lib/notes/get-notes-panel-data'
 
 export const dynamic = 'force-dynamic'
-
-const NOTA_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, data_criacao_sap, created_at' as const
 
 function SummaryCard({
   label,
@@ -71,46 +69,36 @@ export default async function PessoasPage() {
     )
   }
 
-  const [cargaResult, notasResult, adminsResult] = await Promise.all([
+  const notesPanelData = await getNotesPanelData({
+    currentAdminContext: {
+      adminId: adminCtx.adminId,
+      role: adminCtx.role,
+      canViewGlobal: adminCtx.canViewGlobal,
+    },
+  })
+
+  const [cargaResult, adminsResult] = await Promise.all([
     supabase.from('vw_carga_real_administradores').select('*').order('nome'),
-    supabase
-      .from('vw_notas_sem_ordem')
-      .select(NOTA_FIELDS)
-      .not('administrador_id', 'is', null)
-      .in('status', ['nova', 'em_andamento', 'encaminhada_fornecedor'])
-      .order('data_criacao_sap', { ascending: true }),
     supabase
       .from('administradores')
       .select('id')
       .eq('role', 'admin'),
   ])
 
-  const firstError = [cargaResult.error, notasResult.error, adminsResult.error].find(Boolean)
+  const firstError = [cargaResult.error, adminsResult.error].find(Boolean)
   if (firstError) throw firstError
 
   const allCarga = (cargaResult.data ?? []) as CargaAdministrador[]
   const operationalAdminIds = new Set(
     ((adminsResult.data ?? []) as Array<{ id: string }>).map((admin) => admin.id)
   )
-  const notas = (notasResult.data ?? []) as NotaPanelData[]
-
   const carga = allCarga.filter((admin) => operationalAdminIds.has(admin.id))
-
-  const sorted = [...carga].sort((a, b) => {
-    const aOk = a.ativo && a.recebe_distribuicao && !a.em_ferias
-    const bOk = b.ativo && b.recebe_distribuicao && !b.em_ferias
-    if (aOk && !bOk) return -1
-    if (!aOk && bOk) return 1
-    return 0
-  })
-
-  const collaborators = sorted.map((item) => toCollaboratorData(item, notas, { qtdAcompanhamentoOrdens: 0 }))
 
   const totalAtivos = carga.filter((admin) => admin.ativo).length
   const recebendo = carga.filter((admin) => admin.ativo && admin.recebe_distribuicao && !admin.em_ferias).length
   const emFerias = carga.filter((admin) => admin.em_ferias).length
   const inativos = carga.filter((admin) => !admin.ativo).length
-  const totalNotasAbertas = collaborators.reduce((sum, collaborator) => sum + collaborator.qtd_abertas, 0)
+  const totalNotasAbertas = notesPanelData.collaborators.reduce((sum, collaborator) => sum + collaborator.qtd_abertas, 0)
 
   return (
     <div className="space-y-8">
@@ -148,7 +136,7 @@ export default async function PessoasPage() {
           <SummaryCard
             label="Notas abertas"
             value={totalNotasAbertas.toLocaleString('pt-BR')}
-            helper="Volume atual consolidado em carteira."
+            helper="Volume atual consolidado com a mesma base do painel de notas."
           />
         </div>
       </section>
@@ -163,14 +151,14 @@ export default async function PessoasPage() {
               Gestao operacional da equipe
             </h2>
             <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              Use busca, filtros e mudanca de visualizacao para localizar gargalos, distribuir melhor a
-              carga e acompanhar o envelhecimento das notas por pessoa.
+              Esta pagina agora usa a mesma origem canonica do painel de notas para evitar divergencia
+              entre contagem, filtros e regras de visibilidade.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
             <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1">
-              Colaboradores no painel: {collaborators.length.toLocaleString('pt-BR')}
+              Colaboradores no painel: {notesPanelData.collaborators.length.toLocaleString('pt-BR')}
             </span>
             <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1">
               Notas abertas: {totalNotasAbertas.toLocaleString('pt-BR')}
@@ -179,8 +167,8 @@ export default async function PessoasPage() {
         </div>
 
         <CollaboratorPanel
-          collaborators={collaborators}
-          notas={notas}
+          collaborators={notesPanelData.collaborators}
+          notas={notesPanelData.notasAtribuidas}
           mode="admin"
         />
       </section>

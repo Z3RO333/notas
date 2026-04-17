@@ -43,7 +43,7 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Evolução Mensal</CardTitle>
+          <CardTitle className="text-base">Variação Mensal</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">Nenhum dado no período.</p>
@@ -70,7 +70,7 @@ export function EvolucaoMensalOperacionalChart({ rows, periodLabel }: EvolucaoMe
     <Card>
       <CardHeader className="space-y-1">
         <CardTitle className="text-base">
-          Evolução Mensal
+          Variação Mensal
           <span className="ml-2 text-xs font-normal text-muted-foreground">({periodLabel})</span>
         </CardTitle>
         <p className="text-xs text-muted-foreground">

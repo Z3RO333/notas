@@ -7,11 +7,15 @@ import { IndicadoresPeriodFilter } from './indicadores-period-filter'
 import { ResumoDiarioChart } from './resumo-diario-chart'
 import { LojaIndicadoresTable } from './loja-indicadores-table'
 import { ColaboradorIndicadoresTable } from './colaborador-indicadores-table'
+import { LojaOrdensIndicadoresTable } from './loja-ordens-indicadores-table'
+import { ColaboradorOrdensIndicadoresTable } from './colaborador-ordens-indicadores-table'
 import type {
   KpisNotasOrdens,
   ResumoDiarioRow,
   LojaIndicadoresRow,
   ColaboradorIndicadoresRow,
+  LojaOrdensIndicadoresRow,
+  ColaboradorOrdensIndicadoresRow,
 } from '@/lib/types/indicadores'
 
 interface IndicadoresSectionProps {
@@ -22,6 +26,8 @@ interface IndicadoresSectionProps {
   resumoDiario: ResumoDiarioRow[]
   lojas: LojaIndicadoresRow[]
   colaboradores: ColaboradorIndicadoresRow[]
+  lojasOrdens: LojaOrdensIndicadoresRow[]
+  colaboradoresOrdens: ColaboradorOrdensIndicadoresRow[]
 }
 
 function formatShortDate(value: string): string {
@@ -38,6 +44,8 @@ export function IndicadoresSection({
   resumoDiario,
   lojas,
   colaboradores,
+  lojasOrdens,
+  colaboradoresOrdens,
 }: IndicadoresSectionProps) {
   const picoEntradas = resumoDiario.reduce<ResumoDiarioRow | null>((currentMax, row) => {
     if (!currentMax || row.notas_entradas > currentMax.notas_entradas) return row
@@ -91,7 +99,7 @@ export function IndicadoresSection({
 
           <div className="space-y-1.5">
             <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
-              Funil de notas, conversao e conclusao
+              Funil de notas, da conversao a conclusao
             </h2>
             <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
               Acompanhe entrada de notas, velocidade de conversao em ordem e conclusao do periodo
@@ -158,11 +166,32 @@ export function IndicadoresSection({
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <LojaIndicadoresTable rows={lojas} />
-        {isGestor && colaboradores.length > 0 && (
-          <ColaboradorIndicadoresTable rows={colaboradores} />
-        )}
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">Detalhamento por nota</h3>
+          <p className="text-sm text-muted-foreground">
+            Mostra carteira recebida e conversao em ordem, separados por unidade e por colaborador.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <LojaIndicadoresTable rows={lojas} />
+          {isGestor && <ColaboradorIndicadoresTable rows={colaboradores} />}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">Detalhamento por ordem concluida</h3>
+          <p className="text-sm text-muted-foreground">
+            Explicita volume concluido no periodo e o tempo medio de conclusao por unidade e por responsavel.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <LojaOrdensIndicadoresTable rows={lojasOrdens} />
+          {isGestor && <ColaboradorOrdensIndicadoresTable rows={colaboradoresOrdens} />}
+        </div>
       </div>
     </section>
   )

@@ -42,7 +42,7 @@ export function FinanceiroMonthlyChart({ data }: FinanceiroMonthlyChartProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Evolucao Mensal de Custo</CardTitle>
+          <CardTitle className="text-base">Variacao Mensal de Custo</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="py-8 text-center text-sm text-muted-foreground">
@@ -67,7 +67,7 @@ export function FinanceiroMonthlyChart({ data }: FinanceiroMonthlyChartProps) {
   return (
     <Card>
       <CardHeader className="space-y-1">
-        <CardTitle className="text-base">Evolucao Mensal de Custo</CardTitle>
+        <CardTitle className="text-base">Variacao Mensal de Custo</CardTitle>
         <p className="text-xs text-muted-foreground">
           Ultima variacao do compromisso total: {formatTrendDescription(latestDelta)} vs mes anterior
         </p>

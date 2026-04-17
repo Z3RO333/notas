@@ -25,19 +25,19 @@ export function LojaIndicadoresTable({ rows }: LojaIndicadoresTableProps) {
     <Card className="border-border/60 bg-background/75">
       <CardHeader className="gap-3 pb-4">
         <div className="space-y-1">
-          <CardTitle className="text-base">Por loja / unidade</CardTitle>
+          <CardTitle className="text-base">Por loja (nota)</CardTitle>
           <CardDescription>
-            Conversao de notas em ordens agrupada pela unidade de origem da nota.
+            Conversao de notas em ordens pela unidade da nota; se a nota cair sem localizacao valida, usamos a unidade detectada na ordem.
           </CardDescription>
         </div>
 
         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
           <span className="rounded-full border border-border/70 bg-muted/20 px-3 py-1">
-            Unidades no recorte: {rows.length.toLocaleString('pt-BR')}
+            Unidades com notas: {rows.length.toLocaleString('pt-BR')}
           </span>
           {destaque ? (
             <span className="rounded-full border border-border/70 bg-muted/20 px-3 py-1">
-              Maior volume: {destaque.unidade}
+              Maior carteira de notas: {destaque.unidade}
             </span>
           ) : null}
         </div>
