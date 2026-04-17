@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { AlertTriangle, Copy, Download, LayoutGrid, Loader2, Clock3, RefreshCcw, Rows3, TimerReset } from 'lucide-react'
 import { CollaboratorCardShell } from '@/components/collaborator/collaborator-card-shell'
@@ -20,8 +20,6 @@ import { Input } from '@/components/ui/input'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useToast } from '@/components/ui/toast'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { DEV_ORDERS_VIEW_AS_PARAM } from '@/lib/auth/shared'
-import { updateSearchParams } from '@/lib/grid/query'
 import { getOrdersCriticalityLevel, getRawStatusLabel, getSemaforoLabel, workspaceKpisToOrdemNotaKpis, SEMAFORO_OPTIONS } from '@/lib/orders/metrics'
 import { cn } from '@/lib/utils'
 import { UNASSIGNED_ORDER_OWNER_KEY, buildVisibleOwnerSummary, hasIndividualOwnerSelection, toOrderOwnerKey } from '@/lib/orders/owner-visibility'
@@ -53,8 +51,8 @@ interface OrdersWorkspaceProps {
     adminId: string
     canViewGlobal: boolean
     canAccessPmpl: boolean
+    maintainerViewActive?: boolean
     userEmail: string
-    developerViewRole: UserRole | null
     canUseDeveloperViewSwitcher: boolean
   }
 }
@@ -188,8 +186,6 @@ function getRowNotaId(row: OrdemNotaAcompanhamento): string | null {
 
 export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspaceProps) {
   const router = useRouter()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
   const { toast } = useToast()
   const years = useMemo(() => makeYearOptions(), [])
   const [selectedNotaIds, setSelectedNotaIds] = useState<string[]>([])
@@ -268,7 +264,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   const canReassign = currentUser.role === 'gestor' && currentUser.canViewGlobal
   const isPrivateScope = !currentUser.canViewGlobal
   const privateOwnerLookupActive = isPrivateScope && hasPrivateOwnerLookup(effectiveFilters.q)
-  const developerViewActive = currentUser.developerViewRole !== null
+  const developerViewActive = currentUser.maintainerViewActive === true
   const rowOrderCodeEntries = useMemo(
     () =>
       rows.map((row) => ({
@@ -289,13 +285,18 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     setKnownOrderCodesByNotaId((prev) => mergeKnownOrderCodes(prev, rowOrderCodeEntries))
   }, [rowOrderCodeEntries])
 
-  const handleDeveloperViewChange = useCallback((value: string) => {
-    const next = updateSearchParams(new URLSearchParams(searchParams.toString()), {
-      [DEV_ORDERS_VIEW_AS_PARAM]: value === 'real' ? null : value,
-    })
-    const nextUrl = next.toString() ? `${pathname}?${next.toString()}` : pathname
-    router.replace(nextUrl, { scroll: false })
-  }, [pathname, router, searchParams])
+  const handleDeveloperViewChange = useCallback(async (value: string) => {
+    if (value === 'real') {
+      await fetch('/api/maintainer/elevate', { method: 'DELETE' })
+    } else {
+      await fetch('/api/maintainer/elevate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: value }),
+      })
+    }
+    router.refresh()
+  }, [router])
 
   // Restore persisted view mode on mount
   useEffect(() => {
@@ -540,9 +541,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     try {
       const codes = copyingSelectedOrders
         ? selectedOrderCodes
-        : (await fetchAllFilteredOrderCodes(effectiveFilters, {
-          developerViewRole: currentUser.developerViewRole,
-        })).codes
+        : (await fetchAllFilteredOrderCodes(effectiveFilters)).codes
       const payload = buildCopyPayload(codes)
 
       if (!payload) {
@@ -584,7 +583,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     } finally {
       setCopyFilterLoading(false)
     }
-  }, [currentUser.developerViewRole, effectiveFilters, selectedNotaIds.length, selectedOrderCodes, toast])
+  }, [effectiveFilters, selectedNotaIds.length, selectedOrderCodes, toast])
 
   const visibleOwners = useMemo(() => {
     const owners = buildVisibleOwnerSummary({
@@ -687,7 +686,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             </p>
           </div>
 
-          <Select value={currentUser.developerViewRole ?? 'real'} onValueChange={handleDeveloperViewChange}>
+          <Select value={developerViewActive ? currentUser.role : 'real'} onValueChange={handleDeveloperViewChange}>
             <SelectTrigger className="w-[220px]">
               <SelectValue placeholder="Simular perfil" />
             </SelectTrigger>
@@ -1250,7 +1249,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         ordemId={detailRow?.ordem_id ?? null}
         notaId={detailRow ? getRowNotaId(detailRow) : null}
         lookupQuery={privateOwnerLookupActive ? effectiveFilters.q : null}
-        developerViewRole={currentUser.developerViewRole}
         row={detailRow}
         canReassign={canReassign}
         reassignTargets={reassignTargets}

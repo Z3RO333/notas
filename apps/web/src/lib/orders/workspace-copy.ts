@@ -1,10 +1,8 @@
-import { DEV_ORDERS_VIEW_AS_PARAM } from '@/lib/auth/shared'
 import { buildWorkspaceParams, MAX_ORDERS_WORKSPACE_LIMIT } from '@/lib/orders/workspace-query'
 import type {
   OrdersWorkspaceCursor,
   OrdersWorkspaceFilters,
   OrdersWorkspaceResponse,
-  UserRole,
 } from '@/lib/types/database'
 
 interface WorkspaceFetchResponse {
@@ -44,7 +42,6 @@ export async function fetchAllFilteredOrderCodes(
   filters: OrdersWorkspaceFilters,
   options: {
     endpoint?: string
-    developerViewRole?: UserRole | null
     fetchImpl?: WorkspaceFetch
     limit?: number
     signal?: AbortSignal
@@ -65,9 +62,6 @@ export async function fetchAllFilteredOrderCodes(
     pageCount += 1
 
     const params = buildWorkspaceParams(filters, cursor, limit)
-    if (options.developerViewRole) {
-      params.set(DEV_ORDERS_VIEW_AS_PARAM, options.developerViewRole)
-    }
     const response = await fetchImpl(`${endpoint}?${params.toString()}`, {
       cache: 'no-store',
       signal: options.signal,

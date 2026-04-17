@@ -431,6 +431,7 @@ export interface OrdersWorkspaceResponse {
     adminId: string
     canViewGlobal: boolean
     canAccessPmpl: boolean
+    maintainerViewActive?: boolean
   }
 }
 

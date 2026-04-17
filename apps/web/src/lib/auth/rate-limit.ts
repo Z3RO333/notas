@@ -1,8 +1,8 @@
-/**
- * Rate limiter in-memory para endpoints públicos de auth.
- * Funciona por instância serverless (best-effort).
- * Para produção distribuída, substituir por @upstash/ratelimit + Redis.
- */
+import { logger } from '@/lib/logger'
+
+if (!process.env.UPSTASH_REDIS_REST_URL) {
+  logger.warn('[rate-limit] UPSTASH_REDIS_REST_URL nao configurado — usando rate limit in-memory (best-effort, nao persiste entre instancias)')
+}
 
 const WINDOW_MS = 15 * 60 * 1000 // 15 minutos
 const MAX_ATTEMPTS = 5

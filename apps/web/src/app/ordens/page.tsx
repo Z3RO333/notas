@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
-import { isMaintainerEmail, resolveMaintainerViewRoleOverride } from '@/lib/auth/shared'
+import { isMaintainerEmail, resolveMaintainerViewFromCookie } from '@/lib/auth/shared'
+import { MVIEW_COOKIE_NAME } from '@/lib/auth/maintainer-view'
 import { OrdersWorkspace } from '@/components/orders/orders-workspace'
 import { LastSyncBadge } from '@/components/shared/last-sync-badge'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
@@ -25,7 +27,6 @@ interface OrdersPageProps {
     unidade?: string | string[]
     prioridade?: string | string[]
     tipoOrdem?: string | string[]
-    devViewAs?: string | string[]
   }>
 }
 
@@ -44,11 +45,12 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   }
 
   const actualRole = currentAdminContext.role as UserRole
-  const developerViewRole = resolveMaintainerViewRoleOverride(
-    resolvedSearchParams?.devViewAs,
-    currentAdminContext.email,
-  )
-  const role = developerViewRole ?? actualRole
+  const cookieStore = await cookies()
+  const mviewCookie = cookieStore.get(MVIEW_COOKIE_NAME)?.value
+  const secret = process.env.MAINTAINER_SESSION_SECRET
+  const maintainerRole = resolveMaintainerViewFromCookie(mviewCookie, currentAdminContext.email, secret)
+  const role = maintainerRole ?? actualRole
+  const maintainerViewActive = maintainerRole !== null
   const canViewGlobal = role === 'gestor' || role === 'viewer'
 
   let canAccessPmpl = canViewGlobal
@@ -82,8 +84,8 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     adminId: currentAdminContext.adminId,
     canViewGlobal,
     canAccessPmpl,
+    maintainerViewActive,
     userEmail: currentAdminContext.email,
-    developerViewRole,
     canUseDeveloperViewSwitcher: isMaintainerEmail(currentAdminContext.email),
   }
 
@@ -95,7 +97,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       />
 
       <OrdersWorkspace
-        key={`${initialUser.adminId}:${initialUser.developerViewRole ?? 'real'}`}
+        key={`${initialUser.adminId}:${initialUser.role}`}
         initialFilters={initialFilters}
         initialUser={initialUser}
       />

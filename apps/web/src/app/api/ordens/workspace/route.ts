@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { DEV_ORDERS_VIEW_AS_PARAM, resolveMaintainerViewRoleOverride } from '@/lib/auth/shared'
+import { cookies } from 'next/headers'
+import { resolveMaintainerViewFromCookie } from '@/lib/auth/shared'
+import { MVIEW_COOKIE_NAME } from '@/lib/auth/maintainer-view'
 import {
   buildFixedOwnerAvatarByAdminId,
   resolveFixedOwnerAvatarByName,
@@ -19,6 +21,7 @@ import {
 } from '@/lib/orders/private-owner-lookup.server'
 import { matchesPrivateOwnerLookupRow } from '@/lib/orders/private-owner-lookup'
 import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
 import {
   applyAutomaticOrdersRouting,
   canAccessPmplTab,
@@ -238,10 +241,10 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url)
   const actualRole = loggedAdmin.role as UserRole
-  const role = resolveMaintainerViewRoleOverride(
-    url.searchParams.get(DEV_ORDERS_VIEW_AS_PARAM),
-    user.email,
-  ) ?? actualRole
+  const cookieStore = await cookies()
+  const mviewCookie = cookieStore.get(MVIEW_COOKIE_NAME)?.value
+  const secret = process.env.MAINTAINER_SESSION_SECRET
+  const role = resolveMaintainerViewFromCookie(mviewCookie, user.email, secret) ?? actualRole
   const canViewGlobal = role === 'gestor' || role === 'viewer'
   const canManageWorkspace = role === 'gestor'
 
@@ -249,7 +252,7 @@ export async function GET(request: Request) {
   try {
     fixedOwnerLabelByAdminId = await getFixedOwnerLabelByAdminId(supabase)
   } catch (error) {
-    console.warn('[orders/workspace] nao foi possivel carregar labels fixos de CD:', error)
+    logger.warn('[orders/workspace] nao foi possivel carregar labels fixos de CD:', error)
   }
 
   const fixedOwnerAvatarByAdminId = buildFixedOwnerAvatarByAdminId(fixedOwnerLabelByAdminId)
@@ -265,7 +268,7 @@ export async function GET(request: Request) {
       })
     } catch (error) {
       canAccessPmpl = false
-      console.warn('[orders/workspace] fallback canAccessPmpl=false por falha ao resolver configuracao PMPL:', error)
+      logger.warn('[orders/workspace] fallback canAccessPmpl=false por falha ao resolver configuracao PMPL:', error)
     }
   }
 
@@ -417,7 +420,7 @@ export async function GET(request: Request) {
   }
 
   if (process.env.DEBUG_ORDERS_ROUTING === '1' && !tipoOrdemSupportedByDb) {
-    console.warn('[orders/workspace] fallback sem p_tipo_ordem ativo. Resultado pode nao refletir separacao PMPL/PMOS.')
+    logger.warn('[orders/workspace] fallback sem p_tipo_ordem ativo. Resultado pode nao refletir separacao PMPL/PMOS.')
   }
 
   const rowsFromRpc = (rowsResult.data ?? []) as OrdemNotaAcompanhamento[]
@@ -464,7 +467,7 @@ export async function GET(request: Request) {
     ownerSummary = scopedSummary
 
     if (discardedRows > 0 || discardedSummary > 0) {
-      console.warn('[orders/workspace] escopo privado descartou dados fora do admin logado', {
+      logger.warn('[orders/workspace] escopo privado descartou dados fora do admin logado', {
         adminId: loggedAdmin.id,
         discardedRows,
         discardedSummary,
@@ -574,6 +577,7 @@ export async function GET(request: Request) {
       adminId: loggedAdmin.id,
       canViewGlobal,
       canAccessPmpl,
+      maintainerViewActive: mviewCookie !== undefined && role !== actualRole,
     },
   }
 
@@ -621,7 +625,7 @@ export async function POST(request: Request) {
       detectedByUnit: result.detectedByUnit,
     })
   } catch (error) {
-    console.error('[orders/routing] falha ao aplicar realocacao:', error)
+    logger.error('[orders/routing] falha ao aplicar realocacao:', error)
     return NextResponse.json({ error: 'Falha ao aplicar roteamento automatico' }, { status: 500 })
   }
 }

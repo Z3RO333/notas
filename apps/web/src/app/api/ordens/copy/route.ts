@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { DEV_ORDERS_VIEW_AS_PARAM, resolveMaintainerViewRoleOverride } from '@/lib/auth/shared'
+import { cookies } from 'next/headers'
+import { resolveMaintainerViewFromCookie } from '@/lib/auth/shared'
 import {
   ORDERS_TIPO_ORDEM_MIGRATION_HINT,
   isRpcWithoutTipoOrdemSupport,
@@ -37,10 +38,10 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url)
   const actualRole = loggedAdmin.role as UserRole
-  const role = resolveMaintainerViewRoleOverride(
-    url.searchParams.get(DEV_ORDERS_VIEW_AS_PARAM),
-    user.email,
-  ) ?? actualRole
+  const cookieStore = await cookies()
+  const mviewCookie = cookieStore.get('__cockpit_mview')?.value
+  const secret = process.env.MAINTAINER_SESSION_SECRET
+  const role = resolveMaintainerViewFromCookie(mviewCookie, user.email, secret) ?? actualRole
   if (role === 'viewer') {
     return NextResponse.json({ error: 'Viewer nao pode copiar ordens em lote' }, { status: 403 })
   }

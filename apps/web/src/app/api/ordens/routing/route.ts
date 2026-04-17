@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { applyAutomaticOrdersRouting } from '@/lib/orders/pmpl-routing'
+import { logger } from '@/lib/logger'
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
 
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    logger.error('[cron/routing] CRON_SECRET nao configurado — endpoint bloqueado')
+    return NextResponse.json({ error: 'Configuracao ausente' }, { status: 500 })
+  }
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Nao autorizado' }, { status: 401 })
   }
 
@@ -35,7 +40,7 @@ export async function GET(request: Request) {
       motivo: 'Auto realocacao PMPL/Refrigeracao/CD (cron)',
     })
 
-    console.log('[cron/routing] concluido', {
+    logger.info('[cron/routing] concluido', {
       movedCount: result.movedCount,
       pendingCount: result.pendingCount,
       conflictCount: result.conflictCount,
@@ -50,7 +55,7 @@ export async function GET(request: Request) {
       detectedByUnit: result.detectedByUnit,
     })
   } catch (error) {
-    console.error('[cron/routing] falha:', error)
+    logger.error('[cron/routing] falha:', error)
     return NextResponse.json({ error: 'Falha ao aplicar roteamento' }, { status: 500 })
   }
 }

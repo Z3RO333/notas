@@ -1,12 +1,15 @@
 import type { UserRole } from '@/lib/types/database'
+import { verifyMviewToken } from '@/lib/auth/maintainer-view'
 
 export const BEMOL_EMAIL_DOMAIN = '@bemol.com.br'
-export const DEV_ORDERS_VIEW_AS_PARAM = 'devViewAs'
 
-// Emails com permissões de mantenedor do sistema (equivalente a gestor para ações administrativas)
-export const MAINTAINER_EMAILS: ReadonlySet<string> = new Set([
-  'gustavoandrade@bemol.com.br',
-])
+function buildMaintainerEmails(): ReadonlySet<string> {
+  const raw = process.env.MAINTAINER_EMAILS ?? ''
+  if (!raw.trim()) return new Set()
+  return new Set(raw.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean))
+}
+
+export const MAINTAINER_EMAILS: ReadonlySet<string> = buildMaintainerEmails()
 
 export type AuthRedirectErrorCode = 'auth' | 'unauthorized' | 'inactive' | 'conflict'
 
@@ -39,16 +42,20 @@ export function isAllowedAuthRole(role: string | null | undefined): role is User
   return role === 'admin' || role === 'gestor' || role === 'viewer'
 }
 
-export function resolveMaintainerViewRoleOverride(
-  requestedRole: string | string[] | null | undefined,
+export function resolveMaintainerViewFromCookie(
+  cookieValue: string | undefined,
   email: string | null | undefined,
+  secret: string | undefined,
 ): UserRole | null {
-  if (!isMaintainerEmail(email)) return null
+  if (!secret) return null
+  if (!cookieValue) return null
 
-  const rawValue = Array.isArray(requestedRole) ? requestedRole[0] : requestedRole
-  if (!isAllowedAuthRole(rawValue)) return null
+  const tokenData = verifyMviewToken(cookieValue, secret)
+  if (!tokenData) return null
 
-  return rawValue
+  if (tokenData.email !== normalizeEmail(email ?? '')) return null
+
+  return tokenData.role
 }
 
 export function mapLoginErrorMessage(rawMessage: string): string {

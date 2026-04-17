@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { DEV_ORDERS_VIEW_AS_PARAM, resolveMaintainerViewRoleOverride } from '@/lib/auth/shared'
+import { cookies } from 'next/headers'
+import { resolveMaintainerViewFromCookie } from '@/lib/auth/shared'
 import { createClient } from '@/lib/supabase/server'
 import {
   matchesPrivateOwnerLookupRow,
@@ -105,10 +106,10 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url)
   const actualRole = loggedAdmin.role as UserRole
-  const role = resolveMaintainerViewRoleOverride(
-    searchParams.get(DEV_ORDERS_VIEW_AS_PARAM),
-    user.email,
-  ) ?? actualRole
+  const cookieStore = await cookies()
+  const mviewCookie = cookieStore.get('__cockpit_mview')?.value
+  const secret = process.env.MAINTAINER_SESSION_SECRET
+  const role = resolveMaintainerViewFromCookie(mviewCookie, user.email, secret) ?? actualRole
   const canViewGlobal = role === 'gestor' || role === 'viewer'
   const ordemId = asUuid(searchParams.get('ordemId'))
   const notaId = asUuid(searchParams.get('notaId'))

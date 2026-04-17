@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { DEV_ORDERS_VIEW_AS_PARAM } from '@/lib/auth/shared'
 import { useToast } from '@/components/ui/toast'
 import { buildWorkspaceParams } from '@/lib/orders/workspace-query'
 import { sanitizeText } from '@/components/orders/use-orders-filters'
@@ -115,8 +114,8 @@ export interface OrdersDataUser {
   adminId: string
   canViewGlobal: boolean
   canAccessPmpl: boolean
+  maintainerViewActive?: boolean
   userEmail: string
-  developerViewRole: UserRole | null
   canUseDeveloperViewSwitcher: boolean
 }
 
@@ -191,9 +190,6 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
 
       try {
         const params = buildWorkspaceParams(effectiveFilters, pageCursor, BATCH_SIZE)
-        if (currentUser.developerViewRole) {
-          params.set(DEV_ORDERS_VIEW_AS_PARAM, currentUser.developerViewRole)
-        }
         const response = await fetch(`/api/ordens/workspace?${params.toString()}`, {
           signal: controller.signal,
           cache: 'no-store',
@@ -234,7 +230,6 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
           ...payload.currentUser,
           userEmail: prev.userEmail,
           actualRole: prev.actualRole,
-          developerViewRole: prev.developerViewRole,
           canUseDeveloperViewSwitcher: prev.canUseDeveloperViewSwitcher,
         }))
         setUnitOptions(payload.unitOptions ?? [])
@@ -272,7 +267,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentUser.developerViewRole, effectiveFilters, smartSearch.mode, onResetSuccess, toast],
+    [effectiveFilters, smartSearch.mode, onResetSuccess, toast],
   )
 
   // Trigger fresh fetch whenever effectiveFilters change; scroll list to top
