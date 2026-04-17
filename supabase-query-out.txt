@@ -1,3 +1,0 @@
-jobname,schedule,command
-distribuir-notas-cron,*/5 * * * *," SELECT distribuir_notas(NULL) "
-auto-ferias-admins,0 10 * * *," SELECT public.auto_aplicar_ferias() "
