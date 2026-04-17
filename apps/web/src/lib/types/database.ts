@@ -132,6 +132,20 @@ export interface NotaConvergenciaCockpit {
   updated_at: string
 }
 
+export interface NotaLookupResult {
+  id: string
+  numero_nota: string
+  descricao: string | null
+  status: NotaStatus
+  administrador_id: string
+  responsavel_nome: string
+  prioridade: string | null
+  centro: string | null
+  denominacao_unidade: string | null
+  data_criacao_sap: string | null
+  created_at: string
+}
+
 export interface NotaHistorico {
   id: string
   nota_id: string

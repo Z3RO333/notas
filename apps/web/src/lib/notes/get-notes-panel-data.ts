@@ -19,6 +19,7 @@ import type {
   CargaAdministrador,
   NotesKpiFilter,
   NotaPanelData,
+  NotaLookupResult,
   UserRole,
 } from '@/lib/types/database'
 import type { CollaboratorData } from '@/lib/types/collaborator'
@@ -72,6 +73,7 @@ export interface NotesPanelPageData {
     umDia: number
     doisMais: number
   }
+  lookupNota: NotaLookupResult | null
 }
 
 function normalizeNotesPanelStatusFilter(value: string): 'abertas' | 'nova' | 'em_andamento' | 'encaminhada_fornecedor' {
@@ -143,17 +145,29 @@ export async function getNotesPanelData(params: {
     ? (kpiRaw as NotesKpiFilter)
     : null
 
-  const [cargaResult, adminsResult] = await Promise.all([
+  const shouldLookup = Boolean(q) && !canViewGlobal && Boolean(currentAdminId)
+
+  const [cargaResult, adminsResult, lookupResult] = await Promise.all([
     supabase.from('vw_carga_real_administradores').select('*').order('nome'),
     supabase
       .from('administradores')
       .select('id, nome')
       .eq('role', 'admin')
       .order('nome'),
+    shouldLookup
+      ? supabase
+          .rpc('buscar_nota_lookup_por_numero', {
+            p_numero_nota: q,
+            p_requesting_admin_id: currentAdminId!,
+          })
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ])
 
   const preloadError = [cargaResult.error, adminsResult.error].find(Boolean)
   if (preloadError) throw preloadError
+
+  const lookupNota = (lookupResult.data as NotaLookupResult | null) ?? null
 
   let notesQuery = supabase
     .from('vw_notas_sem_ordem')
@@ -300,5 +314,6 @@ export async function getNotesPanelData(params: {
       umDia: aging.qtd_1_dia,
       doisMais: aging.qtd_2_mais,
     },
+    lookupNota,
   }
 }

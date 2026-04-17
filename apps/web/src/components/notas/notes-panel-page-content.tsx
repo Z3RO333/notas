@@ -1,5 +1,6 @@
 import type { CurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { CollaboratorPanel } from '@/components/collaborator/collaborator-panel'
+import { NotaLookupBanner } from '@/components/notas/nota-lookup-banner'
 import { NotasKpiStrip } from '@/components/notas/notas-kpi-strip'
 import {
   getNotesPanelData,
@@ -29,6 +30,10 @@ export async function NotesPanelPageContent({
         doisMais={notesPanelData.kpis.doisMais}
         activeKpi={notesPanelData.activeNotesKpi}
       />
+
+      {notesPanelData.lookupNota !== null ? (
+        <NotaLookupBanner lookupNota={notesPanelData.lookupNota} />
+      ) : null}
 
       <CollaboratorPanel
         collaborators={notesPanelData.collaborators}

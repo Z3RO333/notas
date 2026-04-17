@@ -2,6 +2,7 @@
 
 import {
   getAuthenticatedAdminActionContext,
+  getGestorActionContext,
   revalidateCockpitPaths,
   writeAdminAuditLog,
 } from '@/lib/actions/admin-action-support'
@@ -87,7 +88,7 @@ export async function concluirNotaRapida(params: {
 }
 
 export async function distribuirNotasManual() {
-  const supabase = await createClient()
+  const { supabase } = await getGestorActionContext()
 
   const { data, error } = await supabase.rpc('distribuir_notas', {
     p_sync_id: null,
