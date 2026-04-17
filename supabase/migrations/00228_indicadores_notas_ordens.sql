@@ -67,8 +67,8 @@ AS $$
         ) FILTER (
           WHERE op.concluido_em IS NOT NULL
             AND op.data_entrada IS NOT NULL
-            AND COALESCE(op.concluido_em, op.ordem_detectada_em) >= p_start_iso
-            AND COALESCE(op.concluido_em, op.ordem_detectada_em) <  p_end_exclusive_iso
+            AND op.concluido_em >= p_start_iso
+            AND op.concluido_em <  p_end_exclusive_iso
         ), 1
       ) AS tempo_medio_conclusao
     FROM ordens_periodo op
@@ -131,14 +131,14 @@ AS $$
     GROUP BY DATE(ona.ordem_detectada_em)
   ),
   concluidas_dia AS (
-    SELECT DATE(COALESCE(ona.concluido_em, ona.ordem_detectada_em)) AS data_ref,
+    SELECT DATE(ona.concluido_em) AS data_ref,
            COUNT(*)::INTEGER AS qtd
     FROM public.ordens_notas_acompanhamento ona
-    WHERE COALESCE(ona.concluido_em, ona.ordem_detectada_em) >= p_start_iso
-      AND COALESCE(ona.concluido_em, ona.ordem_detectada_em) <  p_end_exclusive_iso
-      AND ona.concluido_em IS NOT NULL
+    WHERE ona.concluido_em IS NOT NULL
+      AND ona.concluido_em >= p_start_iso
+      AND ona.concluido_em <  p_end_exclusive_iso
       AND (p_admin_id IS NULL OR ona.administrador_id = p_admin_id)
-    GROUP BY DATE(COALESCE(ona.concluido_em, ona.ordem_detectada_em))
+    GROUP BY DATE(ona.concluido_em)
   )
   SELECT
     d.data_ref,
@@ -230,7 +230,7 @@ AS $$
     SELECT
       np.administrador_id,
       COUNT(*)::INTEGER                                    AS total_notas,
-      COUNT(DISTINCT ona.id)::INTEGER                      AS notas_convertidas,
+      COUNT(DISTINCT ona.nota_id)::INTEGER                 AS notas_convertidas,
       ROUND(
         AVG(ona.dias_para_gerar_ordem) FILTER (
           WHERE ona.dias_para_gerar_ordem IS NOT NULL
