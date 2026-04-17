@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Layout Geral — Indicadores</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; padding: 0; font-size: 13px; }
+
+  /* ── page chrome ── */
+  .page-header { background: #1e293b; border-bottom: 1px solid #334155; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; }
+  .page-title { font-size: 15px; font-weight: 600; color: #f1f5f9; }
+  .scope-badge { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 12px; }
+  .scope-badge.gestor { background: #1d4ed820; color: #60a5fa; border: 1px solid #1d4ed840; }
+  .scope-badge.admin  { background: #7c3aed20; color: #a78bfa; border: 1px solid #7c3aed40; }
+
+  /* ── filter bar ── */
+  .filter-bar { background: #1e293b; border-bottom: 1px solid #1e293b; padding: 8px 20px; display: flex; align-items: center; gap: 10px; }
+  .filter-pill { background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 5px 10px; font-size: 12px; color: #94a3b8; display: inline-flex; align-items: center; gap: 5px; }
+  .filter-pill strong { color: #f1f5f9; }
+  .filter-sep { color: #334155; }
+
+  /* ── kpi strip ── */
+  .kpi-strip { padding: 14px 20px 10px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .kpi { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px 12px; position: relative; overflow: hidden; }
+  .kpi::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .kpi.blue::before  { background: #3b82f6; }
+  .kpi.green::before { background: #22c55e; }
+  .kpi.amber::before { background: #f59e0b; }
+  .kpi.violet::before{ background: #8b5cf6; }
+  .kpi.cyan::before  { background: #06b6d4; }
+  .kpi.rose::before  { background: #f43f5e; }
+  .kpi-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; line-height: 1.3; }
+  .kpi-value { font-size: 22px; font-weight: 700; color: #f1f5f9; line-height: 1; }
+  .kpi-sub   { font-size: 10px; color: #64748b; margin-top: 3px; }
+
+  /* ── section ── */
+  .section { padding: 0 20px 16px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding-top: 4px; }
+  .section-title { font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .6px; }
+  .section-tag { font-size: 10px; color: #475569; background: #1e293b; border: 1px solid #334155; border-radius: 4px; padding: 2px 7px; }
+
+  /* ── daily chart placeholder ── */
+  .chart-area { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 14px 16px; }
+  .chart-bars { display: flex; align-items: flex-end; gap: 4px; height: 72px; margin-bottom: 6px; }
+  .bar-group  { display: flex; gap: 2px; align-items: flex-end; flex: 1; }
+  .bar { border-radius: 2px 2px 0 0; min-width: 6px; }
+  .bar.n { background: #3b82f6; }
+  .bar.o { background: #22c55e; }
+  .bar.c { background: #8b5cf6; }
+  .chart-legend { display: flex; gap: 12px; }
+  .leg { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #64748b; }
+  .leg-dot { width: 8px; height: 8px; border-radius: 2px; }
+  .chart-xlabel { display: flex; gap: 4px; margin-top: 4px; }
+  .xlbl { flex: 1; text-align: center; font-size: 9px; color: #475569; }
+
+  /* ── table ── */
+  .tbl { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 8px; overflow: hidden; border: 1px solid #334155; }
+  .tbl th { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: .5px; padding: 8px 12px; border-bottom: 1px solid #334155; text-align: left; background: #162032; font-weight: 600; }
+  .tbl td { font-size: 12px; color: #cbd5e1; padding: 7px 12px; border-bottom: 1px solid #1e293b; }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl tr:hover td { background: #1e293b; }
+  .badge-pct { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .badge-pct.hi  { background: #22c55e22; color: #4ade80; }
+  .badge-pct.mid { background: #f59e0b22; color: #fbbf24; }
+  .badge-pct.lo  { background: #f43f5e22; color: #fb7185; }
+  .collab-chip { display: inline-flex; align-items: center; gap: 5px; }
+  .avatar { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; }
+
+  /* ── layout 2col ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 20px 16px; }
+  .col-block { background: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+  .col-block-header { font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .5px; padding: 9px 12px; border-bottom: 1px solid #334155; background: #162032; display: flex; justify-content: space-between; }
+
+  /* ── gestor-only tag ── */
+  .only-gestor { font-size: 9px; color: #3b82f6; background: #3b82f610; border: 1px solid #3b82f620; border-radius: 3px; padding: 1px 5px; }
+  .only-admin  { font-size: 9px; color: #a78bfa; background: #7c3aed10; border: 1px solid #7c3aed20; border-radius: 3px; padding: 1px 5px; }
+
+  .divider { height: 1px; background: #334155; margin: 0 20px 12px; opacity: .4; }
+  .note { font-size: 10px; color: #475569; padding: 0 20px 10px; font-style: italic; }
+</style>
+</head>
+<body>
+
+<!-- ── PAGE HEADER ── -->
+<div class="page-header">
+  <span class="page-title">Gráficos &amp; Indicadores</span>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span class="scope-badge gestor">Visão geral da operação</span>
+    <span style="color:#475569;font-size:10px">·</span>
+    <span class="scope-badge admin">Minha carteira</span>
+    <span style="font-size:10px;color:#475569;margin-left:4px">← depende do perfil</span>
+  </div>
+</div>
+
+<!-- ── FILTER BAR ── -->
+<div class="filter-bar">
+  <span class="filter-pill">📅 <strong>Abril 2026</strong></span>
+  <span class="filter-pill">De <strong>01/04</strong> até <strong>30/04</strong></span>
+  <span class="filter-sep">·</span>
+  <span style="font-size:11px;color:#475569">Filtro livre disponível</span>
+</div>
+
+<!-- ── KPI STRIP (6 mini cards) ── -->
+<div class="kpi-strip">
+  <div class="kpi blue">
+    <div class="kpi-label">Notas recebidas</div>
+    <div class="kpi-value">247</div>
+    <div class="kpi-sub">no período</div>
+  </div>
+  <div class="kpi green">
+    <div class="kpi-label">Convertidas em ordem</div>
+    <div class="kpi-value">189</div>
+    <div class="kpi-sub">76,5% de conversão</div>
+  </div>
+  <div class="kpi amber">
+    <div class="kpi-label">Taxa de conversão</div>
+    <div class="kpi-value">76<span style="font-size:14px;font-weight:500">%</span></div>
+    <div class="kpi-sub">meta: 80%</div>
+  </div>
+  <div class="kpi violet">
+    <div class="kpi-label">Tempo médio nota→ordem</div>
+    <div class="kpi-value">2<span style="font-size:13px;font-weight:500">d</span></div>
+    <div class="kpi-sub">média do período</div>
+  </div>
+  <div class="kpi cyan">
+    <div class="kpi-label">Tempo médio conclusão</div>
+    <div class="kpi-value">4<span style="font-size:13px;font-weight:500">d</span></div>
+    <div class="kpi-sub">da geração ao encerramento</div>
+  </div>
+  <div class="kpi rose">
+    <div class="kpi-label">Ordens concluídas</div>
+    <div class="kpi-value">161</div>
+    <div class="kpi-sub">no período</div>
+  </div>
+</div>
+
+<div class="note">↑ Para admin: mesmos 6 cards, mas refletem apenas a carteira do colaborador logado.</div>
+
+<div class="divider"></div>
+
+<!-- ── RESUMO DIÁRIO ── -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-title">Resumo diário</span>
+    <span class="section-tag">respeita o período selecionado</span>
+  </div>
+  <div class="chart-area">
+    <div class="chart-bars">
+      <!-- 15 dias de exemplo -->
+      <div class="bar-group"><div class="bar n" style="height:55px"></div><div class="bar o" style="height:40px"></div><div class="bar c" style="height:30px"></div></div>
+      <div class="bar-group"><div class="bar n" style="height:30px"></div><div class="bar o" style="height:22px"></div><div class="bar c" style="height:18px"></div></div>
+      <div class="bar-group"><div class="bar n" style="height:45px"></div><div class="bar o" style="height:38px"></div><div class="bar c" style="height:28px"></div></div>
+      <div class="bar-group"><div class="bar n" style="height:20px"></div><div class="bar o" style="height:15px"></div><div class="bar c" style="height:10px"></div></div>
+      <div class="bar-group"><div class="bar n" style="height:60px"></div><div class="bar o" style="height:50px"></div><div class="bar c" style="height:40px"></div></div>
+      <div class="bar-group"><div class="bar n" style="height:38px"></div><div class="bar o" style="height:30px"></div><div class="bar c" style="height:22px"></div></div>
+      <div class="bar-group"><div class="bar n" style="height:42px"></div><div class="bar o" style="height:35px"></div><div class="bar c" style="height:27px"></div></div>
+      <div class="bar-group"><div class="bar n" style="height:28px"></div><div class="bar o" style="height:20px"></div><div class="bar c" style="height:14px"></div></div>
+      <div class="bar-group"><div class="bar n" style="height:50px"></div><div class="bar o" style="height:42px"></div><div class="bar c" style="height:33px"></div></div>
+      <div class="bar-group"><div class="bar n" style="height:35px"></div><div class="bar o" style="height:28px"></div><div class="bar c" style="height:20px"></div></div>
+      <div class="bar-group"><div class="bar n" style="height:48px"></div><div class="bar o" style="height:40px"></div><div class="bar c" style="height:32px"></div></div>
+      <div class="bar-group"><div class="bar n" style="height:22px"></div><div class="bar o" style="height:16px"></div><div class="bar c" style="height:11px"></div></div>
+      <div class="bar-group"><div class="bar n" style="height:58px"></div><div class="bar o" style="height:48px"></div><div class="bar c" style="height:36px"></div></div>
+      <div class="bar-group"><div class="bar n" style="height:32px"></div><div class="bar o" style="height:25px"></div><div class="bar c" style="height:18px"></div></div>
+      <div class="bar-group"><div class="bar n" style="height:40px"></div><div class="bar o" style="height:33px"></div><div class="bar c" style="height:24px"></div></div>
+    </div>
+    <div class="chart-xlabel">
+      <span class="xlbl">01</span><span class="xlbl">02</span><span class="xlbl">03</span><span class="xlbl">04</span><span class="xlbl">05</span><span class="xlbl">06</span><span class="xlbl">07</span><span class="xlbl">08</span><span class="xlbl">09</span><span class="xlbl">10</span><span class="xlbl">11</span><span class="xlbl">12</span><span class="xlbl">13</span><span class="xlbl">14</span><span class="xlbl">15</span>
+    </div>
+    <div class="chart-legend" style="margin-top:8px">
+      <span class="leg"><span class="leg-dot" style="background:#3b82f6"></span>Notas entradas</span>
+      <span class="leg"><span class="leg-dot" style="background:#22c55e"></span>Viraram ordem</span>
+      <span class="leg"><span class="leg-dot" style="background:#8b5cf6"></span>Ordens concluídas</span>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ── DETALHAMENTO POR LOJA + POR COLABORADOR ── -->
+<div class="two-col">
+
+  <!-- Lojas -->
+  <div class="col-block">
+    <div class="col-block-header">
+      <span>Por loja / unidade</span>
+      <span class="section-tag">gestor: todas · admin: suas lojas</span>
+    </div>
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Unidade</th>
+          <th style="text-align:right">Notas</th>
+          <th style="text-align:right">Ordens</th>
+          <th style="text-align:right">Conversão</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Camapuã</td><td style="text-align:right">45</td><td style="text-align:right">40</td><td style="text-align:right"><span class="badge-pct hi">88%</span></td></tr>
+        <tr><td>Manaus Shopping</td><td style="text-align:right">38</td><td style="text-align:right">29</td><td style="text-align:right"><span class="badge-pct mid">76%</span></td></tr>
+        <tr><td>Coari</td><td style="text-align:right">22</td><td style="text-align:right">14</td><td style="text-align:right"><span class="badge-pct lo">63%</span></td></tr>
+        <tr><td>CD Tarumã</td><td style="text-align:right">18</td><td style="text-align:right">15</td><td style="text-align:right"><span class="badge-pct hi">83%</span></td></tr>
+        <tr><td style="color:#475569;font-style:italic">+12 unidades…</td><td></td><td></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Por colaborador — gestor vê tabela completa, admin vê só o próprio card -->
+  <div class="col-block">
+    <div class="col-block-header">
+      <span>Por colaborador</span>
+      <div style="display:flex;gap:5px">
+        <span class="only-gestor">gestor: equipe completa</span>
+        <span class="only-admin">admin: só seu card</span>
+      </div>
+    </div>
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Colaborador</th>
+          <th style="text-align:right">Notas</th>
+          <th style="text-align:right">Conversão</th>
+          <th style="text-align:right">T. médio</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="background:#7c3aed10">
+          <td><span class="collab-chip"><span class="avatar" style="background:#7c3aed">G</span>Gustavo</span></td>
+          <td style="text-align:right">15</td>
+          <td style="text-align:right"><span class="badge-pct hi">80%</span></td>
+          <td style="text-align:right">1,8d</td>
+        </tr>
+        <tr><td><span class="collab-chip"><span class="avatar" style="background:#0ea5e9">P</span>Paula</span></td>
+          <td style="text-align:right">22</td><td style="text-align:right"><span class="badge-pct hi">86%</span></td><td style="text-align:right">2,1d</td></tr>
+        <tr><td><span class="collab-chip"><span class="avatar" style="background:#10b981">W</span>Wanderlucio</span></td>
+          <td style="text-align:right">19</td><td style="text-align:right"><span class="badge-pct mid">73%</span></td><td style="text-align:right">3,2d</td></tr>
+        <tr><td><span class="collab-chip"><span class="avatar" style="background:#f59e0b">R</span>Rosana</span></td>
+          <td style="text-align:right">17</td><td style="text-align:right"><span class="badge-pct mid">70%</span></td><td style="text-align:right">2,9d</td></tr>
+        <tr><td style="color:#475569;font-style:italic">+8 colaboradores…</td><td></td><td></td><td></td></tr>
+      </tbody>
+    </table>
+    <div style="padding:8px 12px;font-size:10px;color:#475569;border-top:1px solid #334155">
+      💡 Para admin: só exibe a linha do colaborador logado, sem ranking dos demais.
+    </div>
+  </div>
+
+</div>
+
+<div style="padding:10px 20px 6px;font-size:11px;color:#3b82f6;border-top:1px solid #334155;margin-top:4px">
+  Esta é a visão do <strong>gestor</strong>. A do <strong>admin</strong> usa a mesma estrutura — KPIs, gráfico e tabelas — mas todos os números refletem apenas a carteira dele.
+</div>
+
+</body>
+</html>

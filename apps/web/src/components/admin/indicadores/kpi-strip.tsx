@@ -1,18 +1,41 @@
+import {
+  Activity,
+  BriefcaseBusiness,
+  ClipboardCheck,
+  Clock3,
+  Gauge,
+  ShieldCheck,
+  type LucideIcon,
+} from 'lucide-react'
 import type { KpisNotasOrdens } from '@/lib/types/indicadores'
 
 interface KpiCardProps {
   label: string
   value: string
   sublabel: string
-  colorClass: string
+  accentClass: string
+  icon: LucideIcon
 }
 
-function KpiCard({ label, value, sublabel, colorClass }: KpiCardProps) {
+function KpiCard({ label, value, sublabel, accentClass, icon: Icon }: KpiCardProps) {
   return (
-    <div className={`relative overflow-hidden rounded-lg border bg-card p-3 ${colorClass}`}>
-      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-bold tabular-nums">{value}</p>
-      <p className="mt-0.5 text-[10px] text-muted-foreground">{sublabel}</p>
+    <div className="rounded-2xl border border-border/60 bg-background/75 p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            {label}
+          </p>
+          <p className="text-3xl font-semibold tracking-tight tabular-nums">
+            {value}
+          </p>
+        </div>
+        <div className={`rounded-2xl border px-3 py-2 ${accentClass}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+      <p className="mt-3 text-sm text-muted-foreground">
+        {sublabel}
+      </p>
     </div>
   )
 }
@@ -37,42 +60,48 @@ interface KpiStripProps {
 
 export function KpiStrip({ kpis }: KpiStripProps) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
       <KpiCard
         label="Notas recebidas"
-        value={String(kpis.total_notas)}
-        sublabel="no período"
-        colorClass="border-l-2 border-l-blue-500"
+        value={kpis.total_notas.toLocaleString('pt-BR')}
+        sublabel="Notas distribuidas no recorte atual."
+        accentClass="border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-300"
+        icon={ClipboardCheck}
       />
       <KpiCard
         label="Convertidas em ordem"
-        value={String(kpis.notas_convertidas)}
-        sublabel={`${formatPercent(kpis.taxa_conversao)} do total`}
-        colorClass="border-l-2 border-l-green-500"
+        value={kpis.notas_convertidas.toLocaleString('pt-BR')}
+        sublabel={`${formatPercent(kpis.taxa_conversao)} do total virou ordem.`}
+        accentClass="border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+        icon={BriefcaseBusiness}
       />
       <KpiCard
-        label="Taxa de conversão"
+        label="Taxa de conversao"
         value={formatPercent(kpis.taxa_conversao)}
-        sublabel="notas → ordens"
-        colorClass="border-l-2 border-l-amber-500"
+        sublabel="Efetividade do funil de entrada."
+        accentClass="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300"
+        icon={Gauge}
       />
       <KpiCard
-        label="Tempo médio nota→ordem"
+        label="Tempo medio nota->ordem"
         value={formatDias(kpis.tempo_medio_nota_ordem)}
-        sublabel="média do período"
-        colorClass="border-l-2 border-l-violet-500"
+        sublabel="Velocidade media de conversao."
+        accentClass="border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-300"
+        icon={Clock3}
       />
       <KpiCard
-        label="Tempo médio conclusão"
+        label="Tempo medio conclusao"
         value={formatDias(kpis.tempo_medio_conclusao)}
-        sublabel="geração ao encerramento"
-        colorClass="border-l-2 border-l-cyan-500"
+        sublabel="Da entrada ate o encerramento."
+        accentClass="border-cyan-500/20 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300"
+        icon={Activity}
       />
       <KpiCard
-        label="Ordens concluídas"
-        value={String(kpis.total_ordens_concluidas)}
-        sublabel="no período"
-        colorClass="border-l-2 border-l-rose-500"
+        label="Ordens concluidas"
+        value={kpis.total_ordens_concluidas.toLocaleString('pt-BR')}
+        sublabel="Ordens encerradas dentro do periodo."
+        accentClass="border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300"
+        icon={ShieldCheck}
       />
     </div>
   )

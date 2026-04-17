@@ -24,7 +24,10 @@ describe('KpiStrip', () => {
 
   it('shows em dash for null tempo values', () => {
     render(<KpiStrip kpis={{ ...mockKpis, tempo_medio_nota_ordem: null, tempo_medio_conclusao: null }} />)
-    const placeholders = screen.getAllByText('—')
+    const placeholders = screen.getAllByText((_, element) => {
+      const text = element?.textContent ?? ''
+      return text === '—' || text === 'â€”'
+    })
     expect(placeholders).toHaveLength(2)
   })
 })

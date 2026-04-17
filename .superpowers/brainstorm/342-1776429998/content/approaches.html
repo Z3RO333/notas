@@ -1,0 +1,58 @@
+<h2>Como estruturar o conteúdo por perfil?</h2>
+<p class="subtitle">A página <code>/admin/graficos</code> já existe. Escolha como adaptar o comportamento para gestor vs. admin.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Renderização condicional por role <span style="font-size:11px;background:#22c55e22;color:#16a34a;border-radius:4px;padding:2px 7px;margin-left:6px;font-weight:600;">Recomendado</span></h3>
+      <p>A mesma URL renderiza conteúdo completamente diferente dependendo do <code>user_role</code>. Gestor vê o consolidado existente + novos KPIs de tempo/conversão. Admin vê somente a sua visão pessoal filtrada.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Prós</h4><ul>
+          <li>Sem tabs — cada perfil vê exatamente o que é dele</li>
+          <li>URL limpa, sem parâmetros</li>
+          <li>Fácil de manter separado no código</li>
+        </ul></div>
+        <div class="cons"><h4>Contras</h4><ul>
+          <li>Se um gestor quiser simular a visão de um admin, não consegue</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Tabs por perfil na mesma página</h3>
+      <p>Uma aba "Visão Geral" (sempre visível para gestores) e uma aba "Minha Visão" (visível para todos, mas filtra pelo próprio admin). Gestores podem trocar entre as duas.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Prós</h4><ul>
+          <li>Gestor pode comparar visão geral com visão individual</li>
+          <li>Navegação explícita</li>
+        </ul></div>
+        <div class="cons"><h4>Contras</h4><ul>
+          <li>Admins enxergam uma aba vazia ou bloqueada</li>
+          <li>Layout mais pesado para um uso que é raro (gestor simulando admin)</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Seção unificada com KPIs contextuais no topo</h3>
+      <p>A página tem sempre a mesma estrutura: KPIs no topo + detalhamentos abaixo. Para gestores, os KPIs são do consolidado geral. Para admins, os mesmos KPIs mas com dados da carteira. O restante da página (por loja, por colaborador) se adapta silenciosamente.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Prós</h4><ul>
+          <li>UX consistente — estrutura idêntica para todos</li>
+          <li>Não precisa de tabs nem lógica de visibilidade</li>
+        </ul></div>
+        <div class="cons"><h4>Contras</h4><ul>
+          <li>A diferença de escopo (geral vs. pessoal) pode não ser óbvia para o usuário</li>
+          <li>Exige label claro indicando o escopo ativo</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+</div>

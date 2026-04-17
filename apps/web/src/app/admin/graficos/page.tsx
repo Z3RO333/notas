@@ -305,7 +305,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   ).sort((a, b) => a.localeCompare(b, 'pt-BR'))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageTitleBlock
         title="Graficos Gerenciais"
         subtitle="Padroes, recorrencia e ranking por unidade."
@@ -321,25 +321,51 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
         colaboradores={colaboradores}
       />
 
-      <hr className="border-border/40" />
+      <section className="space-y-5 rounded-[28px] border border-border/60 bg-card/35 p-4 shadow-sm sm:p-5 lg:p-6">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Analise gerencial
+            </p>
+            <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
+              Segmentos, recorrencia e ranking
+            </h2>
+            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+              Combine ano, mes, tipo, loja e servico para localizar concentracao de volume,
+              repeticao de demanda e peso de cada segmento na operacao.
+            </p>
+          </div>
+          <p className="text-xs leading-5 text-muted-foreground xl:max-w-xs xl:text-right">
+            Os filtros abaixo controlam somente a leitura gerencial desta pagina.
+          </p>
+        </div>
 
-      {segmentos.length > 0 && <OfficialUnitSummary segmentos={segmentos} />}
+        {segmentos.length > 0 && <OfficialUnitSummary segmentos={segmentos} />}
 
-      <GestaoFilters
-        tiposOrdem={tiposOrdem}
-        anos={anos}
-        anoAtivo={ano}
-        mesAtivo={mes}
-        tipoOrdemAtivo={tipoOrdem}
-        lojas={lojasDisponiveis}
-        lojaAtiva={nomeLoja}
-        servicos={servicosDisponiveis}
-        servicoAtivo={textoBreve}
-      />
+        <GestaoFilters
+          tiposOrdem={tiposOrdem}
+          anos={anos}
+          anoAtivo={ano}
+          mesAtivo={mes}
+          tipoOrdemAtivo={tipoOrdem}
+          lojas={lojasDisponiveis}
+          lojaAtiva={nomeLoja}
+          servicos={servicosDisponiveis}
+          servicoAtivo={textoBreve}
+        />
+      </section>
 
       <ChartLabelsProvider>
-        <div className="flex justify-end">
-          <ChartLabelsToggle />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold tracking-tight">Desdobramento por segmento</h2>
+            <p className="text-sm text-muted-foreground">
+              Cada bloco abaixo aprofunda lojas, servicos e evolucao mensal do recorte escolhido.
+            </p>
+          </div>
+          <div className="flex justify-end">
+            <ChartLabelsToggle />
+          </div>
         </div>
         <div className="space-y-10">
           {TIPOS.map((tipo) => (

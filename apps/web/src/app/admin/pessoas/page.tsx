@@ -6,16 +6,42 @@ import type { CargaAdministrador, NotaPanelData } from '@/lib/types/database'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { AdminPessoalCard } from '@/components/admin/indicadores/admin-pessoal-card'
 import type { KpisNotasOrdens } from '@/lib/types/indicadores'
+import { Card, CardContent } from '@/components/ui/card'
 
 export const dynamic = 'force-dynamic'
 
 const NOTA_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, data_criacao_sap, created_at' as const
 
+function SummaryCard({
+  label,
+  value,
+  helper,
+}: {
+  label: string
+  value: string
+  helper: string
+}) {
+  return (
+    <Card className="border-border/60 bg-card/60 shadow-sm">
+      <CardContent className="space-y-2 p-5">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          {label}
+        </p>
+        <p className="text-3xl font-semibold tracking-tight tabular-nums">
+          {value}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {helper}
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
+
 export default async function PessoasPage() {
   const adminCtx = await getCurrentAdminContext()
   const supabase = await createClient()
 
-  // Para admin: calcular KPIs pessoais do mês corrente
   let adminKpis: KpisNotasOrdens | null = null
   if (!adminCtx.isGestor && adminCtx.adminId) {
     const now = new Date()
@@ -29,13 +55,12 @@ export default async function PessoasPage() {
     adminKpis = (data ?? null) as KpisNotasOrdens | null
   }
 
-  // Para admin: mostrar só o card pessoal
   if (!adminCtx.isGestor && adminCtx.adminId && adminKpis) {
     return (
       <div className="space-y-6">
         <PageTitleBlock
-          title="Minha Visão"
-          subtitle="Seus indicadores operacionais no mês corrente."
+          title="Minha Visao"
+          subtitle="Seus indicadores operacionais no mes corrente."
         />
         <AdminPessoalCard
           nome={adminCtx.userName ?? 'Colaborador'}
@@ -85,37 +110,80 @@ export default async function PessoasPage() {
   const recebendo = carga.filter((admin) => admin.ativo && admin.recebe_distribuicao && !admin.em_ferias).length
   const emFerias = carga.filter((admin) => admin.em_ferias).length
   const inativos = carga.filter((admin) => !admin.ativo).length
+  const totalNotasAbertas = collaborators.reduce((sum, collaborator) => sum + collaborator.qtd_abertas, 0)
 
   return (
-    <div className="space-y-6">
-      <PageTitleBlock title="Gestão de Pessoas" subtitle="Controle de disponibilidade, férias e carga operacional dos colaboradores." />
+    <div className="space-y-8">
+      <PageTitleBlock title="Gestao de Pessoas" subtitle="Controle de disponibilidade, ferias e carga operacional dos colaboradores." />
 
-      <div className="flex flex-wrap gap-4 text-sm">
-        <div className="rounded-lg border px-4 py-2">
-          <span className="text-muted-foreground">Ativos: </span>
-          <span className="font-semibold">{totalAtivos}</span>
+      <section className="space-y-4">
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Leitura rapida
+          </p>
+          <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
+            Disponibilidade e volume atual da equipe
+          </h2>
+          <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+            Um retrato rapido da operacao antes de abrir a carteira individual de cada colaborador.
+          </p>
         </div>
-        <div className="rounded-lg border px-4 py-2">
-          <span className="text-muted-foreground">Recebendo notas: </span>
-          <span className="font-semibold">{recebendo}</span>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <SummaryCard
+            label="Ativos"
+            value={totalAtivos.toLocaleString('pt-BR')}
+            helper={inativos > 0 ? `${inativos.toLocaleString('pt-BR')} inativos fora da carteira atual.` : 'Todos os cadastros operacionais estao ativos.'}
+          />
+          <SummaryCard
+            label="Recebendo notas"
+            value={recebendo.toLocaleString('pt-BR')}
+            helper="Colaboradores disponiveis para receber novas entradas."
+          />
+          <SummaryCard
+            label="Em ferias"
+            value={emFerias.toLocaleString('pt-BR')}
+            helper="Equipe temporariamente fora da distribuicao."
+          />
+          <SummaryCard
+            label="Notas abertas"
+            value={totalNotasAbertas.toLocaleString('pt-BR')}
+            helper="Volume atual consolidado em carteira."
+          />
         </div>
-        <div className="rounded-lg border px-4 py-2">
-          <span className="text-muted-foreground">Em férias: </span>
-          <span className="font-semibold">{emFerias}</span>
-        </div>
-        {inativos > 0 && (
-          <div className="rounded-lg border px-4 py-2">
-            <span className="text-muted-foreground">Inativos: </span>
-            <span className="font-semibold">{inativos}</span>
+      </section>
+
+      <section className="space-y-4 rounded-[28px] border border-border/60 bg-card/35 p-4 shadow-sm sm:p-5 lg:p-6">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Carteira por colaborador
+            </p>
+            <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
+              Gestao operacional da equipe
+            </h2>
+            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+              Use busca, filtros e mudanca de visualizacao para localizar gargalos, distribuir melhor a
+              carga e acompanhar o envelhecimento das notas por pessoa.
+            </p>
           </div>
-        )}
-      </div>
 
-      <CollaboratorPanel
-        collaborators={collaborators}
-        notas={notas}
-        mode="admin"
-      />
+          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+            <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1">
+              Colaboradores no painel: {collaborators.length.toLocaleString('pt-BR')}
+            </span>
+            <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1">
+              Notas abertas: {totalNotasAbertas.toLocaleString('pt-BR')}
+            </span>
+          </div>
+        </div>
+
+        <CollaboratorPanel
+          collaborators={collaborators}
+          notas={notas}
+          mode="admin"
+        />
+      </section>
     </div>
   )
 }
