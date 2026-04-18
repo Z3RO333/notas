@@ -1,172 +1,232 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Banknote,
   BarChart3,
   BarChartBig,
-  ChevronLeft,
-  ChevronRight,
   HardHat,
   LineChart,
+  Menu,
   ScrollText,
   Settings,
   ShieldAlert,
   UserCog,
+  X,
   Zap,
+  type LucideIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
-const links = [
-  { href: '/admin', label: 'Produtividade', icon: BarChart3, exact: true },
-  { href: '/admin/graficos', label: 'Graficos', icon: LineChart },
-  { href: '/admin/radar-preventivo', label: 'Radar Preventivo', icon: ShieldAlert },
-  { href: '/admin/financeiro', label: 'Financeiro', icon: Banknote },
-  { href: '/admin/comparativos', label: 'Comparativos', icon: BarChartBig },
-  { href: '/admin/equipamentos', label: 'Equipamentos', icon: Zap },
-  { href: '/admin/operacional', label: 'Operacional', icon: HardHat },
-  { href: '/admin/pessoas', label: 'Pessoas', icon: UserCog },
-  { href: '/admin/administracao', label: 'Administracao', icon: Settings },
-  { href: '/admin/auditoria', label: 'Auditoria', icon: ScrollText },
+type AdminNavLink = {
+  href: string
+  label: string
+  icon: LucideIcon
+  exact?: boolean
+}
+
+type AdminNavSection = {
+  title: string
+  links: AdminNavLink[]
+}
+
+const navSections: AdminNavSection[] = [
+  {
+    title: 'Visao geral',
+    links: [
+      { href: '/admin', label: 'Produtividade', icon: BarChart3, exact: true },
+      { href: '/admin/graficos', label: 'Graficos', icon: LineChart },
+      { href: '/admin/comparativos', label: 'Comparativos', icon: BarChartBig },
+    ],
+  },
+  {
+    title: 'Operacao',
+    links: [
+      { href: '/admin/radar-preventivo', label: 'Radar Preventivo', icon: ShieldAlert },
+      { href: '/admin/operacional', label: 'Operacional', icon: HardHat },
+      { href: '/admin/equipamentos', label: 'Equipamentos', icon: Zap },
+    ],
+  },
+  {
+    title: 'Gestao',
+    links: [
+      { href: '/admin/pessoas', label: 'Pessoas', icon: UserCog },
+      { href: '/admin/financeiro', label: 'Financeiro', icon: Banknote },
+      { href: '/admin/administracao', label: 'Administracao', icon: Settings },
+      { href: '/admin/auditoria', label: 'Auditoria', icon: ScrollText },
+    ],
+  },
 ]
+
+function isLinkActive(pathname: string, link: AdminNavLink) {
+  return link.exact ? pathname === link.href : pathname.startsWith(link.href)
+}
+
+function getActiveEntry(pathname: string) {
+  for (const section of navSections) {
+    for (const link of section.links) {
+      if (isLinkActive(pathname, link)) {
+        return { section, link }
+      }
+    }
+  }
+
+  return {
+    section: navSections[0],
+    link: navSections[0].links[0],
+  }
+}
+
+function AdminNavSections({
+  pathname,
+  onNavigate,
+}: {
+  pathname: string
+  onNavigate?: () => void
+}) {
+  return (
+    <div className="space-y-5">
+      {navSections.map((section) => {
+        const sectionIsActive = section.links.some((link) => isLinkActive(pathname, link))
+
+        return (
+          <section key={section.title} className="space-y-2">
+            <div className="px-2">
+              <p
+                className={cn(
+                  'text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground',
+                  sectionIsActive && 'text-primary',
+                )}
+              >
+                {section.title}
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              {section.links.map((link) => {
+                const Icon = link.icon
+                const isActive = isLinkActive(pathname, link)
+
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    aria-current={isActive ? 'page' : undefined}
+                    onClick={onNavigate}
+                    className={cn(
+                      'group flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm transition-colors',
+                      isActive
+                        ? 'border-primary/25 bg-primary/10 text-primary shadow-sm'
+                        : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/50 hover:text-foreground',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors',
+                        isActive
+                          ? 'border-primary/20 bg-background text-primary'
+                          : 'border-border/70 bg-background/70 text-muted-foreground group-hover:text-foreground',
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </span>
+
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{link.label}</span>
+                    </span>
+                  </Link>
+                )
+              })}
+            </div>
+          </section>
+        )
+      })}
+    </div>
+  )
+}
 
 export function AdminNav() {
   const pathname = usePathname()
-  const navRef = useRef<HTMLElement | null>(null)
-  const [canScrollLeft, setCanScrollLeft] = useState(false)
-  const [canScrollRight, setCanScrollRight] = useState(false)
-
-  const updateScrollState = useCallback(() => {
-    const node = navRef.current
-    if (!node) return
-
-    const maxScrollLeft = node.scrollWidth - node.clientWidth
-    setCanScrollLeft(node.scrollLeft > 4)
-    setCanScrollRight(maxScrollLeft - node.scrollLeft > 4)
-  }, [])
-
-  const scrollTabs = useCallback((direction: 'left' | 'right') => {
-    const node = navRef.current
-    if (!node) return
-
-    const amount = Math.max(node.clientWidth * 0.75, 220)
-    node.scrollBy({
-      left: direction === 'left' ? -amount : amount,
-      behavior: 'smooth',
-    })
-  }, [])
-
-  useEffect(() => {
-    const node = navRef.current
-    if (!node) return
-
-    updateScrollState()
-
-    const handleScroll = () => updateScrollState()
-    const handleResize = () => updateScrollState()
-
-    node.addEventListener('scroll', handleScroll, { passive: true })
-    window.addEventListener('resize', handleResize)
-
-    return () => {
-      node.removeEventListener('scroll', handleScroll)
-      window.removeEventListener('resize', handleResize)
-    }
-  }, [updateScrollState])
-
-  useEffect(() => {
-    const node = navRef.current
-    if (!node) return
-
-    const activeLink = node.querySelector<HTMLAnchorElement>('[data-active="true"]')
-    activeLink?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
-
-    const raf = window.requestAnimationFrame(() => updateScrollState())
-    return () => window.cancelAnimationFrame(raf)
-  }, [pathname, updateScrollState])
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const activeEntry = getActiveEntry(pathname)
 
   return (
-    <div className="sticky top-0 z-30 -mx-4 mb-6 border-b bg-background/90 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/75 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-      <div className="relative">
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-background/95 to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-background/95 to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-20 flex items-center pl-1">
+    <>
+      <div className="mb-4 lg:hidden">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border bg-card/70 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/60">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Admin
+            </p>
+            <p className="truncate text-sm font-semibold text-foreground">
+              {activeEntry.link.label}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">{activeEntry.section.title}</p>
+          </div>
+
           <Button
             type="button"
             variant="outline"
-            size="icon"
-            aria-label="Rolar abas para a esquerda"
-            onClick={() => scrollTabs('left')}
-            className={cn(
-              'pointer-events-auto h-8 w-8 rounded-full border-border/70 bg-background/85 shadow-sm backdrop-blur transition-opacity',
-              canScrollLeft ? 'opacity-100' : 'opacity-0',
-            )}
-            disabled={!canScrollLeft}
+            size="sm"
+            onClick={() => setMobileOpen(true)}
+            className="shrink-0 rounded-full"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <Menu className="h-4 w-4" />
+            Secoes
           </Button>
         </div>
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-20 flex items-center pr-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label="Rolar abas para a direita"
-            onClick={() => scrollTabs('right')}
-            className={cn(
-              'pointer-events-auto h-8 w-8 rounded-full border-border/70 bg-background/85 shadow-sm backdrop-blur transition-opacity',
-              canScrollRight ? 'opacity-100' : 'opacity-0',
-            )}
-            disabled={!canScrollRight}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-        <nav
-          ref={navRef}
-          onWheel={(event) => {
-            const node = navRef.current
-            if (!node) return
 
-            const horizontalDelta = Math.abs(event.deltaX)
-            const verticalDelta = Math.abs(event.deltaY)
-            const hasOverflow = node.scrollWidth > node.clientWidth + 4
+        <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
+          <DialogPrimitive.Portal>
+            <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" />
+            <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 flex w-full max-w-[320px] flex-col border-r bg-background shadow-xl outline-none">
+              <div className="flex items-start justify-between gap-4 border-b px-5 py-4">
+                <div className="space-y-1">
+                  <DialogTitle className="text-base">Navegacao do admin</DialogTitle>
+                  <DialogDescription>
+                    Escolha a area que voce quer analisar ou operar.
+                  </DialogDescription>
+                </div>
 
-            if (!hasOverflow || verticalDelta <= horizontalDelta) return
+                <DialogPrimitive.Close asChild>
+                  <Button type="button" variant="ghost" size="icon" aria-label="Fechar secoes do admin">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </DialogPrimitive.Close>
+              </div>
 
-            node.scrollBy({ left: event.deltaY, behavior: 'auto' })
-            event.preventDefault()
-          }}
-          className="no-scrollbar flex snap-x gap-2 overflow-x-auto scroll-smooth px-10 pb-1 [overscroll-behavior-x:contain]"
-        >
-          {links.map((link) => {
-            const Icon = link.icon
-            const isActive = link.exact
-              ? pathname === link.href
-              : pathname.startsWith(link.href)
-
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                data-active={isActive ? 'true' : 'false'}
-                className={cn(
-                  'inline-flex min-w-max snap-start items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'border-primary/30 bg-primary/10 text-primary'
-                    : 'border-border/70 bg-card/50 text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground',
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {link.label}
-              </Link>
-            )
-          })}
-        </nav>
+              <div className="flex-1 overflow-y-auto px-3 py-4">
+                <AdminNavSections pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+              </div>
+            </DialogPrimitive.Content>
+          </DialogPrimitive.Portal>
+        </Dialog>
       </div>
-    </div>
+
+      <aside className="hidden self-start lg:block lg:sticky lg:top-[4.5rem]">
+        <div className="rounded-[28px] border bg-card/70 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/60">
+          <div className="border-b px-3 pb-4 pt-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Painel admin
+            </p>
+            <p className="mt-2 text-base font-semibold tracking-tight text-foreground">
+              Navegacao da area
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Analises, operacao e gestao em uma estrutura mais facil de escanear.
+            </p>
+          </div>
+
+          <div className="px-1 pb-1 pt-4">
+            <AdminNavSections pathname={pathname} />
+          </div>
+        </div>
+      </aside>
+    </>
   )
 }
