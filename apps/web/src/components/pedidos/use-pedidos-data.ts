@@ -19,6 +19,7 @@ function buildQueryParams(filters: PedidosWorkspaceFilters): URLSearchParams {
   if (filters.q) params.set('q', filters.q)
   if (filters.status !== 'all') params.set('status', filters.status)
   if (filters.adminId !== 'all') params.set('adminId', filters.adminId)
+  params.set('ano', filters.anoExtracao ?? 'all')
   if (filters.mesExtracao) params.set('mesExtracao', filters.mesExtracao)
   return params
 }
@@ -28,7 +29,7 @@ interface UsePedidosDataOptions {
 }
 
 export function usePedidosData({ filters }: UsePedidosDataOptions) {
-  const queryKey = ['pedidos-workspace', filters.q, filters.status, filters.adminId, filters.mesExtracao]
+  const queryKey = ['pedidos-workspace', filters.q, filters.status, filters.adminId, filters.anoExtracao, filters.mesExtracao]
 
   const { data, isFetching, isPlaceholderData, error } = useQuery({
     queryKey,
@@ -53,6 +54,7 @@ export function usePedidosData({ filters }: UsePedidosDataOptions) {
   const rows: PedidoCompra[] = data?.rows ?? []
   const kpis: PedidosKpis = data?.kpis ?? INITIAL_KPIS
   const availableAdmins = data?.availableAdmins ?? []
+  const availableAnos = data?.availableAnos ?? []
   const availableMeses = data?.availableMeses ?? []
   const loadingInitial = isFetching && !isPlaceholderData && rows.length === 0
   const errorMessage = error instanceof Error ? error.message : error ? 'Falha ao carregar pedidos' : null
@@ -61,6 +63,7 @@ export function usePedidosData({ filters }: UsePedidosDataOptions) {
     rows,
     kpis,
     availableAdmins,
+    availableAnos,
     availableMeses,
     isFetching,
     loadingInitial,

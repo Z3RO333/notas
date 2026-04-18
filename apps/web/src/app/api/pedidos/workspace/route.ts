@@ -150,6 +150,21 @@ function collectAvailableMeses(rows: PedidoCompra[]): string[] {
   ).sort((a, b) => b.localeCompare(a))
 }
 
+function collectAvailableAnos(rows: PedidoCompra[]): string[] {
+  return Array.from(
+    new Set(
+      rows
+        .map((row) => row.mes_extracao.slice(0, 4))
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => b.localeCompare(a))
+}
+
+function filterByAno(rows: PedidoCompra[], anoExtracao: string | null): PedidoCompra[] {
+  if (!anoExtracao) return rows
+  return rows.filter((row) => row.mes_extracao.startsWith(anoExtracao))
+}
+
 export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -179,6 +194,8 @@ export async function GET(request: Request) {
   const q = normalizeSearchText(url.searchParams.get('q'))
   const status = url.searchParams.get('status') ?? 'all'
   const adminId = url.searchParams.get('adminId') ?? 'all'
+  const rawAnoExtracao = url.searchParams.get('ano')?.trim() ?? ''
+  const anoExtracao = rawAnoExtracao === 'all' ? null : (rawAnoExtracao || '2026')
   const mesExtracao = url.searchParams.get('mesExtracao') ?? null
 
   const adminScope = isGestor ? null : loggedAdmin.id
@@ -235,9 +252,12 @@ export async function GET(request: Request) {
   )
 
   const scopedAllMonths = enrichPedidos(scopedRowsResult.data, supplierNameByCode)
-  const availableMeses = collectAvailableMeses(scopedAllMonths)
+  const availableAnos = collectAvailableAnos(scopedAllMonths)
 
-  const rowsInSelectedMonth = filterByMes(scopedAllMonths, mesExtracao)
+  const rowsInSelectedYear = filterByAno(scopedAllMonths, anoExtracao)
+  const availableMeses = collectAvailableMeses(rowsInSelectedYear)
+
+  const rowsInSelectedMonth = filterByMes(rowsInSelectedYear, mesExtracao)
   const kpis = computeKpis(rowsInSelectedMonth)
 
   const rowsByStatus = filterByStatus(rowsInSelectedMonth, status)
@@ -249,6 +269,7 @@ export async function GET(request: Request) {
     rows,
     kpis,
     availableAdmins: (adminsResult.data ?? []) as { id: string; nome: string }[],
+    availableAnos,
     availableMeses,
   }
 

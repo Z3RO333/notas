@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { createClient } from '@/lib/supabase/server'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { resolveMaintainerViewFromCookie } from '@/lib/auth/shared'
 import { MVIEW_COOKIE_NAME } from '@/lib/auth/maintainer-view'
@@ -16,6 +15,7 @@ interface PedidosPageProps {
     q?: string | string[]
     status?: string | string[]
     adminId?: string | string[]
+    ano?: string | string[]
     mes?: string | string[]
   }>
 }
@@ -27,6 +27,7 @@ function parseParam(value: string | string[] | undefined): string {
 
 function parseInitialFilters(params: Awaited<PedidosPageProps['searchParams']>): PedidosWorkspaceFilters {
   const rawStatus = parseParam(params?.status)
+  const rawAno = parseParam(params?.ano)
   const validStatuses: PedidoCompraStatus[] = ['em_aberto', 'encerrado', 'cancelado']
   const status = validStatuses.includes(rawStatus as PedidoCompraStatus)
     ? (rawStatus as PedidoCompraStatus)
@@ -36,6 +37,7 @@ function parseInitialFilters(params: Awaited<PedidosPageProps['searchParams']>):
     q: parseParam(params?.q),
     status,
     adminId: parseParam(params?.adminId) || 'all',
+    anoExtracao: rawAno === 'all' ? null : (rawAno || '2026'),
     mesExtracao: parseParam(params?.mes) || null,
   }
 }

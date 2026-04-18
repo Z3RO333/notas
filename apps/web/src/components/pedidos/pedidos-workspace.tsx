@@ -24,7 +24,7 @@ interface PedidosWorkspaceProps {
 
 export function PedidosWorkspace({ initialFilters, initialUser }: PedidosWorkspaceProps) {
   const { filters, setFilters, searchInput, setSearchInput, searchInputRef } = usePedidosFilters({ initialFilters })
-  const { rows, kpis, availableAdmins, availableMeses, isFetching, loadingInitial, error } = usePedidosData({ filters })
+  const { rows, kpis, availableAdmins, availableAnos, availableMeses, isFetching, loadingInitial, error } = usePedidosData({ filters })
   const [selectedPedido, setSelectedPedido] = useState<PedidoCompra | null>(null)
 
   const parentRef = useRef<HTMLDivElement | null>(null)
@@ -80,6 +80,32 @@ export function PedidosWorkspace({ initialFilters, initialUser }: PedidosWorkspa
             <SelectItem value="cancelado">Cancelado</SelectItem>
           </SelectContent>
         </Select>
+
+        {availableAnos.length > 0 && (
+          <Select
+            value={filters.anoExtracao ?? 'all'}
+            onValueChange={(val) => setFilters((prev) => ({
+              ...prev,
+              anoExtracao: val === 'all' ? null : val,
+              mesExtracao:
+                prev.mesExtracao && val !== 'all' && !prev.mesExtracao.startsWith(val)
+                  ? null
+                  : prev.mesExtracao,
+            }))}
+          >
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Ano" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os anos</SelectItem>
+              {availableAnos.map((ano) => (
+                <SelectItem key={ano} value={ano}>
+                  {ano}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         {availableMeses.length > 0 && (
           <Select

@@ -75,7 +75,7 @@ function DrawerHero({ pedido }: { pedido: PedidoCompra }) {
   const fornecedorCodigo = resolveFornecedorCodigo(pedido)
 
   return (
-    <section className="rounded-2xl border border-border/70 bg-gradient-to-br from-sky-500/10 via-background to-emerald-500/10 p-4">
+    <section className="rounded-2xl border border-border/70 bg-gradient-to-br from-sky-500/10 via-background to-amber-500/10 p-4">
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 space-y-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-300/80">
@@ -87,29 +87,75 @@ function DrawerHero({ pedido }: { pedido: PedidoCompra }) {
             </p>
             <p className="text-xs text-muted-foreground">
               Pedido {pedido.documento_compras}
-              {fornecedorCodigo ? ` • cod. ${fornecedorCodigo}` : ''}
-              {pedido.tipo_documento ? ` • ${pedido.tipo_documento}` : ''}
+              {fornecedorCodigo ? ` | cod. ${fornecedorCodigo}` : ''}
+              {pedido.tipo_documento ? ` | ${pedido.tipo_documento}` : ''}
             </p>
           </div>
         </div>
 
-        <div className={styles.loader} aria-hidden="true">
-          <div className={styles.sceneTop}>
-            <span className={styles.obstacle} />
-            <span className={`${styles.obstacle} ${styles.obstacle2}`} />
-            <span className={`${styles.obstacle} ${styles.obstacle3}`} />
-            <span className={`${styles.obstacle} ${styles.obstacle4}`} />
-          </div>
-          <div className={styles.sceneBottom}>
-            <span className={styles.obstacle} />
-            <span className={`${styles.obstacle} ${styles.obstacle2}`} />
-            <span className={`${styles.obstacle} ${styles.obstacle3}`} />
-            <span className={`${styles.obstacle} ${styles.obstacle4}`} />
-          </div>
-          <div className={styles.bird}>
-            <span className={styles.birdEye} />
-            <span className={styles.birdBeak} />
-            <span className={styles.birdWing} />
+        <div className={styles.scene} aria-hidden="true">
+          <svg
+            viewBox="0 0 12 16"
+            xmlns="http://www.w3.org/2000/svg"
+            shapeRendering="crispEdges"
+            className={styles.mario}
+          >
+            <rect x="3" y="0" width="5" height="1" fill="#E52521" />
+            <rect x="2" y="1" width="9" height="1" fill="#E52521" />
+            <rect x="2" y="2" width="3" height="1" fill="#432817" />
+            <rect x="5" y="2" width="2" height="1" fill="#FADCB2" />
+            <rect x="7" y="2" width="1" height="1" fill="#000000" />
+            <rect x="8" y="2" width="1" height="1" fill="#FADCB2" />
+            <rect x="1" y="3" width="1" height="1" fill="#432817" />
+            <rect x="2" y="3" width="1" height="1" fill="#FADCB2" />
+            <rect x="3" y="3" width="1" height="1" fill="#432817" />
+            <rect x="4" y="3" width="3" height="1" fill="#FADCB2" />
+            <rect x="7" y="3" width="1" height="1" fill="#000000" />
+            <rect x="8" y="3" width="3" height="1" fill="#FADCB2" />
+            <rect x="1" y="4" width="1" height="1" fill="#432817" />
+            <rect x="2" y="4" width="1" height="1" fill="#FADCB2" />
+            <rect x="3" y="4" width="2" height="1" fill="#432817" />
+            <rect x="5" y="4" width="3" height="1" fill="#FADCB2" />
+            <rect x="8" y="4" width="1" height="1" fill="#000000" />
+            <rect x="9" y="4" width="3" height="1" fill="#FADCB2" />
+            <rect x="1" y="5" width="2" height="1" fill="#432817" />
+            <rect x="3" y="5" width="4" height="1" fill="#FADCB2" />
+            <rect x="7" y="5" width="4" height="1" fill="#000000" />
+            <rect x="3" y="6" width="7" height="1" fill="#FADCB2" />
+            <rect x="2" y="7" width="2" height="1" fill="#E52521" />
+            <rect x="4" y="7" width="1" height="1" fill="#0043A6" />
+            <rect x="5" y="7" width="3" height="1" fill="#E52521" />
+            <rect x="1" y="8" width="3" height="1" fill="#E52521" />
+            <rect x="4" y="8" width="1" height="1" fill="#0043A6" />
+            <rect x="5" y="8" width="2" height="1" fill="#E52521" />
+            <rect x="7" y="8" width="1" height="1" fill="#0043A6" />
+            <rect x="8" y="8" width="3" height="1" fill="#E52521" />
+            <rect x="0" y="9" width="4" height="1" fill="#E52521" />
+            <rect x="4" y="9" width="4" height="1" fill="#0043A6" />
+            <rect x="8" y="9" width="4" height="1" fill="#E52521" />
+            <rect x="0" y="10" width="2" height="1" fill="#FADCB2" />
+            <rect x="2" y="10" width="1" height="1" fill="#E52521" />
+            <rect x="3" y="10" width="1" height="1" fill="#FBD000" />
+            <rect x="4" y="10" width="4" height="1" fill="#0043A6" />
+            <rect x="8" y="10" width="1" height="1" fill="#FBD000" />
+            <rect x="9" y="10" width="1" height="1" fill="#E52521" />
+            <rect x="10" y="10" width="2" height="1" fill="#FADCB2" />
+            <rect x="0" y="11" width="3" height="1" fill="#FADCB2" />
+            <rect x="3" y="11" width="6" height="1" fill="#0043A6" />
+            <rect x="9" y="11" width="3" height="1" fill="#FADCB2" />
+            <rect x="0" y="12" width="2" height="1" fill="#FADCB2" />
+            <rect x="2" y="12" width="8" height="1" fill="#0043A6" />
+            <rect x="10" y="12" width="2" height="1" fill="#FADCB2" />
+            <rect x="2" y="13" width="3" height="1" fill="#0043A6" />
+            <rect x="7" y="13" width="3" height="1" fill="#0043A6" />
+            <rect x="1" y="14" width="3" height="1" fill="#432817" />
+            <rect x="8" y="14" width="3" height="1" fill="#432817" />
+            <rect x="0" y="15" width="4" height="1" fill="#432817" />
+            <rect x="8" y="15" width="4" height="1" fill="#432817" />
+          </svg>
+
+          <div className={styles.coinContainer}>
+            <div className={styles.coin} />
           </div>
         </div>
       </div>

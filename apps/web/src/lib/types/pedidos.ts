@@ -47,6 +47,7 @@ export interface PedidosWorkspaceFilters {
   q: string
   status: PedidoCompraStatus | 'all'
   adminId: string | 'all'
+  anoExtracao: string | null
   mesExtracao: string | null
 }
 
@@ -54,5 +55,6 @@ export interface PedidosWorkspaceResponse {
   rows: PedidoCompra[]
   kpis: PedidosKpis
   availableAdmins: { id: string; nome: string }[]
+  availableAnos: string[]
   availableMeses: string[]
 }

@@ -10,6 +10,7 @@ function syncFiltersToUrl(filters: PedidosWorkspaceFilters) {
   setOrDelete('q', filters.q || null)
   setOrDelete('status', filters.status !== 'all' ? filters.status : null)
   setOrDelete('adminId', filters.adminId !== 'all' ? filters.adminId : null)
+  params.set('ano', filters.anoExtracao ?? 'all')
   setOrDelete('mes', filters.mesExtracao)
   const query = params.toString()
   window.history.replaceState({}, '', query ? `?${query}` : window.location.pathname)
