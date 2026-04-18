@@ -210,7 +210,7 @@ export function AdminNav() {
         </Dialog>
       </div>
 
-      <aside className="hidden self-start lg:block lg:sticky lg:top-[4.5rem] lg:h-[calc(100vh-5.5rem)]">
+      <aside className="hidden self-start lg:block lg:sticky lg:top-16 lg:h-[calc(100vh-4.5rem)]">
         <div className="flex h-full flex-col overflow-hidden rounded-[24px] border bg-card/70 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/60">
           <div className="shrink-0 border-b px-4 pb-4 pt-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
