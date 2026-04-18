@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import { TopNav } from '@/components/layout/top-nav'
 import { ThemeProvider } from '@/components/theme/theme-provider'
 import { ToastProvider } from '@/components/ui/toast'
+import { AppProviders } from '@/app/providers'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { buildThemeBootstrapScript } from '@/lib/theme/theme'
 import './globals.css'
@@ -46,14 +47,16 @@ export default async function RootLayout({
       </head>
       <body className={inter.className}>
         <ThemeProvider>
-          <ToastProvider>
-            <div className="min-h-screen bg-background">
-              <TopNav userName={userName} userRole={userRole} />
-              <main className="mx-auto max-w-screen-2xl px-6 py-6">
-                {children}
-              </main>
-            </div>
-          </ToastProvider>
+          <AppProviders>
+            <ToastProvider>
+              <div className="min-h-screen bg-background">
+                <TopNav userName={userName} userRole={userRole} />
+                <main className="mx-auto max-w-screen-2xl px-6 py-6">
+                  {children}
+                </main>
+              </div>
+            </ToastProvider>
+          </AppProviders>
         </ThemeProvider>
       </body>
     </html>

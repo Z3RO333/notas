@@ -273,6 +273,8 @@ export async function GET(request: Request) {
   }
 
   const parsedRequest = parseOrdersWorkspaceRequest(url.searchParams, canAccessPmpl)
+  const skipHighlights = url.searchParams.get('skip_highlights') === '1'
+  const highlightsOnly = url.searchParams.get('highlights_only') === '1'
   const adminScope = canViewGlobal ? null : loggedAdmin.id
   const responsavelFilter = canViewGlobal ? parsedRequest.responsavel : null
   const privateOwnerLookupPromise = !canViewGlobal && role === 'admin'
@@ -358,6 +360,45 @@ export async function GET(request: Request) {
     p_start_iso: parsedRequest.startIso,
     p_end_exclusive_iso: parsedRequest.endExclusiveIso,
     p_tipo_ordem: parsedRequest.tipoOrdem,
+  }
+
+  if (highlightsOnly) {
+    if (role === 'viewer') {
+      return NextResponse.json({ highlights: { oldest: [], attention: [] } })
+    }
+
+    const [oldestResult, attentionResult] = await Promise.all([
+      fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'vermelho', true, WORKSPACE_HIGHLIGHT_FETCH_LIMIT),
+      fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'amarelo', true),
+    ])
+
+    const needsFallback =
+      (oldestResult.error !== null && isRpcWithoutTipoOrdemSupport(oldestResult.error)) ||
+      (attentionResult.error !== null && isRpcWithoutTipoOrdemSupport(attentionResult.error))
+
+    if (needsFallback) {
+      const [oldestRetry, attentionRetry] = await Promise.all([
+        fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'vermelho', false, WORKSPACE_HIGHLIGHT_FETCH_LIMIT),
+        fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'amarelo', false),
+      ])
+      if (oldestRetry.error) return NextResponse.json({ error: oldestRetry.error.message }, { status: 500 })
+      if (attentionRetry.error) return NextResponse.json({ error: attentionRetry.error.message }, { status: 500 })
+      return NextResponse.json({
+        highlights: {
+          oldest: prioritizeOldestHighlights(oldestRetry.data),
+          attention: attentionRetry.data,
+        },
+      })
+    }
+
+    if (oldestResult.error) return NextResponse.json({ error: oldestResult.error.message }, { status: 500 })
+    if (attentionResult.error) return NextResponse.json({ error: attentionResult.error.message }, { status: 500 })
+    return NextResponse.json({
+      highlights: {
+        oldest: prioritizeOldestHighlights(oldestResult.data),
+        attention: attentionResult.data,
+      },
+    })
   }
 
   const [rowsResult, kpisResult, summaryResult, unitsResult, targetsResult, poolResult, poolCentrosResult, pendingSyncResult, privateOwnerLookupResult] = await Promise.all([
@@ -505,7 +546,7 @@ export async function GET(request: Request) {
     attention: [],
   }
 
-  if (!privateOwnerLookupActive && role !== 'viewer') {
+  if (!skipHighlights && !privateOwnerLookupActive && role !== 'viewer') {
     const [oldestHighlightsResult, attentionHighlightsResult] = await Promise.all([
       fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'vermelho', rowsResult.supportsTipoOrdem, WORKSPACE_HIGHLIGHT_FETCH_LIMIT),
       fetchWorkspaceHighlightRows(supabase, summaryRpcParams, 'amarelo', rowsResult.supportsTipoOrdem),

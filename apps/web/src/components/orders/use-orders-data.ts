@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useToast } from '@/components/ui/toast'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { buildWorkspaceParams } from '@/lib/orders/workspace-query'
 import { sanitizeText } from '@/components/orders/use-orders-filters'
 import type {
@@ -34,7 +34,7 @@ const INITIAL_HIGHLIGHTS: OrdersWorkspaceHighlights = {
   attention: [],
 }
 
-function mergeRows(
+export function mergeRows(
   prev: OrdemNotaAcompanhamento[],
   incoming: OrdemNotaAcompanhamento[],
 ): OrdemNotaAcompanhamento[] {
@@ -68,7 +68,7 @@ export interface SmartSearchResolution {
   matchedOwnerLabel: string | null
 }
 
-function resolveSmartSearch(
+export function resolveSmartSearch(
   query: string,
   ownerCandidates: Array<{ id: string; nome: string }>,
   currentResponsavel: string,
@@ -127,27 +127,18 @@ interface UseOrdersDataOptions {
 }
 
 export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrdersDataOptions) {
-  const { toast } = useToast()
+  const queryClient = useQueryClient()
 
   const [rows, setRows] = useState<OrdemNotaAcompanhamento[]>([])
   const [pendingSyncRows, setPendingSyncRows] = useState<OrdemNotaAcompanhamento[]>([])
-  const [unitOptions, setUnitOptions] = useState<string[]>([])
-  const [kpis, setKpis] = useState<OrdersWorkspaceKpis>(INITIAL_KPIS)
-  const [ownerSummary, setOwnerSummary] = useState<OrdersOwnerSummary[]>([])
-  const [reassignTargets, setReassignTargets] = useState<OrderReassignTarget[]>([])
-  const [poolGroups, setPoolGroups] = useState<Array<Omit<OrdersPoolGroup, 'rows'>>>([])
-  const [poolCentros, setPoolCentros] = useState<Record<string, string>>({})
-  const [highlights, setHighlights] = useState<OrdersWorkspaceHighlights>(INITIAL_HIGHLIGHTS)
   const [nextCursor, setNextCursor] = useState<OrdersWorkspaceCursor | null>(null)
-  const [loadingInitial, setLoadingInitial] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<OrdersDataUser>(initialUser)
+  const [reassignTargets, setReassignTargets] = useState<OrderReassignTarget[]>([])
 
-  const fetchAbortRef = useRef<AbortController | null>(null)
   const parentRef = useRef<HTMLDivElement | null>(null)
 
-  // Smart search uses reassignTargets from current state — no circular dependency
   const searchOwnerCandidates = useMemo(
     () => reassignTargets.map((t) => ({ id: t.id, nome: t.nome })),
     [reassignTargets],
@@ -167,129 +158,135 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
     [filters, smartSearch.effectiveQ, smartSearch.derivedResponsavel],
   )
 
-  const fetchWorkspace = useCallback(
-    async (reset: boolean, cursor: OrdersWorkspaceCursor | null = null) => {
-      fetchAbortRef.current?.abort()
-      const controller = new AbortController()
-      fetchAbortRef.current = controller
+  const filterKey = useMemo(() => JSON.stringify(effectiveFilters), [effectiveFilters])
 
-      if (reset) {
-        setLoadingInitial(true)
-        setError(null)
-      } else {
-        setLoadingMore(true)
-      }
-
-      const reqId = Math.random().toString(36).slice(2, 8)
-      const pageCursor = reset ? null : cursor
-
-      console.debug(`[ordens:fetch:start] reqId=${reqId} reset=${reset}`, {
-        filtros: { ...effectiveFilters, q: effectiveFilters.q ? '***' : '', searchMode: smartSearch.mode },
-        cursor: pageCursor,
+  // Main query: page 0, uses skip_highlights for faster response
+  const {
+    data: freshData,
+    isPlaceholderData,
+    isFetching,
+    error: queryError,
+  } = useQuery({
+    queryKey: ['orders-workspace', 'main', effectiveFilters],
+    queryFn: async ({ signal }) => {
+      const params = buildWorkspaceParams(effectiveFilters, null, BATCH_SIZE)
+      params.set('skip_highlights', '1')
+      const res = await fetch(`/api/ordens/workspace?${params.toString()}`, {
+        signal,
+        cache: 'no-store',
       })
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(payload.error || 'Falha ao carregar ordens')
+      }
+      return res.json() as Promise<OrdersWorkspaceResponse>
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    retry: 1,
+  })
 
+  // Highlights query: runs in parallel, deferred display
+  const { data: highlightsData } = useQuery({
+    queryKey: ['orders-workspace', 'highlights', effectiveFilters],
+    queryFn: async ({ signal }) => {
+      const params = buildWorkspaceParams(effectiveFilters, null, BATCH_SIZE)
+      params.set('highlights_only', '1')
+      const res = await fetch(`/api/ordens/workspace?${params.toString()}`, {
+        signal,
+        cache: 'no-store',
+      })
+      if (!res.ok) throw new Error('Falha ao carregar destaques')
+      return res.json() as Promise<{ highlights: OrdersWorkspaceHighlights }>
+    },
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    retry: 1,
+  })
+
+  // Effect 1: filter change → scroll to top + reset pagination state
+  useEffect(() => {
+    parentRef.current?.scrollTo({ top: 0 })
+    setNextCursor(null)
+    setLoadMoreError(null)
+  }, [filterKey])
+
+  // Effect 2: fresh (non-placeholder) data arrived → sync all state + notify caller
+  useEffect(() => {
+    if (!freshData || isPlaceholderData) return
+
+    setRows(freshData.rows)
+    setPendingSyncRows(freshData.pendingSyncRows ?? [])
+    setNextCursor(freshData.nextCursor)
+    setReassignTargets(freshData.reassignTargets)
+    setCurrentUser((prev) => ({
+      ...freshData.currentUser,
+      userEmail: prev.userEmail,
+      actualRole: prev.actualRole,
+      canUseDeveloperViewSwitcher: prev.canUseDeveloperViewSwitcher,
+    }))
+
+    void onResetSuccess(freshData.rows)
+  }, [freshData, isPlaceholderData, onResetSuccess])
+
+  // Load more pages (cursor-based pagination)
+  const loadMore = useCallback(
+    async (cursor: OrdersWorkspaceCursor) => {
+      if (loadingMore) return
+      setLoadingMore(true)
       try {
-        const params = buildWorkspaceParams(effectiveFilters, pageCursor, BATCH_SIZE)
-        const response = await fetch(`/api/ordens/workspace?${params.toString()}`, {
-          signal: controller.signal,
-          cache: 'no-store',
-        })
-
-        if (!response.ok) {
-          const payload = (await response.json().catch(() => ({}))) as { error?: string }
-          throw new Error(payload.error || 'Falha ao carregar ordens')
+        const params = buildWorkspaceParams(effectiveFilters, cursor, BATCH_SIZE)
+        params.set('skip_highlights', '1')
+        const res = await fetch(`/api/ordens/workspace?${params.toString()}`, { cache: 'no-store' })
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => ({}))) as { error?: string }
+          throw new Error(payload.error || 'Falha ao carregar mais ordens')
         }
-
-        const payload = (await response.json()) as OrdersWorkspaceResponse
-
-        console.debug(`[ordens:fetch:done] reqId=${reqId}`, {
-          rows: payload.rows.length,
-          total: payload.kpis.total,
-          cursor: payload.nextCursor ?? 'fim',
-        })
-
-        if (process.env.NODE_ENV === 'development') {
-          const k = payload.kpis
-          const soma = k.abertas + k.em_tratativa + k.concluidas + k.canceladas
-          if (soma !== k.total) {
-            console.warn('[ordens:consistencia] total !== soma de status principais', {
-              total: k.total, soma, diff: k.total - soma,
-              nota: 'atrasadas e avaliadas são dimensões ortogonais — não entram na soma',
-            })
-          }
-          const ids = payload.rows.map((r) => r.ordem_id)
-          const uniq = new Set(ids)
-          if (uniq.size !== ids.length) {
-            console.warn('[ordens:consistencia] linhas duplicadas detectadas na página', {
-              total: ids.length, unique: uniq.size, duplicatas: ids.length - uniq.size,
-            })
-          }
-        }
-
-        setCurrentUser((prev) => ({
-          ...payload.currentUser,
-          userEmail: prev.userEmail,
-          actualRole: prev.actualRole,
-          canUseDeveloperViewSwitcher: prev.canUseDeveloperViewSwitcher,
-        }))
-        setUnitOptions(payload.unitOptions ?? [])
-        setKpis(payload.kpis)
-        setOwnerSummary(payload.ownerSummary)
-        setReassignTargets(payload.reassignTargets)
-        setPoolGroups(payload.poolGroups ?? [])
-        setPoolCentros(payload.poolCentros ?? {})
-        setHighlights(payload.highlights ?? INITIAL_HIGHLIGHTS)
+        const payload = (await res.json()) as OrdersWorkspaceResponse
+        setRows((prev) => mergeRows(prev, payload.rows))
         setNextCursor(payload.nextCursor)
-
-        if (reset) {
-          setRows(payload.rows)
-          setPendingSyncRows(payload.pendingSyncRows ?? [])
-          await onResetSuccess(payload.rows)
-        } else {
-          setRows((prev) => mergeRows(prev, payload.rows))
-        }
-      } catch (fetchError) {
-        if ((fetchError as Error).name === 'AbortError') return
-        const message = fetchError instanceof Error ? fetchError.message : 'Falha ao carregar ordens'
-        setError(message)
-        if (reset) {
-          setRows([])
-          setPendingSyncRows([])
-          setHighlights(INITIAL_HIGHLIGHTS)
-          setNextCursor(null)
-        }
+      } catch (err) {
+        setLoadMoreError(err instanceof Error ? err.message : 'Falha ao carregar mais ordens')
       } finally {
-        // Se o fetch foi abortado (ex: novo filtro aplicado enquanto este estava em voo),
-        // não alterar o estado de loading — o fetch substituto já assumiu o controle.
-        if (controller.signal.aborted) return
-        if (reset) setLoadingInitial(false)
         setLoadingMore(false)
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [effectiveFilters, smartSearch.mode, onResetSuccess, toast],
+    [effectiveFilters, loadingMore],
   )
 
-  // Trigger fresh fetch whenever effectiveFilters change; scroll list to top
-  useEffect(() => {
-    setNextCursor(null)
-    parentRef.current?.scrollTo({ top: 0 })
-    fetchWorkspace(true)
-    return () => fetchAbortRef.current?.abort()
-  }, [fetchWorkspace])
+  const invalidateWorkspace = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['orders-workspace', 'main'] })
+    queryClient.invalidateQueries({ queryKey: ['orders-workspace', 'highlights'] })
+  }, [queryClient])
+
+  // Backward-compatible fetchWorkspace: reset triggers invalidation, paginate triggers loadMore
+  const fetchWorkspace = useCallback(
+    (reset: boolean, cursor?: OrdersWorkspaceCursor | null) => {
+      if (reset) {
+        invalidateWorkspace()
+      } else if (cursor) {
+        void loadMore(cursor)
+      }
+    },
+    [invalidateWorkspace, loadMore],
+  )
+
+  const loadingInitial = isFetching && !isPlaceholderData && rows.length === 0
+  const error = loadMoreError ?? (queryError instanceof Error ? queryError.message : queryError ? 'Falha ao carregar ordens' : null)
 
   return {
     rows,
     setRows,
     pendingSyncRows,
     setPendingSyncRows,
-    unitOptions,
-    kpis,
-    ownerSummary,
+    unitOptions: freshData?.unitOptions ?? [],
+    kpis: freshData?.kpis ?? INITIAL_KPIS,
+    ownerSummary: freshData?.ownerSummary ?? [],
     reassignTargets,
-    poolGroups,
-    poolCentros,
-    highlights,
+    poolGroups: (freshData?.poolGroups ?? []) as Array<Omit<OrdersPoolGroup, 'rows'>>,
+    poolCentros: freshData?.poolCentros ?? {},
+    highlights: highlightsData?.highlights ?? INITIAL_HIGHLIGHTS,
     nextCursor,
     loadingInitial,
     loadingMore,
