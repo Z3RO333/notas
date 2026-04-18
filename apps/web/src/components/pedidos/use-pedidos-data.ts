@@ -1,7 +1,8 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import type {
   PedidoCompra,
   PedidosKpis,
+  PedidosWorkspaceCursor,
   PedidosWorkspaceFilters,
   PedidosWorkspaceResponse,
 } from '@/lib/types/pedidos'
@@ -14,13 +15,18 @@ const INITIAL_KPIS: PedidosKpis = {
   valor_total: 0,
 }
 
-function buildQueryParams(filters: PedidosWorkspaceFilters): URLSearchParams {
+function buildQueryParams(
+  filters: PedidosWorkspaceFilters,
+  cursor: PedidosWorkspaceCursor | null,
+): URLSearchParams {
   const params = new URLSearchParams()
   if (filters.q) params.set('q', filters.q)
   if (filters.status !== 'all') params.set('status', filters.status)
   if (filters.adminId !== 'all') params.set('adminId', filters.adminId)
   params.set('ano', filters.anoExtracao ?? 'all')
-  if (filters.mesExtracao) params.set('mesExtracao', filters.mesExtracao)
+  if (filters.mesExtracao) params.set('mes', filters.mesExtracao)
+  if (cursor?.cursorDate) params.set('cursorDate', cursor.cursorDate)
+  if (cursor?.cursorId) params.set('cursorId', cursor.cursorId)
   return params
 }
 
@@ -31,10 +37,11 @@ interface UsePedidosDataOptions {
 export function usePedidosData({ filters }: UsePedidosDataOptions) {
   const queryKey = ['pedidos-workspace', filters.q, filters.status, filters.adminId, filters.anoExtracao, filters.mesExtracao]
 
-  const { data, isFetching, isPlaceholderData, error } = useQuery({
+  const query = useInfiniteQuery({
     queryKey,
-    queryFn: async ({ signal }) => {
-      const params = buildQueryParams(filters)
+    initialPageParam: null as PedidosWorkspaceCursor | null,
+    queryFn: async ({ pageParam, signal }) => {
+      const params = buildQueryParams(filters, pageParam)
       const res = await fetch(`/api/pedidos/workspace?${params.toString()}`, {
         signal,
         cache: 'no-store',
@@ -45,19 +52,21 @@ export function usePedidosData({ filters }: UsePedidosDataOptions) {
       }
       return res.json() as Promise<PedidosWorkspaceResponse>
     },
-    placeholderData: keepPreviousData,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: 30_000,
     gcTime: 5 * 60_000,
     retry: 1,
   })
 
-  const rows: PedidoCompra[] = data?.rows ?? []
-  const kpis: PedidosKpis = data?.kpis ?? INITIAL_KPIS
-  const availableAdmins = data?.availableAdmins ?? []
-  const availableAnos = data?.availableAnos ?? []
-  const availableMeses = data?.availableMeses ?? []
-  const loadingInitial = isFetching && !isPlaceholderData && rows.length === 0
-  const errorMessage = error instanceof Error ? error.message : error ? 'Falha ao carregar pedidos' : null
+  const pages = query.data?.pages
+  const firstPage = pages?.[0]
+  const rows: PedidoCompra[] = pages ? pages.flatMap((page) => page.rows) : []
+  const kpis: PedidosKpis = firstPage?.kpis ?? INITIAL_KPIS
+  const availableAdmins = firstPage?.availableAdmins ?? []
+  const availableAnos = firstPage?.availableAnos ?? []
+  const availableMeses = firstPage?.availableMeses ?? []
+  const loadingInitial = query.isPending && rows.length === 0
+  const errorMessage = query.error instanceof Error ? query.error.message : query.error ? 'Falha ao carregar pedidos' : null
 
   return {
     rows,
@@ -65,7 +74,10 @@ export function usePedidosData({ filters }: UsePedidosDataOptions) {
     availableAdmins,
     availableAnos,
     availableMeses,
-    isFetching,
+    isFetching: query.isFetching,
+    isFetchingNextPage: query.isFetchingNextPage,
+    hasNextPage: query.hasNextPage,
+    fetchNextPage: query.fetchNextPage,
     loadingInitial,
     error: errorMessage,
   }

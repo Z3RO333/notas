@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { ClipboardList, ListChecks, Shield, ShoppingCart, Sparkles, LogOut, Menu, X } from 'lucide-react'
 import { ThemeSelector } from '@/components/theme/theme-selector'
+import { PrefetchLink } from '@/components/shared/prefetch-link'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
@@ -49,19 +49,19 @@ export function TopNav({ userName, userRole }: TopNavProps) {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-14 items-center px-6">
-        <Link href={homeHref} className="mr-8 flex items-center gap-2">
+        <PrefetchLink href={homeHref} className="mr-8 flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white">
             <Image src="/login-logo.png" alt="Cockpit" width={22} height={22} />
           </div>
           <span className="text-lg font-bold tracking-tight">Cockpit</span>
-        </Link>
+        </PrefetchLink>
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-1 flex-1">
           {links.map((link) => {
             const Icon = link.icon
             return (
-              <Link
+              <PrefetchLink
                 key={link.href}
                 href={link.href}
                 className={cn(
@@ -73,7 +73,7 @@ export function TopNav({ userName, userRole }: TopNavProps) {
               >
                 <Icon className="h-4 w-4" />
                 {link.label}
-              </Link>
+              </PrefetchLink>
             )
           })}
         </nav>
@@ -120,7 +120,7 @@ export function TopNav({ userName, userRole }: TopNavProps) {
           {links.map((link) => {
             const Icon = link.icon
             return (
-              <Link
+              <PrefetchLink
                 key={link.href}
                 href={link.href}
                 onClick={() => setMenuOpen(false)}
@@ -133,7 +133,7 @@ export function TopNav({ userName, userRole }: TopNavProps) {
               >
                 <Icon className="h-4 w-4" />
                 {link.label}
-              </Link>
+              </PrefetchLink>
             )
           })}
         </nav>

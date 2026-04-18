@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { useMemo } from 'react'
 import { AlertTriangle, Clock3, Sparkles, StickyNote } from 'lucide-react'
 import { CollaboratorCardShell } from '@/components/collaborator/collaborator-card-shell'
 import { NotaListItem } from '@/components/painel/nota-list-item'
@@ -43,7 +44,7 @@ export function CollaboratorFullCard({
   const cargo = forceCargoLabel
     ? getCargoPresentationByLabel(forceCargoLabel)
     : resolveCargoPresentationFromEspecialidade(collaborator.especialidade)
-  const sortedNotas = sortByUrgency(notas)
+  const sortedNotas = useMemo(() => sortByUrgency(notas), [notas])
   const isClear = collaborator.qtd_abertas === 0
 
   const details = (

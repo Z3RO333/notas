@@ -51,10 +51,16 @@ export interface PedidosWorkspaceFilters {
   mesExtracao: string | null
 }
 
+export interface PedidosWorkspaceCursor {
+  cursorDate: string
+  cursorId: string
+}
+
 export interface PedidosWorkspaceResponse {
   rows: PedidoCompra[]
   kpis: PedidosKpis
   availableAdmins: { id: string; nome: string }[]
   availableAnos: string[]
   availableMeses: string[]
+  nextCursor: PedidosWorkspaceCursor | null
 }

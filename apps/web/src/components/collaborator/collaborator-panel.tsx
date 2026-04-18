@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { LayoutGrid, Rows3, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -293,7 +293,8 @@ export function CollaboratorPanel({
       .map((item) => ({ id: item.id, nome: item.nome, qtd_abertas: item.qtd_abertas })),
     [collaborators],
   )
-  const normalizedSearch = search.trim().toLowerCase()
+  const deferredSearch = useDeferredValue(search)
+  const normalizedSearch = deferredSearch.trim().toLowerCase()
   const shouldUseCanonicalMetrics = preferCanonicalCollaboratorMetrics && activeNotesKpi === null
 
   const matchesNotaFilters = useCallback((nota: NotaPanelData) => {

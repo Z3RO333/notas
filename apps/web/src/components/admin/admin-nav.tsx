@@ -2,7 +2,6 @@
 
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useState } from 'react'
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Banknote,
@@ -19,6 +18,7 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react'
+import { PrefetchLink } from '@/components/shared/prefetch-link'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
@@ -115,7 +115,7 @@ function AdminNavSections({
                 const isActive = isLinkActive(pathname, link)
 
                 return (
-                  <Link
+                  <PrefetchLink
                     key={link.href}
                     href={link.href}
                     aria-current={isActive ? 'page' : undefined}
@@ -141,7 +141,7 @@ function AdminNavSections({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{link.label}</span>
                     </span>
-                  </Link>
+                  </PrefetchLink>
                 )
               })}
             </div>

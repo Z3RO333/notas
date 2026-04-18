@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Input } from '@/components/ui/input'
@@ -24,7 +24,19 @@ interface PedidosWorkspaceProps {
 
 export function PedidosWorkspace({ initialFilters, initialUser }: PedidosWorkspaceProps) {
   const { filters, setFilters, searchInput, setSearchInput, searchInputRef } = usePedidosFilters({ initialFilters })
-  const { rows, kpis, availableAdmins, availableAnos, availableMeses, isFetching, loadingInitial, error } = usePedidosData({ filters })
+  const {
+    rows,
+    kpis,
+    availableAdmins,
+    availableAnos,
+    availableMeses,
+    isFetching,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    loadingInitial,
+    error,
+  } = usePedidosData({ filters })
   const [selectedPedido, setSelectedPedido] = useState<PedidoCompra | null>(null)
 
   const parentRef = useRef<HTMLDivElement | null>(null)
@@ -39,6 +51,18 @@ export function PedidosWorkspace({ initialFilters, initialUser }: PedidosWorkspa
   })
 
   const virtualItems = virtualizer.getVirtualItems()
+
+  useEffect(() => {
+    parentRef.current?.scrollTo({ top: 0 })
+  }, [filters.q, filters.status, filters.adminId, filters.anoExtracao, filters.mesExtracao])
+
+  useEffect(() => {
+    const lastItem = virtualItems[virtualItems.length - 1]
+    if (!lastItem) return
+    if (!hasNextPage || isFetchingNextPage || loadingInitial) return
+    if (lastItem.index < rows.length - 15) return
+    void fetchNextPage()
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, loadingInitial, rows.length, virtualItems])
 
   return (
     <div className="space-y-4">
@@ -151,7 +175,9 @@ export function PedidosWorkspace({ initialFilters, initialUser }: PedidosWorkspa
 
       {/* Results count */}
       <p className="text-xs text-muted-foreground">
-        {isFetching && !loadingInitial ? 'Atualizando...' : `${rows.length} pedido${rows.length !== 1 ? 's' : ''}`}
+        {isFetching && !loadingInitial
+          ? (isFetchingNextPage ? `Carregando mais... ${rows.length} pedido${rows.length !== 1 ? 's' : ''}` : 'Atualizando...')
+          : `${rows.length} pedido${rows.length !== 1 ? 's' : ''}${hasNextPage ? ' carregados' : ''}`}
       </p>
 
       {/* Virtual list */}
@@ -166,35 +192,44 @@ export function PedidosWorkspace({ initialFilters, initialUser }: PedidosWorkspa
           Nenhum pedido encontrado.
         </div>
       ) : (
-        <div
-          ref={parentRef}
-          className="h-[600px] overflow-y-auto"
-        >
-          <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
-            {virtualItems.map((vItem) => {
-              const pedido = rows[vItem.index]
-              return (
-                <div
-                  key={vItem.key}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    transform: `translateY(${vItem.start}px)`,
-                    paddingBottom: '8px',
-                  }}
-                  ref={virtualizer.measureElement}
-                  data-index={vItem.index}
-                >
-                  <PedidoRow
-                    pedido={pedido}
-                    onOpen={setSelectedPedido}
-                    adminNome={initialUser.canViewGlobal ? adminMap[pedido.administrador_id] : undefined}
-                  />
-                </div>
-              )
-            })}
+        <div className="space-y-3">
+          <div
+            ref={parentRef}
+            className="h-[600px] overflow-y-auto"
+          >
+            <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+              {virtualItems.map((vItem) => {
+                const pedido = rows[vItem.index]
+                return (
+                  <div
+                    key={vItem.key}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${vItem.start}px)`,
+                      paddingBottom: '8px',
+                    }}
+                    ref={virtualizer.measureElement}
+                    data-index={vItem.index}
+                  >
+                    <PedidoRow
+                      pedido={pedido}
+                      onOpen={setSelectedPedido}
+                      adminNome={initialUser.canViewGlobal ? adminMap[pedido.administrador_id] : undefined}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+          <div className="text-center text-xs text-muted-foreground">
+            {isFetchingNextPage
+              ? 'Carregando mais pedidos...'
+              : hasNextPage
+                ? 'Role para carregar mais pedidos.'
+                : `${rows.length} pedido${rows.length !== 1 ? 's' : ''} carregado${rows.length !== 1 ? 's' : ''}.`}
           </div>
         </div>
       )}
