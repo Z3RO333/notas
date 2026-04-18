@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import { AppMainShell } from '@/components/layout/app-main-shell'
 import { TopNav } from '@/components/layout/top-nav'
 import { ThemeProvider } from '@/components/theme/theme-provider'
 import { ToastProvider } from '@/components/ui/toast'
@@ -51,9 +52,7 @@ export default async function RootLayout({
             <ToastProvider>
               <div className="min-h-screen bg-background">
                 <TopNav userName={userName} userRole={userRole} />
-                <main className="mx-auto max-w-screen-2xl px-6 py-6">
-                  {children}
-                </main>
+                <AppMainShell>{children}</AppMainShell>
               </div>
             </ToastProvider>
           </AppProviders>
