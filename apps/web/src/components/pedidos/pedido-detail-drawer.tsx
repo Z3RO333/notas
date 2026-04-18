@@ -6,6 +6,7 @@ import { DrawerDetalhes } from '@/components/shared/drawer-detalhes'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import type { PedidoCompra, PedidoCompraItem, PedidoCompraStatus } from '@/lib/types/pedidos'
+import styles from './pedido-detail-drawer.module.css'
 
 interface PedidoDetailDrawerProps {
   open: boolean
@@ -49,12 +50,70 @@ function fmtQty(value: number | null, unit: string | null): string {
   return unit ? `${qty} ${unit}` : qty
 }
 
+function resolveFornecedorPrincipal(pedido: PedidoCompra): string {
+  return pedido.fornecedor_nome ?? pedido.fornecedor_codigo ?? pedido.fornecedor ?? 'Fornecedor sem nome'
+}
+
+function resolveFornecedorCodigo(pedido: PedidoCompra): string | null {
+  if (pedido.fornecedor_nome) {
+    return pedido.fornecedor_codigo ?? pedido.fornecedor ?? null
+  }
+  return null
+}
+
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-2 py-1 text-sm">
       <span className="text-muted-foreground">{label}</span>
       <span className="font-medium text-right">{value || '-'}</span>
     </div>
+  )
+}
+
+function DrawerHero({ pedido }: { pedido: PedidoCompra }) {
+  const fornecedorPrincipal = resolveFornecedorPrincipal(pedido)
+  const fornecedorCodigo = resolveFornecedorCodigo(pedido)
+
+  return (
+    <section className="rounded-2xl border border-border/70 bg-gradient-to-br from-sky-500/10 via-background to-emerald-500/10 p-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0 space-y-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-300/80">
+            Painel do pedido
+          </p>
+          <div className="space-y-1">
+            <p className="truncate text-base font-semibold text-foreground">
+              {fornecedorPrincipal}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Pedido {pedido.documento_compras}
+              {fornecedorCodigo ? ` • cod. ${fornecedorCodigo}` : ''}
+              {pedido.tipo_documento ? ` • ${pedido.tipo_documento}` : ''}
+            </p>
+          </div>
+        </div>
+
+        <div className={styles.loader} aria-hidden="true">
+          <div className={styles.sceneTop}>
+            <span className={styles.obstacle} />
+            <span className={`${styles.obstacle} ${styles.obstacle2}`} />
+            <span className={`${styles.obstacle} ${styles.obstacle3}`} />
+            <span className={`${styles.obstacle} ${styles.obstacle4}`} />
+          </div>
+          <div className={styles.sceneBottom}>
+            <span className={styles.obstacle} />
+            <span className={`${styles.obstacle} ${styles.obstacle2}`} />
+            <span className={`${styles.obstacle} ${styles.obstacle3}`} />
+            <span className={`${styles.obstacle} ${styles.obstacle4}`} />
+          </div>
+          <div className={styles.bird}>
+            <span className={styles.birdEye} />
+            <span className={styles.birdBeak} />
+            <span className={styles.birdWing} />
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -69,8 +128,10 @@ export function PedidoDetailDrawer({ open, onOpenChange, pedido, adminNome }: Pe
       setError(null)
       return
     }
+
     setLoading(true)
     setError(null)
+
     const supabase = createClient()
     void supabase
       .from('pedidos_compra_itens')
@@ -78,12 +139,19 @@ export function PedidoDetailDrawer({ open, onOpenChange, pedido, adminNome }: Pe
       .eq('documento_compras', pedido.documento_compras)
       .order('item_numero')
       .then(({ data, error: err }) => {
-        if (err) { setError(err.message) } else { setItems((data ?? []) as PedidoCompraItem[]) }
+        if (err) {
+          setError(err.message)
+        } else {
+          setItems((data ?? []) as PedidoCompraItem[])
+        }
         setLoading(false)
       })
   }, [open, pedido])
 
   if (!pedido) return null
+
+  const fornecedorPrincipal = resolveFornecedorPrincipal(pedido)
+  const fornecedorCodigo = resolveFornecedorCodigo(pedido)
 
   return (
     <DrawerDetalhes
@@ -93,7 +161,8 @@ export function PedidoDetailDrawer({ open, onOpenChange, pedido, adminNome }: Pe
       subtitle={pedido.tipo_documento ?? undefined}
     >
       <div className="space-y-6">
-        {/* Header info */}
+        <DrawerHero pedido={pedido} />
+
         <div className="flex items-center gap-2">
           <Badge variant={STATUS_VARIANT[pedido.status]}>{STATUS_LABEL[pedido.status]}</Badge>
           {pedido.tipo_documento && (
@@ -101,23 +170,22 @@ export function PedidoDetailDrawer({ open, onOpenChange, pedido, adminNome }: Pe
           )}
         </div>
 
-        {/* Dados gerais */}
         <section>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Dados gerais
           </h3>
           <div className="divide-y rounded-lg border px-3">
             <InfoRow label="Documento" value={pedido.documento_compras} />
-            <InfoRow label="Fornecedor" value={pedido.fornecedor ?? '-'} />
+            <InfoRow label="Fornecedor" value={fornecedorPrincipal} />
+            {fornecedorCodigo && <InfoRow label="Codigo fornecedor" value={fornecedorCodigo} />}
             <InfoRow label="Data documento" value={fmtDate(pedido.data_documento)} />
-            <InfoRow label="Mês extração" value={fmtMes(pedido.mes_extracao)} />
-            <InfoRow label="SAP código" value={pedido.sap_codigo} />
+            <InfoRow label="Mes extracao" value={fmtMes(pedido.mes_extracao)} />
+            <InfoRow label="SAP codigo" value={pedido.sap_codigo} />
             {adminNome && <InfoRow label="Administrador" value={adminNome} />}
             <InfoRow label="Valor total" value={fmtCurrency(pedido.valor_liquido_total)} />
           </div>
         </section>
 
-        {/* Itens */}
         <section>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Itens do pedido
@@ -135,7 +203,7 @@ export function PedidoDetailDrawer({ open, onOpenChange, pedido, adminNome }: Pe
           {!loading && items.length > 0 && (
             <div className="space-y-3">
               {items.map((item) => (
-                <div key={item.id} className="rounded-lg border px-3 py-2 text-sm space-y-1">
+                <div key={item.id} className="space-y-1 rounded-lg border px-3 py-2 text-sm">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs text-muted-foreground">Item {item.item_numero}</span>
                     <span className="font-semibold">{fmtCurrency(item.valor_liquido)}</span>
@@ -149,7 +217,7 @@ export function PedidoDetailDrawer({ open, onOpenChange, pedido, adminNome }: Pe
                       <span>Qtd: {fmtQty(item.quantidade, item.unidade_medida)}</span>
                     )}
                     {item.preco_unitario !== null && (
-                      <span>Preço unit.: {fmtCurrency(item.preco_unitario)}</span>
+                      <span>Preco unit.: {fmtCurrency(item.preco_unitario)}</span>
                     )}
                     {item.requisicao_compra && <span>RC: {item.requisicao_compra}</span>}
                   </div>

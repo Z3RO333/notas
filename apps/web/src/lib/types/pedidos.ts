@@ -5,8 +5,10 @@ export interface PedidoCompra {
   documento_compras: string
   administrador_id: string
   sap_codigo: string
-  /** Código numérico SAP do fornecedor, ex: "0000012029" */
+  /** Codigo numerico normalizado do fornecedor SAP, ex: "12029" */
   fornecedor: string | null
+  fornecedor_codigo?: string | null
+  fornecedor_nome?: string | null
   data_documento: string | null
   valor_liquido_total: number | null
   status: PedidoCompraStatus
@@ -28,7 +30,7 @@ export interface PedidoCompraItem {
   unidade_medida: string | null
   preco_unitario: number | null
   valor_liquido: number | null
-  /** Código da filial/loja onde o serviço é prestado */
+  /** Codigo da filial/loja onde o servico e prestado */
   centro: string | null
   requisicao_compra: string | null
 }

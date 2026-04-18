@@ -52,7 +52,7 @@ export function PedidosWorkspace({ initialFilters, initialUser }: PedidosWorkspa
             ref={searchInputRef}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Buscar por fornecedor... (/)"
+            placeholder="Buscar por fornecedor, codigo ou pedido... (/)"
             className="pl-8 pr-8"
           />
           {searchInput && (

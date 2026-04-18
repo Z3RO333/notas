@@ -41,7 +41,21 @@ function fmtMes(value: string): string {
   return `${month}/${year}`
 }
 
+function getFornecedorPrincipal(pedido: PedidoCompra): string | null {
+  return pedido.fornecedor_nome ?? pedido.fornecedor_codigo ?? pedido.fornecedor ?? null
+}
+
+function getFornecedorSecundario(pedido: PedidoCompra): string | null {
+  if (pedido.fornecedor_nome) {
+    return pedido.fornecedor_codigo ?? pedido.fornecedor ?? null
+  }
+  return null
+}
+
 export const PedidoRow = memo(function PedidoRow({ pedido, onOpen, adminNome }: PedidoRowProps) {
+  const fornecedorPrincipal = getFornecedorPrincipal(pedido)
+  const fornecedorSecundario = getFornecedorSecundario(pedido)
+
   return (
     <button
       type="button"
@@ -58,8 +72,14 @@ export const PedidoRow = memo(function PedidoRow({ pedido, onOpen, adminNome }: 
             )}
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-            {pedido.fornecedor && (
-              <span>Fornecedor: <span className="font-medium text-foreground">{pedido.fornecedor}</span></span>
+            {fornecedorPrincipal && (
+              <span>
+                Fornecedor:{' '}
+                <span className="font-medium text-foreground">{fornecedorPrincipal}</span>
+                {fornecedorSecundario && (
+                  <span className="text-muted-foreground"> ({fornecedorSecundario})</span>
+                )}
+              </span>
             )}
             {pedido.data_documento && (
               <span>Data: <span className="font-medium text-foreground">{fmtDate(pedido.data_documento)}</span></span>

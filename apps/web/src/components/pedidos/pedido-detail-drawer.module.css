@@ -1,0 +1,180 @@
+.loader {
+  position: relative;
+  width: 8.5rem;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  border: 1px solid rgb(148 163 184 / 0.18);
+  background:
+    radial-gradient(circle at 30% 20%, rgb(255 255 255 / 0.22), transparent 35%),
+    linear-gradient(to bottom, rgb(108 206 231 / 0.95) 62%, rgb(236 253 245) 62%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+
+.sceneTop,
+.sceneBottom {
+  position: absolute;
+  inset-inline: -35%;
+  display: flex;
+  gap: 1.5rem;
+  width: max-content;
+  animation: flow 5s linear infinite;
+}
+
+.sceneTop {
+  top: -28%;
+}
+
+.sceneBottom {
+  bottom: -30%;
+  transform: rotateX(180deg);
+  animation-name: flowBottom;
+}
+
+.obstacle {
+  position: relative;
+  height: 3.6rem;
+  width: 1.15rem;
+  border: 1px solid rgb(56 92 24 / 0.45);
+  border-radius: 0.2rem;
+  background: linear-gradient(
+    to right,
+    #9de558 0,
+    #9de558 18%,
+    #e7ff8d 18%,
+    #e7ff8d 28%,
+    #9de858 28%,
+    #9de858 52%,
+    #74c029 52%,
+    #74c029 68%,
+    #9de558 68%,
+    #9de558 78%,
+    #74c029 78%,
+    #74c029 100%
+  );
+}
+
+.obstacle::after {
+  content: '';
+  position: absolute;
+  top: calc(100% - 1px);
+  left: 50%;
+  width: 135%;
+  height: 0.7rem;
+  border: 1px solid rgb(56 92 24 / 0.45);
+  border-radius: 0.15rem;
+  transform: translateX(-50%);
+  background: inherit;
+}
+
+.obstacle2 {
+  transform: translateY(18%);
+}
+
+.obstacle3 {
+  transform: translateY(8%);
+}
+
+.obstacle4 {
+  transform: translateY(20%);
+}
+
+.bird {
+  position: absolute;
+  left: 38%;
+  top: 48%;
+  width: 1.45rem;
+  height: 1rem;
+  border-radius: 999px 999px 70% 70%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, #ffe66d, #ffb703);
+  box-shadow:
+    0 0.4rem 1.1rem rgb(249 115 22 / 0.3),
+    inset -0.15rem -0.1rem 0 rgb(0 0 0 / 0.08);
+  animation: flap 520ms linear infinite;
+}
+
+.birdEye {
+  position: absolute;
+  right: 0.32rem;
+  top: 0.24rem;
+  width: 0.17rem;
+  height: 0.17rem;
+  border-radius: 999px;
+  background: #111827;
+}
+
+.birdBeak {
+  position: absolute;
+  right: -0.32rem;
+  top: 0.37rem;
+  width: 0.42rem;
+  height: 0.22rem;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  background: #fb7185;
+}
+
+.birdWing {
+  position: absolute;
+  left: 0.35rem;
+  top: 0.3rem;
+  width: 0.55rem;
+  height: 0.42rem;
+  border-radius: 999px 999px 70% 70%;
+  background: rgb(255 255 255 / 0.6);
+  transform-origin: 80% 50%;
+  animation: wing 520ms ease-in-out infinite;
+}
+
+@keyframes flap {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  25% {
+    transform: translate(-50%, -58%) rotate(-12deg);
+  }
+  55% {
+    transform: translate(-50%, -20%) rotate(5deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+}
+
+@keyframes wing {
+  0%,
+  100% {
+    transform: rotate(0deg) scaleY(1);
+  }
+  50% {
+    transform: rotate(-22deg) scaleY(0.82);
+  }
+}
+
+@keyframes flow {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes flowBottom {
+  from {
+    transform: translateX(0) rotateX(180deg);
+  }
+  to {
+    transform: translateX(-50%) rotateX(180deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sceneTop,
+  .sceneBottom,
+  .bird,
+  .birdWing {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+}
