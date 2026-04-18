@@ -1,12 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { CollaboratorPanel } from '@/components/collaborator/collaborator-panel'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
-import type { CargaAdministrador } from '@/lib/types/database'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { AdminPessoalCard } from '@/components/admin/indicadores/admin-pessoal-card'
 import type { KpisNotasOrdens } from '@/lib/types/indicadores'
 import { Card, CardContent } from '@/components/ui/card'
-import { getNotesPanelData } from '@/lib/notes/get-notes-panel-data'
+import {
+  getNotesPanelListData,
+  getNotesPanelSummaryData,
+  loadNotesPanelSupportingData,
+} from '@/lib/notes/get-notes-panel-data'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,7 +72,7 @@ export default async function PessoasPage() {
     )
   }
 
-  const notesPanelData = await getNotesPanelData({
+  const supportingData = loadNotesPanelSupportingData({
     currentAdminContext: {
       adminId: adminCtx.adminId,
       role: adminCtx.role,
@@ -77,28 +80,25 @@ export default async function PessoasPage() {
     },
   })
 
-  const [cargaResult, adminsResult] = await Promise.all([
-    supabase.from('vw_carga_real_administradores').select('*').order('nome'),
-    supabase
-      .from('administradores')
-      .select('id')
-      .eq('role', 'admin'),
+  const [notesSummaryData, notesListData] = await Promise.all([
+    getNotesPanelSummaryData({
+      currentAdminContext: {
+        adminId: adminCtx.adminId,
+        role: adminCtx.role,
+        canViewGlobal: adminCtx.canViewGlobal,
+      },
+      supportingData,
+    }),
+    getNotesPanelListData({
+      currentAdminContext: {
+        adminId: adminCtx.adminId,
+        role: adminCtx.role,
+        canViewGlobal: adminCtx.canViewGlobal,
+      },
+      supportingData,
+    }),
   ])
-
-  const firstError = [cargaResult.error, adminsResult.error].find(Boolean)
-  if (firstError) throw firstError
-
-  const allCarga = (cargaResult.data ?? []) as CargaAdministrador[]
-  const operationalAdminIds = new Set(
-    ((adminsResult.data ?? []) as Array<{ id: string }>).map((admin) => admin.id)
-  )
-  const carga = allCarga.filter((admin) => operationalAdminIds.has(admin.id))
-
-  const totalAtivos = carga.filter((admin) => admin.ativo).length
-  const recebendo = carga.filter((admin) => admin.ativo && admin.recebe_distribuicao && !admin.em_ferias).length
-  const emFerias = carga.filter((admin) => admin.em_ferias).length
-  const inativos = carga.filter((admin) => !admin.ativo).length
-  const totalNotasAbertas = notesPanelData.collaborators.reduce((sum, collaborator) => sum + collaborator.qtd_abertas, 0)
+  const totalNotasAbertas = notesSummaryData.collaborators.reduce((sum, collaborator) => sum + collaborator.qtd_abertas, 0)
 
   return (
     <div className="space-y-8">
@@ -120,17 +120,17 @@ export default async function PessoasPage() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <SummaryCard
             label="Ativos"
-            value={totalAtivos.toLocaleString('pt-BR')}
-            helper={inativos > 0 ? `${inativos.toLocaleString('pt-BR')} inativos fora da carteira atual.` : 'Todos os cadastros operacionais estao ativos.'}
+            value={notesSummaryData.teamStats.totalAtivos.toLocaleString('pt-BR')}
+            helper={notesSummaryData.teamStats.inativos > 0 ? `${notesSummaryData.teamStats.inativos.toLocaleString('pt-BR')} inativos fora da carteira atual.` : 'Todos os cadastros operacionais estao ativos.'}
           />
           <SummaryCard
             label="Recebendo notas"
-            value={recebendo.toLocaleString('pt-BR')}
+            value={notesSummaryData.teamStats.recebendo.toLocaleString('pt-BR')}
             helper="Colaboradores disponiveis para receber novas entradas."
           />
           <SummaryCard
             label="Em ferias"
-            value={emFerias.toLocaleString('pt-BR')}
+            value={notesSummaryData.teamStats.emFerias.toLocaleString('pt-BR')}
             helper="Equipe temporariamente fora da distribuicao."
           />
           <SummaryCard
@@ -158,7 +158,7 @@ export default async function PessoasPage() {
 
           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
             <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1">
-              Colaboradores no painel: {notesPanelData.collaborators.length.toLocaleString('pt-BR')}
+              Colaboradores no painel: {notesSummaryData.collaborators.length.toLocaleString('pt-BR')}
             </span>
             <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1">
               Notas abertas: {totalNotasAbertas.toLocaleString('pt-BR')}
@@ -167,9 +167,14 @@ export default async function PessoasPage() {
         </div>
 
         <CollaboratorPanel
-          collaborators={notesPanelData.collaborators}
-          notas={notesPanelData.notasAtribuidas}
+          collaborators={notesSummaryData.collaborators}
+          notas={notesListData.notasAtribuidas}
           mode="admin"
+          preferCanonicalCollaboratorMetrics
+          resultsArePartial={notesListData.listIsPartial}
+          totalNotesCount={notesSummaryData.filteredNotesCount}
+          loadedNotesCount={notesListData.listLoadedCount}
+          operationalStateDegraded={notesListData.operationalStateDegraded}
         />
       </section>
     </div>

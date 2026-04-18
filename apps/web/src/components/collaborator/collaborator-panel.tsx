@@ -39,6 +39,7 @@ interface CollaboratorPanelProps {
   notas: NotaPanelData[]
   mode: 'viewer' | 'admin'
   notasSemAtribuir?: NotaPanelData[]
+  canonicalUnassignedCollaborator?: CollaboratorData | null
   currentAdminId?: string | null
   currentAdminRole?: string | null
   ordensAcompanhamento?: OrdemAcompanhamento[]
@@ -53,6 +54,11 @@ interface CollaboratorPanelProps {
   showUnidadeFilter?: boolean
   statusScope?: 'default' | 'open_only'
   activeNotesKpi?: NotesKpiFilter | null
+  preferCanonicalCollaboratorMetrics?: boolean
+  resultsArePartial?: boolean
+  totalNotesCount?: number
+  loadedNotesCount?: number
+  operationalStateDegraded?: boolean
 }
 
 const VIEW_MODE_STORAGE_KEY = 'cockpit:panel:view-mode'
@@ -63,6 +69,7 @@ export function CollaboratorPanel({
   notas,
   mode,
   notasSemAtribuir,
+  canonicalUnassignedCollaborator = null,
   currentAdminId,
   currentAdminRole,
   ordensAcompanhamento = [],
@@ -77,6 +84,11 @@ export function CollaboratorPanel({
   showUnidadeFilter = false,
   statusScope = 'default',
   activeNotesKpi = null,
+  preferCanonicalCollaboratorMetrics = false,
+  resultsArePartial = false,
+  totalNotesCount,
+  loadedNotesCount,
+  operationalStateDegraded = false,
 }: CollaboratorPanelProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -320,11 +332,14 @@ export function CollaboratorPanel({
     return map
   }, [collaborators, notasByAdmin, filterNotas])
 
+  const shouldUseCanonicalMetrics = preferCanonicalCollaboratorMetrics && activeNotesKpi === null
   const displayCollaborators = useMemo(
-    () => collaborators.map((collaborator) => (
-      withCollaboratorDisplayMetrics(collaborator, filteredNotasByAdmin.get(collaborator.id) ?? [])
-    )),
-    [collaborators, filteredNotasByAdmin]
+    () => shouldUseCanonicalMetrics
+      ? collaborators
+      : collaborators.map((collaborator) => (
+          withCollaboratorDisplayMetrics(collaborator, filteredNotasByAdmin.get(collaborator.id) ?? [])
+        )),
+    [collaborators, filteredNotasByAdmin, shouldUseCanonicalMetrics]
   )
 
   const visibleCollaborators = useMemo(() => {
@@ -406,6 +421,9 @@ export function CollaboratorPanel({
   const showInsideTracking = isAdminViewer && (trackingPosition === 'inside' || trackingPosition === 'both')
 
   const semAtribuirCollaborator: CollaboratorData | null = useMemo(() => {
+    if (shouldUseCanonicalMetrics) {
+      return canonicalUnassignedCollaborator
+    }
     if (!filteredNotasSemAtribuir || filteredNotasSemAtribuir.length === 0) return null
     const aging = buildAgingCounts(filteredNotasSemAtribuir)
     return {
@@ -427,7 +445,7 @@ export function CollaboratorPanel({
       qtd_concluidas: 0,
       qtd_acompanhamento_ordens: 0,
     }
-  }, [filteredNotasSemAtribuir])
+  }, [canonicalUnassignedCollaborator, filteredNotasSemAtribuir, shouldUseCanonicalMetrics])
 
   const activeFilterChips = [
     search ? { key: 'q', label: `Busca: ${search}` } : null,
@@ -466,6 +484,20 @@ export function CollaboratorPanel({
 
   return (
     <div className="space-y-4">
+      {resultsArePartial && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-100">
+          {typeof totalNotesCount === 'number' && typeof loadedNotesCount === 'number' && totalNotesCount > loadedNotesCount
+            ? `A lista detalhada carregou ${loadedNotesCount.toLocaleString('pt-BR')} de ${totalNotesCount.toLocaleString('pt-BR')} notas deste filtro. KPIs e cards seguem a contagem canônica; refine os filtros para navegar a carteira completa.`
+            : 'A lista detalhada foi carregada de forma parcial. KPIs e cards seguem a contagem canônica; refine os filtros para navegar a carteira completa.'}
+        </div>
+      )}
+
+      {operationalStateDegraded && (
+        <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/70 dark:bg-sky-950/30 dark:text-sky-100">
+          O estado operacional de algumas notas não pôde ser carregado agora. A carteira continua disponível, mas indicadores de geração podem aparecer incompletos até a próxima atualização.
+        </div>
+      )}
+
       {showTopTracking && (
         <TrackingOrdersBlock
           orders={ordensAcompanhamento}

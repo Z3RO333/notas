@@ -7,12 +7,13 @@ interface ToCollaboratorDataOptions {
   qtdAcompanhamentoOrdens?: number
 }
 
+type CollaboratorMetricNote = Pick<NotaPanelData, 'status' | 'data_criacao_sap' | 'created_at'>
+
 export function toCollaboratorData(
   carga: CargaAdministrador,
-  notas: NotaPanelData[],
+  adminNotas: CollaboratorMetricNote[],
   options: ToCollaboratorDataOptions = {}
 ): CollaboratorData {
-  const adminNotas = notas.filter((nota) => nota.administrador_id === carga.id)
   return withCollaboratorDisplayMetrics({
     id: carga.id,
     nome: carga.nome,

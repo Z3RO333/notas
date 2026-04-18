@@ -1,59 +1,101 @@
+import { Suspense } from 'react'
 import type { CurrentAdminContext } from '@/lib/auth/current-admin-context'
-import { CollaboratorPanel } from '@/components/collaborator/collaborator-panel'
-import { NotaLookupBanner } from '@/components/notas/nota-lookup-banner'
-import { NotasKpiStrip } from '@/components/notas/notas-kpi-strip'
+import { Card } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
-  getNotesPanelData,
+  getNotesPanelListData,
+  getNotesPanelSummaryData,
+  loadNotesPanelSupportingData,
   type NotesPageSearchParams,
 } from '@/lib/notes/get-notes-panel-data'
+import { NotesPanelListSection } from '@/components/notas/notes-panel-list-section'
+import { NotesPanelSummarySection } from '@/components/notas/notes-panel-summary-section'
 
 interface NotesPanelPageContentProps {
   searchParams?: NotesPageSearchParams
   currentAdminContext: Pick<CurrentAdminContext, 'adminId' | 'role' | 'canViewGlobal'>
 }
 
-export async function NotesPanelPageContent({
+function NotesPanelSummaryFallback() {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-3">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={index} className="h-7 w-32 rounded-full" />
+        ))}
+      </div>
+
+      <div className="rounded-lg border border-border/60 bg-card/60 px-4 py-3">
+        <Skeleton className="h-4 w-72" />
+      </div>
+    </div>
+  )
+}
+
+function NotesPanelListFallback() {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 xl:flex-row">
+        <Skeleton className="h-10 flex-1" />
+        <Skeleton className="h-10 w-full xl:w-44" />
+        <Skeleton className="h-10 w-full xl:w-56" />
+        <Skeleton className="h-10 w-full xl:w-48" />
+        <Skeleton className="h-10 w-full xl:w-48" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <Card key={index} className="space-y-3 p-4">
+            <div className="flex items-start justify-between">
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-5 w-14 rounded-full" />
+            </div>
+            <Skeleton className="h-12 w-full" />
+            <div className="grid grid-cols-3 gap-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function NotesPanelPageContent({
   searchParams,
   currentAdminContext,
 }: NotesPanelPageContentProps) {
-  const notesPanelData = await getNotesPanelData({
+  const supportingData = loadNotesPanelSupportingData({
     searchParams,
     currentAdminContext,
   })
 
+  const summaryPromise = getNotesPanelSummaryData({
+    searchParams,
+    currentAdminContext,
+    supportingData,
+  })
+
+  const listPromise = getNotesPanelListData({
+    searchParams,
+    currentAdminContext,
+    supportingData,
+  })
+
   return (
-    <>
-      <NotasKpiStrip
-        total={notesPanelData.kpis.total}
-        novas={notesPanelData.kpis.novas}
-        umDia={notesPanelData.kpis.umDia}
-        doisMais={notesPanelData.kpis.doisMais}
-        activeKpi={notesPanelData.activeNotesKpi}
-      />
+    <div className="space-y-4">
+      <Suspense fallback={<NotesPanelSummaryFallback />}>
+        <NotesPanelSummarySection summaryPromise={summaryPromise} />
+      </Suspense>
 
-      {notesPanelData.lookupNota !== null ? (
-        <NotaLookupBanner lookupNota={notesPanelData.lookupNota} />
-      ) : null}
-
-      <CollaboratorPanel
-        collaborators={notesPanelData.collaborators}
-        notas={notesPanelData.notasAtribuidas}
-        notasSemAtribuir={notesPanelData.canViewGlobal ? notesPanelData.notasSemAtribuir : undefined}
-        mode="viewer"
-        currentAdminId={notesPanelData.currentAdminId}
-        currentAdminRole={notesPanelData.currentAdminRole}
-        syncWithUrl
-        initialSearch={notesPanelData.initialSearch}
-        initialStatus={notesPanelData.initialStatus}
-        initialResponsavel={notesPanelData.initialResponsavel}
-        initialUnidade={notesPanelData.initialUnidade}
-        responsavelOptions={notesPanelData.responsavelOptions}
-        unidadeOptions={notesPanelData.unidadeOptions}
-        showResponsavelFilter={notesPanelData.canViewGlobal}
-        showUnidadeFilter
-        statusScope="open_only"
-        activeNotesKpi={notesPanelData.activeNotesKpi}
-      />
-    </>
+      <Suspense fallback={<NotesPanelListFallback />}>
+        <NotesPanelListSection
+          summaryPromise={summaryPromise}
+          listPromise={listPromise}
+        />
+      </Suspense>
+    </div>
   )
 }

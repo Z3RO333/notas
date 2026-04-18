@@ -3,9 +3,11 @@ import { buildAgingCounts } from '@/lib/collaborator/metrics'
 import type { CollaboratorData } from '@/lib/types/collaborator'
 import type { NotaPanelData } from '@/lib/types/database'
 
+type CollaboratorMetricNote = Pick<NotaPanelData, 'status' | 'data_criacao_sap' | 'created_at'>
+
 export function withCollaboratorDisplayMetrics(
   collaborator: CollaboratorData,
-  notas: NotaPanelData[],
+  notas: CollaboratorMetricNote[],
 ): CollaboratorData {
   const openNotas = notas.filter((nota) => isOpenStatus(nota.status))
   const aging = buildAgingCounts(openNotas)

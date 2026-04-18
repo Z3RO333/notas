@@ -7,7 +7,9 @@ export interface AgingCounts {
   qtd_2_mais: number
 }
 
-export function buildAgingCounts(notas: NotaPanelData[]): AgingCounts {
+type CollaboratorMetricNote = Pick<NotaPanelData, 'status' | 'data_criacao_sap' | 'created_at'>
+
+export function buildAgingCounts(notas: CollaboratorMetricNote[]): AgingCounts {
   let qtdNovo = 0
   let qtd1Dia = 0
   let qtd2Mais = 0
