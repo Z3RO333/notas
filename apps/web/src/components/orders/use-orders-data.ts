@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { buildWorkspaceParams } from '@/lib/orders/workspace-query'
+import { createOrdersWorkspaceQueryKeys } from '@/lib/orders/workspace-query-keys'
 import { sanitizeText } from '@/components/orders/use-orders-filters'
 import type {
   OrdemNotaAcompanhamento,
   OrderReassignTarget,
-  OrdersOwnerSummary,
   OrdersPoolGroup,
   OrdersWorkspaceCursor,
   OrdersWorkspaceFilters,
@@ -158,7 +158,10 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
     [filters, smartSearch.effectiveQ, smartSearch.derivedResponsavel],
   )
 
-  const filterKey = useMemo(() => JSON.stringify(effectiveFilters), [effectiveFilters])
+  const workspaceQueryKeys = useMemo(
+    () => createOrdersWorkspaceQueryKeys(effectiveFilters),
+    [effectiveFilters],
+  )
 
   // Main query: page 0, uses skip_highlights for faster response
   const {
@@ -167,7 +170,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
     isFetching,
     error: queryError,
   } = useQuery({
-    queryKey: ['orders-workspace', 'main', effectiveFilters],
+    queryKey: workspaceQueryKeys.main,
     queryFn: async ({ signal }) => {
       const params = buildWorkspaceParams(effectiveFilters, null, BATCH_SIZE)
       params.set('skip_highlights', '1')
@@ -189,7 +192,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
 
   // Highlights query: runs in parallel, deferred display
   const { data: highlightsData } = useQuery({
-    queryKey: ['orders-workspace', 'highlights', effectiveFilters],
+    queryKey: workspaceQueryKeys.highlights,
     queryFn: async ({ signal }) => {
       const params = buildWorkspaceParams(effectiveFilters, null, BATCH_SIZE)
       params.set('highlights_only', '1')
@@ -210,7 +213,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
     parentRef.current?.scrollTo({ top: 0 })
     setNextCursor(null)
     setLoadMoreError(null)
-  }, [filterKey])
+  }, [workspaceQueryKeys.scopeKey])
 
   // Effect 2: fresh (non-placeholder) data arrived → sync all state + notify caller
   useEffect(() => {
@@ -256,9 +259,9 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
   )
 
   const invalidateWorkspace = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['orders-workspace', 'main'] })
-    queryClient.invalidateQueries({ queryKey: ['orders-workspace', 'highlights'] })
-  }, [queryClient])
+    void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.main, exact: true })
+    void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.highlights, exact: true })
+  }, [queryClient, workspaceQueryKeys.highlights, workspaceQueryKeys.main])
 
   // Backward-compatible fetchWorkspace: reset triggers invalidation, paginate triggers loadMore
   const fetchWorkspace = useCallback(

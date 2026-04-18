@@ -8,7 +8,7 @@ import { OrdersPoolCard } from '@/components/orders/orders-pool-card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { resolveCargoPresentationFromOwner } from '@/lib/collaborator/cargo-presentation'
-import { UNASSIGNED_ORDER_OWNER_KEY, toOrderOwnerKey } from '@/lib/orders/owner-visibility'
+import { toOrderOwnerKey } from '@/lib/orders/owner-visibility'
 import type {
   Especialidade,
   OrderOwnerGroup,
