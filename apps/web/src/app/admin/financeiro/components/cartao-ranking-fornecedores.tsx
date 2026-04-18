@@ -16,11 +16,11 @@ export function CartaoRankingFornecedores({ data }: CartaoRankingFornecedoresPro
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Top Fornecedores</CardTitle>
+          <CardTitle className="text-base">Ranking de Fornecedores</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="py-8 text-center text-sm text-muted-foreground">
-            Sem dados para o periodo selecionado.
+            Sem dados para o período selecionado.
           </p>
         </CardContent>
       </Card>
@@ -30,7 +30,7 @@ export function CartaoRankingFornecedores({ data }: CartaoRankingFornecedoresPro
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Top Fornecedores</CardTitle>
+        <CardTitle className="text-base">Ranking de Fornecedores</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <div className="max-h-[420px] overflow-auto">

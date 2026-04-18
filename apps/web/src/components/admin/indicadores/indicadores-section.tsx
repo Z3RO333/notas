@@ -63,7 +63,7 @@ export function IndicadoresSection({
     {
       label: 'Dias monitorados',
       value: resumoDiario.length.toLocaleString('pt-BR'),
-      helper: 'Serie diaria completa do periodo.',
+      helper: 'Série diária completa do período.',
       icon: Activity,
     },
     {
@@ -75,13 +75,13 @@ export function IndicadoresSection({
     {
       label: isGestor ? 'Colaboradores no ranking' : 'Pessoas monitoradas',
       value: monitoredPeople.toLocaleString('pt-BR'),
-      helper: isGestor ? 'Equipe ordenada por notas recebidas.' : 'Leitura pessoal do periodo selecionado.',
+      helper: isGestor ? 'Equipe ordenada por notas recebidas.' : 'Leitura pessoal do período selecionado.',
       icon: Users,
     },
     {
       label: 'Pico de entradas',
       value: picoEntradas ? picoEntradas.notas_entradas.toLocaleString('pt-BR') : '0',
-      helper: picoEntradas ? `Dia ${picoEntradas.data_ref.slice(8, 10)} concentrou o maior volume.` : 'Sem entradas no periodo.',
+      helper: picoEntradas ? `Dia ${picoEntradas.data_ref.slice(8, 10)} concentrou o maior volume.` : 'Sem entradas no período.',
       icon: ClipboardCheck,
     },
   ]
@@ -99,17 +99,17 @@ export function IndicadoresSection({
 
           <div className="space-y-1.5">
             <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
-              Funil de notas, da conversao a conclusao
+              Funil de notas, da conversão à conclusão
             </h2>
             <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              Acompanhe entrada de notas, velocidade de conversao em ordem e conclusao do periodo
-              selecionado antes de aprofundar os graficos gerenciais por unidade.
+              Acompanhe entrada de notas, velocidade de conversão em ordem e conclusão do período
+              selecionado antes de aprofundar os gráficos gerenciais por unidade.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
             <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1">
-              Periodo: {formatShortDate(startDate)} a {formatShortDate(endDate)}
+              Período: {formatShortDate(startDate)} a {formatShortDate(endDate)}
             </span>
             <span className="rounded-full border border-border/70 bg-background/70 px-3 py-1">
               Volume movimentado: {volumeMovimentado.toLocaleString('pt-BR')}
@@ -129,9 +129,9 @@ export function IndicadoresSection({
 
         <Card className="border-border/60 bg-background/75">
           <CardHeader className="pb-4">
-            <CardTitle className="text-base">Leituras rapidas do periodo</CardTitle>
+            <CardTitle className="text-base">Leituras rápidas do período</CardTitle>
             <CardDescription>
-              Contexto complementar para saber onde aprofundar a analise.
+              Contexto complementar para saber onde aprofundar a análise.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
@@ -170,7 +170,7 @@ export function IndicadoresSection({
         <div className="space-y-1">
           <h3 className="text-sm font-semibold tracking-tight text-foreground">Detalhamento por nota</h3>
           <p className="text-sm text-muted-foreground">
-            Mostra carteira recebida e conversao em ordem, separados por unidade e por colaborador.
+            Mostra carteira recebida e conversão em ordem, separados por unidade e por colaborador.
           </p>
         </div>
 
@@ -182,9 +182,9 @@ export function IndicadoresSection({
 
       <div className="space-y-3">
         <div className="space-y-1">
-          <h3 className="text-sm font-semibold tracking-tight text-foreground">Detalhamento por ordem concluida</h3>
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">Detalhamento por ordem concluída</h3>
           <p className="text-sm text-muted-foreground">
-            Explicita volume concluido no periodo e o tempo medio de conclusao por unidade e por responsavel.
+            Explicita volume concluído no período e o tempo médio de conclusão por unidade e por responsável.
           </p>
         </div>
 

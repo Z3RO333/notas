@@ -26,7 +26,7 @@ export default function GestorError({
       </div>
       <h2 className="mt-5 text-xl font-semibold tracking-tight">Nao foi possivel abrir o painel</h2>
       <p className="mt-2 mx-auto max-w-md text-sm leading-6 text-muted-foreground">
-        Tente atualizar a tela. Se o erro continuar, use o codigo abaixo para investigacao.
+        Tente atualizar a tela. Se o erro continuar, use o código abaixo para investigação.
       </p>
       {error.digest ? (
         <p className="mt-4 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">

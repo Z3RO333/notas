@@ -146,12 +146,12 @@ export function AdminSaturdayScheduleManager({
         <div>
           <h3 className="text-base font-semibold">Escala de Sabado</h3>
           <p className="text-sm text-muted-foreground">
-            O gestor define, por sabado do mes, quem recebe notas novas do pool geral ate o horario informado.
+            O gestor define, por sábado do mês, quem recebe notas novas do pool geral até o horário informado.
           </p>
         </div>
 
         <div className="w-full max-w-52 space-y-2">
-          <label htmlFor="saturday-schedule-month" className="text-sm font-medium">Mes da escala</label>
+          <label htmlFor="saturday-schedule-month" className="text-sm font-medium">Mês da escala</label>
           <Input
             id="saturday-schedule-month"
             type="month"
@@ -164,7 +164,7 @@ export function AdminSaturdayScheduleManager({
 
       <div className="flex flex-wrap gap-3 text-sm">
         <div className="rounded-lg border px-4 py-2">
-          <span className="text-muted-foreground">Sabados no mes: </span>
+          <span className="text-muted-foreground">Sábados no mês: </span>
           <span className="font-semibold">{draftSlots.length}</span>
         </div>
         <div className="rounded-lg border px-4 py-2">
@@ -278,7 +278,7 @@ export function AdminSaturdayScheduleManager({
 
       <div className="flex justify-end">
         <Button type="button" onClick={handleSave} disabled={isPending || candidates.length === 0}>
-          {isPending ? 'Salvando...' : 'Salvar escala do mes'}
+          {isPending ? 'Salvando...' : 'Salvar escala do mês'}
         </Button>
       </div>
     </div>

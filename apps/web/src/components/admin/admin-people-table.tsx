@@ -35,11 +35,11 @@ export function AdminPeopleTable({
             <th className="px-3 py-2 text-left font-medium">Nome</th>
             <th className="px-3 py-2 text-left font-medium">Email</th>
             <th className="px-3 py-2 text-left font-medium">Cargo</th>
-            <th className="px-3 py-2 text-left font-medium">Funcao</th>
+            <th className="px-3 py-2 text-left font-medium">Função</th>
             <th className="px-3 py-2 text-left font-medium">Ativo</th>
-            <th className="px-3 py-2 text-left font-medium">Em ferias</th>
-            <th className="px-3 py-2 text-left font-medium">Periodo</th>
-            <th className="px-3 py-2 text-right font-medium">Acoes</th>
+            <th className="px-3 py-2 text-left font-medium">Em férias</th>
+            <th className="px-3 py-2 text-left font-medium">Período</th>
+            <th className="px-3 py-2 text-right font-medium">Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -60,7 +60,7 @@ export function AdminPeopleTable({
                     <span>{getEspecialidadeLabel(person.especialidade)}</span>
                     {assignment === 'responsavel' && (
                       <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
-                        PMPL Responsavel
+                        PMPL Responsável
                       </span>
                     )}
                     {assignment === 'substituto' && (

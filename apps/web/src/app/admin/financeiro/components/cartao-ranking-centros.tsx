@@ -11,11 +11,11 @@ export function CartaoRankingCentros({ data }: CartaoRankingCentrosProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Top Centros de Custo</CardTitle>
+          <CardTitle className="text-base">Ranking de Centros de Custo</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="py-8 text-center text-sm text-muted-foreground">
-            Sem dados para o periodo selecionado.
+            Sem dados para o período selecionado.
           </p>
         </CardContent>
       </Card>
@@ -25,7 +25,7 @@ export function CartaoRankingCentros({ data }: CartaoRankingCentrosProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Top Centros de Custo</CardTitle>
+        <CardTitle className="text-base">Ranking de Centros de Custo</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <div className="max-h-[420px] overflow-auto">

@@ -27,13 +27,13 @@ export function ResumoDiarioChart({ rows }: ResumoDiarioChartProps) {
     return (
       <Card className="border-border/60 bg-background/75">
         <CardHeader>
-          <CardTitle className="text-base">Resumo diario</CardTitle>
+          <CardTitle className="text-base">Resumo diário</CardTitle>
           <CardDescription>
-            Entradas, conversoes e conclusoes distribuidas por dia.
+            Entradas, conversões e conclusões distribuídas por dia.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Nenhum dado no periodo selecionado.</p>
+          <p className="text-sm text-muted-foreground">Nenhum dado no período selecionado.</p>
         </CardContent>
       </Card>
     )
@@ -57,9 +57,9 @@ export function ResumoDiarioChart({ rows }: ResumoDiarioChartProps) {
     <Card className="border-border/60 bg-background/75">
       <CardHeader className="gap-4 pb-4">
         <div className="space-y-1">
-          <CardTitle className="text-base">Resumo diario</CardTitle>
+          <CardTitle className="text-base">Resumo diário</CardTitle>
           <CardDescription>
-            Entradas, conversoes e conclusoes para localizar concentracao de volume ao longo do periodo.
+            Entradas, conversões e conclusões para localizar concentração de volume ao longo do período.
           </CardDescription>
         </div>
 
@@ -71,7 +71,7 @@ export function ResumoDiarioChart({ rows }: ResumoDiarioChartProps) {
             Viraram ordem: {totalConversoes.toLocaleString('pt-BR')}
           </span>
           <span className="rounded-full border border-border/70 bg-muted/20 px-3 py-1">
-            Concluidas: {totalConcluidas.toLocaleString('pt-BR')}
+            Concluídas: {totalConcluidas.toLocaleString('pt-BR')}
           </span>
           <span className="rounded-full border border-border/70 bg-muted/20 px-3 py-1">
             Maior movimento: dia {maiorMovimento.data_ref.slice(8, 10)}
@@ -98,7 +98,7 @@ export function ResumoDiarioChart({ rows }: ResumoDiarioChartProps) {
               <Legend wrapperStyle={CHART_LEGEND_STYLE} />
               <Bar dataKey="notas_entradas" name="Notas entradas" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               <Bar dataKey="viraram_ordem" name="Viraram ordem" fill="#22c55e" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="ordens_concluidas" name="Ordens concluidas" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="ordens_concluidas" name="Ordens concluídas" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

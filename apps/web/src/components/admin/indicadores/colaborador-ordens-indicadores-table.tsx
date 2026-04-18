@@ -19,24 +19,24 @@ export function ColaboradorOrdensIndicadoresTable({ rows }: ColaboradorOrdensInd
         <div className="space-y-1">
           <CardTitle className="text-base">Por colaborador (ordem)</CardTitle>
           <CardDescription>
-            Ranking por ordens concluidas no periodo e tempo medio de conclusao por responsavel atual.
+            Ranking por ordens concluídas no período e tempo médio de conclusão por responsável atual.
           </CardDescription>
         </div>
 
         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
           <span className="rounded-full border border-border/70 bg-muted/20 px-3 py-1">
-            Colaboradores com ordens concluidas: {rows.length.toLocaleString('pt-BR')}
+            Colaboradores com ordens concluídas: {rows.length.toLocaleString('pt-BR')}
           </span>
           {destaque ? (
             <span className="rounded-full border border-border/70 bg-muted/20 px-3 py-1">
-              Lider em conclusoes: {destaque.nome}
+              Líder em conclusões: {destaque.nome}
             </span>
           ) : null}
         </div>
       </CardHeader>
       <CardContent className="p-0">
         {rows.length === 0 ? (
-          <p className="px-6 pb-6 text-sm text-muted-foreground">Nenhum colaborador com ordem concluida no periodo.</p>
+          <p className="px-6 pb-6 text-sm text-muted-foreground">Nenhum colaborador com ordem concluída no período.</p>
         ) : (
           <div className="max-h-[420px] overflow-auto">
             <table className="min-w-full text-sm">
@@ -49,10 +49,10 @@ export function ColaboradorOrdensIndicadoresTable({ rows }: ColaboradorOrdensInd
                     Colaborador
                   </th>
                   <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Concluidas
+                    Concluídas
                   </th>
                   <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    T. conclusao
+                    T. conclusão
                   </th>
                 </tr>
               </thead>

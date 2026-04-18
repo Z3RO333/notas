@@ -12,7 +12,7 @@ type GestaoFilterOption = {
 const MES_NOMES: Record<string, string> = {
   '1': 'Janeiro',
   '2': 'Fevereiro',
-  '3': 'Marco',
+  '3': 'Março',
   '4': 'Abril',
   '5': 'Maio',
   '6': 'Junho',
@@ -87,7 +87,7 @@ export function GestaoFilters({
             <SelectValue placeholder="Ano" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todos">Todos anos</SelectItem>
+            <SelectItem value="todos">Todos os anos</SelectItem>
             {anos.map((ano) => (
               <SelectItem key={ano} value={String(ano)}>
                 {ano}
@@ -101,10 +101,10 @@ export function GestaoFilters({
           onValueChange={(value) => updateParam('mes', value)}
         >
           <SelectTrigger className={`${triggerClassName} w-36`}>
-            <SelectValue placeholder="Mes" />
+            <SelectValue placeholder="Mês" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todos">Todos meses</SelectItem>
+            <SelectItem value="todos">Todos os meses</SelectItem>
             {Array.from({ length: 12 }, (_, index) => index + 1).map((mes) => (
               <SelectItem key={mes} value={String(mes)}>
                 {MES_NOMES[String(mes)]}
@@ -176,10 +176,10 @@ export function GestaoFilters({
             onValueChange={(value) => updateParam('servico', value)}
           >
             <SelectTrigger className={`${triggerClassName} w-56`}>
-              <SelectValue placeholder="Servico" />
+              <SelectValue placeholder="Serviço" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos os servicos</SelectItem>
+              <SelectItem value="todos">Todos os serviços</SelectItem>
               {servicos.map((servico) => (
                 <SelectItem key={servico} value={servico}>
                   {servico}

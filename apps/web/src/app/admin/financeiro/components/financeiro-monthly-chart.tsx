@@ -42,11 +42,11 @@ export function FinanceiroMonthlyChart({ data }: FinanceiroMonthlyChartProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Variacao Mensal de Custo</CardTitle>
+          <CardTitle className="text-base">Variação Mensal de Custo</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="py-8 text-center text-sm text-muted-foreground">
-            Sem dados para o periodo selecionado.
+            Sem dados para o período selecionado.
           </p>
         </CardContent>
       </Card>
@@ -67,9 +67,9 @@ export function FinanceiroMonthlyChart({ data }: FinanceiroMonthlyChartProps) {
   return (
     <Card>
       <CardHeader className="space-y-1">
-        <CardTitle className="text-base">Variacao Mensal de Custo</CardTitle>
+        <CardTitle className="text-base">Variação Mensal de Custo</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Ultima variacao do compromisso total: {formatTrendDescription(latestDelta)} vs mes anterior
+          Última variação do compromisso total: {formatTrendDescription(latestDelta)} vs mês anterior
         </p>
       </CardHeader>
       <CardContent>
@@ -118,7 +118,7 @@ export function FinanceiroMonthlyChart({ data }: FinanceiroMonthlyChartProps) {
                         </span>
                       </p>
                       <p className="mt-1 border-t pt-1 text-muted-foreground">
-                        Variacao do compromisso vs mes anterior: {formatSignedPercentChange(row.deltaPct)}
+                        Variação do compromisso vs mês anterior: {formatSignedPercentChange(row.deltaPct)}
                       </p>
                     </div>
                   )

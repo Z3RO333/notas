@@ -248,7 +248,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
     <div className="space-y-6">
       <PageTitleBlock
         title="Financeiro"
-        subtitle="Custos por ordem, servico e fornecedor."
+        subtitle="Custos por ordem, serviço e fornecedor."
         rightSlot={
           <div className="flex gap-2">
             <CartaoImportDialog />
@@ -267,7 +267,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
         <div className="rounded-xl border border-dashed p-10 text-center">
           <p className="text-sm font-medium">Nenhuma base financeira importada ainda.</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Use o botao de importacao para carregar a planilha SAP financeira.
+            Use o botão de importação para carregar a planilha SAP financeira.
           </p>
         </div>
       ) : (

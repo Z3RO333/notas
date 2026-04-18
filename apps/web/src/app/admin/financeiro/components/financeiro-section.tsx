@@ -77,8 +77,8 @@ export function FinanceiroSection({
 
           <div className="grid gap-6 xl:grid-cols-2">
             <FinanceiroRankingTable
-              title="Servicos Mais Onerosos"
-              itemLabel="Servico"
+              title="Serviços com Maior Custo"
+              itemLabel="Serviço"
               data={servicos}
             />
             <FinanceiroRankingTable

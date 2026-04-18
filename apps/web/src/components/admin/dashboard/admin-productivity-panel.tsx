@@ -552,7 +552,7 @@ function OperationalPodiumCard({
       <CardHeader className="space-y-1">
         <CardTitle className="text-base">Pódio de operacionais</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Top 3 do {scopeLabel} por ordens concluídas, com taxa de conclusão e participação no período.
+          Destaques do {scopeLabel} por ordens concluídas, com taxa de conclusão e participação no período.
         </p>
       </CardHeader>
       <CardContent className="px-0 pb-0">
@@ -587,7 +587,7 @@ function AdminPodiumCard({
       <CardHeader className="space-y-1">
         <CardTitle className="text-base">Pódio de administradores</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Top 3 do {scopeLabel} por ordens concluídas, com taxa de fechamento e volume de atraso.
+          Destaques do {scopeLabel} por ordens concluídas, com taxa de fechamento e volume de atraso.
         </p>
       </CardHeader>
       <CardContent className="px-0 pb-0">

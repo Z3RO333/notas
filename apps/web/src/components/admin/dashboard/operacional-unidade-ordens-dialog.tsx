@@ -251,7 +251,7 @@ export function OperacionalUnidadeOrdensDialog({
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground">Detectada em</th>
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground">Entrada</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Servico</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Serviço</th>
                     {showFornecedorColumn && (
                       <th className="px-3 py-2 text-left font-medium text-muted-foreground">Fornecedor</th>
                     )}

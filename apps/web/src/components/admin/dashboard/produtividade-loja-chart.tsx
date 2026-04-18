@@ -45,7 +45,7 @@ export function ProdutividadeLojaChart({
           <CardTitle className="text-base">Produtividade por Loja</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Nenhum dado no periodo.</p>
+          <p className="text-sm text-muted-foreground">Nenhum dado no período.</p>
         </CardContent>
       </Card>
     )
@@ -61,11 +61,11 @@ export function ProdutividadeLojaChart({
         <CardTitle className="text-base">
           Produtividade por Loja
           <span className="ml-2 text-xs font-normal text-muted-foreground">
-            ({periodLabel}) - % conclusao
+            ({periodLabel}) - % conclusão
           </span>
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Melhor taxa de conclusao: {formatPercent(bestRate)}
+          Melhor taxa de conclusão: {formatPercent(bestRate)}
         </p>
         <p className="text-xs text-muted-foreground">Clique em uma loja para abrir as ordens e separar pendentes de atendidas.</p>
       </CardHeader>
@@ -93,11 +93,11 @@ export function ProdutividadeLojaChart({
                 return (
                   <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
                     <p className="mb-1 font-medium">{label}</p>
-                    <p>% Conclusao: <span className="font-semibold">{formatPercent(row.pct_conclusao)}</span></p>
+                    <p>% Conclusão: <span className="font-semibold">{formatPercent(row.pct_conclusao)}</span></p>
                     <p>Atendidas: <span className="font-semibold text-green-600">{row.atendidas.toLocaleString('pt-BR')}</span></p>
                     <p>Em Aberto: <span className="font-semibold text-amber-500">{row.em_aberto.toLocaleString('pt-BR')}</span></p>
                     <p className="mt-1 border-t pt-1 text-muted-foreground">
-                      Participacao no periodo: {formatPercent(calculateShare(row.total_ordens, totalOrdensPeriodo))}
+                      Participação no período: {formatPercent(calculateShare(row.total_ordens, totalOrdensPeriodo))}
                     </p>
                   </div>
                 )

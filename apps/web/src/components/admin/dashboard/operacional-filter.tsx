@@ -147,7 +147,7 @@ export function OperacionalFilter({
       <label className="space-y-2">
         <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           <User className="h-4 w-4" />
-          Operacao
+          Operação
         </span>
         <div className="flex items-center gap-2">
           {(() => {
@@ -203,7 +203,7 @@ export function OperacionalFilter({
 
       <label className="space-y-2">
         <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-          Mes
+          Mês
         </span>
         <select
           value={selectedMonth ? String(selectedMonth) : ''}

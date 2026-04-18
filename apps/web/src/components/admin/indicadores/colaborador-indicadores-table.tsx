@@ -32,7 +32,7 @@ export function ColaboradorIndicadoresTable({ rows }: ColaboradorIndicadoresTabl
         <div className="space-y-1">
           <CardTitle className="text-base">Por colaborador (nota)</CardTitle>
           <CardDescription>
-            Ranking por notas recebidas, conversao em ordem e tempo medio para gerar ordem.
+            Ranking por notas recebidas, conversão em ordem e tempo médio para gerar ordem.
           </CardDescription>
         </div>
 
@@ -42,14 +42,14 @@ export function ColaboradorIndicadoresTable({ rows }: ColaboradorIndicadoresTabl
           </span>
           {destaque ? (
             <span className="rounded-full border border-border/70 bg-muted/20 px-3 py-1">
-              Lider em notas: {destaque.nome}
+              Líder em notas: {destaque.nome}
             </span>
           ) : null}
         </div>
       </CardHeader>
       <CardContent className="p-0">
         {rows.length === 0 ? (
-          <p className="px-6 pb-6 text-sm text-muted-foreground">Nenhum colaborador encontrado no periodo.</p>
+          <p className="px-6 pb-6 text-sm text-muted-foreground">Nenhum colaborador encontrado no período.</p>
         ) : (
           <div className="max-h-[420px] overflow-auto">
             <table className="min-w-full text-sm">
@@ -68,10 +68,10 @@ export function ColaboradorIndicadoresTable({ rows }: ColaboradorIndicadoresTabl
                     Convertidas
                   </th>
                   <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Conversao
+                    Conversão
                   </th>
                   <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    T. medio
+                    T. médio
                   </th>
                 </tr>
               </thead>

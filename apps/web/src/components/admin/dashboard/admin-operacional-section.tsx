@@ -90,10 +90,10 @@ function ServicosRecorrentesList({ rows, periodLabel }: { rows: ServicoMaisFeito
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Servicos Recorrentes</CardTitle>
+          <CardTitle className="text-base">Serviços Recorrentes</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Nenhum servico recorrente encontrado no periodo.</p>
+          <p className="text-sm text-muted-foreground">Nenhum serviço recorrente encontrado no período.</p>
         </CardContent>
       </Card>
     )
@@ -105,7 +105,7 @@ function ServicosRecorrentesList({ rows, periodLabel }: { rows: ServicoMaisFeito
     <Card>
       <CardHeader>
         <CardTitle className="text-base">
-          Servicos Recorrentes
+          Serviços Recorrentes
           <span className="ml-2 text-xs font-normal text-muted-foreground">({periodLabel})</span>
         </CardTitle>
       </CardHeader>

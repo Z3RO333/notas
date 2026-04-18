@@ -84,7 +84,7 @@ export function OrdensAbertasLojaChart({
                       <p className="mb-1 font-medium">{label}</p>
                       <p>Em Aberto: <span className="font-semibold text-red-500">{row.total_abertas.toLocaleString('pt-BR')}</span></p>
                       <p className="text-muted-foreground">
-                        Participacao no periodo: {formatPercent(calculateShare(row.total_abertas, totalAbertas))}
+                        Participação no período: {formatPercent(calculateShare(row.total_abertas, totalAbertas))}
                       </p>
                     </div>
                   )

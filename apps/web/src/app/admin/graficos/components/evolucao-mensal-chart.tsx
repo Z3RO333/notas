@@ -41,11 +41,11 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Variacao Mensal</CardTitle>
+          <CardTitle className="text-base">Variação Mensal</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="py-8 text-center text-sm text-muted-foreground">
-            Sem dados para o periodo selecionado.
+            Sem dados para o período selecionado.
           </p>
         </CardContent>
       </Card>
@@ -64,9 +64,9 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
   return (
     <Card>
       <CardHeader className="space-y-1">
-        <CardTitle className="text-base">Variacao Mensal - Ordens</CardTitle>
+        <CardTitle className="text-base">Variação Mensal - Ordens</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Ultima variacao: {formatTrendDescription(latestDelta)} vs mes anterior
+          Última variação: {formatTrendDescription(latestDelta)} vs mês anterior
         </p>
       </CardHeader>
       <CardContent>
@@ -91,7 +91,7 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
                         </span>
                       </p>
                       <p className="mt-1 border-t pt-1 text-muted-foreground">
-                        Variacao vs mes anterior: {formatSignedPercentChange(row.deltaPct)}
+                        Variação vs mês anterior: {formatSignedPercentChange(row.deltaPct)}
                       </p>
                     </div>
                   )
@@ -115,7 +115,7 @@ export function EvolucaoMensalChart({ data }: EvolucaoMensalChartProps) {
               <Line
                 type="monotone"
                 dataKey="total_ordens"
-                name="Tendencia"
+                name="Tendência"
                 stroke={CHART_TREND_LINE_STROKE}
                 strokeWidth={2}
                 strokeDasharray={CHART_TREND_LINE_DASH}

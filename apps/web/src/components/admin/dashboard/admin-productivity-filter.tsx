@@ -23,7 +23,7 @@ const MONTH_OPTIONS = [
   { value: ALL_PRODUCTIVITY_MONTHS_PARAM, label: 'Todos os meses (total)' },
   { value: '1', label: 'Janeiro' },
   { value: '2', label: 'Fevereiro' },
-  { value: '3', label: 'Marco' },
+  { value: '3', label: 'Março' },
   { value: '4', label: 'Abril' },
   { value: '5', label: 'Maio' },
   { value: '6', label: 'Junho' },
@@ -75,7 +75,7 @@ export function AdminProductivityFilter({
   const selectedPeriodLabel = useMemo(
     () => (selectedMonth === null
       ? `Ano ${selectedYear}`
-      : (MONTH_OPTIONS.find((month) => month.value === String(selectedMonth))?.label ?? 'Mes atual')),
+      : (MONTH_OPTIONS.find((month) => month.value === String(selectedMonth))?.label ?? 'Mês atual')),
     [selectedMonth, selectedYear],
   )
   const selectedEspecialidadeLabel = useMemo(
@@ -145,10 +145,10 @@ export function AdminProductivityFilter({
               <div className="rounded-2xl border border-border/70 bg-background/75 p-4">
                 <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                   <CalendarDays className="h-4 w-4" />
-                  Mes
+                  Mês
                 </div>
                 <select
-                  aria-label="Mes"
+                  aria-label="Mês"
                   value={selectedMonth === null ? ALL_PRODUCTIVITY_MONTHS_PARAM : String(selectedMonth)}
                   onChange={(event) => updateQuery(
                     selectedYear,

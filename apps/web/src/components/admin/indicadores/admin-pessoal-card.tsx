@@ -50,7 +50,7 @@ export function AdminPessoalCard({ nome, avatarUrl, kpis }: AdminPessoalCardProp
             <div className="space-y-1">
               <CardTitle className="text-lg">{nome}</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Resumo da carteira no periodo selecionado.
+                Resumo da carteira no período selecionado.
               </p>
             </div>
           </div>
@@ -64,12 +64,12 @@ export function AdminPessoalCard({ nome, avatarUrl, kpis }: AdminPessoalCardProp
         <Stat label="Notas recebidas" value={kpis.total_notas.toLocaleString('pt-BR')} />
         <Stat label="Convertidas" value={kpis.notas_convertidas.toLocaleString('pt-BR')} />
         <Stat
-          label="Taxa conversao"
+          label="Taxa conversão"
           value={`${kpis.taxa_conversao.toFixed(1).replace('.', ',')}%`}
         />
-        <Stat label="T. medio nota->ordem" value={formatDias(kpis.tempo_medio_nota_ordem)} />
-        <Stat label="T. medio conclusao" value={formatDias(kpis.tempo_medio_conclusao)} />
-        <Stat label="Ordens concluidas" value={kpis.total_ordens_concluidas.toLocaleString('pt-BR')} />
+        <Stat label="T. médio nota->ordem" value={formatDias(kpis.tempo_medio_nota_ordem)} />
+        <Stat label="T. médio conclusão" value={formatDias(kpis.tempo_medio_conclusao)} />
+        <Stat label="Ordens concluídas" value={kpis.total_ordens_concluidas.toLocaleString('pt-BR')} />
       </CardContent>
     </Card>
   )

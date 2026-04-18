@@ -103,7 +103,7 @@ export function AdminPersonDialog({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Especialidade / Funcao</label>
+              <label className="text-sm font-medium">Especialidade / Função</label>
               <Select
                 value={form.especialidade}
                 onValueChange={(value) => onFormChange((prev) => ({ ...prev, especialidade: value as Especialidade }))}
@@ -142,7 +142,7 @@ export function AdminPersonDialog({
             </label>
 
             <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-              <span>Em ferias</span>
+              <span>Em férias</span>
               <Switch
                 checked={form.emFerias}
                 onCheckedChange={(checked) => onFormChange((prev) => ({ ...prev, emFerias: checked }))}
@@ -152,7 +152,7 @@ export function AdminPersonDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <label htmlFor="admin-person-data-inicio" className="text-sm font-medium">Data inicio ferias</label>
+              <label htmlFor="admin-person-data-inicio" className="text-sm font-medium">Data início férias</label>
               <Input
                 id="admin-person-data-inicio"
                 type="date"
@@ -162,7 +162,7 @@ export function AdminPersonDialog({
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="admin-person-data-fim" className="text-sm font-medium">Data fim ferias</label>
+              <label htmlFor="admin-person-data-fim" className="text-sm font-medium">Data fim férias</label>
               <Input
                 id="admin-person-data-fim"
                 type="date"

@@ -376,7 +376,7 @@ export function FinanceiroImportDialog() {
           <DialogHeader>
             <DialogTitle>Importar Financeiro SAP</DialogTitle>
             <DialogDescription>
-              Aceita arquivo combinado ou separado. A importacao substitui por competencia.
+              Aceita arquivo combinado ou separado. A importação substitui por competência.
             </DialogDescription>
           </DialogHeader>
 
@@ -419,7 +419,7 @@ export function FinanceiroImportDialog() {
                   </p>
                 </div>
                 <div className="rounded-lg border p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Periodo</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Período</p>
                   <p className="mt-2 text-sm font-medium">
                     {summary.firstDate ?? '—'} ate {summary.lastDate ?? '—'}
                   </p>
@@ -459,7 +459,7 @@ export function FinanceiroImportDialog() {
               <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
                 <div className="mb-2 flex items-center gap-2 font-medium text-emerald-500">
                   <CheckCircle2 className="h-4 w-4" />
-                  Progresso da importacao
+                  Progresso da importação
                 </div>
                 <p className="text-muted-foreground">
                   {progress.processedRows.toLocaleString('pt-BR')} / {progress.totalRows.toLocaleString('pt-BR')} processadas

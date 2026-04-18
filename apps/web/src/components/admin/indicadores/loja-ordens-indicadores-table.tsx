@@ -19,24 +19,24 @@ export function LojaOrdensIndicadoresTable({ rows }: LojaOrdensIndicadoresTableP
         <div className="space-y-1">
           <CardTitle className="text-base">Por loja (ordem)</CardTitle>
           <CardDescription>
-            Ordens concluidas no periodo e tempo medio de conclusao pela unidade da ordem.
+            Ordens concluídas no período e tempo médio de conclusão pela unidade da ordem.
           </CardDescription>
         </div>
 
         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
           <span className="rounded-full border border-border/70 bg-muted/20 px-3 py-1">
-            Unidades com ordens concluidas: {rows.length.toLocaleString('pt-BR')}
+            Unidades com ordens concluídas: {rows.length.toLocaleString('pt-BR')}
           </span>
           {destaque ? (
             <span className="rounded-full border border-border/70 bg-muted/20 px-3 py-1">
-              Maior volume concluido: {destaque.unidade}
+              Maior volume concluído: {destaque.unidade}
             </span>
           ) : null}
         </div>
       </CardHeader>
       <CardContent className="p-0">
         {rows.length === 0 ? (
-          <p className="px-6 pb-6 text-sm text-muted-foreground">Nenhuma ordem concluida por unidade no periodo.</p>
+          <p className="px-6 pb-6 text-sm text-muted-foreground">Nenhuma ordem concluída por unidade no período.</p>
         ) : (
           <div className="max-h-[420px] overflow-auto">
             <table className="min-w-full text-sm">
@@ -49,10 +49,10 @@ export function LojaOrdensIndicadoresTable({ rows }: LojaOrdensIndicadoresTableP
                     Unidade
                   </th>
                   <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Concluidas
+                    Concluídas
                   </th>
                   <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    T. conclusao
+                    T. conclusão
                   </th>
                 </tr>
               </thead>

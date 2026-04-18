@@ -102,7 +102,7 @@ export default async function PessoasPage() {
 
   return (
     <div className="space-y-8">
-      <PageTitleBlock title="Gestao de Pessoas" subtitle="Controle de disponibilidade, ferias e carga operacional dos colaboradores." />
+      <PageTitleBlock title="Gestão de Pessoas" subtitle="Controle de disponibilidade, férias e carga operacional dos colaboradores." />
 
       <section className="space-y-4">
         <div className="space-y-1.5">
@@ -113,7 +113,7 @@ export default async function PessoasPage() {
             Disponibilidade e volume atual da equipe
           </h2>
           <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-            Um retrato rapido da operacao antes de abrir a carteira individual de cada colaborador.
+            Um retrato rápido da operação antes de abrir a carteira individual de cada colaborador.
           </p>
         </div>
 
@@ -129,7 +129,7 @@ export default async function PessoasPage() {
             helper="Colaboradores disponiveis para receber novas entradas."
           />
           <SummaryCard
-            label="Em ferias"
+            label="Em férias"
             value={notesSummaryData.teamStats.emFerias.toLocaleString('pt-BR')}
             helper="Equipe temporariamente fora da distribuicao."
           />

@@ -31,7 +31,7 @@ interface PreventiveAnalysisFiltersProps {
 const MONTH_NAMES: Record<string, string> = {
   '1': 'Janeiro',
   '2': 'Fevereiro',
-  '3': 'Marco',
+  '3': 'Março',
   '4': 'Abril',
   '5': 'Maio',
   '6': 'Junho',
@@ -44,7 +44,7 @@ const MONTH_NAMES: Record<string, string> = {
 }
 
 const PERIOD_LABEL: Record<PreventivePeriodPreset, string> = {
-  mes: 'Mes',
+  mes: 'Mês',
   trimestre: 'Trimestre',
   semestre: 'Semestre',
   ano: 'Ano',
@@ -103,7 +103,7 @@ export function PreventiveAnalysisFilters({
   )
   const serviceSelectOptions = useMemo(
     () => [
-      { value: ALL_SERVICES_VALUE, label: 'Todos os servicos' },
+      { value: ALL_SERVICES_VALUE, label: 'Todos os serviços' },
       ...serviceOptions.map(withMeta),
     ],
     [serviceOptions],
@@ -136,7 +136,7 @@ export function PreventiveAnalysisFilters({
         <div>
           <p className="text-sm font-medium">Refine o radar</p>
           <p className="text-xs text-muted-foreground">
-            Ajuste recorte, unidade e servico para abrir o desvio certo.
+            Ajuste recorte, unidade e serviço para abrir o desvio certo.
           </p>
         </div>
         <Button
@@ -171,7 +171,7 @@ export function PreventiveAnalysisFilters({
           </FilterField>
         )}
 
-        <FilterField label="Periodo">
+        <FilterField label="Período">
           <Select
             value={periodPreset}
             onValueChange={(value) => {
@@ -181,8 +181,8 @@ export function PreventiveAnalysisFilters({
               })
             }}
           >
-            <SelectTrigger aria-label="Periodo preventivo">
-              <SelectValue placeholder="Periodo" />
+            <SelectTrigger aria-label="Período preventivo">
+              <SelectValue placeholder="Período" />
             </SelectTrigger>
             <SelectContent>
               {Object.entries(PERIOD_LABEL).map(([value, label]) => (
@@ -209,13 +209,13 @@ export function PreventiveAnalysisFilters({
         </FilterField>
 
         {periodPreset !== 'ano' && (
-          <FilterField label="Mes de referencia">
+          <FilterField label="Mês de referência">
             <Select
               value={selectedMonth ? String(selectedMonth) : '1'}
               onValueChange={(value) => updateParams({ preventiva_mes: value })}
             >
-              <SelectTrigger aria-label="Mes de referencia">
-                <SelectValue placeholder="Mes" />
+              <SelectTrigger aria-label="Mês de referência">
+                <SelectValue placeholder="Mês" />
               </SelectTrigger>
               <SelectContent>
                 {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => (
@@ -256,7 +256,7 @@ export function PreventiveAnalysisFilters({
           />
         </FilterField>
 
-        <FilterField label="Servico em foco" className="xl:col-span-2 2xl:col-span-1">
+        <FilterField label="Serviço em foco" className="xl:col-span-2 2xl:col-span-1">
           <SearchableSelect
             id="preventiva-servico"
             options={serviceSelectOptions}
@@ -264,7 +264,7 @@ export function PreventiveAnalysisFilters({
             onValueChange={(value) => updateParams({
               preventiva_servico: value === ALL_SERVICES_VALUE ? null : value,
             })}
-            placeholder="Servico em foco"
+            placeholder="Serviço em foco"
           />
         </FilterField>
       </div>

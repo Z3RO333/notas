@@ -45,7 +45,7 @@ export function IndicadoresPeriodFilter({ startValue, endValue }: IndicadoresPer
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Periodo analisado
+              Período analisado
             </p>
             <p className="text-xs text-muted-foreground">
               Atualiza os indicadores sem sair da pagina.
@@ -59,7 +59,7 @@ export function IndicadoresPeriodFilter({ startValue, endValue }: IndicadoresPer
             className="h-8 rounded-full border-border/70 px-3 text-xs"
             onClick={resetToCurrentMonth}
           >
-            Mes atual
+            Mês atual
           </Button>
         </div>
 

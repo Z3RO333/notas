@@ -92,7 +92,7 @@ export function PreventiveAnalysisSummaryView({
               Resumo do foco atual
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Aqui fica a leitura curta para decidir se a unidade precisa de acao agora ou apenas acompanhamento.
+              Aqui fica a leitura curta para decidir se a unidade precisa de ação agora ou apenas acompanhamento.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -102,25 +102,25 @@ export function PreventiveAnalysisSummaryView({
               value={analysis.store ?? 'Rede completa'}
               description={
                 analysis.store
-                  ? `${analysis.storeRiskCounts.critico} riscos criticos e ${analysis.storeRiskCounts.atencao} pontos de atencao na unidade.`
+                  ? `${analysis.storeRiskCounts.critico} riscos críticos e ${analysis.storeRiskCounts.atencao} pontos de atenção na unidade.`
                   : 'Selecione uma unidade para concentrar a leitura.'
               }
             />
             <SummarySignalCard
-              title="Servico em foco"
+              title="Serviço em foco"
               tone={analysis.focusSummary.selectedStoreRisk}
-              value={analysis.focusSummary.service ?? 'Escolha um servico'}
+              value={analysis.focusSummary.service ?? 'Escolha um serviço'}
               description={
                 analysis.focusSummary.service
-                  ? `${analysis.focusSummary.selectedStoreCount.toLocaleString('pt-BR')} ordem(ns) na unidade contra media de ${formatNumber(analysis.focusSummary.averagePerStore)}.`
-                  : 'O radar pode sugerir automaticamente o servico mais relevante.'
+                  ? `${analysis.focusSummary.selectedStoreCount.toLocaleString('pt-BR')} ordem(ns) na unidade contra média de ${formatNumber(analysis.focusSummary.averagePerStore)}.`
+                  : 'O radar pode sugerir automaticamente o serviço mais relevante.'
               }
             />
             <SummarySignalCard
               title="Fila preventiva"
               tone={queueTone}
               value={`${analysis.alerts.length.toLocaleString('pt-BR')} destaques`}
-              description={`${criticalAlerts} criticos e ${attentionAlerts} atencao no recorte atual.`}
+              description={`${criticalAlerts} críticos e ${attentionAlerts} atenção no recorte atual.`}
             />
           </CardContent>
         </Card>
@@ -157,7 +157,7 @@ export function PreventiveAnalysisSummaryView({
                       Loja: {alert.count.toLocaleString('pt-BR')}
                     </span>
                     <span className="rounded-full border px-2.5 py-1">
-                      Media: {formatNumber(alert.average)}
+                      Média: {formatNumber(alert.average)}
                     </span>
                   </div>
                   <p className="mt-3 text-sm text-muted-foreground">{alert.message}</p>

@@ -69,7 +69,7 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
           <CardTitle className="text-base">Status por Operacional</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Nenhum dado no periodo.</p>
+          <p className="text-sm text-muted-foreground">Nenhum dado no período.</p>
         </CardContent>
       </Card>
     )
@@ -94,7 +94,7 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
           <span className="ml-2 text-xs font-normal text-muted-foreground">({periodLabel})</span>
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Maior participacao no periodo: {formatPercent(topShare)}
+          Maior participação no período: {formatPercent(topShare)}
         </p>
       </CardHeader>
       <CardContent className="h-80">
@@ -126,7 +126,7 @@ export function StatusBarChart({ rows, periodLabel }: StatusBarChartProps) {
                     <p>Outros: <span className="font-semibold text-slate-500">{row.Outros.toLocaleString('pt-BR')}</span> <span className="text-muted-foreground">({formatPercent(calculateShare(row.Outros, row.total_exibido))})</span></p>
                     <p className="mt-1 border-t pt-1">Total: <span className="font-semibold">{row.total_exibido.toLocaleString('pt-BR')}</span></p>
                     <p className="text-muted-foreground">
-                      Participacao no periodo: {formatPercent(calculateShare(row.total_exibido, totalPeriodo))}
+                      Participação no período: {formatPercent(calculateShare(row.total_exibido, totalPeriodo))}
                     </p>
                   </div>
                 )

@@ -36,9 +36,9 @@ import { useChartLabels } from '@/components/charts/chart-labels-context'
 import { createClient } from '@/lib/supabase/client'
 
 const TIPO_TITULO: Record<TipoUnidade, string> = {
-  LOJA: 'Top Lojas - Ordens Geradas',
-  FARMA: 'Top Farmas - Ordens Geradas',
-  CD: 'Top CDs - Ordens Geradas',
+  LOJA: 'Ordens Geradas por Loja',
+  FARMA: 'Ordens Geradas por Farma',
+  CD: 'Ordens Geradas por CD',
 }
 
 const INSIDE_LIGHT_LABEL = createInsideBarLabelRenderer({
@@ -232,7 +232,7 @@ interface TopLojasChartProps {
 export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, equipamento, categoria }: TopLojasChartProps) {
   const { showLabels } = useChartLabels()
   const [selectedLoja, setSelectedLoja] = useState<string | null>(null)
-  const titulo = tipoUnidade ? TIPO_TITULO[tipoUnidade] : 'Top Unidades - Ordens Geradas'
+  const titulo = tipoUnidade ? TIPO_TITULO[tipoUnidade] : 'Ordens Geradas por Unidade'
 
   if (data.length === 0) {
     return (
@@ -242,7 +242,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, equipame
         </CardHeader>
         <CardContent>
           <p className="py-8 text-center text-sm text-muted-foreground">
-            Sem dados para o periodo selecionado.
+            Sem dados para o período selecionado.
           </p>
         </CardContent>
       </Card>
@@ -267,7 +267,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, equipame
         <CardHeader className="px-4 pb-4">
           <CardTitle className="text-base">{titulo}</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Maior participacao no recorte: {formatPercent(topShare)}
+            Maior participação no recorte: {formatPercent(topShare)}
           </p>
         </CardHeader>
         <CardContent className="px-4 pb-4 pt-0">
@@ -292,7 +292,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, equipame
                       <div className="rounded border bg-popover px-3 py-2 text-xs shadow-md">
                         <p className="font-medium mb-1">{label}</p>
                         <p>
-                          Concluidas:{' '}
+                          Concluídas:{' '}
                           <span className="font-semibold" style={{ color: '#1E90FF' }}>{d.concluidas.toLocaleString('pt-BR')}</span>
                           <span className="text-muted-foreground"> ({formatPercent(calculateShare(d.concluidas, d.total_exibido))})</span>
                         </p>
@@ -303,7 +303,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, equipame
                         </p>
                         <p className="mt-1 border-t pt-1">Total: <span className="font-semibold">{(d.concluidas + d.em_aberto).toLocaleString('pt-BR')}</span></p>
                         <p className="text-muted-foreground">
-                          Participacao no grafico: {formatPercent(calculateShare(d.total_exibido, chartTotal))}
+                          Participação no gráfico: {formatPercent(calculateShare(d.total_exibido, chartTotal))}
                         </p>
                       </div>
                     )
@@ -312,7 +312,7 @@ export function TopLojasChart({ data, tipoUnidade, ano, mes, tipoOrdem, equipame
                 <Legend wrapperStyle={CHART_LEGEND_STYLE} />
                 <Bar
                   dataKey="concluidas"
-                  name="Concluidas"
+                  name="Concluídas"
                   stackId="a"
                   fill="#1E90FF"
                   minPointSize={getMinPointSizeForDataKey('concluidas')}

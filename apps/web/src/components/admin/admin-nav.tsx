@@ -37,15 +37,16 @@ type AdminNavSection = {
 
 const navSections: AdminNavSection[] = [
   {
-    title: 'Visao geral',
+    title: 'Visão geral',
     links: [
       { href: '/admin', label: 'Produtividade', icon: BarChart3, exact: true },
-      { href: '/admin/graficos', label: 'Graficos', icon: LineChart },
+      { href: '/admin/graficos', label: 'Gráficos', icon: LineChart },
       { href: '/admin/comparativos', label: 'Comparativos', icon: BarChartBig },
+      { href: '/admin/financeiro', label: 'Financeiro', icon: Banknote },
     ],
   },
   {
-    title: 'Operacao',
+    title: 'Operação',
     links: [
       { href: '/admin/radar-preventivo', label: 'Radar Preventivo', icon: ShieldAlert },
       { href: '/admin/operacional', label: 'Operacional', icon: HardHat },
@@ -53,11 +54,10 @@ const navSections: AdminNavSection[] = [
     ],
   },
   {
-    title: 'Gestao',
+    title: 'Gestão',
     links: [
       { href: '/admin/pessoas', label: 'Pessoas', icon: UserCog },
-      { href: '/admin/financeiro', label: 'Financeiro', icon: Banknote },
-      { href: '/admin/administracao', label: 'Administracao', icon: Settings },
+      { href: '/admin/administracao', label: 'Administração', icon: Settings },
       { href: '/admin/auditoria', label: 'Auditoria', icon: ScrollText },
     ],
   },
@@ -92,7 +92,7 @@ function AdminNavSections({
   className?: string
 }) {
   return (
-    <nav aria-label="Navegacao administrativa" className={cn('space-y-5', className)}>
+    <nav aria-label="Navegação administrativa" className={cn('space-y-5', className)}>
       {navSections.map((section) => {
         const sectionIsActive = section.links.some((link) => isLinkActive(pathname, link))
 
@@ -179,7 +179,7 @@ export function AdminNav() {
             className="shrink-0 rounded-full"
           >
             <Menu className="h-4 w-4" />
-            Secoes
+            Seções
           </Button>
         </div>
 
@@ -189,14 +189,14 @@ export function AdminNav() {
             <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 flex w-full max-w-[320px] flex-col border-r bg-background shadow-xl outline-none">
               <div className="flex items-start justify-between gap-4 border-b px-5 py-4">
                 <div className="space-y-1">
-                  <DialogTitle className="text-base">Navegacao do admin</DialogTitle>
+                  <DialogTitle className="text-base">Navegação do admin</DialogTitle>
                   <DialogDescription>
-                    Escolha a area que voce quer analisar ou operar.
+                    Escolha a área que você quer analisar ou operar.
                   </DialogDescription>
                 </div>
 
                 <DialogPrimitive.Close asChild>
-                  <Button type="button" variant="ghost" size="icon" aria-label="Fechar secoes do admin">
+                  <Button type="button" variant="ghost" size="icon" aria-label="Fechar seções do admin">
                     <X className="h-4 w-4" />
                   </Button>
                 </DialogPrimitive.Close>
@@ -217,10 +217,10 @@ export function AdminNav() {
               Painel admin
             </p>
             <p className="mt-2 text-base font-semibold tracking-tight text-foreground">
-              Navegacao da area
+              Navegação da área
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Analises, operacao e gestao em uma estrutura mais facil de escanear.
+              Análises, operação e gestão em uma estrutura mais fácil de escanear.
             </p>
           </div>
 

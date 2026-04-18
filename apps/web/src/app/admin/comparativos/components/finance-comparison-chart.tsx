@@ -64,9 +64,9 @@ export function FinanceComparisonChart({
       <CardHeader className="space-y-3">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-base">Financeiro por mes</CardTitle>
+            <CardTitle className="text-base">Financeiro por mês</CardTitle>
             <p className="text-xs text-muted-foreground">
-              Variacao acumulada do periodo: {formatSignedPercentChange(totalDeltaPct)}
+              Variação acumulada do período: {formatSignedPercentChange(totalDeltaPct)}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -109,7 +109,7 @@ export function FinanceComparisonChart({
                       <p>{anoComparado}: <span className="font-semibold text-emerald-600">{formatCurrencyBRL(row.valorComparado)}</span></p>
                       <p>Delta: <span className="font-semibold">{formatCurrencyBRL(row.deltaAbs)}</span></p>
                       <p className="mt-1 border-t pt-1 text-muted-foreground">
-                        Variacao: {formatSignedPercentChange(row.deltaPct)}
+                        Variação: {formatSignedPercentChange(row.deltaPct)}
                       </p>
                     </div>
                   )

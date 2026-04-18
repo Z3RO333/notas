@@ -50,7 +50,7 @@ export function ComparativosFilters({
   return (
     <div className="flex flex-col gap-3 rounded-2xl border bg-card/60 p-3 sm:p-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        Comparacao
+        Comparação
       </p>
 
       <div className="flex flex-wrap items-center gap-2">

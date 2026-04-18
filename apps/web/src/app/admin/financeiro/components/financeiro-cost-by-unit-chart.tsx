@@ -111,7 +111,7 @@ export function FinanceiroCostByUnitChart({ data }: FinanceiroCostByUnitChartPro
                         </span>
                       </p>
                       <p className="mt-1 border-t pt-1 text-muted-foreground">
-                        Participacao no compromisso: {formatPercent(calculateShare(row.compromisso_total, chartTotal))}
+                        Participação no compromisso: {formatPercent(calculateShare(row.compromisso_total, chartTotal))}
                       </p>
                     </div>
                   )

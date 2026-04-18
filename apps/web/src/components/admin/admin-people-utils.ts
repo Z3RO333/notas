@@ -3,7 +3,7 @@ import type { AdminPerson, PersonFormState, PmplAssignment } from '@/components/
 
 export const ESPECIALIDADE_OPTIONS: Array<{ value: Especialidade; label: string }> = [
   { value: 'geral', label: 'Geral' },
-  { value: 'refrigeracao', label: 'Refrigeracao' },
+  { value: 'refrigeracao', label: 'Refrigeração' },
   { value: 'elevadores', label: 'Elevadores' },
   { value: 'cd_manaus', label: 'CD Manaus' },
   { value: 'cd_taruma', label: 'CD Taruma' },
@@ -54,5 +54,5 @@ export function resolvePmplAssignment(params: {
 
 export function formatVacationPeriod(person: Pick<AdminPerson, 'data_inicio_ferias' | 'data_fim_ferias'>): string {
   if (!person.data_inicio_ferias && !person.data_fim_ferias) return '—'
-  return `${person.data_inicio_ferias ?? '—'} ate ${person.data_fim_ferias ?? '—'}`
+  return `${person.data_inicio_ferias ?? '—'} até ${person.data_fim_ferias ?? '—'}`
 }

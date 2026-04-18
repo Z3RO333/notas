@@ -93,13 +93,13 @@ export function ServicoOrdensDialog({
       .then(async (response) => {
         const payload = await response.json()
         if (!response.ok) {
-          throw new Error(payload.error ?? 'Falha ao carregar ordens do servico')
+          throw new Error(payload.error ?? 'Falha ao carregar ordens do serviço')
         }
         setRows((payload.rows ?? []) as ServicoOrdemRow[])
       })
       .catch((fetchError: unknown) => {
         if (controller.signal.aborted) return
-        setError(fetchError instanceof Error ? fetchError.message : 'Falha ao carregar ordens do servico')
+        setError(fetchError instanceof Error ? fetchError.message : 'Falha ao carregar ordens do serviço')
         setRows([])
       })
       .finally(() => {
@@ -133,7 +133,7 @@ export function ServicoOrdensDialog({
         ) : error ? (
           <p className="py-8 text-center text-sm text-destructive">{error}</p>
         ) : rows.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma ordem encontrada para este servico.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma ordem encontrada para este serviço.</p>
         ) : (
           <div className="flex-1 overflow-auto">
             <table className="w-full text-xs">

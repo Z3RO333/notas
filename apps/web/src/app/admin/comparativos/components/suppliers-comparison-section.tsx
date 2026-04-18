@@ -56,7 +56,7 @@ function SupplierDetailTable({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
-                <th className="px-4 py-3 text-left font-medium">Mes</th>
+                <th className="px-4 py-3 text-left font-medium">Mês</th>
                 <th className="px-4 py-3 text-right font-medium">{anoBase}</th>
                 <th className="px-4 py-3 text-right font-medium">{anoComparado}</th>
                 <th className="px-4 py-3 text-right font-medium">Delta</th>

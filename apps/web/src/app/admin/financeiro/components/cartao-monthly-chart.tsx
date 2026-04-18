@@ -41,11 +41,11 @@ export function CartaoMonthlyChart({ data }: CartaoMonthlyChartProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Gastos por Mes</CardTitle>
+          <CardTitle className="text-base">Gastos por Mês</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="py-8 text-center text-sm text-muted-foreground">
-            Sem dados para o periodo selecionado.
+            Sem dados para o período selecionado.
           </p>
         </CardContent>
       </Card>
@@ -64,9 +64,9 @@ export function CartaoMonthlyChart({ data }: CartaoMonthlyChartProps) {
   return (
     <Card>
       <CardHeader className="space-y-1">
-        <CardTitle className="text-base">Gastos por Mes</CardTitle>
+        <CardTitle className="text-base">Gastos por Mês</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Ultima variacao: {formatTrendDescription(latestDelta)} vs mes anterior
+          Última variação: {formatTrendDescription(latestDelta)} vs mês anterior
         </p>
       </CardHeader>
       <CardContent>
@@ -90,9 +90,9 @@ export function CartaoMonthlyChart({ data }: CartaoMonthlyChartProps) {
                           {formatCurrencyBRL(row.total)}
                         </span>
                       </p>
-                      <p className="text-muted-foreground">{row.qtd} transacoes</p>
+                      <p className="text-muted-foreground">{row.qtd} transações</p>
                       <p className="mt-1 border-t pt-1 text-muted-foreground">
-                        Variacao vs mes anterior: {formatSignedPercentChange(row.deltaPct)}
+                        Variação vs mês anterior: {formatSignedPercentChange(row.deltaPct)}
                       </p>
                     </div>
                   )

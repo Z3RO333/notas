@@ -76,7 +76,7 @@ export function KpiStrip({ kpis }: KpiStripProps) {
         icon={BriefcaseBusiness}
       />
       <KpiCard
-        label="Taxa de conversao"
+        label="Taxa de conversão"
         value={formatPercent(kpis.taxa_conversao)}
         sublabel="Efetividade do funil de entrada."
         accentClass="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300"
@@ -85,12 +85,12 @@ export function KpiStrip({ kpis }: KpiStripProps) {
       <KpiCard
         label="Tempo medio nota->ordem"
         value={formatDias(kpis.tempo_medio_nota_ordem)}
-        sublabel="Velocidade media de conversao."
+        sublabel="Velocidade média de conversão."
         accentClass="border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-300"
         icon={Clock3}
       />
       <KpiCard
-        label="Tempo medio conclusao"
+        label="Tempo médio conclusão"
         value={formatDias(kpis.tempo_medio_conclusao)}
         sublabel="Da entrada ate o encerramento."
         accentClass="border-cyan-500/20 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300"

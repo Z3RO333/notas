@@ -262,7 +262,7 @@ function evaluatePreventiveRisk({
   if (count === 0 && (coveragePct >= 0.35 || average >= 1)) {
     return {
       level: 'critico',
-      message: `Sem abertura no recorte; ${activeStores}/${totalStores} unidades abriram esse servico (media ${formatNumber(roundedAverage)}).`,
+      message: `Sem abertura no recorte; ${activeStores}/${totalStores} unidades abriram esse serviço (média ${formatNumber(roundedAverage)}).`,
       gap: Math.max(1, average),
     }
   }
@@ -270,7 +270,7 @@ function evaluatePreventiveRisk({
   if (count === 0) {
     return {
       level: 'atencao',
-      message: `Sem abertura no recorte; vale confirmar se a demanda esta represada.`,
+      message: `Sem abertura no recorte; vale confirmar se a demanda está represada.`,
       gap: Math.max(1, average),
     }
   }
@@ -278,7 +278,7 @@ function evaluatePreventiveRisk({
   if (average >= 2 && count <= Math.max(1, Math.floor(average * 0.4))) {
     return {
       level: 'atencao',
-      message: `Volume abaixo da media do grupo (${formatNumber(roundedAverage)} por unidade).`,
+      message: `Volume abaixo da média do grupo (${formatNumber(roundedAverage)} por unidade).`,
       gap: Math.max(0, average - count),
     }
   }
@@ -286,14 +286,14 @@ function evaluatePreventiveRisk({
   if (coveragePct >= 0.6 && average >= 1.5 && count < average) {
     return {
       level: 'atencao',
-      message: `Abaixo do padrao observado para o servico (${activeStores}/${totalStores} unidades com abertura).`,
+      message: `Abaixo do padrão observado para o serviço (${activeStores}/${totalStores} unidades com abertura).`,
       gap: Math.max(0, average - count),
     }
   }
 
   return {
     level: 'saudavel',
-    message: 'Comportamento dentro do padrao observado.',
+    message: 'Comportamento dentro do padrão observado.',
     gap: Math.max(0, average - count),
   }
 }
@@ -678,7 +678,7 @@ export function buildPreventiveAnalysis(
 
   const coverageHint = options.useOfficialUnitBase && totalStores !== observedStoreCount
     ? `${observedStoreCount} com ordens no recorte de ${totalStores} unidades oficiais`
-    : `${totalStores} unidades e ${totalServices} servicos monitorados`
+    : `${totalStores} unidades e ${totalServices} serviços monitorados`
 
   const metricCards: PreventiveMetricCard[] = [
     {
@@ -692,21 +692,21 @@ export function buildPreventiveAnalysis(
       value: storeTotalOrders.toLocaleString('pt-BR'),
       hint: selectedStore
         ? `${storeRiskCounts.critico} riscos criticos e ${storeRiskCounts.atencao} pontos de atencao`
-        : 'Escolha uma unidade para detalhar os servicos',
+        : 'Escolha uma unidade para detalhar os serviços',
       tone: storeRiskCounts.critico > 0 ? 'critico' : storeRiskCounts.atencao > 0 ? 'atencao' : 'saudavel',
     },
     {
-      label: focusService ? `${focusService} na unidade` : 'Servico em foco',
+      label: focusService ? `${focusService} na unidade` : 'Serviço em foco',
       value: focusSummary.selectedStoreCount.toLocaleString('pt-BR'),
       hint: focusService
-        ? `Media da rede: ${formatNumber(focusSummary.averagePerStore)}; ${focusSummary.storesWithoutOrders} unidades sem abertura`
-        : 'Selecione um servico para comparar unidades',
+        ? `Média da rede: ${formatNumber(focusSummary.averagePerStore)}; ${focusSummary.storesWithoutOrders} unidades sem abertura`
+        : 'Selecione um serviço para comparar unidades',
       tone: focusSummary.selectedStoreRisk,
     },
     {
       label: 'Alertas preventivos',
       value: (criticalAlerts + attentionAlerts).toLocaleString('pt-BR'),
-      hint: `${criticalAlerts} criticos, ${attentionAlerts} atencao e ${zeroGaps} ausencias totais relevantes`,
+      hint: `${criticalAlerts} críticos, ${attentionAlerts} atenção e ${zeroGaps} ausências totais relevantes`,
       tone: criticalAlerts > 0 ? 'critico' : attentionAlerts > 0 ? 'atencao' : 'saudavel',
     },
   ]

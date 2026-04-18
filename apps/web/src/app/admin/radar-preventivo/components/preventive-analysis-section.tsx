@@ -69,8 +69,8 @@ function executiveSurface(level: RiskLevel) {
 
 function riskHeadline(level: RiskLevel) {
   if (level === 'critico') return 'Prioridade alta'
-  if (level === 'atencao') return 'Ponto de atencao'
-  return 'Leitura estavel'
+  if (level === 'atencao') return 'Ponto de atenção'
+  return 'Leitura estável'
 }
 
 function resolveDominantRisk(analysis: PreventiveAnalysisResult): RiskLevel {
@@ -95,17 +95,17 @@ function buildExecutiveSummary(analysis: PreventiveAnalysisResult, dominantRisk:
   const focusService = analysis.focusSummary.service
   const serviceLabel = focusService
     ? `${focusService}${analysis.focusSummary.autoSelected ? ' (sugerido)' : ''}`
-    : 'Escolha um servico'
+    : 'Escolha um serviço'
 
   const coverageLabel = focusService
-    ? `${analysis.focusSummary.storesWithOrders}/${analysis.totalStores} unidades abriram esse servico`
-    : `${analysis.totalServices} servicos monitorados no recorte`
+    ? `${analysis.focusSummary.storesWithOrders}/${analysis.totalStores} unidades abriram esse serviço`
+    : `${analysis.totalServices} serviços monitorados no recorte`
 
   if (dominantRisk === 'critico' && analysis.store && focusService) {
     return {
-      headline: `${analysis.store} merece revisao imediata em ${focusService}.`,
-      action: `Priorize a validacao de ${focusService} nessa unidade antes que a demanda vire uma ordem concentrada.`,
-      reason: `${analysis.focusSummary.storesWithoutOrders} unidades ainda nao abriram esse servico no recorte. ${coverageLabel}.`,
+      headline: `${analysis.store} merece revisão imediata em ${focusService}.`,
+      action: `Priorize a validação de ${focusService} nessa unidade antes que a demanda vire uma ordem concentrada.`,
+      reason: `${analysis.focusSummary.storesWithoutOrders} unidades ainda não abriram esse serviço no recorte. ${coverageLabel}.`,
       serviceLabel,
       coverageLabel,
     }
@@ -113,16 +113,16 @@ function buildExecutiveSummary(analysis: PreventiveAnalysisResult, dominantRisk:
 
   if (dominantRisk === 'atencao' && analysis.store && focusService) {
     return {
-      headline: `${analysis.store} esta abaixo do ritmo observado em ${focusService}.`,
-      action: 'Vale confirmar se a demanda esta represada ou se a unidade esta operando fora do padrao da rede.',
-      reason: `Media da rede: ${formatNumber(analysis.focusSummary.averagePerStore)} por unidade. ${coverageLabel}.`,
+      headline: `${analysis.store} está abaixo do ritmo observado em ${focusService}.`,
+      action: 'Vale confirmar se a demanda está represada ou se a unidade está operando fora do padrão da rede.',
+      reason: `Média da rede: ${formatNumber(analysis.focusSummary.averagePerStore)} por unidade. ${coverageLabel}.`,
       serviceLabel,
       coverageLabel,
     }
   }
 
   return {
-    headline: 'O recorte esta organizado, mas continua valendo acompanhar ausencias e baixa recorrencia.',
+    headline: 'O recorte está organizado, mas continua valendo acompanhar ausências e baixa recorrência.',
     action: 'Use a unidade em foco para revisar pintura, telhado, calha e infiltracao antes do custo crescer.',
     reason: coverageLabel,
     serviceLabel,
@@ -200,13 +200,13 @@ export function PreventiveAnalysisSection({
               />
               <ExecutiveSpotlight
                 icon={Wrench}
-                label="Servico em leitura"
+                label="Serviço em leitura"
                 value={summary.serviceLabel}
-                hint={`Media da rede: ${formatNumber(analysis.focusSummary.averagePerStore)}`}
+                hint={`Média da rede: ${formatNumber(analysis.focusSummary.averagePerStore)}`}
               />
               <ExecutiveSpotlight
                 icon={ShieldAlert}
-                label="Cobertura do servico"
+                label="Cobertura do serviço"
                 value={summary.coverageLabel}
                 hint={`${analysis.focusSummary.storesWithoutOrders} unidades sem abertura no recorte`}
               />
@@ -220,10 +220,10 @@ export function PreventiveAnalysisSection({
               </p>
               <p className="mt-3 text-sm font-medium">
                 {dominantRisk === 'critico'
-                  ? 'Comece pelos desvios sem abertura ou muito abaixo do padrao.'
+                  ? 'Comece pelos desvios sem abertura ou muito abaixo do padrão.'
                   : dominantRisk === 'atencao'
-                    ? 'Use o comparativo para validar se a recorrencia esta abaixo do esperado.'
-                    : 'A rede esta estavel; use o radar para checar servicos sensiveis com menor recorrencia.'}
+                    ? 'Use o comparativo para validar se a recorrência está abaixo do esperado.'
+                    : 'A rede está estável; use o radar para checar serviços sensíveis com menor recorrência.'}
               </p>
               <p className="mt-2 text-xs text-muted-foreground">{summary.reason}</p>
             </div>
@@ -234,9 +234,9 @@ export function PreventiveAnalysisSection({
               </p>
               <div className="mt-3 space-y-2 text-sm text-muted-foreground">
                 <p>1. Defina o recorte nos filtros.</p>
-                <p>2. Escolha a unidade em foco para abrir o radar por servico.</p>
-                <p>3. Use o comparativo para ver se a loja esta abaixo do ritmo da rede.</p>
-                <p>4. Feche nos alertas para priorizar quem precisa de acao.</p>
+                <p>2. Escolha a unidade em foco para abrir o radar por serviço.</p>
+                <p>3. Use o comparativo para ver se a loja está abaixo do ritmo da rede.</p>
+                <p>4. Feche nos alertas para priorizar quem precisa de ação.</p>
               </div>
             </div>
           </div>
@@ -275,7 +275,7 @@ export function PreventiveAnalysisSection({
               <div>
                 <CardTitle className="text-base">Modo de leitura</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Resumo para decisao rapida; detalhada para tabelas e comparativos.
+                  Resumo para decisão rápida; detalhada para tabelas e comparativos.
                 </p>
               </div>
               <div className="inline-flex rounded-xl border bg-muted/30 p-1">
@@ -297,7 +297,7 @@ export function PreventiveAnalysisSection({
                   onClick={() => setViewMode('detalhada')}
                 >
                   <TableProperties className="h-4 w-4" />
-                  Analise detalhada
+                  Análise detalhada
                 </Button>
               </div>
             </div>
@@ -311,7 +311,7 @@ export function PreventiveAnalysisSection({
             <div className="rounded-xl border border-dashed px-4 py-10 text-center">
               <p className="text-sm font-medium">Nenhuma ordem encontrada para esse recorte.</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Ajuste periodo, tipo de unidade ou loja para abrir um recorte com historico de manutencao.
+                Ajuste período, tipo de unidade ou loja para abrir um recorte com histórico de manutenção.
               </p>
             </div>
           </CardContent>
@@ -328,7 +328,7 @@ export function PreventiveAnalysisSection({
                   <div>
                     <p className="text-sm font-semibold">Leitura analitica</p>
                     <p className="text-sm text-muted-foreground">
-                      Aqui entram as tabelas, comparativos e a fila completa para quem vai operar a analise.
+                      Aqui entram as tabelas, comparativos e a fila completa para quem vai operar a análise.
                     </p>
                   </div>
                 </div>
@@ -359,14 +359,14 @@ export function PreventiveAnalysisSection({
                     <p className="text-sm text-muted-foreground">
                       {analysis.store
                         ? `${analysis.store} abriu ${analysis.storeTotalOrders.toLocaleString('pt-BR')} ordens no recorte.`
-                        : 'Selecione uma unidade para abrir o radar por servico.'}
+                        : 'Selecione uma unidade para abrir o radar por serviço.'}
                     </p>
                   </div>
                   <Badge variant={badgeVariant(analysis.storeRiskCounts.critico > 0 ? 'critico' : analysis.storeRiskCounts.atencao > 0 ? 'atencao' : 'saudavel')}>
                     {analysis.storeRiskCounts.critico > 0
-                      ? `${analysis.storeRiskCounts.critico} criticos`
-                      : analysis.storeRiskCounts.atencao > 0
-                        ? `${analysis.storeRiskCounts.atencao} atencoes`
+                        ? `${analysis.storeRiskCounts.critico} críticos`
+                        : analysis.storeRiskCounts.atencao > 0
+                        ? `${analysis.storeRiskCounts.atencao} atenções`
                         : 'Sem alertas'}
                   </Badge>
                 </div>
@@ -376,9 +376,9 @@ export function PreventiveAnalysisSection({
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
-                        <th className="px-4 py-3 text-left font-medium">Servico</th>
+                        <th className="px-4 py-3 text-left font-medium">Serviço</th>
                         <th className="px-4 py-3 text-right font-medium">Loja</th>
-                        <th className="px-4 py-3 text-right font-medium">Media</th>
+                        <th className="px-4 py-3 text-right font-medium">Média</th>
                         <th className="px-4 py-3 text-right font-medium">Cobertura</th>
                         <th className="px-4 py-3 text-left font-medium">Sinal</th>
                       </tr>
@@ -396,7 +396,7 @@ export function PreventiveAnalysisSection({
                           <td className="px-4 py-3">
                             <div className="space-y-1">
                               <Badge variant={badgeVariant(row.risk)}>
-                                {row.risk === 'critico' ? 'Risco alto' : row.risk === 'atencao' ? 'Atencao' : 'Saudavel'}
+                                {row.risk === 'critico' ? 'Risco alto' : row.risk === 'atencao' ? 'Atenção' : 'Saudável'}
                               </Badge>
                               <p className="text-xs text-muted-foreground">{row.message}</p>
                             </div>
@@ -420,18 +420,18 @@ export function PreventiveAnalysisSection({
                     <p className="text-sm text-muted-foreground">
                       {analysis.focusSummary.service
                         ? `${analysis.focusSummary.service} em ${analysis.focusSummary.storesWithOrders}/${analysis.totalStores} unidades.`
-                        : 'Escolha um servico para comparar o comportamento das unidades.'}
+                        : 'Escolha um serviço para comparar o comportamento das unidades.'}
                     </p>
                   </div>
                   {analysis.focusSummary.service && (
                     <Badge variant={badgeVariant(analysis.focusSummary.selectedStoreRisk)}>
-                      {analysis.focusSummary.autoSelected ? 'Servico sugerido' : 'Servico filtrado'}
+                      {analysis.focusSummary.autoSelected ? 'Serviço sugerido' : 'Serviço filtrado'}
                     </Badge>
                   )}
                 </div>
                 {analysis.focusSummary.service && (
                   <p className="text-xs text-muted-foreground">
-                    Loja em foco: {analysis.focusSummary.selectedStoreCount.toLocaleString('pt-BR')} ordem(ns) versus media de {formatNumber(analysis.focusSummary.averagePerStore)} por unidade.
+                    Loja em foco: {analysis.focusSummary.selectedStoreCount.toLocaleString('pt-BR')} ordem(ns) versus média de {formatNumber(analysis.focusSummary.averagePerStore)} por unidade.
                   </p>
                 )}
               </CardHeader>
@@ -458,7 +458,7 @@ export function PreventiveAnalysisSection({
                           <td className="px-4 py-3">
                             <div className="space-y-1">
                               <Badge variant={badgeVariant(row.risk)}>
-                                {row.risk === 'critico' ? 'Abaixo do padrao' : row.risk === 'atencao' ? 'Monitorar' : 'Dentro do padrao'}
+                                {row.risk === 'critico' ? 'Abaixo do padrão' : row.risk === 'atencao' ? 'Monitorar' : 'Dentro do padrão'}
                               </Badge>
                               <p className="text-xs text-muted-foreground">{row.message}</p>
                             </div>
@@ -481,7 +481,7 @@ export function PreventiveAnalysisSection({
                     Alertas preventivos do recorte
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    A fila abaixo combina ausencia total e volume muito abaixo da media para priorizar quem precisa de acao primeiro.
+                    A fila abaixo combina ausência total e volume muito abaixo da média para priorizar quem precisa de ação primeiro.
                   </p>
                 </div>
                 <Badge variant={badgeVariant(analysis.alerts.some((alert) => alert.risk === 'critico') ? 'critico' : analysis.alerts.length > 0 ? 'atencao' : 'saudavel')}>
@@ -500,9 +500,9 @@ export function PreventiveAnalysisSection({
                     <thead>
                       <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
                         <th className="px-4 py-3 text-left font-medium">Unidade</th>
-                        <th className="px-4 py-3 text-left font-medium">Servico</th>
+                        <th className="px-4 py-3 text-left font-medium">Serviço</th>
                         <th className="px-4 py-3 text-right font-medium">Qtd</th>
-                        <th className="px-4 py-3 text-right font-medium">Media</th>
+                        <th className="px-4 py-3 text-right font-medium">Média</th>
                         <th className="px-4 py-3 text-left font-medium">Leitura</th>
                       </tr>
                     </thead>
@@ -536,7 +536,7 @@ export function PreventiveAnalysisSection({
                   <div className="space-y-1 text-sm">
                     <p className="font-medium">Leitura operacional do radar</p>
                     <p className="text-muted-foreground">
-                      Ausencia de abertura nao significa erro automatico. O objetivo aqui e separar o que precisa de resposta imediata do que pede apenas acompanhamento, para a demanda nao estourar no fim do periodo.
+                      Ausência de abertura não significa erro automático. O objetivo aqui é separar o que precisa de resposta imediata do que pede apenas acompanhamento, para a demanda não estourar no fim do período.
                     </p>
                   </div>
                 </div>

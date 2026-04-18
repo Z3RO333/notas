@@ -67,9 +67,9 @@ export function OrdersComparisonChart({
       <CardHeader className="space-y-3">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-base">Ordens por mes</CardTitle>
+            <CardTitle className="text-base">Ordens por mês</CardTitle>
             <p className="text-xs text-muted-foreground">
-              Variacao acumulada do periodo: {formatSignedPercentChange(totalDeltaPct)}
+              Variação acumulada do período: {formatSignedPercentChange(totalDeltaPct)}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -112,7 +112,7 @@ export function OrdersComparisonChart({
                       <p>{anoComparado}: <span className="font-semibold text-blue-600">{formatInteger(row.valorComparado)}</span></p>
                       <p>Delta: <span className="font-semibold">{formatInteger(row.deltaAbs)}</span></p>
                       <p className="mt-1 border-t pt-1 text-muted-foreground">
-                        Variacao: {formatSignedPercentChange(row.deltaPct)}
+                        Variação: {formatSignedPercentChange(row.deltaPct)}
                       </p>
                     </div>
                   )

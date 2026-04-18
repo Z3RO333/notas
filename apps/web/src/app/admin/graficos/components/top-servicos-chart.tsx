@@ -27,7 +27,7 @@ export function TopServicosChart({
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Serviços Solicitados</CardTitle>
+          <CardTitle className="text-base">Ordens Geradas por Serviço</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="py-8 text-center text-sm text-muted-foreground">
@@ -44,7 +44,7 @@ export function TopServicosChart({
     <>
       <Card>
         <CardHeader className="space-y-1 pb-3">
-          <CardTitle className="text-base">Serviços Solicitados</CardTitle>
+          <CardTitle className="text-base">Ordens Geradas por Serviço</CardTitle>
           <p className="text-xs text-muted-foreground">
             Líder responde por {topPercent.toFixed(1)}% do total
           </p>

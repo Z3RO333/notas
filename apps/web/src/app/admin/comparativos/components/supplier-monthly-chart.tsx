@@ -88,9 +88,9 @@ export function SupplierMonthlyChart({
       <CardHeader className="space-y-3">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-base">Fornecedor por mes - {fornecedorNome}</CardTitle>
+            <CardTitle className="text-base">Fornecedor por mês - {fornecedorNome}</CardTitle>
             <p className="text-xs text-muted-foreground">
-              Variacao acumulada do periodo: {formatSignedPercentChange(totalDeltaPct)}
+              Variação acumulada do período: {formatSignedPercentChange(totalDeltaPct)}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -130,7 +130,7 @@ export function SupplierMonthlyChart({
                       <p>{anoBase}: <span className="font-semibold text-amber-700">{formatCurrencyBRL(row.valorBase)}</span></p>
                       <p>{anoComparado}: <span className="font-semibold text-teal-700">{formatCurrencyBRL(row.valorComparado)}</span></p>
                       <p className="mt-1 border-t pt-1 text-muted-foreground">
-                        Variacao: {formatSignedPercentChange(row.deltaPct)}
+                        Variação: {formatSignedPercentChange(row.deltaPct)}
                       </p>
                     </div>
                   )

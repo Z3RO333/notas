@@ -323,8 +323,8 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
   return (
     <div className="space-y-8">
       <PageTitleBlock
-        title="Graficos Gerenciais"
-        subtitle="Padroes, recorrencia e ranking por unidade."
+        title="Gráficos Gerenciais"
+        subtitle="Padrões, recorrência e ranking por unidade."
       />
 
       <IndicadoresSection
@@ -343,18 +343,18 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
         <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
           <div className="space-y-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              Analise gerencial
+              Análise gerencial
             </p>
             <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
-              Segmentos, recorrencia e ranking
+              Segmentos, recorrência e ranking
             </h2>
             <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              Combine ano, mes, tipo, loja e servico para localizar concentracao de volume,
-              repeticao de demanda e peso de cada segmento na operacao.
+              Combine ano, mês, tipo, loja e serviço para localizar concentração de volume,
+              repetição de demanda e peso de cada segmento na operação.
             </p>
           </div>
           <p className="text-xs leading-5 text-muted-foreground xl:max-w-xs xl:text-right">
-            Os filtros abaixo controlam somente a leitura gerencial desta pagina.
+            Os filtros abaixo controlam somente a leitura gerencial desta página.
           </p>
         </div>
 
@@ -378,7 +378,7 @@ export default async function GraficosPage({ searchParams }: GraficosPageProps) 
           <div className="space-y-1">
             <h2 className="text-lg font-semibold tracking-tight">Desdobramento por segmento</h2>
             <p className="text-sm text-muted-foreground">
-              Cada bloco abaixo aprofunda lojas, servicos e variacao mensal do recorte escolhido.
+              Cada bloco abaixo aprofunda lojas, serviços e variação mensal do recorte escolhido.
             </p>
           </div>
           <div className="flex justify-end">

@@ -27,7 +27,7 @@ export function LojaIndicadoresTable({ rows }: LojaIndicadoresTableProps) {
         <div className="space-y-1">
           <CardTitle className="text-base">Por loja (nota)</CardTitle>
           <CardDescription>
-            Conversao de notas em ordens pela unidade da nota; se a nota cair sem localizacao valida, usamos a unidade detectada na ordem.
+            Conversão de notas em ordens pela unidade da nota; se a nota cair sem localização válida, usamos a unidade detectada na ordem.
           </CardDescription>
         </div>
 
