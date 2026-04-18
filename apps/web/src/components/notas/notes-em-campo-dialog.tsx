@@ -35,7 +35,7 @@ import type {
 import { cn } from '@/lib/utils'
 
 interface NotesEmCampoDialogProps {
-  notes: NotaPanelData[]
+  getNotes: () => NotaPanelData[]
   unidadeOptions: Array<{ value: string; label: string }>
   defaultUnidade?: string
   className?: string
@@ -111,7 +111,7 @@ function getNoteDateValue(nota: NotaPanelData): string {
 }
 
 export function NotesEmCampoDialog({
-  notes,
+  getNotes,
   unidadeOptions,
   defaultUnidade = '',
   className,
@@ -141,6 +141,10 @@ export function NotesEmCampoDialog({
   const serviceCatalog = useMemo(
     () => serviceOptions.map((option) => option.value).filter(Boolean),
     [serviceOptions]
+  )
+  const notes = useMemo(
+    () => (open ? getNotes() : []),
+    [getNotes, open],
   )
 
   useEffect(() => {

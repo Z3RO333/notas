@@ -98,7 +98,7 @@ describe('NotesEmCampoDialog', () => {
 
     render(
       <NotesEmCampoDialog
-        notes={notes}
+        getNotes={() => notes}
         unidadeOptions={[{ value: '520', label: 'Loja Manacapuru' }]}
       />
     )
@@ -118,7 +118,7 @@ describe('NotesEmCampoDialog', () => {
 
     render(
       <NotesEmCampoDialog
-        notes={notes}
+        getNotes={() => notes}
         unidadeOptions={[{ value: '520', label: 'Loja Manacapuru' }]}
       />
     )

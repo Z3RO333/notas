@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/components/ui/toast'
 import { BulkReassignDialog } from '@/components/collaborator/bulk-reassign-dialog'
@@ -14,7 +14,7 @@ import type { CollaboratorData } from '@/lib/types/collaborator'
 
 interface CollaboratorAdminActionsProps {
   admin: CollaboratorData
-  destinations: Array<{ id: string; nome: string; qtd_abertas: number }>
+  allDestinations: Array<{ id: string; nome: string; qtd_abertas: number }>
 }
 
 type ToggleKind = 'ativo' | 'distribuicao' | 'ferias'
@@ -25,11 +25,15 @@ interface PendingToggle {
   value: boolean
 }
 
-export function CollaboratorAdminActions({ admin, destinations }: CollaboratorAdminActionsProps) {
+export function CollaboratorAdminActions({ admin, allDestinations }: CollaboratorAdminActionsProps) {
   const { toast } = useToast()
   const [isPending, startTransition] = useTransition()
   const [bulkOpen, setBulkOpen] = useState(false)
   const [pendingToggle, setPendingToggle] = useState<PendingToggle | null>(null)
+  const destinations = useMemo(
+    () => allDestinations.filter((item) => item.id !== admin.id),
+    [admin.id, allDestinations],
+  )
 
   function runToggle(kind: ToggleKind, value: boolean, motivo?: string) {
     if (kind === 'ativo') return toggleAtivo(admin.id, value, motivo)

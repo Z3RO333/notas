@@ -30,7 +30,12 @@ import type {
   NotesViewMode,
   TrackingPositionMode,
 } from '@/lib/types/collaborator'
-import type { NotesKpiFilter, NotaPanelData, OrdemAcompanhamento } from '@/lib/types/database'
+import type {
+  NotaOperacaoEstado,
+  NotesKpiFilter,
+  NotaPanelData,
+  OrdemAcompanhamento,
+} from '@/lib/types/database'
 import { updateSearchParams } from '@/lib/grid/query'
 import { createClient } from '@/lib/supabase/client'
 
@@ -63,6 +68,27 @@ interface CollaboratorPanelProps {
 
 const VIEW_MODE_STORAGE_KEY = 'cockpit:panel:view-mode'
 const TRACKING_POSITION_STORAGE_KEY = 'cockpit:panel:tracking-position'
+
+type DestinationOption = { id: string; nome: string; qtd_abertas: number }
+
+function resolveOperationalOverrides(
+  notas: NotaPanelData[],
+  operationalOverridesByNotaId: Map<string, NotaOperacaoEstado | 'clear'>,
+): NotaPanelData[] {
+  if (operationalOverridesByNotaId.size === 0) return notas
+
+  let changed = false
+  const resolved = notas.map((nota) => {
+    const override = operationalOverridesByNotaId.get(nota.id)
+    if (!override) return nota
+    changed = true
+    return override === 'clear'
+      ? clearOperationalStateFromNota(nota)
+      : applyOperationalStateToNota(nota, override)
+  })
+
+  return changed ? resolved : notas
+}
 
 export function CollaboratorPanel({
   collaborators,
@@ -102,33 +128,29 @@ export function CollaboratorPanel({
   const [unidadeFilter, setUnidadeFilter] = useState(initialUnidade || 'todas')
   const [viewMode, setViewMode] = useState<NotesViewMode>('list')
   const [trackingPosition, setTrackingPosition] = useState<TrackingPositionMode>('top')
-  const [notasState, setNotasState] = useState<NotaPanelData[]>(notas)
-  const [notasSemAtribuirState, setNotasSemAtribuirState] = useState<NotaPanelData[]>(notasSemAtribuir ?? [])
+  const [operationalOverridesByNotaId, setOperationalOverridesByNotaId] = useState<
+    Map<string, NotaOperacaoEstado | 'clear'>
+  >(() => new Map())
 
   useEffect(() => {
-    setNotasState(notas)
-  }, [notas])
+    setOperationalOverridesByNotaId(new Map())
+  }, [notas, notasSemAtribuir])
 
   useEffect(() => {
-    setNotasSemAtribuirState(notasSemAtribuir ?? [])
-  }, [notasSemAtribuir])
-
-  useEffect(() => {
-    function patchNotasById(
-      source: NotaPanelData[],
+    function setOperationalOverride(
       notaId: string,
       mode: 'apply' | 'clear',
       row: Record<string, unknown> | null,
-    ): NotaPanelData[] {
-      let changed = false
-      const mapped = source.map((nota) => {
-        if (nota.id !== notaId) return nota
-        changed = true
-        if (mode === 'clear') return clearOperationalStateFromNota(nota)
-        const state = toNotaOperacaoEstado(row)
-        return applyOperationalStateToNota(nota, state)
+    ) {
+      setOperationalOverridesByNotaId((prev) => {
+        const next = new Map(prev)
+        if (mode === 'clear') {
+          next.set(notaId, 'clear')
+        } else {
+          next.set(notaId, toNotaOperacaoEstado(row) ?? 'clear')
+        }
+        return next
       })
-      return changed ? mapped : source
     }
 
     const channel = supabase
@@ -146,8 +168,7 @@ export function CollaboratorPanel({
           if (!notaId) return
 
           const mode = payload.eventType === 'DELETE' ? 'clear' : 'apply'
-          setNotasState((prev) => patchNotasById(prev, notaId, mode, raw))
-          setNotasSemAtribuirState((prev) => patchNotasById(prev, notaId, mode, raw))
+          setOperationalOverride(notaId, mode, raw)
         },
       )
       .subscribe()
@@ -155,8 +176,7 @@ export function CollaboratorPanel({
     const unsubscribeLocalEvent = listenNotaOperacaoEvent(({ notaId, state }) => {
       const row = state ? (state as unknown as Record<string, unknown>) : null
       const mode: 'apply' | 'clear' = state ? 'apply' : 'clear'
-      setNotasState((prev) => patchNotasById(prev, notaId, mode, row))
-      setNotasSemAtribuirState((prev) => patchNotasById(prev, notaId, mode, row))
+      setOperationalOverride(notaId, mode, row)
     })
 
     return () => {
@@ -250,31 +270,6 @@ export function CollaboratorPanel({
     }
   }
 
-  const notasByAdmin = useMemo(() => {
-    const map = new Map<string, NotaPanelData[]>()
-    for (const nota of notasState) {
-      if (!nota.administrador_id) continue
-      const list = map.get(nota.administrador_id)
-      if (list) {
-        list.push(nota)
-      } else {
-        map.set(nota.administrador_id, [nota])
-      }
-    }
-    return map
-  }, [notasState])
-
-  const destinationsByAdmin = useMemo(() => {
-    const map = new Map<string, Array<{ id: string; nome: string; qtd_abertas: number }>>()
-    for (const admin of collaborators) {
-      const dests = collaborators
-        .filter((item) => item.id !== admin.id && item.ativo && !item.em_ferias)
-        .map((item) => ({ id: item.id, nome: item.nome, qtd_abertas: item.qtd_abertas }))
-      map.set(admin.id, dests)
-    }
-    return map
-  }, [collaborators])
-
   const collaboratorById = useMemo(
     () => new Map(collaborators.map((collaborator) => [collaborator.id, collaborator])),
     [collaborators]
@@ -284,77 +279,90 @@ export function CollaboratorPanel({
     [unidadeOptions]
   )
 
-  const filterNotas = useCallback((list: NotaPanelData[]) => {
-    let filtered = list
+  const resolvedNotas = useMemo(
+    () => resolveOperationalOverrides(notas, operationalOverridesByNotaId),
+    [notas, operationalOverridesByNotaId],
+  )
+  const resolvedNotasSemAtribuir = useMemo(
+    () => resolveOperationalOverrides(notasSemAtribuir ?? [], operationalOverridesByNotaId),
+    [notasSemAtribuir, operationalOverridesByNotaId],
+  )
+  const activeDestinationOptions = useMemo<DestinationOption[]>(
+    () => collaborators
+      .filter((item) => item.ativo && !item.em_ferias)
+      .map((item) => ({ id: item.id, nome: item.nome, qtd_abertas: item.qtd_abertas })),
+    [collaborators],
+  )
+  const normalizedSearch = search.trim().toLowerCase()
+  const shouldUseCanonicalMetrics = preferCanonicalCollaboratorMetrics && activeNotesKpi === null
 
+  const matchesNotaFilters = useCallback((nota: NotaPanelData) => {
     if (statusFilter === 'abertas') {
-      filtered = filtered.filter((n) => n.status !== 'concluida' && n.status !== 'cancelada')
+      if (nota.status === 'concluida' || nota.status === 'cancelada') return false
     } else if (statusScope === 'open_only') {
-      filtered = filtered.filter((n) => (
-        n.status === 'nova'
-        || n.status === 'em_andamento'
-        || n.status === 'encaminhada_fornecedor'
-      ))
-    } else if (statusFilter !== 'todas') {
-      filtered = filtered.filter((n) => n.status === statusFilter)
+      if (
+        nota.status !== 'nova'
+        && nota.status !== 'em_andamento'
+        && nota.status !== 'encaminhada_fornecedor'
+      ) {
+        return false
+      }
+    } else if (statusFilter !== 'todas' && nota.status !== statusFilter) {
+      return false
     }
 
-    if (unidadeFilter && unidadeFilter !== 'todas') {
-      filtered = filtered.filter((n) => (n.centro ?? '') === unidadeFilter)
+    if (unidadeFilter && unidadeFilter !== 'todas' && (nota.centro ?? '') !== unidadeFilter) {
+      return false
     }
 
-    if (activeNotesKpi) {
-      filtered = filtered.filter((n) => matchNotesKpi(n, activeNotesKpi))
+    if (activeNotesKpi && !matchNotesKpi(nota, activeNotesKpi)) {
+      return false
     }
 
-    if (search) {
-      const q = search.toLowerCase()
-      filtered = filtered.filter(
-        (n) =>
-          n.numero_nota.toLowerCase().includes(q)
-          || n.descricao.toLowerCase().includes(q)
+    if (normalizedSearch) {
+      return (
+        nota.numero_nota.toLowerCase().includes(normalizedSearch)
+        || nota.descricao.toLowerCase().includes(normalizedSearch)
       )
     }
 
-    return filtered
-  }, [activeNotesKpi, search, statusFilter, statusScope, unidadeFilter])
+    return true
+  }, [activeNotesKpi, normalizedSearch, statusFilter, statusScope, unidadeFilter])
 
-  const filteredNotasSemAtribuir = useMemo(
-    () => filterNotas(notasSemAtribuirState),
-    [notasSemAtribuirState, filterNotas]
-  )
-
-  const filteredNotasByAdmin = useMemo(() => {
-    const map = new Map<string, NotaPanelData[]>()
+  const {
+    filteredNotasByAdmin,
+    filteredNotasSemAtribuir,
+    visibleCollaborators,
+  } = useMemo(() => {
+    const nextFilteredNotasByAdmin = new Map<string, NotaPanelData[]>()
     for (const collaborator of collaborators) {
-      map.set(collaborator.id, filterNotas(notasByAdmin.get(collaborator.id) ?? []))
+      nextFilteredNotasByAdmin.set(collaborator.id, [])
     }
-    return map
-  }, [collaborators, notasByAdmin, filterNotas])
 
-  const shouldUseCanonicalMetrics = preferCanonicalCollaboratorMetrics && activeNotesKpi === null
-  const displayCollaborators = useMemo(
-    () => shouldUseCanonicalMetrics
-      ? collaborators
-      : collaborators.map((collaborator) => (
-          withCollaboratorDisplayMetrics(collaborator, filteredNotasByAdmin.get(collaborator.id) ?? [])
-        )),
-    [collaborators, filteredNotasByAdmin, shouldUseCanonicalMetrics]
-  )
-
-  const visibleCollaborators = useMemo(() => {
-    let list = displayCollaborators
-
-    if (showResponsavelFilter && responsavelFilter && responsavelFilter !== 'todos') {
-      if (responsavelFilter === 'sem_atribuir') {
-        list = []
-      } else {
-        list = list.filter((c) => c.id === responsavelFilter)
+    for (const nota of resolvedNotas) {
+      if (!matchesNotaFilters(nota) || !nota.administrador_id) continue
+      const list = nextFilteredNotasByAdmin.get(nota.administrador_id)
+      if (list) {
+        list.push(nota)
       }
     }
 
+    const nextFilteredNotasSemAtribuir = resolvedNotasSemAtribuir.filter(matchesNotaFilters)
+    const nextDisplayCollaborators = shouldUseCanonicalMetrics
+      ? collaborators
+      : collaborators.map((collaborator) => (
+          withCollaboratorDisplayMetrics(collaborator, nextFilteredNotasByAdmin.get(collaborator.id) ?? [])
+        ))
+
+    let nextVisibleCollaborators = nextDisplayCollaborators
+    if (showResponsavelFilter && responsavelFilter && responsavelFilter !== 'todos') {
+      nextVisibleCollaborators = responsavelFilter === 'sem_atribuir'
+        ? []
+        : nextVisibleCollaborators.filter((collaborator) => collaborator.id === responsavelFilter)
+    }
+
     const hasActiveFilter = Boolean(
-      search
+      normalizedSearch
       || (statusFilter && statusFilter !== 'abertas')
       || (unidadeFilter && unidadeFilter !== 'todas')
       || activeNotesKpi
@@ -362,22 +370,31 @@ export function CollaboratorPanel({
     )
 
     if (hasActiveFilter) {
-      list = list.filter((collaborator) => (filteredNotasByAdmin.get(collaborator.id) ?? []).length > 0)
+      nextVisibleCollaborators = nextVisibleCollaborators.filter(
+        (collaborator) => (nextFilteredNotasByAdmin.get(collaborator.id) ?? []).length > 0,
+      )
     }
 
-    return list
+    return {
+      filteredNotasByAdmin: nextFilteredNotasByAdmin,
+      filteredNotasSemAtribuir: nextFilteredNotasSemAtribuir,
+      visibleCollaborators: nextVisibleCollaborators,
+    }
   }, [
-    displayCollaborators,
+    activeNotesKpi,
+    collaborators,
+    matchesNotaFilters,
+    normalizedSearch,
+    resolvedNotas,
+    resolvedNotasSemAtribuir,
     responsavelFilter,
+    shouldUseCanonicalMetrics,
     showResponsavelFilter,
-    search,
     statusFilter,
     unidadeFilter,
-    activeNotesKpi,
-    filteredNotasByAdmin,
   ])
 
-  const visibleNotesForEmCampo = useMemo(() => {
+  const resolveVisibleNotesForEmCampo = useCallback(() => {
     const notesMap = new Map<string, NotaPanelData>()
 
     if (showResponsavelFilter && responsavelFilter === 'sem_atribuir') {
@@ -569,7 +586,7 @@ export function CollaboratorPanel({
 
         {mode === 'viewer' && !isReadOnlyViewer && (
           <NotesEmCampoDialog
-            notes={visibleNotesForEmCampo}
+            getNotes={resolveVisibleNotesForEmCampo}
             unidadeOptions={unidadeOptions}
             defaultUnidade={unidadeFilter}
           />
@@ -659,10 +676,10 @@ export function CollaboratorPanel({
                 notas={filtered}
                 isOpen={expandedId === c.id}
                 viewMode="list"
-                adminActions={mode === 'admin' ? (
+                adminActions={mode === 'admin' && expandedId === c.id ? (
                   <CollaboratorAdminActions
                     admin={admin}
-                    destinations={destinationsByAdmin.get(c.id) ?? []}
+                    allDestinations={activeDestinationOptions}
                   />
                 ) : undefined}
                 trackingOrders={tracking}
@@ -695,7 +712,7 @@ export function CollaboratorPanel({
                 adminActions={mode === 'admin' ? (
                   <CollaboratorAdminActions
                     admin={admin}
-                    destinations={destinationsByAdmin.get(c.id) ?? []}
+                    allDestinations={activeDestinationOptions}
                   />
                 ) : undefined}
                 trackingOrders={tracking}

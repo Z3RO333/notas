@@ -19,9 +19,9 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-3.5rem)] w-full flex-col px-3 pb-8 pt-4 sm:px-4 lg:pl-6 lg:pr-4 xl:pl-6 xl:pr-6">
+    <div className="flex min-h-[calc(100vh-3.5rem)] w-full flex-col px-3 pb-8 pt-4 sm:px-4 lg:pl-3 lg:pr-5 xl:pl-3 xl:pr-6">
       <AdminDashboardRoutingBootstrap />
-      <div className="flex flex-1 flex-col gap-3 lg:grid lg:grid-cols-[272px_minmax(0,1fr)] lg:items-start lg:gap-6 xl:grid-cols-[280px_minmax(0,1fr)] xl:gap-8">
+      <div className="flex flex-1 flex-col gap-3 lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[288px_minmax(0,1fr)] xl:gap-10">
         <AdminNav />
         <main className="min-w-0 w-full">{children}</main>
       </div>
