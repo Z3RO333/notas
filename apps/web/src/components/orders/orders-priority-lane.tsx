@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { AlertTriangle, ChevronDown, ChevronUp, Clock3, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { OrderCompactCard } from '@/components/orders/order-compact-card'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { OrdemNotaAcompanhamento, OrderReassignTarget } from '@/lib/types/database'
 
 interface OrdersPriorityLaneProps {
@@ -13,6 +14,8 @@ interface OrdersPriorityLaneProps {
   actionLabel: string
   total: number
   rows: OrdemNotaAcompanhamento[]
+  loading?: boolean
+  refreshing?: boolean
   icon: LucideIcon
   tone: 'danger' | 'warning'
   highlightQuery?: string
@@ -49,6 +52,8 @@ export function OrdersPriorityLane({
   actionLabel,
   total,
   rows,
+  loading = false,
+  refreshing = false,
   icon: Icon,
   tone,
   highlightQuery,
@@ -78,6 +83,11 @@ export function OrdersPriorityLane({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {refreshing && !loading ? (
+            <span aria-live="polite" className="text-xs text-muted-foreground">
+              Atualizando destaques...
+            </span>
+          ) : null}
           <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${styles.badge}`}>
             {formatNumber(total)} no escopo atual
           </span>
@@ -92,8 +102,41 @@ export function OrdersPriorityLane({
       </div>
 
       {!expanded ? (
-        <div className="mt-3 text-xs text-muted-foreground">
-          Painel minimizado. Clique em Expandir para ver as ordens.
+        <div className="mt-3 space-y-2">
+          <p className="text-xs text-muted-foreground">
+            {loading ? 'Carregando destaques deste bloco...' : 'Painel minimizado. Clique em Expandir para ver as ordens.'}
+          </p>
+          {loading ? (
+            <div className="space-y-2" aria-live="polite" aria-label={`Carregando ${title.toLowerCase()}`}>
+              <Skeleton className="h-3 w-40" />
+              <Skeleton className="h-3 w-56" />
+            </div>
+          ) : null}
+        </div>
+      ) : loading ? (
+        <div className="mt-3 space-y-3" aria-live="polite" aria-label={`Carregando ordens em ${title.toLowerCase()}`}>
+          <p className="text-xs text-muted-foreground">Carregando ordens em destaque...</p>
+          <div className="grid gap-2 xl:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className={`rounded-xl border p-4 ${styles.empty}`}>
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-3 w-36" />
+                    </div>
+                    <Skeleton className="h-6 w-16 rounded-full" />
+                  </div>
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-5/6" />
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Skeleton className="h-9 w-full" />
+                    <Skeleton className="h-9 w-full" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : rows.length === 0 ? (
         <div className={`mt-3 rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground ${styles.empty}`}>

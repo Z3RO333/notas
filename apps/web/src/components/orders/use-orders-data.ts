@@ -191,7 +191,11 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
   })
 
   // Highlights query: runs in parallel, deferred display
-  const { data: highlightsData } = useQuery({
+  const {
+    data: highlightsData,
+    isLoading: isLoadingHighlights,
+    isFetching: isFetchingHighlights,
+  } = useQuery({
     queryKey: workspaceQueryKeys.highlights,
     queryFn: async ({ signal }) => {
       const params = buildWorkspaceParams(effectiveFilters, null, BATCH_SIZE)
@@ -290,6 +294,8 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
     poolGroups: (freshData?.poolGroups ?? []) as Array<Omit<OrdersPoolGroup, 'rows'>>,
     poolCentros: freshData?.poolCentros ?? {},
     highlights: highlightsData?.highlights ?? INITIAL_HIGHLIGHTS,
+    isLoadingHighlights,
+    isFetchingHighlights,
     nextCursor,
     loadingInitial,
     loadingMore,

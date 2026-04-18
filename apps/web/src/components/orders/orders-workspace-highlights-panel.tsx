@@ -6,6 +6,8 @@ import type { OrdemNotaAcompanhamento, OrderReassignTarget, OrdersWorkspaceHighl
 
 export interface OrdersWorkspaceHighlightsPanelProps {
   highlights: OrdersWorkspaceHighlights
+  isLoading: boolean
+  isFetching: boolean
   priorityTotals: { oldest: number; attention: number }
   highlightQuery: string
   canReassign: boolean
@@ -18,6 +20,8 @@ export interface OrdersWorkspaceHighlightsPanelProps {
 
 export const OrdersWorkspaceHighlightsPanel = memo(function OrdersWorkspaceHighlightsPanel({
   highlights,
+  isLoading,
+  isFetching,
   priorityTotals,
   highlightQuery,
   canReassign,
@@ -36,6 +40,8 @@ export const OrdersWorkspaceHighlightsPanel = memo(function OrdersWorkspaceHighl
         actionLabel={PRIORITY_LANE_CONFIG.oldest.actionLabel}
         total={priorityTotals.oldest}
         rows={highlights.oldest}
+        loading={isLoading}
+        refreshing={isFetching}
         icon={PRIORITY_LANE_CONFIG.oldest.icon}
         tone={PRIORITY_LANE_CONFIG.oldest.tone}
         highlightQuery={highlightQuery}
@@ -52,6 +58,8 @@ export const OrdersWorkspaceHighlightsPanel = memo(function OrdersWorkspaceHighl
         actionLabel={PRIORITY_LANE_CONFIG.attention.actionLabel}
         total={priorityTotals.attention}
         rows={highlights.attention}
+        loading={isLoading}
+        refreshing={isFetching}
         icon={PRIORITY_LANE_CONFIG.attention.icon}
         tone={PRIORITY_LANE_CONFIG.attention.tone}
         highlightQuery={highlightQuery}

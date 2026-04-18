@@ -160,7 +160,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   // --- Data + smart search ---
   const {
     rows, setRows, pendingSyncRows, setPendingSyncRows, unitOptions: fetchedUnitOptions, kpis, ownerSummary, reassignTargets, poolGroups, poolCentros, highlights,
-    nextCursor, loadingInitial, loadingMore, error, currentUser, parentRef, smartSearch, effectiveFilters, fetchWorkspace,
+    isLoadingHighlights, isFetchingHighlights, nextCursor, loadingInitial, loadingMore, error, currentUser, parentRef, smartSearch, effectiveFilters, fetchWorkspace,
   } = useOrdersData({
     filters,
     initialUser,
@@ -647,6 +647,8 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       {presentation.showPriorityLanes && !privateOwnerLookupActive && (
         <OrdersWorkspaceHighlightsPanel
           highlights={highlights}
+          isLoading={isLoadingHighlights}
+          isFetching={isFetchingHighlights}
           priorityTotals={priorityTotals}
           highlightQuery={smartSearch.highlightQuery}
           canReassign={canReassign}
