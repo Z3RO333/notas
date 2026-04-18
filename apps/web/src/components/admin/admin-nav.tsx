@@ -85,12 +85,14 @@ function getActiveEntry(pathname: string) {
 function AdminNavSections({
   pathname,
   onNavigate,
+  className,
 }: {
   pathname: string
   onNavigate?: () => void
+  className?: string
 }) {
   return (
-    <div className="space-y-5">
+    <nav aria-label="Navegacao administrativa" className={cn('space-y-5', className)}>
       {navSections.map((section) => {
         const sectionIsActive = section.links.some((link) => isLinkActive(pathname, link))
 
@@ -146,7 +148,7 @@ function AdminNavSections({
           </section>
         )
       })}
-    </div>
+    </nav>
   )
 }
 
@@ -208,9 +210,9 @@ export function AdminNav() {
         </Dialog>
       </div>
 
-      <aside className="hidden self-start lg:block lg:sticky lg:top-[4.5rem]">
-        <div className="rounded-[28px] border bg-card/70 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/60">
-          <div className="border-b px-3 pb-4 pt-1">
+      <aside className="hidden self-start lg:block lg:sticky lg:top-[4.5rem] lg:h-[calc(100vh-5.5rem)]">
+        <div className="flex h-full flex-col overflow-hidden rounded-[24px] border bg-card/70 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/60">
+          <div className="shrink-0 border-b px-4 pb-4 pt-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Painel admin
             </p>
@@ -222,9 +224,10 @@ export function AdminNav() {
             </p>
           </div>
 
-          <div className="px-1 pb-1 pt-4">
-            <AdminNavSections pathname={pathname} />
-          </div>
+          <AdminNavSections
+            pathname={pathname}
+            className="flex-1 overflow-y-auto overscroll-contain px-3 pb-4 pt-4 pr-2"
+          />
         </div>
       </aside>
     </>

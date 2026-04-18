@@ -19,11 +19,11 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-4 pb-8 pt-4 sm:px-6 lg:px-8">
+    <div className="flex min-h-[calc(100vh-3.5rem)] w-full flex-col px-3 pb-8 pt-4 sm:px-4 lg:px-4 xl:px-6">
       <AdminDashboardRoutingBootstrap />
-      <div className="flex flex-1 flex-col gap-2 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-8">
+      <div className="flex flex-1 flex-col gap-3 lg:grid lg:grid-cols-[272px_minmax(0,1fr)] lg:items-start lg:gap-6 xl:grid-cols-[280px_minmax(0,1fr)] xl:gap-8">
         <AdminNav />
-        <main className="min-w-0 flex-1">{children}</main>
+        <main className="min-w-0 w-full">{children}</main>
       </div>
     </div>
   )
