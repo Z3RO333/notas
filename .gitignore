@@ -71,3 +71,5 @@ CLAUDE.md
 apps/web/.codex-dev-server.log
 apps/web/.codex-dev-server.err.log
 .claude/settings.local.json
+jobs/sync-pedidos/notebook_databricks.py
+jobs/sync-pedidos/sync_pedidos_to_supabase.py

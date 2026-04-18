@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { ClipboardList, ListChecks, Shield, Sparkles, LogOut, Menu, X } from 'lucide-react'
+import { ClipboardList, ListChecks, Shield, ShoppingCart, Sparkles, LogOut, Menu, X } from 'lucide-react'
 import { ThemeSelector } from '@/components/theme/theme-selector'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -24,6 +24,7 @@ export function TopNav({ userName, userRole }: TopNavProps) {
   const links = [
     { href: '/', label: 'Painel de Notas', icon: ClipboardList },
     { href: '/ordens', label: 'Painel de Ordens', icon: ListChecks },
+    { href: '/pedidos', label: 'Pedidos de Compra', icon: ShoppingCart },
     ...(userRole === 'gestor'
       ? [
           { href: '/admin', label: 'Admin', icon: Shield },
