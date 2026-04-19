@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/select'
 import { buildAgingCounts } from '@/lib/collaborator/metrics'
 import {
-  collectVisibleNotesForEmCampo,
   deriveCollaboratorBaseState,
   deriveCollaboratorVisibleState,
 } from '@/lib/collaborator/panel-selectors'
@@ -22,7 +21,7 @@ import { CollaboratorAccordion } from './collaborator-accordion'
 import { CollaboratorAdminActions } from './collaborator-admin-actions'
 import { CollaboratorFullCard } from './collaborator-full-card'
 import { TrackingOrdersBlock } from './tracking-orders-block'
-import { NotesEmCampoDialog } from '@/components/notas/notes-em-campo-dialog'
+import { OperacionalCoberturaDialog } from '@/components/notas/operacional-cobertura-dialog'
 import { listenNotaOperacaoEvent } from '@/lib/notes/copy-intent'
 import {
   applyOperationalStateToNota,
@@ -346,22 +345,6 @@ export function CollaboratorPanel({
     structuralFilters,
   ])
 
-  const resolveVisibleNotesForEmCampo = useCallback(() => {
-    return collectVisibleNotesForEmCampo({
-      filteredNotasByAdmin,
-      filteredNotasSemAtribuir,
-      visibleCollaborators,
-      showResponsavelFilter,
-      responsavelFilter,
-    })
-  }, [
-    filteredNotasByAdmin,
-    filteredNotasSemAtribuir,
-    responsavelFilter,
-    showResponsavelFilter,
-    visibleCollaborators,
-  ])
-
   function handleCardClick(id: string) {
     setExpandedId((prev) => (prev === id ? null : id))
   }
@@ -522,11 +505,7 @@ export function CollaboratorPanel({
         )}
 
         {mode === 'viewer' && !isReadOnlyViewer && (
-          <NotesEmCampoDialog
-            getNotes={resolveVisibleNotesForEmCampo}
-            unidadeOptions={unidadeOptions}
-            defaultUnidade={unidadeFilter}
-          />
+          <OperacionalCoberturaDialog />
         )}
 
         <Select value={viewMode} onValueChange={handleViewModeChange}>
