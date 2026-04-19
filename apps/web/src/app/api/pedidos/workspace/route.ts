@@ -121,11 +121,11 @@ export async function GET(request: Request) {
   const adminsPromise = includeMeta && canViewGlobal
     ? supabase
         .from('administradores')
-        .select('id, nome')
+        .select('id, nome, avatar_url')
         .eq('ativo', true)
         .eq('recebe_distribuicao', true)
         .order('nome')
-    : Promise.resolve({ data: [] as Array<{ id: string; nome: string }>, error: null })
+    : Promise.resolve({ data: [] as Array<{ id: string; nome: string; avatar_url: string | null }>, error: null })
 
   const [rowsResult, kpisResult, anosResult, mesesResult, adminsResult] = await Promise.all([
     supabase.rpc('buscar_pedidos_workspace', {
@@ -186,7 +186,7 @@ export async function GET(request: Request) {
   const meta: PedidosWorkspaceMeta | undefined = includeMeta
     ? {
         kpis: mapKpis((kpisResult.data ?? null) as Partial<PedidosKpis> | null),
-        availableAdmins: (adminsResult.data ?? []) as Array<{ id: string; nome: string }>,
+        availableAdmins: (adminsResult.data ?? []) as Array<{ id: string; nome: string; avatar_url: string | null }>,
         availableAnos: ((anosResult.data ?? []) as Array<{ ano: string | null }>)
           .map((row) => row.ano)
           .filter((value): value is string => Boolean(value)),

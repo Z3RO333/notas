@@ -42,6 +42,7 @@ export function PedidosWorkspace({ initialFilters, initialUser }: PedidosWorkspa
   const parentRef = useRef<HTMLDivElement | null>(null)
 
   const adminMap = Object.fromEntries(availableAdmins.map((a) => [a.id, a.nome]))
+  const adminAvatarMap = Object.fromEntries(availableAdmins.map((a) => [a.id, a.avatar_url ?? null]))
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -218,6 +219,7 @@ export function PedidosWorkspace({ initialFilters, initialUser }: PedidosWorkspa
                       pedido={pedido}
                       onOpen={setSelectedPedido}
                       adminNome={initialUser.canViewGlobal ? adminMap[pedido.administrador_id] : undefined}
+                      adminAvatarUrl={initialUser.canViewGlobal ? (adminAvatarMap[pedido.administrador_id] ?? null) : null}
                     />
                   </div>
                 )

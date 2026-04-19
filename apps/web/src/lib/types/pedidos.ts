@@ -58,7 +58,7 @@ export interface PedidosWorkspaceCursor {
 
 export interface PedidosWorkspaceMeta {
   kpis: PedidosKpis
-  availableAdmins: { id: string; nome: string }[]
+  availableAdmins: { id: string; nome: string; avatar_url: string | null }[]
   availableAnos: string[]
   availableMeses: string[]
 }

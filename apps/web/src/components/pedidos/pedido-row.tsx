@@ -2,12 +2,14 @@
 
 import { memo } from 'react'
 import { Badge } from '@/components/ui/badge'
+import { Avatar } from '@/components/ui/avatar'
 import type { PedidoCompra, PedidoCompraStatus } from '@/lib/types/pedidos'
 
 interface PedidoRowProps {
   pedido: PedidoCompra
   onOpen: (pedido: PedidoCompra) => void
   adminNome?: string
+  adminAvatarUrl?: string | null
 }
 
 const STATUS_LABEL: Record<PedidoCompraStatus, string> = {
@@ -52,7 +54,7 @@ function getFornecedorSecundario(pedido: PedidoCompra): string | null {
   return null
 }
 
-export const PedidoRow = memo(function PedidoRow({ pedido, onOpen, adminNome }: PedidoRowProps) {
+export const PedidoRow = memo(function PedidoRow({ pedido, onOpen, adminNome, adminAvatarUrl }: PedidoRowProps) {
   const fornecedorPrincipal = getFornecedorPrincipal(pedido)
   const fornecedorSecundario = getFornecedorSecundario(pedido)
 
@@ -62,7 +64,12 @@ export const PedidoRow = memo(function PedidoRow({ pedido, onOpen, adminNome }: 
       onClick={() => onOpen(pedido)}
       className="w-full text-left rounded-lg border bg-card px-4 py-3 shadow-sm transition-all hover:shadow-md hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-center gap-3">
+        {adminNome && (
+          <div className="shrink-0">
+            <Avatar src={adminAvatarUrl} nome={adminNome} size="sm" />
+          </div>
+        )}
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-sm font-semibold">{pedido.documento_compras}</span>
