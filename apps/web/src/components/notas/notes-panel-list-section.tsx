@@ -29,7 +29,6 @@ export async function NotesPanelListSection({
       responsavelOptions={summary.responsavelOptions}
       unidadeOptions={summary.unidadeOptions}
       showResponsavelFilter={summary.canViewGlobal}
-      showUnidadeFilter
       statusScope="open_only"
       activeNotesKpi={summary.activeNotesKpi}
       preferCanonicalCollaboratorMetrics

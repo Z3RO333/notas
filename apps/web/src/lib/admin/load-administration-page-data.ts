@@ -13,6 +13,8 @@ import type { AdminPerson } from '@/components/admin/admin-people-types'
 import type {
   EscalaDistribuicaoSabado,
   EscalaDistribuicaoSabadoParticipante,
+  OperacionalAdmin,
+  OperacionalUnidade,
 } from '@/lib/types/database'
 
 interface PmplConfigRow {
@@ -46,6 +48,8 @@ export interface AdministrationPageData {
   saturdayScheduleMonthKey: string
   saturdayScheduleCandidates: SaturdayScheduleCandidate[]
   saturdayScheduleSlots: SaturdayScheduleSlot[]
+  operacionais: OperacionalAdmin[]
+  todasUnidades: string[]
 }
 
 function isMissingVacationColumnsError(error: { code?: string; message?: string } | null): boolean {
@@ -111,6 +115,59 @@ async function loadSaturdayScheduleSlots(
   }
 
   return buildSaturdayScheduleSlots(monthKey, mergeSaturdayScheduleRows(schedules, participants))
+}
+
+async function loadOperacionaisComUnidades(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<OperacionalAdmin[]> {
+  const [opResult, unidadesResult] = await Promise.all([
+    supabase
+      .from('dim_operacionais')
+      .select('codigo, nome, ativo, avatar_url, especialidade, created_at, updated_at')
+      .order('nome'),
+    supabase
+      .from('operacional_unidades')
+      .select('id, operacional_codigo, unidade, grupo_nome')
+      .order('grupo_nome')
+      .order('unidade'),
+  ])
+
+  if (opResult.error) throw opResult.error
+
+  const unidadesByCode = new Map<string, OperacionalUnidade[]>()
+  for (const u of (unidadesResult.data ?? [])) {
+    const existing = unidadesByCode.get(u.operacional_codigo) ?? []
+    existing.push({
+      id: u.id,
+      operacional_codigo: u.operacional_codigo,
+      unidade: u.unidade,
+      grupo_nome: u.grupo_nome,
+    })
+    unidadesByCode.set(u.operacional_codigo, existing)
+  }
+
+  return (opResult.data ?? []).map((op) => ({
+    codigo: op.codigo,
+    nome: op.nome,
+    ativo: op.ativo,
+    avatar_url: op.avatar_url ?? null,
+    especialidade: op.especialidade ?? null,
+    created_at: op.created_at,
+    updated_at: op.updated_at,
+    unidades: unidadesByCode.get(op.codigo) ?? [],
+  }))
+}
+
+async function loadTodasUnidades(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('dim_centro_unidade')
+    .select('unidade')
+    .order('unidade')
+
+  if (error) throw error
+  return (data ?? []).map((row) => row.unidade as string)
 }
 
 export async function loadAdministrationPageData(params?: {
@@ -182,7 +239,11 @@ export async function loadAdministrationPageData(params?: {
       em_ferias: person.em_ferias,
     }))
 
-  const saturdayScheduleSlots = await loadSaturdayScheduleSlots(supabase, saturdayScheduleMonthKey)
+  const [saturdayScheduleSlots, operacionais, todasUnidades] = await Promise.all([
+    loadSaturdayScheduleSlots(supabase, saturdayScheduleMonthKey),
+    loadOperacionaisComUnidades(supabase),
+    loadTodasUnidades(supabase),
+  ])
 
   return {
     people,
@@ -199,5 +260,7 @@ export async function loadAdministrationPageData(params?: {
     saturdayScheduleMonthKey,
     saturdayScheduleCandidates,
     saturdayScheduleSlots,
+    operacionais,
+    todasUnidades,
   }
 }

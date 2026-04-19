@@ -991,3 +991,21 @@ export interface ProdutividadeLoja {
   em_aberto: number
   pct_conclusao: number
 }
+
+export interface OperacionalUnidade {
+  id: string
+  operacional_codigo: string
+  unidade: string
+  grupo_nome: string | null
+}
+
+export interface OperacionalAdmin {
+  codigo: string
+  nome: string
+  ativo: boolean
+  avatar_url: string | null
+  especialidade: string | null
+  created_at: string
+  updated_at: string
+  unidades: OperacionalUnidade[]
+}

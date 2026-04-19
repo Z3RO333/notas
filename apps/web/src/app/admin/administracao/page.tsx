@@ -4,6 +4,7 @@ import { AdminOrderTypeOwnerManager } from '@/components/admin/admin-order-type-
 import { AdminSaturdayScheduleManager } from '@/components/admin/admin-saturday-schedule-manager'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { AdminPeopleManager } from '@/components/admin/admin-people-manager'
+import { AdminOperacionaisManager } from '@/components/admin/operacional/admin-operacionais-manager'
 import { loadAdministrationPageData } from '@/lib/admin/load-administration-page-data'
 
 export const dynamic = 'force-dynamic'
@@ -45,6 +46,11 @@ export default async function AdministracaoPage({ searchParams }: AdministracaoP
         selectedMonthKey={data.saturdayScheduleMonthKey}
         candidates={data.saturdayScheduleCandidates}
         slots={data.saturdayScheduleSlots}
+      />
+
+      <AdminOperacionaisManager
+        operacionais={data.operacionais}
+        todasUnidades={data.todasUnidades}
       />
     </div>
   )
