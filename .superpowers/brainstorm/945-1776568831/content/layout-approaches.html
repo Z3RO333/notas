@@ -1,0 +1,144 @@
+<h2>Layout das páginas operacionais — qual abordagem?</h2>
+<p class="subtitle">Comparando o estado atual com 3 opções de layout mais aberto para Notas e Ordens</p>
+
+<div class="section" style="margin-bottom: 2rem;">
+
+  <!-- CURRENT STATE -->
+  <h3 style="margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em;">Estado atual</h3>
+  <div class="mockup" style="margin-bottom: 2rem; opacity: 0.65; border-style: dashed;">
+    <div class="mockup-header">Hoje — max-w-screen-2xl (1536px), centralizado</div>
+    <div class="mockup-body" style="background: var(--bg); padding: 0;">
+      <div style="background: #1e293b; height: 40px; display: flex; align-items: center; padding: 0 16px;">
+        <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">TopNav — ocupa 100% da tela</span>
+      </div>
+      <div style="display: flex; justify-content: center; background: #0f172a; padding: 12px 0;">
+        <div style="width: 80%; background: #1e293b; border-radius: 8px; padding: 16px; box-sizing: border-box;">
+          <div style="background: #334155; border-radius: 4px; height: 20px; width: 30%; margin-bottom: 12px;"></div>
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <div style="flex: 1; background: #334155; border-radius: 4px; height: 32px;"></div>
+            <div style="flex: 1; background: #334155; border-radius: 4px; height: 32px;"></div>
+            <div style="width: 100px; background: #334155; border-radius: 4px; height: 32px;"></div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px;">
+            <div style="background: #334155; border-radius: 6px; height: 60px;"></div>
+            <div style="background: #334155; border-radius: 6px; height: 60px;"></div>
+            <div style="background: #334155; border-radius: 6px; height: 60px;"></div>
+            <div style="background: #334155; border-radius: 6px; height: 60px;"></div>
+          </div>
+          <div style="background: #334155; border-radius: 4px; height: 120px;"></div>
+        </div>
+        <div style="width: 10%; background: repeating-linear-gradient(45deg, #0f172a 0, #0f172a 5px, #1e293b 5px, #1e293b 10px); border-radius: 0;" title="Espaço morto"></div>
+      </div>
+      <p style="text-align: center; font-size: 11px; color: #ef4444; padding: 4px; margin: 0;">↑ Espaço morto nas laterais (~200px cada lado em 1920px)</p>
+    </div>
+  </div>
+
+  <!-- OPTIONS -->
+  <h3 style="margin-bottom: 1rem;">Escolha uma abordagem:</h3>
+
+  <div class="cards">
+
+    <!-- OPTION A -->
+    <div class="card" data-choice="a" onclick="toggleSelect(this)">
+      <div class="card-image" style="padding: 12px; background: #0f172a; border-radius: 6px;">
+        <div style="background: #1e293b; height: 30px; display: flex; align-items: center; padding: 0 12px; margin-bottom: 8px;">
+          <span style="color: #94a3b8; font-size: 10px;">TopNav</span>
+        </div>
+        <div style="background: #1e293b; border-radius: 6px; padding: 10px; box-sizing: border-box; width: 100%;">
+          <div style="background: #475569; border-radius: 3px; height: 14px; width: 25%; margin-bottom: 8px;"></div>
+          <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+            <div style="flex: 1; background: #475569; border-radius: 3px; height: 24px;"></div>
+            <div style="flex: 1; background: #475569; border-radius: 3px; height: 24px;"></div>
+            <div style="width: 70px; background: #475569; border-radius: 3px; height: 24px;"></div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 8px;">
+            <div style="background: #475569; border-radius: 4px; height: 44px;"></div>
+            <div style="background: #475569; border-radius: 4px; height: 44px;"></div>
+            <div style="background: #475569; border-radius: 4px; height: 44px;"></div>
+            <div style="background: #475569; border-radius: 4px; height: 44px;"></div>
+          </div>
+          <div style="background: #475569; border-radius: 3px; height: 80px;"></div>
+        </div>
+        <p style="text-align:center; font-size:10px; color: #22c55e; margin: 6px 0 0; font-weight:600;">✓ Conteúdo ocupa toda a largura</p>
+      </div>
+      <div class="card-body">
+        <h3>A — Full-width com padding</h3>
+        <p>Igual ao Admin: sem max-width, padding horizontal controlado (<code>px-4 lg:px-8</code>). Aproveita 100% da tela disponível.</p>
+        <div class="pros-cons" style="margin-top: 8px;">
+          <div class="pros"><h4>Prós</h4><ul><li>Máxima área útil</li><li>Consistente com Admin</li><li>Tabelas e cards respiram</li></ul></div>
+          <div class="cons"><h4>Contras</h4><ul><li>Em telas ultra-wide (34"+) pode ficar muito esticado</li></ul></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION B -->
+    <div class="card" data-choice="b" onclick="toggleSelect(this)">
+      <div class="card-image" style="padding: 12px; background: #0f172a; border-radius: 6px;">
+        <div style="background: #1e293b; height: 30px; display: flex; align-items: center; padding: 0 12px; margin-bottom: 8px;">
+          <span style="color: #94a3b8; font-size: 10px;">TopNav</span>
+        </div>
+        <div style="display: flex; justify-content: center;">
+          <div style="background: #1e293b; border-radius: 6px; padding: 10px; box-sizing: border-box; width: 94%;">
+            <div style="background: #475569; border-radius: 3px; height: 14px; width: 25%; margin-bottom: 8px;"></div>
+            <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+              <div style="flex: 1; background: #475569; border-radius: 3px; height: 24px;"></div>
+              <div style="flex: 1; background: #475569; border-radius: 3px; height: 24px;"></div>
+              <div style="width: 70px; background: #475569; border-radius: 3px; height: 24px;"></div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 8px;">
+              <div style="background: #475569; border-radius: 4px; height: 44px;"></div>
+              <div style="background: #475569; border-radius: 4px; height: 44px;"></div>
+              <div style="background: #475569; border-radius: 4px; height: 44px;"></div>
+              <div style="background: #475569; border-radius: 4px; height: 44px;"></div>
+            </div>
+            <div style="background: #475569; border-radius: 3px; height: 80px;"></div>
+          </div>
+        </div>
+        <p style="text-align:center; font-size:10px; color: #f59e0b; margin: 6px 0 0; font-weight:600;">≈ Quase full, trava em 1800px</p>
+      </div>
+      <div class="card-body">
+        <h3>B — max-w 1800px centralizado</h3>
+        <p>Amplia bastante o espaço (atual: 1536px → novo: 1800px), mas mantém centralização. Menos espaço morto, levemente mais conservador.</p>
+        <div class="pros-cons" style="margin-top: 8px;">
+          <div class="pros"><h4>Prós</h4><ul><li>Boa em monitores 1440p</li><li>Não estica em ultra-wide</li><li>Mudança menor de comportamento</li></ul></div>
+          <div class="cons"><h4>Contras</h4><ul><li>Ainda centralizado — espaço morto em telas maiores</li><li>Não resolve pra 4K/ultra-wide</li></ul></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION C -->
+    <div class="card" data-choice="c" onclick="toggleSelect(this)">
+      <div class="card-image" style="padding: 12px; background: #0f172a; border-radius: 6px;">
+        <div style="background: #1e293b; height: 30px; display: flex; align-items: center; padding: 0 12px; margin-bottom: 8px;">
+          <span style="color: #94a3b8; font-size: 10px;">TopNav</span>
+        </div>
+        <div style="background: #1e293b; border-radius: 6px; padding: 10px; box-sizing: border-box; width: 100%;">
+          <div style="background: #475569; border-radius: 3px; height: 14px; width: 25%; margin-bottom: 8px;"></div>
+          <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+            <div style="flex: 1; background: #475569; border-radius: 3px; height: 24px;"></div>
+            <div style="flex: 1; background: #475569; border-radius: 3px; height: 24px;"></div>
+            <div style="width: 70px; background: #475569; border-radius: 3px; height: 24px;"></div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 8px;">
+            <div style="background: #475569; border-radius: 4px; height: 44px;"></div>
+            <div style="background: #475569; border-radius: 4px; height: 44px;"></div>
+            <div style="background: #475569; border-radius: 4px; height: 44px;"></div>
+            <div style="background: #475569; border-radius: 4px; height: 44px;"></div>
+            <div style="background: #475569; border-radius: 4px; height: 44px;"></div>
+          </div>
+          <div style="background: #475569; border-radius: 3px; height: 80px;"></div>
+        </div>
+        <p style="text-align:center; font-size:10px; color: #22c55e; margin: 6px 0 0; font-weight:600;">✓ Full-width + mais colunas onde couber</p>
+      </div>
+      <div class="card-body">
+        <h3>C — Full-width + grids responsivos</h3>
+        <p>Full-width igual ao A, mas aproveita o espaço extra adicionando colunas nos grids de cards/mini-cards (ex: 5 ou 6 colunas em telas largas).</p>
+        <div class="pros-cons" style="margin-top: 8px;">
+          <div class="pros"><h4>Prós</h4><ul><li>Usa cada pixel disponível</li><li>Mais cards visíveis sem scroll</li><li>Melhor densidade em 1440p+</li></ul></div>
+          <div class="cons"><h4>Contras</h4><ul><li>Requer ajustes nos grids dos componentes internos</li><li>Mais trabalho de implementação</li></ul></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
