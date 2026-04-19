@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { resolveMaintainerViewFromCookie } from '@/lib/auth/shared'
-import { MVIEW_COOKIE_NAME } from '@/lib/auth/maintainer-view'
 import {
   buildFixedOwnerAvatarByAdminId,
   resolveFixedOwnerAvatarByName,
 } from '@/lib/admin/admin-identity-catalog'
+import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
 import {
   emptyWorkspaceKpis,
   recomputeWorkspaceKpisFromRows,
@@ -37,7 +35,6 @@ import type {
   OrdersWorkspaceKpis,
   OrdersWorkspaceResponse,
   TipoUnidade,
-  UserRole,
 } from '@/lib/types/database'
 
 type RpcError = { code?: string; message: string } | null
@@ -223,30 +220,23 @@ function prioritizeOldestHighlights(rows: OrdemNotaAcompanhamento[]): OrdemNotaA
 
 export async function GET(request: Request) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const currentAdminContext = await getCurrentRequestAdminContext({
+    supabase,
+    allowMaintainerView: true,
+  })
 
-  if (!user?.email) {
+  if (!currentAdminContext.email) {
     return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
   }
 
-  const { data: loggedAdmin, error: loggedAdminError } = await supabase
-    .from('administradores')
-    .select('id, role')
-    .eq('email', user.email)
-    .single()
-
-  if (loggedAdminError || !loggedAdmin) {
+  if (!currentAdminContext.adminId || !currentAdminContext.role) {
     return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
   }
 
   const url = new URL(request.url)
-  const actualRole = loggedAdmin.role as UserRole
-  const cookieStore = await cookies()
-  const mviewCookie = cookieStore.get(MVIEW_COOKIE_NAME)?.value
-  const secret = process.env.MAINTAINER_SESSION_SECRET
-  const role = resolveMaintainerViewFromCookie(mviewCookie, user.email, secret) ?? actualRole
-  const canViewGlobal = role === 'gestor' || role === 'viewer'
-  const canManageWorkspace = role === 'gestor'
+  const role = currentAdminContext.role
+  const canViewGlobal = currentAdminContext.canViewGlobal
+  const canManageWorkspace = currentAdminContext.isGestor
 
   let fixedOwnerLabelByAdminId = new Map<string, string>()
   try {
@@ -263,7 +253,7 @@ export async function GET(request: Request) {
       const pmplResolution = await resolveCurrentPmplOwner(supabase)
       canAccessPmpl = canAccessPmplTab({
         role,
-        loggedAdminId: loggedAdmin.id,
+        loggedAdminId: currentAdminContext.adminId,
         pmplResolution,
       })
     } catch (error) {
@@ -275,7 +265,7 @@ export async function GET(request: Request) {
   const parsedRequest = parseOrdersWorkspaceRequest(url.searchParams, canAccessPmpl)
   const skipHighlights = url.searchParams.get('skip_highlights') === '1'
   const highlightsOnly = url.searchParams.get('highlights_only') === '1'
-  const adminScope = canViewGlobal ? null : loggedAdmin.id
+  const adminScope = canViewGlobal ? null : currentAdminContext.adminId
   const responsavelFilter = canViewGlobal ? parsedRequest.responsavel : null
   const privateOwnerLookupPromise = !canViewGlobal && role === 'admin'
     ? fetchPrivateOwnerLookupRows(supabase, parsedRequest)
@@ -498,8 +488,8 @@ export async function GET(request: Request) {
   let discardedSummary = 0
 
   if (!canViewGlobal) {
-    const scopedRows = rows.filter((row) => row.responsavel_atual_id === loggedAdmin.id)
-    const scopedSummary = ownerSummary.filter((item) => item.administrador_id === loggedAdmin.id)
+    const scopedRows = rows.filter((row) => row.responsavel_atual_id === currentAdminContext.adminId)
+    const scopedSummary = ownerSummary.filter((item) => item.administrador_id === currentAdminContext.adminId)
 
     discardedRows = rows.length - scopedRows.length
     discardedSummary = ownerSummary.length - scopedSummary.length
@@ -509,7 +499,7 @@ export async function GET(request: Request) {
 
     if (discardedRows > 0 || discardedSummary > 0) {
       logger.warn('[orders/workspace] escopo privado descartou dados fora do admin logado', {
-        adminId: loggedAdmin.id,
+        adminId: currentAdminContext.adminId,
         discardedRows,
         discardedSummary,
         rowsFromRpc: rowsFromRpc.length,
@@ -615,10 +605,10 @@ export async function GET(request: Request) {
     highlights,
     currentUser: {
       role,
-      adminId: loggedAdmin.id,
+      adminId: currentAdminContext.adminId,
       canViewGlobal,
       canAccessPmpl,
-      maintainerViewActive: mviewCookie !== undefined && role !== actualRole,
+      maintainerViewActive: currentAdminContext.maintainerViewActive,
     },
   }
 
@@ -627,23 +617,17 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const currentAdminContext = await getCurrentRequestAdminContext({ supabase })
 
-  if (!user?.email) {
+  if (!currentAdminContext.email) {
     return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
   }
 
-  const { data: loggedAdmin, error: loggedAdminError } = await supabase
-    .from('administradores')
-    .select('id, role')
-    .eq('email', user.email)
-    .single()
-
-  if (loggedAdminError || !loggedAdmin) {
+  if (!currentAdminContext.adminId || !currentAdminContext.actualRole) {
     return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
   }
 
-  if (loggedAdmin.role !== 'gestor') {
+  if (currentAdminContext.actualRole !== 'gestor') {
     return NextResponse.json({ error: 'Apenas gestores podem acionar o roteamento' }, { status: 403 })
   }
 
@@ -653,7 +637,7 @@ export async function POST(request: Request) {
   try {
     const result = await applyAutomaticOrdersRouting({
       supabase,
-      gestorId: loggedAdmin.id,
+      gestorId: currentAdminContext.adminId,
       debug,
       motivo: 'Roteamento manual PMPL/Refrigeracao/CD',
     })

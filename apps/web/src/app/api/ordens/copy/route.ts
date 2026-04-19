@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { resolveMaintainerViewFromCookie } from '@/lib/auth/shared'
 import {
   ORDERS_TIPO_ORDEM_MIGRATION_HINT,
   isRpcWithoutTipoOrdemSupport,
@@ -16,44 +14,33 @@ import {
   canAccessPmplTab,
   resolveCurrentPmplOwner,
 } from '@/lib/orders/pmpl-routing'
-import type { OrdemNotaAcompanhamento, UserRole } from '@/lib/types/database'
+import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
+import type { OrdemNotaAcompanhamento } from '@/lib/types/database'
 
 export async function GET(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const ctx = await getCurrentRequestAdminContext({ allowMaintainerView: true })
 
-  if (!user?.email) {
+  if (!ctx.isAuthenticated) {
     return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
   }
-
-  const { data: loggedAdmin, error: loggedAdminError } = await supabase
-    .from('administradores')
-    .select('id, role')
-    .eq('email', user.email)
-    .single()
-
-  if (loggedAdminError || !loggedAdmin) {
+  if (!ctx.adminId) {
     return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
   }
-
-  const url = new URL(request.url)
-  const actualRole = loggedAdmin.role as UserRole
-  const cookieStore = await cookies()
-  const mviewCookie = cookieStore.get('__cockpit_mview')?.value
-  const secret = process.env.MAINTAINER_SESSION_SECRET
-  const role = resolveMaintainerViewFromCookie(mviewCookie, user.email, secret) ?? actualRole
-  if (role === 'viewer') {
+  if (ctx.role === 'viewer') {
     return NextResponse.json({ error: 'Viewer nao pode copiar ordens em lote' }, { status: 403 })
   }
-  const canViewGlobal = role === 'gestor'
+
+  const supabase = await createClient()
+  const url = new URL(request.url)
+  const { role, canViewGlobal, adminId } = ctx
 
   let canAccessPmpl = canViewGlobal
-  if (!canViewGlobal) {
+  if (!canViewGlobal && role) {
     try {
       const pmplResolution = await resolveCurrentPmplOwner(supabase)
       canAccessPmpl = canAccessPmplTab({
         role,
-        loggedAdminId: loggedAdmin.id,
+        loggedAdminId: adminId!,
         pmplResolution,
       })
     } catch {
@@ -62,7 +49,7 @@ export async function GET(request: Request) {
   }
 
   const parsedRequest = parseOrdersWorkspaceRequest(url.searchParams, canAccessPmpl)
-  const adminScope = canViewGlobal ? null : loggedAdmin.id
+  const adminScope = canViewGlobal ? null : adminId
   const responsavelFilter = canViewGlobal ? parsedRequest.responsavel : null
   const privateOwnerLookupResult = !canViewGlobal && role === 'admin'
     ? await fetchPrivateOwnerLookupRows(supabase, parsedRequest)
@@ -109,13 +96,13 @@ export async function GET(request: Request) {
 
   const rows = privateOwnerLookupResult.lookupToken
     ? mergeWorkspaceLookupRows(
-      rowsFromRpc.filter((row) => row.responsavel_atual_id === loggedAdmin.id)
+      rowsFromRpc.filter((row) => row.responsavel_atual_id === adminId)
         .filter((row) => matchesPrivateOwnerLookupRow(row, privateOwnerLookupResult.lookupToken)),
       privateOwnerLookupResult.rows,
     )
     : canViewGlobal
         ? rowsFromRpc
-        : rowsFromRpc.filter((row) => row.responsavel_atual_id === loggedAdmin.id)
+        : rowsFromRpc.filter((row) => row.responsavel_atual_id === adminId)
 
   const lastRow = rowsFromRpc.length > 0 ? rowsFromRpc[rowsFromRpc.length - 1] : null
   const nextCursor = privateOwnerLookupResult.lookupToken

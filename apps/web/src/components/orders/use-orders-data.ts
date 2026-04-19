@@ -2,10 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { buildWorkspaceParams } from '@/lib/orders/workspace-query'
 import { createOrdersWorkspaceQueryKeys } from '@/lib/orders/workspace-query-keys'
+import { ORDER_DETAIL_QUERY_NAMESPACE } from '@/lib/orders/detail-query'
+import { UNASSIGNED_ORDER_OWNER_KEY } from '@/lib/orders/owner-visibility'
+import { isRawOrderActive, isRawOrderEmAberto } from '@/lib/orders/status-raw'
 import { sanitizeText } from '@/components/orders/use-orders-filters'
 import type {
+  OrderDetailDrawerData,
   OrdemNotaAcompanhamento,
   OrderReassignTarget,
+  OrdersOwnerSummary,
   OrdersPoolGroup,
   OrdersWorkspaceCursor,
   OrdersWorkspaceFilters,
@@ -42,6 +47,147 @@ export function mergeRows(
   const existingIds = new Set(prev.map((row) => row.ordem_id))
   const newRows = incoming.filter((row) => !existingIds.has(row.ordem_id))
   return newRows.length === 0 ? prev : [...prev, ...newRows]
+}
+
+function normalizeNotaId(value: string | null | undefined): string | null {
+  if (!value) return null
+  const text = value.trim()
+  return text.length > 0 ? text : null
+}
+
+function getRowNotaId(row: Pick<OrdemNotaAcompanhamento, 'nota_id'>): string | null {
+  return normalizeNotaId(row.nota_id)
+}
+
+function matchesResponsavelScope(
+  responsavelFilter: string,
+  responsavelAtualId: string | null,
+): boolean {
+  const scope = responsavelFilter.trim()
+  if (!scope || scope === 'todos') return true
+  if (scope === UNASSIGNED_ORDER_OWNER_KEY) return responsavelAtualId === null
+  return responsavelAtualId === scope
+}
+
+function patchAssignedRows(
+  currentRows: OrdemNotaAcompanhamento[],
+  assignByNota: Map<string, string>,
+  reassignTargetById: Map<string, OrderReassignTarget>,
+  responsavelFilter: string,
+): OrdemNotaAcompanhamento[] {
+  return currentRows
+    .map((row) => {
+      const notaId = getRowNotaId(row)
+      if (!notaId) return row
+
+      const destino = assignByNota.get(notaId)
+      if (!destino) return row
+
+      return {
+        ...row,
+        responsavel_atual_id: destino,
+        responsavel_atual_nome: reassignTargetById.get(destino)?.nome ?? row.responsavel_atual_nome,
+      }
+    })
+    .filter((row) => matchesResponsavelScope(responsavelFilter, row.responsavel_atual_id))
+}
+
+function sortOwnerSummary(items: OrdersOwnerSummary[]): OrdersOwnerSummary[] {
+  return [...items].sort((a, b) => {
+    if (b.total !== a.total) return b.total - a.total
+    return a.nome.localeCompare(b.nome, 'pt-BR')
+  })
+}
+
+function patchOwnerSummaryCounters(
+  item: OrdersOwnerSummary,
+  row: OrdemNotaAcompanhamento,
+  delta: number,
+): OrdersOwnerSummary {
+  if (!isRawOrderActive(row.status_ordem_raw)) return item
+
+  const next = {
+    ...item,
+    total: Math.max(0, item.total + delta),
+    abertas: Math.max(0, item.abertas + (isRawOrderEmAberto(row.status_ordem_raw) ? delta : 0)),
+  }
+
+  if (row.semaforo_atraso === 'verde') {
+    next.recentes = Math.max(0, item.recentes + delta)
+  } else if (row.semaforo_atraso === 'amarelo') {
+    next.atencao = Math.max(0, item.atencao + delta)
+  } else if (row.semaforo_atraso === 'vermelho') {
+    next.atrasadas = Math.max(0, item.atrasadas + delta)
+  }
+
+  return next
+}
+
+function patchOwnerSummaryForAssignment(
+  currentSummary: OrdersOwnerSummary[],
+  row: OrdemNotaAcompanhamento,
+  destinoId: string,
+  reassignTargetById: Map<string, OrderReassignTarget>,
+  responsavelFilter: string,
+): OrdersOwnerSummary[] {
+  if (!isRawOrderActive(row.status_ordem_raw)) return currentSummary
+
+  const previousOwnerId = row.responsavel_atual_id
+  const nextSummary = [...currentSummary]
+  const shouldTrackPreviousOwner = matchesResponsavelScope(responsavelFilter, previousOwnerId)
+  const shouldTrackDestino = matchesResponsavelScope(responsavelFilter, destinoId)
+
+  if (shouldTrackPreviousOwner) {
+    const previousIndex = nextSummary.findIndex((item) => item.administrador_id === previousOwnerId)
+    if (previousIndex >= 0) {
+      nextSummary[previousIndex] = patchOwnerSummaryCounters(nextSummary[previousIndex], row, -1)
+    }
+  }
+
+  if (shouldTrackDestino) {
+    const destinoIndex = nextSummary.findIndex((item) => item.administrador_id === destinoId)
+    if (destinoIndex >= 0) {
+      nextSummary[destinoIndex] = patchOwnerSummaryCounters(nextSummary[destinoIndex], row, 1)
+    } else {
+      const destino = reassignTargetById.get(destinoId)
+      nextSummary.push(patchOwnerSummaryCounters({
+        administrador_id: destinoId,
+        nome: destino?.nome ?? 'Sem nome',
+        avatar_url: destino?.avatar_url ?? null,
+        total: 0,
+        abertas: 0,
+        recentes: 0,
+        atencao: 0,
+        atrasadas: 0,
+      }, row, 1))
+    }
+  }
+
+  return sortOwnerSummary(nextSummary)
+}
+
+function patchPoolGroupsForAssignment(
+  currentGroups: Array<Omit<OrdersPoolGroup, 'rows'>>,
+  row: OrdemNotaAcompanhamento,
+  poolCentros: Record<string, string>,
+): Array<Omit<OrdersPoolGroup, 'rows'>> {
+  if (!isRawOrderActive(row.status_ordem_raw)) return currentGroups
+  if (row.responsavel_atual_id !== null || !row.centro) return currentGroups
+
+  const poolNome = poolCentros[row.centro]
+  if (!poolNome) return currentGroups
+
+  return currentGroups.map((group) => {
+    if (group.pool_nome !== poolNome) return group
+
+    return {
+      ...group,
+      total: Math.max(0, group.total - 1),
+      abertas: Math.max(0, group.abertas - (isRawOrderEmAberto(row.status_ordem_raw) ? 1 : 0)),
+      atencao: Math.max(0, group.atencao - (row.semaforo_atraso === 'amarelo' ? 1 : 0)),
+      atrasadas: Math.max(0, group.atrasadas - (row.semaforo_atraso === 'vermelho' ? 1 : 0)),
+    }
+  })
 }
 
 // --- Smart search ---
@@ -131,6 +277,9 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
 
   const [rows, setRows] = useState<OrdemNotaAcompanhamento[]>([])
   const [pendingSyncRows, setPendingSyncRows] = useState<OrdemNotaAcompanhamento[]>([])
+  const [kpis, setKpis] = useState<OrdersWorkspaceKpis>(INITIAL_KPIS)
+  const [ownerSummary, setOwnerSummary] = useState<OrdersOwnerSummary[]>([])
+  const [poolGroups, setPoolGroups] = useState<Array<Omit<OrdersPoolGroup, 'rows'>>>([])
   const [nextCursor, setNextCursor] = useState<OrdersWorkspaceCursor | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
@@ -141,6 +290,10 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
 
   const searchOwnerCandidates = useMemo(
     () => reassignTargets.map((t) => ({ id: t.id, nome: t.nome })),
+    [reassignTargets],
+  )
+  const reassignTargetById = useMemo(
+    () => new Map(reassignTargets.map((target) => [target.id, target] as const)),
     [reassignTargets],
   )
 
@@ -225,6 +378,9 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
 
     setRows(freshData.rows)
     setPendingSyncRows(freshData.pendingSyncRows ?? [])
+    setKpis(freshData.kpis ?? INITIAL_KPIS)
+    setOwnerSummary(freshData.ownerSummary ?? [])
+    setPoolGroups((freshData.poolGroups ?? []) as Array<Omit<OrdersPoolGroup, 'rows'>>)
     setNextCursor(freshData.nextCursor)
     setReassignTargets(freshData.reassignTargets)
     setCurrentUser((prev) => ({
@@ -262,6 +418,157 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
     [effectiveFilters, loadingMore],
   )
 
+  const applyOptimisticReassignments = useCallback(
+    (assignments: Array<{ nota_id: string; administrador_destino_id: string }>) => {
+      if (assignments.length === 0) return
+
+      const assignByNota = new Map(
+        assignments
+          .map((item) => {
+            const notaId = normalizeNotaId(item.nota_id)
+            return notaId ? ([notaId, item.administrador_destino_id] as const) : null
+          })
+          .filter(Boolean) as Array<readonly [string, string]>,
+      )
+
+      if (assignByNota.size === 0) return
+
+      const loadedRowNotaIds = new Set(
+        rows
+          .map((row) => getRowNotaId(row))
+          .filter((notaId): notaId is string => notaId !== null),
+      )
+      const highlightRows = [
+        ...(highlightsData?.highlights.oldest ?? []),
+        ...(highlightsData?.highlights.attention ?? []),
+      ]
+      const highlightRowNotaIds = new Set(
+        highlightRows
+          .map((row) => getRowNotaId(row))
+          .filter((notaId): notaId is string => notaId !== null),
+      )
+      const sourceRowByNota = new Map<string, OrdemNotaAcompanhamento>()
+      for (const row of [...rows, ...pendingSyncRows, ...highlightRows]) {
+        const notaId = getRowNotaId(row)
+        if (!notaId || sourceRowByNota.has(notaId)) continue
+        sourceRowByNota.set(notaId, row)
+      }
+
+      const updatedRows = patchAssignedRows(rows, assignByNota, reassignTargetById, effectiveFilters.responsavel)
+      const updatedPendingSyncRows = patchAssignedRows(
+        pendingSyncRows,
+        assignByNota,
+        reassignTargetById,
+        effectiveFilters.responsavel,
+      )
+      const updatedHighlights: OrdersWorkspaceHighlights = {
+        oldest: patchAssignedRows(
+          highlightsData?.highlights.oldest ?? [],
+          assignByNota,
+          reassignTargetById,
+          effectiveFilters.responsavel,
+        ),
+        attention: patchAssignedRows(
+          highlightsData?.highlights.attention ?? [],
+          assignByNota,
+          reassignTargetById,
+          effectiveFilters.responsavel,
+        ),
+      }
+
+      let nextKpis = kpis
+      let nextOwnerSummary = ownerSummary
+      let nextPoolGroups = poolGroups
+
+      for (const [notaId, destinoId] of assignByNota) {
+        const sourceRow = sourceRowByNota.get(notaId)
+        if (!sourceRow) continue
+
+        const isOfficialWorkspaceRow = loadedRowNotaIds.has(notaId) || highlightRowNotaIds.has(notaId)
+        if (!isOfficialWorkspaceRow) continue
+
+        if (sourceRow.responsavel_atual_id === null && isRawOrderActive(sourceRow.status_ordem_raw)) {
+          nextKpis = {
+            ...nextKpis,
+            sem_responsavel: Math.max(0, nextKpis.sem_responsavel - 1),
+          }
+          nextPoolGroups = patchPoolGroupsForAssignment(nextPoolGroups, sourceRow, freshData?.poolCentros ?? {})
+        }
+
+        nextOwnerSummary = patchOwnerSummaryForAssignment(
+          nextOwnerSummary,
+          sourceRow,
+          destinoId,
+          reassignTargetById,
+          effectiveFilters.responsavel,
+        )
+      }
+
+      setRows(updatedRows)
+      setPendingSyncRows(updatedPendingSyncRows)
+      setKpis(nextKpis)
+      setOwnerSummary(nextOwnerSummary)
+      setPoolGroups(nextPoolGroups)
+
+      queryClient.setQueryData<OrdersWorkspaceResponse>(workspaceQueryKeys.main, (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          rows: updatedRows,
+          pendingSyncRows: updatedPendingSyncRows,
+          kpis: nextKpis,
+          ownerSummary: nextOwnerSummary,
+          poolGroups: nextPoolGroups,
+        }
+      })
+      queryClient.setQueryData<{ highlights: OrdersWorkspaceHighlights }>(workspaceQueryKeys.highlights, (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          highlights: updatedHighlights,
+        }
+      })
+      queryClient.setQueriesData<OrderDetailDrawerData | undefined>(
+        { queryKey: [ORDER_DETAIL_QUERY_NAMESPACE] },
+        (old) => {
+          if (!old) return old
+
+          const notaId = getRowNotaId(old.ordem)
+          if (!notaId) return old
+
+          const destinoId = assignByNota.get(notaId)
+          if (!destinoId) return old
+
+          return {
+            ...old,
+            ordem: {
+              ...old.ordem,
+              responsavel_atual_id: destinoId,
+              responsavel_atual_nome: reassignTargetById.get(destinoId)?.nome ?? old.ordem.responsavel_atual_nome,
+            },
+          }
+        },
+      )
+
+      void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.highlights, exact: true })
+    },
+    [
+      effectiveFilters.responsavel,
+      freshData?.poolCentros,
+      highlightsData?.highlights.attention,
+      highlightsData?.highlights.oldest,
+      kpis,
+      ownerSummary,
+      pendingSyncRows,
+      poolGroups,
+      queryClient,
+      reassignTargetById,
+      rows,
+      workspaceQueryKeys.highlights,
+      workspaceQueryKeys.main,
+    ],
+  )
+
   const invalidateWorkspace = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.main, exact: true })
     void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.highlights, exact: true })
@@ -288,10 +595,10 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
     pendingSyncRows,
     setPendingSyncRows,
     unitOptions: freshData?.unitOptions ?? [],
-    kpis: freshData?.kpis ?? INITIAL_KPIS,
-    ownerSummary: freshData?.ownerSummary ?? [],
+    kpis,
+    ownerSummary,
     reassignTargets,
-    poolGroups: (freshData?.poolGroups ?? []) as Array<Omit<OrdersPoolGroup, 'rows'>>,
+    poolGroups,
     poolCentros: freshData?.poolCentros ?? {},
     highlights: highlightsData?.highlights ?? INITIAL_HIGHLIGHTS,
     isLoadingHighlights,
@@ -305,5 +612,6 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
     smartSearch,
     effectiveFilters,
     fetchWorkspace,
+    applyOptimisticReassignments,
   }
 }

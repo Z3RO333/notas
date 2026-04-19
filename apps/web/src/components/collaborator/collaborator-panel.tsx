@@ -11,7 +11,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { buildAgingCounts, matchNotesKpi } from '@/lib/collaborator/metrics'
+import { buildAgingCounts } from '@/lib/collaborator/metrics'
+import {
+  collectVisibleNotesForEmCampo,
+  deriveCollaboratorBaseState,
+  deriveCollaboratorVisibleState,
+} from '@/lib/collaborator/panel-selectors'
 import { CollaboratorMiniCard } from './collaborator-mini-card'
 import { CollaboratorAccordion } from './collaborator-accordion'
 import { CollaboratorAdminActions } from './collaborator-admin-actions'
@@ -24,7 +29,6 @@ import {
   clearOperationalStateFromNota,
   toNotaOperacaoEstado,
 } from '@/lib/notes/operational-state'
-import { withCollaboratorDisplayMetrics } from '@/lib/collaborator/display-metrics'
 import type {
   CollaboratorData,
   NotesViewMode,
@@ -297,127 +301,59 @@ export function CollaboratorPanel({
   const normalizedSearch = deferredSearch.trim().toLowerCase()
   const shouldUseCanonicalMetrics = preferCanonicalCollaboratorMetrics && activeNotesKpi === null
 
-  const matchesNotaFilters = useCallback((nota: NotaPanelData) => {
-    if (statusFilter === 'abertas') {
-      if (nota.status === 'concluida' || nota.status === 'cancelada') return false
-    } else if (statusScope === 'open_only') {
-      if (
-        nota.status !== 'nova'
-        && nota.status !== 'em_andamento'
-        && nota.status !== 'encaminhada_fornecedor'
-      ) {
-        return false
-      }
-    } else if (statusFilter !== 'todas' && nota.status !== statusFilter) {
-      return false
-    }
+  const structuralFilters = useMemo(() => ({
+    statusFilter,
+    statusScope,
+    unidadeFilter,
+    activeNotesKpi,
+  }), [activeNotesKpi, statusFilter, statusScope, unidadeFilter])
 
-    if (unidadeFilter && unidadeFilter !== 'todas' && (nota.centro ?? '') !== unidadeFilter) {
-      return false
-    }
-
-    if (activeNotesKpi && !matchNotesKpi(nota, activeNotesKpi)) {
-      return false
-    }
-
-    if (normalizedSearch) {
-      return (
-        nota.numero_nota.toLowerCase().includes(normalizedSearch)
-        || nota.descricao.toLowerCase().includes(normalizedSearch)
-      )
-    }
-
-    return true
-  }, [activeNotesKpi, normalizedSearch, statusFilter, statusScope, unidadeFilter])
+  const baseDerivedState = useMemo(() => deriveCollaboratorBaseState({
+    collaborators,
+    notas: resolvedNotas,
+    notasSemAtribuir: resolvedNotasSemAtribuir,
+    filters: structuralFilters,
+    shouldUseCanonicalMetrics,
+  }), [
+    collaborators,
+    resolvedNotas,
+    resolvedNotasSemAtribuir,
+    shouldUseCanonicalMetrics,
+    structuralFilters,
+  ])
 
   const {
     filteredNotasByAdmin,
     filteredNotasSemAtribuir,
     visibleCollaborators,
-  } = useMemo(() => {
-    const nextFilteredNotasByAdmin = new Map<string, NotaPanelData[]>()
-    for (const collaborator of collaborators) {
-      nextFilteredNotasByAdmin.set(collaborator.id, [])
-    }
-
-    for (const nota of resolvedNotas) {
-      if (!matchesNotaFilters(nota) || !nota.administrador_id) continue
-      const list = nextFilteredNotasByAdmin.get(nota.administrador_id)
-      if (list) {
-        list.push(nota)
-      }
-    }
-
-    const nextFilteredNotasSemAtribuir = resolvedNotasSemAtribuir.filter(matchesNotaFilters)
-    const nextDisplayCollaborators = shouldUseCanonicalMetrics
-      ? collaborators
-      : collaborators.map((collaborator) => (
-          withCollaboratorDisplayMetrics(collaborator, nextFilteredNotasByAdmin.get(collaborator.id) ?? [])
-        ))
-
-    let nextVisibleCollaborators = nextDisplayCollaborators
-    if (showResponsavelFilter && responsavelFilter && responsavelFilter !== 'todos') {
-      nextVisibleCollaborators = responsavelFilter === 'sem_atribuir'
-        ? []
-        : nextVisibleCollaborators.filter((collaborator) => collaborator.id === responsavelFilter)
-    }
-
-    const hasActiveFilter = Boolean(
-      normalizedSearch
-      || (statusFilter && statusFilter !== 'abertas')
-      || (unidadeFilter && unidadeFilter !== 'todas')
-      || activeNotesKpi
-      || (showResponsavelFilter && responsavelFilter && responsavelFilter !== 'todos')
-    )
-
-    if (hasActiveFilter) {
-      nextVisibleCollaborators = nextVisibleCollaborators.filter(
-        (collaborator) => (nextFilteredNotasByAdmin.get(collaborator.id) ?? []).length > 0,
-      )
-    }
-
-    return {
-      filteredNotasByAdmin: nextFilteredNotasByAdmin,
-      filteredNotasSemAtribuir: nextFilteredNotasSemAtribuir,
-      visibleCollaborators: nextVisibleCollaborators,
-    }
-  }, [
-    activeNotesKpi,
+  } = useMemo(() => deriveCollaboratorVisibleState({
     collaborators,
-    matchesNotaFilters,
+    baseState: baseDerivedState,
+    structuralFilters,
+    visibilityFilters: {
+      normalizedSearch,
+      showResponsavelFilter,
+      responsavelFilter,
+    },
+    shouldUseCanonicalMetrics,
+  }), [
+    baseDerivedState,
+    collaborators,
     normalizedSearch,
-    resolvedNotas,
-    resolvedNotasSemAtribuir,
     responsavelFilter,
     shouldUseCanonicalMetrics,
     showResponsavelFilter,
-    statusFilter,
-    unidadeFilter,
+    structuralFilters,
   ])
 
   const resolveVisibleNotesForEmCampo = useCallback(() => {
-    const notesMap = new Map<string, NotaPanelData>()
-
-    if (showResponsavelFilter && responsavelFilter === 'sem_atribuir') {
-      for (const nota of filteredNotasSemAtribuir) {
-        notesMap.set(nota.id, nota)
-      }
-      return Array.from(notesMap.values())
-    }
-
-    for (const collaborator of visibleCollaborators) {
-      for (const nota of filteredNotasByAdmin.get(collaborator.id) ?? []) {
-        notesMap.set(nota.id, nota)
-      }
-    }
-
-    if (!showResponsavelFilter || responsavelFilter === 'todos') {
-      for (const nota of filteredNotasSemAtribuir) {
-        notesMap.set(nota.id, nota)
-      }
-    }
-
-    return Array.from(notesMap.values())
+    return collectVisibleNotesForEmCampo({
+      filteredNotasByAdmin,
+      filteredNotasSemAtribuir,
+      visibleCollaborators,
+      showResponsavelFilter,
+      responsavelFilter,
+    })
   }, [
     filteredNotasByAdmin,
     filteredNotasSemAtribuir,

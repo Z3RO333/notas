@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { resolveMaintainerViewFromCookie } from '@/lib/auth/shared'
+import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
 import { createClient } from '@/lib/supabase/server'
 import {
   matchesPrivateOwnerLookupRow,
@@ -10,7 +9,6 @@ import type {
   OrderDetailDrawerData,
   OrderTimelineEvent,
   OrdemNotaAcompanhamento,
-  UserRole,
 } from '@/lib/types/database'
 
 function asUuid(value: string | null): string | null {
@@ -88,29 +86,20 @@ function buildNotaEvent(row: {
 
 export async function GET(request: Request) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const currentAdminContext = await getCurrentRequestAdminContext({
+    supabase,
+    allowMaintainerView: true,
+  })
 
-  if (!user?.email) {
+  if (!currentAdminContext.email) {
     return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
   }
 
-  const { data: loggedAdmin, error: loggedAdminError } = await supabase
-    .from('administradores')
-    .select('id, role')
-    .eq('email', user.email)
-    .single()
-
-  if (loggedAdminError || !loggedAdmin) {
+  if (!currentAdminContext.adminId || !currentAdminContext.role) {
     return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
   }
 
   const { searchParams } = new URL(request.url)
-  const actualRole = loggedAdmin.role as UserRole
-  const cookieStore = await cookies()
-  const mviewCookie = cookieStore.get('__cockpit_mview')?.value
-  const secret = process.env.MAINTAINER_SESSION_SECRET
-  const role = resolveMaintainerViewFromCookie(mviewCookie, user.email, secret) ?? actualRole
-  const canViewGlobal = role === 'gestor' || role === 'viewer'
   const ordemId = asUuid(searchParams.get('ordemId'))
   const notaId = asUuid(searchParams.get('notaId'))
   const lookupToken = normalizePrivateOwnerLookupValue(searchParams.get('lookupQ'))
@@ -162,11 +151,15 @@ export async function GET(request: Request) {
     )
   }
 
-  const canAccessByLookup = role === 'admin'
+  const canAccessByLookup = currentAdminContext.role === 'admin'
     && lookupToken !== null
     && matchesPrivateOwnerLookupRow(ordem, lookupToken)
 
-  if (!canViewGlobal && ordem.responsavel_atual_id !== loggedAdmin.id && !canAccessByLookup) {
+  if (
+    !currentAdminContext.canViewGlobal
+    && ordem.responsavel_atual_id !== currentAdminContext.adminId
+    && !canAccessByLookup
+  ) {
     return NextResponse.json({ error: 'Sem permissao para visualizar esta ordem' }, { status: 403 })
   }
 

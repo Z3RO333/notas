@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { callGestaoBaseRpc } from '@/lib/graficos/gestao-base-rpc'
-import type { TipoUnidade, UserRole } from '@/lib/types/database'
+import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
+import type { TipoUnidade } from '@/lib/types/database'
 
 type GestaoBaseRow = {
   ordem_id: string
@@ -32,28 +33,19 @@ function isTipoUnidade(value: string | null): value is TipoUnidade {
 }
 
 export async function GET(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const ctx = await getCurrentRequestAdminContext()
 
-  if (!user?.email) {
+  if (!ctx.isAuthenticated) {
     return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
   }
-
-  const { data: loggedAdmin, error: loggedAdminError } = await supabase
-    .from('administradores')
-    .select('id, role')
-    .eq('email', user.email)
-    .single()
-
-  if (loggedAdminError || !loggedAdmin) {
+  if (!ctx.adminId) {
     return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
   }
-
-  const role = loggedAdmin.role as UserRole
-  if (role !== 'admin' && role !== 'gestor') {
+  if (ctx.role !== 'admin' && ctx.role !== 'gestor') {
     return NextResponse.json({ error: 'Sem permissao' }, { status: 403 })
   }
 
+  const supabase = await createClient()
   const { searchParams } = new URL(request.url)
   const servico = normalizeText(searchParams.get('servico'))
   const tipoUnidadeRaw = normalizeText(searchParams.get('tipo_unidade'))

@@ -24,6 +24,7 @@ interface OrderCompactCardProps {
   showReassign?: boolean
   reassignProps?: OrderCompactCardReassignProps
   onOpenDetails?: () => void
+  onPrefetchDetails?: () => void
   notaLinkHref?: string
   highlightQuery?: string
 }
@@ -70,6 +71,7 @@ export function OrderCompactCard({
   showReassign = false,
   reassignProps,
   onOpenDetails,
+  onPrefetchDetails,
   notaLinkHref,
   highlightQuery,
 }: OrderCompactCardProps) {
@@ -160,6 +162,9 @@ export function OrderCompactCard({
         isClickable ? 'cursor-pointer hover:shadow-md' : 'hover:bg-muted/30'
       }`}
       onClick={handleOpenDetails}
+      onMouseEnter={onPrefetchDetails}
+      onFocus={onPrefetchDetails}
+      onTouchStart={onPrefetchDetails}
       onKeyDown={handleCardKeyDown}
       role={isClickable ? 'button' : undefined}
       tabIndex={isClickable ? 0 : undefined}

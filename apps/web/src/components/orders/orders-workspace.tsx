@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Loader2 } from 'lucide-react'
 import { OrderCompactCard } from '@/components/orders/order-compact-card'
@@ -14,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getOrdersCriticalityLevel, getRawStatusLabel, getSemaforoLabel, workspaceKpisToOrdemNotaKpis } from '@/lib/orders/metrics'
+import { prefetchOrderDetailQuery } from '@/lib/orders/detail-query'
 import { UNASSIGNED_ORDER_OWNER_KEY, buildVisibleOwnerSummary, hasIndividualOwnerSelection, toOrderOwnerKey } from '@/lib/orders/owner-visibility'
 import { shouldHideOwnerOutsidePmpl } from '@/lib/admin/admin-identity-catalog'
 import { buildCopyPayload, copyToClipboard } from '@/lib/orders/copy'
@@ -97,6 +99,7 @@ function getRowNotaId(row: OrdemNotaAcompanhamento): string | null {
 
 export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspaceProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { toast } = useToast()
   const [selectedNotaIds, setSelectedNotaIds] = useState<string[]>([])
   const [knownOrderCodesByNotaId, setKnownOrderCodesByNotaId] = useState<Record<string, string>>({})
@@ -159,8 +162,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
   // --- Data + smart search ---
   const {
-    rows, setRows, pendingSyncRows, setPendingSyncRows, unitOptions: fetchedUnitOptions, kpis, ownerSummary, reassignTargets, poolGroups, poolCentros, highlights,
+    rows, pendingSyncRows, unitOptions: fetchedUnitOptions, kpis, ownerSummary, reassignTargets, poolGroups, poolCentros, highlights,
     isLoadingHighlights, isFetchingHighlights, nextCursor, loadingInitial, loadingMore, error, currentUser, parentRef, smartSearch, effectiveFilters, fetchWorkspace,
+    applyOptimisticReassignments,
   } = useOrdersData({
     filters,
     initialUser,
@@ -339,8 +343,21 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     })
   }
 
+  const prefetchOrderDetail = useCallback(
+    (row: OrdemNotaAcompanhamento) => {
+      void prefetchOrderDetailQuery(queryClient, {
+        ordemId: row.ordem_id ?? null,
+        notaId: getRowNotaId(row),
+        lookupQuery: privateOwnerLookupActive ? effectiveFilters.q : null,
+      })
+    },
+    [effectiveFilters.q, privateOwnerLookupActive, queryClient],
+  )
+
   function applyReassignResult(assignments: Array<{ nota_id: string; administrador_destino_id: string }>) {
     if (assignments.length === 0) return
+    applyOptimisticReassignments(assignments)
+
     const assignByNota = new Map(
       assignments
         .map((item) => {
@@ -349,48 +366,23 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         })
         .filter(Boolean) as Array<readonly [string, string]>,
     )
-    if (assignByNota.size === 0) return
 
-    setRows((prev) => {
-      const updated = prev.map((row) => {
-        const notaId = getRowNotaId(row)
-        if (!notaId) return row
-        const destino = assignByNota.get(notaId)
-        if (!destino) return row
+    setDetailRow((prev) => {
+      if (!prev) return prev
+      const notaId = getRowNotaId(prev)
+      if (!notaId) return prev
 
-        return {
-          ...row,
-          responsavel_atual_id: destino,
-          responsavel_atual_nome: ownerById.get(destino) ?? row.responsavel_atual_nome,
-        }
-      })
-
-      if (!filters.responsavel || filters.responsavel === 'todos') return updated
-      if (filters.responsavel === UNASSIGNED_ORDER_OWNER_KEY) {
-        return updated.filter((row) => {
-          const notaId = getRowNotaId(row)
-          if (!notaId) return true
-          return !assignByNota.has(notaId)
-        })
-      }
-      return updated.filter((row) => row.responsavel_atual_id === filters.responsavel)
-    })
-
-    setPendingSyncRows((prev) => prev.map((row) => {
-      const notaId = getRowNotaId(row)
-      if (!notaId) return row
       const destino = assignByNota.get(notaId)
-      if (!destino) return row
+      if (!destino) return prev
 
       return {
-        ...row,
+        ...prev,
         responsavel_atual_id: destino,
-        responsavel_atual_nome: ownerById.get(destino) ?? row.responsavel_atual_nome,
+        responsavel_atual_nome: ownerById.get(destino) ?? prev.responsavel_atual_nome,
       }
-    }))
+    })
 
     setSelectedNotaIds([])
-    fetchWorkspace(true)
   }
 
   const unitOptions = useMemo(() => {
@@ -636,6 +628,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           canReassign={canReassign}
           reassignTargets={reassignTargets}
           onOpenDetails={setDetailRow}
+          onPrefetchDetails={prefetchOrderDetail}
           onReassigned={({ notaId, novoAdminId }) => {
             applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])
           }}
@@ -656,6 +649,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           onFilterOldest={() => setFilters((prev) => ({ ...prev, status: 'ativas', prioridade: 'vermelho' }))}
           onFilterAttention={() => setFilters((prev) => ({ ...prev, status: 'ativas', prioridade: 'amarelo' }))}
           onOpenDetails={setDetailRow}
+          onPrefetchDetails={prefetchOrderDetail}
           onReassigned={({ notaId, novoAdminId }) => applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])}
         />
       )}
@@ -765,6 +759,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                         ])
                       },
                     }}
+                    onPrefetchDetails={() => prefetchOrderDetail(row)}
                     onOpenDetails={() => setDetailRow(row)}
                   />
                 </div>

@@ -16,6 +16,7 @@ interface OrdersPendingSyncSectionProps {
   canReassign?: boolean
   reassignTargets?: OrderReassignTarget[]
   onOpenDetails?: (row: OrdemNotaAcompanhamento) => void
+  onPrefetchDetails?: (row: OrdemNotaAcompanhamento) => void
   onReassigned?: (payload: { notaId: string; novoAdminId: string }) => void
   collapsible?: boolean
   defaultCollapsed?: boolean
@@ -27,6 +28,7 @@ export function OrdersPendingSyncSection({
   canReassign = false,
   reassignTargets = [],
   onOpenDetails,
+  onPrefetchDetails,
   onReassigned,
   collapsible = false,
   defaultCollapsed = false,
@@ -84,6 +86,7 @@ export function OrdersPendingSyncSection({
               onReassigned,
             } : undefined}
             onOpenDetails={onOpenDetails ? () => onOpenDetails(row) : undefined}
+            onPrefetchDetails={onPrefetchDetails ? () => onPrefetchDetails(row) : undefined}
             notaLinkHref={row.nota_id ? `/notas/${row.nota_id}` : undefined}
             highlightQuery={highlightQuery}
           />

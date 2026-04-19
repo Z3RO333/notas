@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { AlertCircle, ArrowRightLeft, Clock3, Loader2 } from 'lucide-react'
 import { DrawerDetalhes } from '@/components/shared/drawer-detalhes'
 import { Button } from '@/components/ui/button'
 import { OrderReassignDialog } from '@/components/orders/order-reassign-dialog'
+import { createOrderDetailQueryKey, fetchOrderDetail } from '@/lib/orders/detail-query'
 import {
   getRawStatusClass,
   getRawStatusLabel,
@@ -54,58 +56,32 @@ export function OrdersDetailDrawer({
   reassignTargets,
   onReassigned,
 }: OrdersDetailDrawerProps) {
-  const [data, setData] = useState<OrderDetailDrawerData | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const safeOrdemId = ordemId?.trim() || null
+  const safeNotaId = normalizeNoteId(notaId)
+  const detailQuery = useQuery({
+    queryKey: createOrderDetailQueryKey({
+      ordemId: safeOrdemId,
+      notaId: safeNotaId,
+      lookupQuery,
+    }),
+    queryFn: ({ signal }) => fetchOrderDetail({
+      ordemId: safeOrdemId,
+      notaId: safeNotaId,
+      lookupQuery,
+    }, signal),
+    enabled: open && Boolean(safeOrdemId || safeNotaId),
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    retry: 1,
+  })
 
-  useEffect(() => {
-    if (!open) {
-      setData(null)
-      setError(null)
-      return
-    }
-    const safeOrdemId = ordemId?.trim() || null
-    const safeNotaId = normalizeNoteId(notaId)
-    if (!safeOrdemId && !safeNotaId) return
-
-    const controller = new AbortController()
-    async function run() {
-      setLoading(true)
-      setError(null)
-
-      try {
-        const params = new URLSearchParams()
-        if (safeOrdemId) {
-          params.set('ordemId', safeOrdemId)
-        } else if (safeNotaId) {
-          params.set('notaId', safeNotaId)
-        }
-        if (lookupQuery?.trim()) {
-          params.set('lookupQ', lookupQuery.trim())
-        }
-
-        const response = await fetch(`/api/ordens/detalhe?${params.toString()}`, {
-          signal: controller.signal,
-          cache: 'no-store',
-        })
-        if (!response.ok) {
-          const payload = (await response.json().catch(() => ({}))) as { error?: string }
-          throw new Error(payload.error || 'Falha ao carregar detalhes da ordem')
-        }
-        const payload = (await response.json()) as OrderDetailDrawerData
-        setData(payload)
-      } catch (fetchError) {
-        if ((fetchError as Error).name === 'AbortError') return
-        setData(null)
-        setError(fetchError instanceof Error ? fetchError.message : 'Falha ao carregar detalhes da ordem')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    run()
-    return () => controller.abort()
-  }, [lookupQuery, notaId, open, ordemId])
+  const data: OrderDetailDrawerData | null = detailQuery.data ?? null
+  const loading = detailQuery.isFetching
+  const error = detailQuery.error instanceof Error
+    ? detailQuery.error.message
+    : detailQuery.error
+      ? 'Falha ao carregar detalhes da ordem'
+      : null
 
   const current = useMemo(() => data?.ordem ?? row, [data, row])
   const ordemCodigo = current?.ordem_codigo?.trim() ? current.ordem_codigo : 'Sem ordem'

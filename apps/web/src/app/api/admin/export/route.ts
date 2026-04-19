@@ -1,6 +1,6 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
 import { getRawStatusLabel } from '@/lib/orders/status-raw'
 
 function toCsvCell(value: unknown): string {
@@ -10,41 +10,18 @@ function toCsvCell(value: unknown): string {
 }
 
 export async function GET(request: Request) {
-  const url = new URL(request.url)
-  const scope = url.searchParams.get('scope') ?? 'ordens'
-  const cookieStore = await cookies()
+  const ctx = await getCurrentRequestAdminContext()
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options as never)
-          )
-        },
-      },
-    }
-  )
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user?.email) {
-    return new NextResponse('Não autenticado', { status: 401 })
+  if (!ctx.isAuthenticated) {
+    return new NextResponse('Nao autenticado', { status: 401 })
   }
-
-  const { data: admin } = await supabase
-    .from('administradores')
-    .select('role')
-    .eq('email', user.email)
-    .single()
-
-  if (!admin || admin.role !== 'gestor') {
+  if (!ctx.adminId || ctx.role !== 'gestor') {
     return new NextResponse('Sem permissao', { status: 403 })
   }
+
+  const url = new URL(request.url)
+  const scope = url.searchParams.get('scope') ?? 'ordens'
+  const supabase = await createClient()
 
   if (scope !== 'ordens') {
     return new NextResponse('Escopo de exportacao inválido', { status: 400 })

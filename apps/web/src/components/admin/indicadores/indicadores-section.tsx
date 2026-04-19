@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { KpiStrip } from './kpi-strip'
 import { IndicadoresScopeBadge } from './indicadores-scope-badge'
 import { IndicadoresPeriodFilter } from './indicadores-period-filter'
-import { ResumoDiarioChart } from './resumo-diario-chart'
+import { ResumoDiarioChartLazy } from './resumo-diario-chart-lazy'
 import { LojaIndicadoresTable } from './loja-indicadores-table'
 import { ColaboradorIndicadoresTable } from './colaborador-indicadores-table'
 import { LojaOrdensIndicadoresTable } from './loja-ordens-indicadores-table'
@@ -125,7 +125,7 @@ export function IndicadoresSection({
       <KpiStrip kpis={kpis} />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]">
-        <ResumoDiarioChart rows={resumoDiario} />
+        <ResumoDiarioChartLazy rows={resumoDiario} />
 
         <Card className="border-border/60 bg-background/75">
           <CardHeader className="pb-4">

@@ -56,11 +56,15 @@ export interface PedidosWorkspaceCursor {
   cursorId: string
 }
 
-export interface PedidosWorkspaceResponse {
-  rows: PedidoCompra[]
+export interface PedidosWorkspaceMeta {
   kpis: PedidosKpis
   availableAdmins: { id: string; nome: string }[]
   availableAnos: string[]
   availableMeses: string[]
+}
+
+export interface PedidosWorkspaceResponse {
+  rows: PedidoCompra[]
   nextCursor: PedidosWorkspaceCursor | null
+  meta?: PedidosWorkspaceMeta
 }

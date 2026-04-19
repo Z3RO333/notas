@@ -23,6 +23,7 @@ interface OrdersPriorityLaneProps {
   reassignTargets: OrderReassignTarget[]
   onAction: () => void
   onOpenDetails: (row: OrdemNotaAcompanhamento) => void
+  onPrefetchDetails?: (row: OrdemNotaAcompanhamento) => void
   onReassigned: (result: { notaId: string; novoAdminId: string }) => void
 }
 
@@ -61,6 +62,7 @@ export function OrdersPriorityLane({
   reassignTargets,
   onAction,
   onOpenDetails,
+  onPrefetchDetails,
   onReassigned,
 }: OrdersPriorityLaneProps) {
   const styles = TONE_STYLES[tone]
@@ -156,6 +158,7 @@ export function OrdersPriorityLane({
                 skipRouterRefresh: true,
                 onReassigned,
               }}
+              onPrefetchDetails={onPrefetchDetails ? () => onPrefetchDetails(row) : undefined}
               onOpenDetails={() => onOpenDetails(row)}
             />
           ))}

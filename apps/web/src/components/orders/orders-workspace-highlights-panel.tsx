@@ -15,6 +15,7 @@ export interface OrdersWorkspaceHighlightsPanelProps {
   onFilterOldest: () => void
   onFilterAttention: () => void
   onOpenDetails: (row: OrdemNotaAcompanhamento) => void
+  onPrefetchDetails?: (row: OrdemNotaAcompanhamento) => void
   onReassigned: (args: { notaId: string; novoAdminId: string }) => void
 }
 
@@ -29,6 +30,7 @@ export const OrdersWorkspaceHighlightsPanel = memo(function OrdersWorkspaceHighl
   onFilterOldest,
   onFilterAttention,
   onOpenDetails,
+  onPrefetchDetails,
   onReassigned,
 }: OrdersWorkspaceHighlightsPanelProps) {
   return (
@@ -49,6 +51,7 @@ export const OrdersWorkspaceHighlightsPanel = memo(function OrdersWorkspaceHighl
         reassignTargets={reassignTargets}
         onAction={onFilterOldest}
         onOpenDetails={onOpenDetails}
+        onPrefetchDetails={onPrefetchDetails}
         onReassigned={onReassigned}
       />
       <OrdersPriorityLane
@@ -67,6 +70,7 @@ export const OrdersWorkspaceHighlightsPanel = memo(function OrdersWorkspaceHighl
         reassignTargets={reassignTargets}
         onAction={onFilterAttention}
         onOpenDetails={onOpenDetails}
+        onPrefetchDetails={onPrefetchDetails}
         onReassigned={onReassigned}
       />
     </div>

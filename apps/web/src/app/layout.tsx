@@ -4,6 +4,7 @@ import { AppMainShell } from '@/components/layout/app-main-shell'
 import { TopNav } from '@/components/layout/top-nav'
 import { ThemeProvider } from '@/components/theme/theme-provider'
 import { ToastProvider } from '@/components/ui/toast'
+import { WebVitalsBridge } from '@/app/_components/web-vitals'
 import { AppProviders } from '@/app/providers'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { buildThemeBootstrapScript } from '@/lib/theme/theme'
@@ -49,6 +50,7 @@ export default async function RootLayout({
       <body className={inter.className}>
         <ThemeProvider>
           <AppProviders>
+            <WebVitalsBridge />
             <ToastProvider>
               <div className="min-h-screen bg-background">
                 <TopNav userName={userName} userRole={userRole} />

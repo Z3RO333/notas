@@ -32,8 +32,11 @@ const EMPTY_CONTEXT: CurrentAdminContext = {
   canViewGlobal: false,
 }
 
-const loadCurrentAdminContext = cache(async (): Promise<CurrentAdminContext> => {
-  const supabase = await createClient()
+export type ServerSupabaseClient = Awaited<ReturnType<typeof createClient>>
+
+export async function getCurrentAdminContextFromSupabase(
+  supabase: ServerSupabaseClient,
+): Promise<CurrentAdminContext> {
   const { data: { user }, error: userError } = await supabase.auth.getUser()
 
   if (userError) {
@@ -72,6 +75,11 @@ const loadCurrentAdminContext = cache(async (): Promise<CurrentAdminContext> => 
     isGestor: role === 'gestor',
     canViewGlobal: role === 'gestor' || role === 'viewer',
   }
+}
+
+const loadCurrentAdminContext = cache(async (): Promise<CurrentAdminContext> => {
+  const supabase = await createClient()
+  return getCurrentAdminContextFromSupabase(supabase)
 })
 
 export async function getCurrentAdminContext(): Promise<CurrentAdminContext> {

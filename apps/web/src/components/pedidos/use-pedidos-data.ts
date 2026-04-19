@@ -18,6 +18,7 @@ const INITIAL_KPIS: PedidosKpis = {
 function buildQueryParams(
   filters: PedidosWorkspaceFilters,
   cursor: PedidosWorkspaceCursor | null,
+  includeMeta: boolean,
 ): URLSearchParams {
   const params = new URLSearchParams()
   if (filters.q) params.set('q', filters.q)
@@ -27,6 +28,7 @@ function buildQueryParams(
   if (filters.mesExtracao) params.set('mes', filters.mesExtracao)
   if (cursor?.cursorDate) params.set('cursorDate', cursor.cursorDate)
   if (cursor?.cursorId) params.set('cursorId', cursor.cursorId)
+  if (!includeMeta) params.set('includeMeta', '0')
   return params
 }
 
@@ -41,7 +43,7 @@ export function usePedidosData({ filters }: UsePedidosDataOptions) {
     queryKey,
     initialPageParam: null as PedidosWorkspaceCursor | null,
     queryFn: async ({ pageParam, signal }) => {
-      const params = buildQueryParams(filters, pageParam)
+      const params = buildQueryParams(filters, pageParam, pageParam === null)
       const res = await fetch(`/api/pedidos/workspace?${params.toString()}`, {
         signal,
         cache: 'no-store',
@@ -61,10 +63,10 @@ export function usePedidosData({ filters }: UsePedidosDataOptions) {
   const pages = query.data?.pages
   const firstPage = pages?.[0]
   const rows: PedidoCompra[] = pages ? pages.flatMap((page) => page.rows) : []
-  const kpis: PedidosKpis = firstPage?.kpis ?? INITIAL_KPIS
-  const availableAdmins = firstPage?.availableAdmins ?? []
-  const availableAnos = firstPage?.availableAnos ?? []
-  const availableMeses = firstPage?.availableMeses ?? []
+  const kpis: PedidosKpis = firstPage?.meta?.kpis ?? INITIAL_KPIS
+  const availableAdmins = firstPage?.meta?.availableAdmins ?? []
+  const availableAnos = firstPage?.meta?.availableAnos ?? []
+  const availableMeses = firstPage?.meta?.availableMeses ?? []
   const loadingInitial = query.isPending && rows.length === 0
   const errorMessage = query.error instanceof Error ? query.error.message : query.error ? 'Falha ao carregar pedidos' : null
 
