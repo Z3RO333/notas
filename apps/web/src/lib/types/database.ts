@@ -344,6 +344,7 @@ export interface OrdemNotaAcompanhamento {
   envolvidos_admin_ids: string[] | null
   descricao: string | null
   tipo_ordem: string | null
+  hora_nota: string | null
   aguardando_confirmacao_sync?: boolean
 }
 

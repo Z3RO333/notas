@@ -1,4 +1,3 @@
-import { format } from 'date-fns'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { NotaStatusBadge } from './nota-status-badge'
 import type { NotaManutencao } from '@/lib/types/database'
@@ -57,7 +56,7 @@ export function NotaDetail({ nota }: NotaDetailProps) {
         {nota.observacoes && <InfoRow label="Observações" value={nota.observacoes} />}
         <InfoRow
           label="Distribuída em"
-          value={nota.distribuida_em ? format(new Date(nota.distribuida_em), 'dd/MM/yyyy HH:mm') : null}
+          value={nota.distribuida_em ? new Date(nota.distribuida_em).toLocaleString('pt-BR') : null}
         />
       </CardContent>
     </Card>

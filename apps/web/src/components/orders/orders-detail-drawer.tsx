@@ -135,7 +135,7 @@ export function OrdersDetailDrawer({
             <p><span className="text-muted-foreground">Responsável origem:</span> {current.administrador_nome ?? 'Não identificado'}</p>
             <p><span className="text-muted-foreground">Unidade:</span> {current.unidade ?? 'Sem unidade'}</p>
             <p><span className="text-muted-foreground">Dias em aberto:</span> {current.dias_em_aberto}</p>
-            <p><span className="text-muted-foreground">Detectada em:</span> {formatIsoDate(current.ordem_detectada_em)}</p>
+            <p><span className="text-muted-foreground">Detectada em:</span> {formatIsoDate(current.hora_nota ?? current.ordem_detectada_em)}</p>
           </div>
 
           {canReassignByNote && linkedNotaId && (
