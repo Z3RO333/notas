@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { authorizeSessionUser } from '@/lib/auth/server'
 import { createClient } from '@/lib/supabase/server'
+import { getRequestOrigin } from '@/lib/auth/request-origin'
 
 async function signOutAndRedirect(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -16,7 +17,7 @@ async function signOutAndRedirect(
 }
 
 export async function GET(request: Request) {
-  const { origin } = new URL(request.url)
+  const origin = getRequestOrigin(request)
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()

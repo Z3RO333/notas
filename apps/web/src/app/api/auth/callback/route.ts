@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { resolvePostAuthRedirect } from '@/lib/auth/password-reset'
 import { createClient } from '@/lib/supabase/server'
+import { getRequestOrigin } from '@/lib/auth/request-origin'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -8,10 +9,7 @@ export async function GET(request: Request) {
   const authFlowType = searchParams.get('type')
   const nextPath = searchParams.get('next')
 
-  const headers = request.headers as unknown as Headers
-  const host = headers.get('x-forwarded-host') ?? headers.get('host') ?? 'localhost:3000'
-  const proto = headers.get('x-forwarded-proto') ?? 'http'
-  const origin = `${proto}://${host}`
+  const origin = getRequestOrigin(request)
 
   if (code) {
     const supabase = await createClient()
