@@ -7,6 +7,7 @@ function isSafeAppPath(value: string): boolean {
 
 export function buildPasswordResetRedirectTo(origin: string): string {
   const callbackUrl = new URL('/api/auth/callback', origin)
+  callbackUrl.searchParams.set('type', 'recovery')
   callbackUrl.searchParams.set('next', PASSWORD_RESET_RECOVERY_PATH)
   return callbackUrl.toString()
 }

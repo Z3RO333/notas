@@ -95,7 +95,7 @@ export async function middleware(request: NextRequest) {
     return redirectResponse
   }
 
-  if (!admin.auth_user_id && pathname !== '/api/auth/landing') {
+  if (!admin.auth_user_id && pathname !== '/api/auth/landing' && pathname !== '/reset-password') {
     const url = request.nextUrl.clone()
     url.pathname = '/api/auth/landing'
     return NextResponse.redirect(url)
