@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
-import { ExternalLink } from 'lucide-react'
+import { AlertTriangle, ExternalLink } from 'lucide-react'
 import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import {
@@ -194,6 +194,12 @@ export function NotaListItem({ nota, allowOperationalActions = true }: NotaListI
             #{nota.numero_nota}
           </p>
           <p className="truncate text-sm text-muted-foreground">{nota.descricao}</p>
+          {nota.equipamento_critico && (
+            <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+              <AlertTriangle className="h-3 w-3" />
+              {nota.equipamento_critico}
+            </span>
+          )}
           {unidadeLabel && (
             <p className="truncate text-xs text-muted-foreground/80">{unidadeLabel}</p>
           )}

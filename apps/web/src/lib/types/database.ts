@@ -99,6 +99,7 @@ export interface NotaManutencao {
   raw_data: Record<string, unknown> | null
   created_at: string
   updated_at: string
+  equipamento_critico: string | null
   // Joined data
   administradores?: { nome: string; email: string } | null
 }
@@ -597,7 +598,8 @@ export interface PerspectivaReatribuicaoAdmin30d {
 // Campos minimos que NotaCard e CollaboratorPanel precisam
 export type NotaPanelData = Pick<NotaManutencao,
   'id' | 'numero_nota' | 'descricao' | 'status' | 'administrador_id' |
-  'prioridade' | 'centro' | 'denominacao_unidade' | 'data_criacao_sap' | 'created_at'
+  'prioridade' | 'centro' | 'denominacao_unidade' | 'data_criacao_sap' | 'created_at' |
+  'equipamento_critico'
 > & {
   status_operacional?: NotaStatusOperacional | null
   em_geracao_por_admin_id?: string | null
