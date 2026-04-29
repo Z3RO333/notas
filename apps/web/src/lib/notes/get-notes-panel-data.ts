@@ -24,7 +24,7 @@ import type {
 } from '@/lib/types/database'
 import type { CollaboratorData } from '@/lib/types/collaborator'
 
-const NOTA_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, denominacao_unidade, data_criacao_sap, created_at' as const
+const NOTA_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, denominacao_unidade, data_criacao_sap, created_at, equipamento_critico' as const
 const NOTE_SUMMARY_FIELDS = 'id, status, administrador_id, centro, denominacao_unidade, data_criacao_sap, created_at' as const
 const EMPTY_UUID = '00000000-0000-0000-0000-000000000000'
 const NOTA_OPERATIONAL_FIELDS = 'nota_id, numero_nota, status_operacional, em_geracao_por_admin_id, em_geracao_por_email, em_geracao_em, ultima_copia_em, ttl_minutos, numero_ordem_confirmada, confirmada_em, created_at, updated_at' as const
@@ -530,6 +530,12 @@ export async function getNotesPanelListData(
   const notasFiltradas = notasFiltradasBase.map((nota) => {
     const state = operationalByNotaId.get(nota.id) ?? null
     return applyOperationalStateToNota(nota, state)
+  })
+
+  notasFiltradas.sort((a, b) => {
+    const aCritical = a.equipamento_critico ? 1 : 0
+    const bCritical = b.equipamento_critico ? 1 : 0
+    return bCritical - aCritical
   })
 
   return {
