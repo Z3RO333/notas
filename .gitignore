@@ -75,3 +75,4 @@ jobs/sync-pedidos/notebook_databricks.py
 jobs/sync-pedidos/sync_pedidos_to_supabase.py
 .superpowers/brainstorm/945-1776568831/state/server-info
 .superpowers/brainstorm/945-1776568831/state/server.pid
+.worktrees/
