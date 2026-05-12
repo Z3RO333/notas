@@ -307,6 +307,7 @@ def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]
 
             centro = _extract_centro(row_dict)
             data_entrada = _extract_data_entrada(row_dict)
+            data_atualizacao = _as_clean_text(row_dict.get("DATA_ATUALIZACAO"))
             tipo_ordem = _as_clean_text(row_dict.get(PMPL_TIPO_ORDEM_COLUMN))
             criado_por_sap_codigo = _as_clean_text(row_dict.get("CRIADOR_POR"))
             priority = STATUS_PRIORITY.get(status_raw, 0)
@@ -318,6 +319,7 @@ def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]
                     "status_raw": status_raw,
                     "centro": centro,
                     "data_entrada": data_entrada or (current.get("data_entrada") if current else None),
+                    "data_atualizacao": data_atualizacao if status_raw == "CONCLUIDO" else (current.get("data_atualizacao") if current else None),
                     "tipo_ordem": tipo_ordem or (current.get("tipo_ordem") if current else None),
                     "criado_por_sap_codigo": criado_por_sap_codigo or (current.get("criado_por_sap_codigo") if current else None),
                     "priority": priority,
@@ -327,6 +329,8 @@ def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]
                     current["centro"] = centro
                 if current.get("data_entrada") is None and data_entrada is not None:
                     current["data_entrada"] = data_entrada
+                if current.get("data_atualizacao") is None and data_atualizacao is not None and status_raw == "CONCLUIDO":
+                    current["data_atualizacao"] = data_atualizacao
                 if current.get("tipo_ordem") is None and tipo_ordem is not None:
                     current["tipo_ordem"] = tipo_ordem
                 if current.get("criado_por_sap_codigo") is None and criado_por_sap_codigo is not None:
@@ -338,6 +342,7 @@ def consolidate_pmpl_status_by_order(spark: SparkSession, ordem_codes: list[str]
             "status_raw": v["status_raw"],
             "centro": v["centro"],
             "data_entrada": v.get("data_entrada"),
+            "data_atualizacao": v.get("data_atualizacao"),
             "tipo_ordem": v.get("tipo_ordem"),
             "criado_por_sap_codigo": v.get("criado_por_sap_codigo"),
         }
@@ -391,6 +396,7 @@ def read_standalone_pmpl_orders(spark: SparkSession, window_days: int, sync_star
 
         centro = _extract_centro(row_dict)
         data_entrada = _extract_data_entrada(row_dict)
+        data_atualizacao = _as_clean_text(row_dict.get("DATA_ATUALIZACAO"))
         tipo_ordem = _as_clean_text(row_dict.get(PMPL_TIPO_ORDEM_COLUMN)) or "PMPL"
         criado_por_sap_codigo = _as_clean_text(row_dict.get("CRIADOR_POR"))
         fornecedor_codigo = _as_clean_text(row_dict.get(PMPL_FORNECEDOR_CODIGO_COLUMN))
@@ -408,6 +414,7 @@ def read_standalone_pmpl_orders(spark: SparkSession, window_days: int, sync_star
                 "status_raw": status_raw,
                 "centro": centro,
                 "data_entrada": data_entrada or (current.get("data_entrada") if current else None),
+                "data_atualizacao": data_atualizacao if status_raw == "CONCLUIDO" else (current.get("data_atualizacao") if current else None),
                 "tipo_ordem": tipo_ordem,
                 "criado_por_sap_codigo": criado_por_sap_codigo or (current.get("criado_por_sap_codigo") if current else None),
                 "fornecedor_codigo": fornecedor_codigo or (current.get("fornecedor_codigo") if current else None),
@@ -419,6 +426,8 @@ def read_standalone_pmpl_orders(spark: SparkSession, window_days: int, sync_star
                 current["centro"] = centro
             if current.get("data_entrada") is None and data_entrada is not None:
                 current["data_entrada"] = data_entrada
+            if current.get("data_atualizacao") is None and data_atualizacao is not None and status_raw == "CONCLUIDO":
+                current["data_atualizacao"] = data_atualizacao
             if current.get("criado_por_sap_codigo") is None and criado_por_sap_codigo is not None:
                 current["criado_por_sap_codigo"] = criado_por_sap_codigo
             if current.get("fornecedor_codigo") is None and fornecedor_codigo is not None:
@@ -432,6 +441,7 @@ def read_standalone_pmpl_orders(spark: SparkSession, window_days: int, sync_star
             "status_raw": v["status_raw"],
             "centro": v["centro"],
             "data_entrada": v.get("data_entrada"),
+            "data_atualizacao": v.get("data_atualizacao"),
             "tipo_ordem": v.get("tipo_ordem") or "PMPL",
             "criado_por_sap_codigo": v.get("criado_por_sap_codigo"),
             "fornecedor_codigo": v.get("fornecedor_codigo"),

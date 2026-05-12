@@ -19,7 +19,7 @@ export function ColaboradorOrdensIndicadoresTable({ rows }: ColaboradorOrdensInd
         <div className="space-y-1">
           <CardTitle className="text-base">Por colaborador (ordem)</CardTitle>
           <CardDescription>
-            Ranking por ordens concluídas no período e tempo médio de conclusão por responsável atual.
+            Ranking por ordens fechadas (CONCLUIDO/CANCELADO) no período e mediana de dias de conclusão por responsável atual.
           </CardDescription>
         </div>
 
@@ -52,7 +52,7 @@ export function ColaboradorOrdensIndicadoresTable({ rows }: ColaboradorOrdensInd
                     Concluídas
                   </th>
                   <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    T. conclusão
+                    T. conclusão (mediana)
                   </th>
                 </tr>
               </thead>

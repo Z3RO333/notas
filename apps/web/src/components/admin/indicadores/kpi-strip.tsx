@@ -90,9 +90,9 @@ export function KpiStrip({ kpis }: KpiStripProps) {
         icon={Clock3}
       />
       <KpiCard
-        label="Tempo médio conclusão"
+        label="Tempo de conclusão (mediana)"
         value={formatDias(kpis.tempo_medio_conclusao)}
-        sublabel="Da entrada ate o encerramento."
+        sublabel="Mediana de dias da entrada ao encerramento (só CONCLUIDO/CANCELADO)."
         accentClass="border-cyan-500/20 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300"
         icon={Activity}
       />

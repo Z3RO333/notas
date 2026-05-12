@@ -68,7 +68,7 @@ export function AdminPessoalCard({ nome, avatarUrl, kpis }: AdminPessoalCardProp
           value={`${kpis.taxa_conversao.toFixed(1).replace('.', ',')}%`}
         />
         <Stat label="T. médio nota->ordem" value={formatDias(kpis.tempo_medio_nota_ordem)} />
-        <Stat label="T. médio conclusão" value={formatDias(kpis.tempo_medio_conclusao)} />
+        <Stat label="T. conclusão (mediana)" value={formatDias(kpis.tempo_medio_conclusao)} />
         <Stat label="Ordens concluídas" value={kpis.total_ordens_concluidas.toLocaleString('pt-BR')} />
       </CardContent>
     </Card>

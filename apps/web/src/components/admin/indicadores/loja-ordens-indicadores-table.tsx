@@ -19,7 +19,7 @@ export function LojaOrdensIndicadoresTable({ rows }: LojaOrdensIndicadoresTableP
         <div className="space-y-1">
           <CardTitle className="text-base">Por loja (ordem)</CardTitle>
           <CardDescription>
-            Ordens concluídas no período e tempo médio de conclusão pela unidade da ordem.
+            Ordens fechadas (CONCLUIDO/CANCELADO) no período e mediana de dias de conclusão pela unidade da ordem.
           </CardDescription>
         </div>
 
@@ -52,7 +52,7 @@ export function LojaOrdensIndicadoresTable({ rows }: LojaOrdensIndicadoresTableP
                     Concluídas
                   </th>
                   <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    T. conclusão
+                    T. conclusão (mediana)
                   </th>
                 </tr>
               </thead>
