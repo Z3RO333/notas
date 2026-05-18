@@ -106,6 +106,7 @@ export function OrderCompactCard({
 
   function handleCardKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (!isClickable) return
+    if (event.target !== event.currentTarget) return
     if (event.key !== 'Enter' && event.key !== ' ') return
     event.preventDefault()
     onOpenDetails?.()

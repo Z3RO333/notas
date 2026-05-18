@@ -161,6 +161,7 @@ export function NotaListItem({ nota, allowOperationalActions = true }: NotaListI
   }
 
   function handleRowKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.target !== e.currentTarget) return
     if (e.key !== 'Enter' && e.key !== ' ') return
     e.preventDefault()
     void handleCopyAction()

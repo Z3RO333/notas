@@ -77,7 +77,7 @@ export function OrderReassignDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => !loading && setOpen(next)}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs">
+        <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={(e) => e.stopPropagation()}>
           <ArrowRightLeft className="mr-1 h-3 w-3" />
           Reatribuir
         </Button>

@@ -221,20 +221,27 @@ export function OrdersOwnerPanel({
   }, [searchInput, q, replaceQuery])
 
   useEffect(() => {
+    function isEditableFocused() {
+      const el = document.activeElement
+      if (!el) return false
+      const tag = el.tagName
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (el as HTMLElement).isContentEditable
+    }
+
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+      if (event.key === '/' && !isEditableFocused()) {
         event.preventDefault()
         searchInputRef.current?.focus()
         return
       }
 
-      if (event.key.toLowerCase() === 'r' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      if (event.key.toLowerCase() === 'r' && !event.metaKey && !event.ctrlKey && !event.altKey && !isEditableFocused()) {
         event.preventDefault()
         router.refresh()
         return
       }
 
-      if (event.key.toLowerCase() === 'a' && event.shiftKey) {
+      if (event.key.toLowerCase() === 'a' && event.shiftKey && !isEditableFocused()) {
         event.preventDefault()
         const visibleIds = Array.from(new Set(rows.map((row) => row.nota_id)))
         setSelectedNotaIds(visibleIds)
