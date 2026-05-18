@@ -39,6 +39,7 @@ const ESPECIALIDADE_LABEL: Record<Especialidade, string> = {
   elevadores: 'PREVENTIVAS',
   geral: 'GERAL',
   cd_manaus: 'CD MANAUS',
+  cd_manaus_equip: 'CD MANAUS',
   cd_taruma: 'CD TURISMO',
   criticos: 'CRÍTICOS',
 }
@@ -75,6 +76,7 @@ function normalizeEspecialidade(value: string | null | undefined): Especialidade
     || value === 'elevadores'
     || value === 'geral'
     || value === 'cd_manaus'
+    || value === 'cd_manaus_equip'
     || value === 'cd_taruma'
   ) {
     return value

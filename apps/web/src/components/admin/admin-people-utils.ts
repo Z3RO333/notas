@@ -6,6 +6,7 @@ export const ESPECIALIDADE_OPTIONS: Array<{ value: Especialidade; label: string 
   { value: 'refrigeracao', label: 'Refrigeração' },
   { value: 'elevadores', label: 'Elevadores' },
   { value: 'cd_manaus', label: 'CD Manaus' },
+  { value: 'cd_manaus_equip', label: 'CD Manaus Equip' },
   { value: 'cd_taruma', label: 'CD Taruma' },
   { value: 'criticos', label: 'Críticos' },
 ]
