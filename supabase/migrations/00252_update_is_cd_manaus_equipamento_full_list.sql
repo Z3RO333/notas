@@ -1,0 +1,43 @@
+-- Atualiza is_cd_manaus_equipamento com lista completa de itens classificados como
+-- Equipamentos (Daniel Duran) vs Predial (Brenda) no CD Manaus.
+-- Itens de Frota não são afetados por esta função (não chegam ao roteamento cd_manaus).
+
+CREATE OR REPLACE FUNCTION public.is_cd_manaus_equipamento(p_descricao text)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE PARALLEL SAFE
+SET search_path TO 'public'
+AS $function$
+  SELECT COALESCE(p_descricao, '') ~* $re$(
+    MONTA[\s\-]*CARGA|PLATAFORMA|EMPILHADEIRA|PALETEIRA|ESTEIRA|FLOW\s*RACK|ARQUEADORA|ENVELOPADORA|
+    P[OÓ]RTICO|ANTENA\s+ANTIFURTO|SCANTOP|CADEADO\s+ELETR|CONTADORA\s+DE\s+C[EÉ]DULA|
+    GRAMPEADOR\s+ELETR|INTERCOMUNICADOR|PAINEL[\s/_-]*SENHA|PARED[AÃ]O\s+DE\s+TV|
+    SPLITTER|CABO\s+HDMI|SISTEMA\s+DE\s+SOM|BEBEDOURO|PURIFICADOR|CAFETEIRA|
+    G[AÁ]S\s+P20|CADEIRA|MARCENARIA|M[OÓ]VEIS|TAPE[CÇ]ARIA|ADESIVO|INSULFILM|
+    VIDRA[CÇ]ARIA|M[AÁ]RMORE|GRANITO|CANCELA\s+DO\s+ESTACIONAMENTO|
+    CONFEC[CÇ][AÃ]O\s+DE\s+PLACA|CHAVEIRO|CARIMBO|INSTALA[CÇ][AÃ]O\s+PISO\s+T[AÁ]TIL|
+    TOTEM|LETREIRO|PICOL[EÉ]|METAL[UÚ]RGICA|//TAL[UÚ]RGICA|REPARO\s+DE\s+EQUIPAMENTOS|
+    REVITALIZA[CÇ][AÃ]O|CORTINA\s+DE\s+AR|INSPE[CÇ][AÃ]O\s+TERMOGR[AÁ]FICA|
+    EXTINTOR|MANGUEIRA|AQUISI[CÇ][AÃ]O\s+(PE[CÇ]AS|COMPRESSOR|AMORTECEDOR|RODA)|
+    AR[\s\-]+CONDICIONADO|AR[\s\-]+COND\b|CENTRAIS?\s+DE\s+AR|
+    FREEZER|
+    HIGIENIZA[CÇ][AÃ]O|
+    DEDETIZA[CÇ][AÃ]O|
+    CONTROLE\s+DE\s+PRAGAS|
+    LIMPEZA\s+DE\s+TERRENO|
+    LIMPEZA\s+DIVERSAS|
+    INDISPON[IÍ]VEL|
+    DANOS.*TERCEIROS|
+    SERVI[CÇ]O\s+EL[EÉ]TRICO|
+    TERM[OÔ]METRO|
+    POLIMENTO|
+    PAISAGISMO|
+    REPARO\s+DE\s+CONSTRU[CÇ][AÃ]O|
+    E\.T\.E.*EXPAN|
+    MATRINS?|
+    GG.*TARU|
+    CAVAMO|
+    CARREGADORES|
+    DE\s+EQUIPAMENTOS
+  )$re$;
+$function$;

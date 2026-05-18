@@ -70,6 +70,7 @@ function normalizeEspecialidade(value: string | null | undefined): Especialidade
     || value === 'elevadores'
     || value === 'geral'
     || value === 'cd_manaus'
+    || value === 'cd_manaus_equip'
     || value === 'cd_taruma'
     || value === 'criticos'
   ) {
@@ -130,6 +131,7 @@ export function resolveCargoLabelFromEspecialidade(especialidade: string | null 
     case 'elevadores':
       return 'PREVENTIVAS'
     case 'cd_manaus':
+    case 'cd_manaus_equip':
       return 'CD MANAUS'
     case 'cd_taruma':
       return 'CD TURISMO'

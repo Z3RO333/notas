@@ -238,7 +238,7 @@ export interface SyncLog {
   metadata: Record<string, unknown> | null
 }
 
-export type Especialidade = 'refrigeracao' | 'elevadores' | 'geral' | 'cd_manaus' | 'cd_taruma' | 'criticos'
+export type Especialidade = 'refrigeracao' | 'elevadores' | 'geral' | 'cd_manaus' | 'cd_manaus_equip' | 'cd_taruma' | 'criticos'
 
 export interface CargaAdministrador {
   id: string
