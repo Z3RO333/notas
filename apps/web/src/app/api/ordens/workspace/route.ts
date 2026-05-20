@@ -24,7 +24,7 @@ import {
   applyAutomaticOrdersRouting,
   canAccessPmplTab,
   getFixedOwnerLabelByAdminId,
-  resolveCurrentPmplOwner,
+  loadPmplCarteira,
 } from '@/lib/orders/pmpl-routing'
 import type {
   OrdemNotaAcompanhamento,
@@ -250,11 +250,11 @@ export async function GET(request: Request) {
   let canAccessPmpl = canViewGlobal
   if (!canViewGlobal) {
     try {
-      const pmplResolution = await resolveCurrentPmplOwner(supabase)
+      const { adminIds: pmplAdminIds } = await loadPmplCarteira(supabase)
       canAccessPmpl = canAccessPmplTab({
         role,
         loggedAdminId: currentAdminContext.adminId,
-        pmplResolution,
+        pmplAdminIds,
       })
     } catch (error) {
       canAccessPmpl = false

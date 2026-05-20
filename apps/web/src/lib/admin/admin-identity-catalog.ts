@@ -10,6 +10,7 @@ export type KnownOwnerCargoLabel =
   | 'GERAL'
 
 export const REFRIGERACAO_PRIMARY_OWNER_EMAIL = 'suelemsilva@bemol.com.br'
+/** @deprecated Routing PMPL migrado para carteira por fornecedor (pmpl_carteira_fornecedor). Mantido apenas para resolveCurrentPmplOwner (painel de administração). */
 export const PMPL_FALLBACK_OWNER_EMAIL = 'gustavoandrade@bemol.com.br'
 export const REFRIGERACAO_FALLBACK_GESTOR_EMAILS = [
   'walterrodrigues@bemol.com.br',
@@ -58,6 +59,7 @@ export function normalizeAdminEmail(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase()
 }
 
+/** @deprecated Ver PMPL_FALLBACK_OWNER_EMAIL. */
 export function isPmplFallbackOwnerEmail(value: string | null | undefined): boolean {
   return normalizeAdminEmail(value) === PMPL_FALLBACK_OWNER_EMAIL
 }

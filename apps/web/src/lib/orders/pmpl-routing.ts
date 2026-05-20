@@ -96,9 +96,9 @@ interface AdminRoutingRecord {
   data_fim_ferias: string | null
 }
 
-interface PmplConfigRow {
-  responsavel_id: string | null
-  substituto_id: string | null
+export interface PmplCarteiraLoad {
+  carteira: Map<string, string>  // fornecedor_codigo (normalizado) → administrador_id
+  adminIds: Set<string>          // todos os admins com ao menos um fornecedor mapeado
 }
 
 interface RoutingCandidateRow {
@@ -107,6 +107,7 @@ interface RoutingCandidateRow {
   ordem_codigo: string | null
   tipo_ordem?: string | null
   texto_breve?: string | null
+  fornecedor_codigo?: string | null
   unidade: string | null
   descricao: string | null
   responsavel_atual_id: string | null
@@ -127,7 +128,7 @@ interface PendingAssignment {
 }
 
 interface RouteOrderContext {
-  pmplOwnerId: string | null
+  pmplCarteira: Map<string, string>
   refrigeracaoOwnerId: string | null
   fixedOwnerByKey: Partial<Record<FixedOwnerKey, AdminRoutingRecord>>
   refrigeracaoKeywords: string[]
@@ -139,6 +140,7 @@ interface RouteOrderResult {
   reason: RouteReason
 }
 
+/** @deprecated Substituído por PmplCarteiraLoad. Mantido para compatibilidade temporária. */
 export interface PmplOwnerResolution {
   currentOwner: AdminRoutingRecord | null
   configuredResponsavel: AdminRoutingRecord | null
@@ -161,7 +163,7 @@ export interface ApplyAutomaticOrdersRoutingResult {
   detectedPmpl: number
   detectedByUnit: Record<string, number>
   fixedOwnerLabelByAdminId: Map<string, string>
-  pmplResolution: PmplOwnerResolution
+  pmplAdminIds: Set<string>
 }
 
 export function normalizeUnit(value: string | null | undefined): string {
@@ -306,9 +308,11 @@ function routeOrder(row: RoutingCandidateRow, context: RouteOrderContext): Route
     textoBreve: row.texto_breve,
     descricao: row.descricao,
   })) {
+    const normalized = (row.fornecedor_codigo ?? '').trim().toUpperCase()
+    const ownerId = normalized ? (context.pmplCarteira.get(normalized) ?? null) : null
     return {
       page: 'PMPL',
-      ownerId: context.pmplOwnerId,
+      ownerId,
       reason: 'pmpl',
     }
   }
@@ -457,6 +461,11 @@ async function fetchRefrigeracaoKeywords(supabase: RoutingSupabase): Promise<str
   return Array.from(new Set(normalized))
 }
 
+interface PmplConfigRow {
+  responsavel_id: string | null
+  substituto_id: string | null
+}
+
 async function fetchPmplConfig(supabase: RoutingSupabase): Promise<PmplConfigRow | null> {
   const { data, error } = await supabase
     .from('responsaveis_tipo_ordem')
@@ -475,6 +484,30 @@ async function fetchPmplConfig(supabase: RoutingSupabase): Promise<PmplConfigRow
     responsavel_id: data.responsavel_id ?? null,
     substituto_id: data.substituto_id ?? null,
   }
+}
+
+export async function loadPmplCarteira(supabase: RoutingSupabase): Promise<PmplCarteiraLoad> {
+  const { data, error } = await supabase
+    .from('pmpl_carteira_fornecedor')
+    .select('fornecedor_codigo, administrador_id')
+    .eq('ativo', true)
+
+  if (error) {
+    if (isMissingRelation(error)) return { carteira: new Map(), adminIds: new Set() }
+    throw error
+  }
+
+  const carteira = new Map<string, string>()
+  const adminIds = new Set<string>()
+
+  for (const row of data ?? []) {
+    if (!row.fornecedor_codigo || !row.administrador_id) continue
+    const normalized = row.fornecedor_codigo.trim().toUpperCase()
+    carteira.set(normalized, row.administrador_id)
+    adminIds.add(row.administrador_id)
+  }
+
+  return { carteira, adminIds }
 }
 
 async function fetchAllRoutingRows(
@@ -605,10 +638,10 @@ export async function resolveCurrentPmplOwner(supabase: RoutingSupabase): Promis
 export function canAccessPmplTab(params: {
   role: UserRole
   loggedAdminId: string
-  pmplResolution: PmplOwnerResolution
+  pmplAdminIds: Set<string>
 }): boolean {
   if (params.role === 'gestor') return true
-  return params.pmplResolution.viewerAdminIds.includes(params.loggedAdminId)
+  return params.pmplAdminIds.has(params.loggedAdminId)
 }
 
 export async function applyAutomaticOrdersRouting({
@@ -626,7 +659,7 @@ export async function applyAutomaticOrdersRouting({
     fixedOwnerLabelByAdminId.set(admin.id, FIXED_OWNER_LABEL_BY_KEY[key])
   }
 
-  const pmplResolution = await resolveCurrentPmplOwner(supabase)
+  const { carteira: pmplCarteira, adminIds: pmplAdminIds } = await loadPmplCarteira(supabase)
   const suelemAdmin = await fetchAdminByEmail(supabase, REFRIGERACAO_PRIMARY_OWNER_EMAIL)
   const refrigeracaoFallbackGestor = await fetchFirstEligibleGestorByEmailPriority(
     supabase,
@@ -640,7 +673,7 @@ export async function applyAutomaticOrdersRouting({
     routingRows = await fetchAllRoutingRows(supabase, () => (
       supabase
         .from('vw_ordens_notas_painel')
-        .select('ordem_id, nota_id, ordem_codigo, tipo_ordem, unidade, descricao, responsavel_atual_id, responsavel_atual_nome')
+        .select('ordem_id, nota_id, ordem_codigo, tipo_ordem, fornecedor_codigo, unidade, descricao, responsavel_atual_id, responsavel_atual_nome')
         .not('nota_id', 'is', null)
     ))
   } catch (error) {
@@ -651,7 +684,7 @@ export async function applyAutomaticOrdersRouting({
       routingRows = await fetchAllRoutingRows(supabase, () => (
         supabase
           .from('vw_ordens_notas_painel')
-          .select('ordem_id, nota_id, ordem_codigo, unidade, descricao, responsavel_atual_id, responsavel_atual_nome')
+          .select('ordem_id, nota_id, ordem_codigo, fornecedor_codigo, unidade, descricao, responsavel_atual_id, responsavel_atual_nome')
           .not('nota_id', 'is', null)
       ))
     } else {
@@ -683,13 +716,6 @@ export async function applyAutomaticOrdersRouting({
   const conflictNotaIds = new Set<string>()
   const destinationNameByAdminId = new Map<string, string>(fixedOwnerLabelByAdminId)
 
-  if (pmplResolution.currentOwner) {
-    destinationNameByAdminId.set(
-      pmplResolution.currentOwner.id,
-      pmplResolution.currentOwner.nome ?? pmplResolution.currentOwner.email
-    )
-  }
-
   if (refrigeracaoOwner) {
     destinationNameByAdminId.set(
       refrigeracaoOwner.id,
@@ -698,9 +724,7 @@ export async function applyAutomaticOrdersRouting({
   }
 
   const routeContext: RouteOrderContext = {
-    // Gestores são válidos para visualização (canAccessPmplTab) mas a RPC reatribuir_ordens_selecionadas
-    // rejeita gestores como destino. Só usar como destino de roteamento se role === 'admin'.
-    pmplOwnerId: pmplResolution.currentOwner?.role === 'admin' ? pmplResolution.currentOwner.id : null,
+    pmplCarteira,
     refrigeracaoOwnerId: refrigeracaoOwner?.role === 'admin' ? refrigeracaoOwner.id : null,
     fixedOwnerByKey,
     refrigeracaoKeywords,
@@ -832,6 +856,6 @@ export async function applyAutomaticOrdersRouting({
     detectedPmpl: detectedByPage.PMPL,
     detectedByUnit,
     fixedOwnerLabelByAdminId,
-    pmplResolution,
+    pmplAdminIds,
   }
 }

@@ -12,7 +12,7 @@ import { matchesPrivateOwnerLookupRow } from '@/lib/orders/private-owner-lookup'
 import { createClient } from '@/lib/supabase/server'
 import {
   canAccessPmplTab,
-  resolveCurrentPmplOwner,
+  loadPmplCarteira,
 } from '@/lib/orders/pmpl-routing'
 import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
 import type { OrdemNotaAcompanhamento } from '@/lib/types/database'
@@ -37,11 +37,11 @@ export async function GET(request: Request) {
   let canAccessPmpl = canViewGlobal
   if (!canViewGlobal && role) {
     try {
-      const pmplResolution = await resolveCurrentPmplOwner(supabase)
+      const { adminIds: pmplAdminIds } = await loadPmplCarteira(supabase)
       canAccessPmpl = canAccessPmplTab({
         role,
         loggedAdminId: adminId!,
-        pmplResolution,
+        pmplAdminIds,
       })
     } catch {
       canAccessPmpl = false

@@ -10,6 +10,7 @@ import {
   getNotesPanelSummaryData,
   loadNotesPanelSupportingData,
 } from '@/lib/notes/get-notes-panel-data'
+import { PmplCarteiraSection } from './pmpl-carteira-section'
 
 export const dynamic = 'force-dynamic'
 
@@ -177,6 +178,8 @@ export default async function PessoasPage() {
           operationalStateDegraded={notesListData.operationalStateDegraded}
         />
       </section>
+
+      <PmplCarteiraSection isGestor={adminCtx.isGestor} />
     </div>
   )
 }

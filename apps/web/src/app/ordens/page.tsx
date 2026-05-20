@@ -8,7 +8,7 @@ import { OrdersWorkspace } from '@/components/orders/orders-workspace'
 import { LastSyncBadge } from '@/components/shared/last-sync-badge'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { RealtimeListener } from '@/components/notas/realtime-listener'
-import { canAccessPmplTab, resolveCurrentPmplOwner } from '@/lib/orders/pmpl-routing'
+import { canAccessPmplTab, loadPmplCarteira } from '@/lib/orders/pmpl-routing'
 import type { UserRole } from '@/lib/types/database'
 import { parseInitialFilters } from '@/lib/orders/url-params'
 
@@ -56,11 +56,11 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   let canAccessPmpl = canViewGlobal
   if (!canViewGlobal) {
     try {
-      const pmplResolution = await resolveCurrentPmplOwner(supabase)
+      const { adminIds: pmplAdminIds } = await loadPmplCarteira(supabase)
       canAccessPmpl = canAccessPmplTab({
         role,
         loggedAdminId: currentAdminContext.adminId,
-        pmplResolution,
+        pmplAdminIds,
       })
     } catch {
       canAccessPmpl = false
