@@ -62,9 +62,9 @@ export const PedidoRow = memo(function PedidoRow({ pedido, onOpen, adminNome, ad
     <button
       type="button"
       onClick={() => onOpen(pedido)}
-      className="w-full text-left rounded-lg border bg-card px-4 py-3 shadow-sm transition-all hover:shadow-md hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="w-full rounded-md border bg-card px-4 py-3 text-left shadow-sm transition-colors hover:border-primary/30 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         {adminNome && (
           <div className="shrink-0">
             <Avatar src={adminAvatarUrl} nome={adminNome} size="sm" />
@@ -97,7 +97,7 @@ export const PedidoRow = memo(function PedidoRow({ pedido, onOpen, adminNome, ad
             )}
           </div>
         </div>
-        <div className="shrink-0 text-right">
+        <div className="shrink-0 text-left sm:text-right">
           <p className="text-sm font-semibold tabular-nums">{fmtCurrency(pedido.valor_liquido_total)}</p>
         </div>
       </div>

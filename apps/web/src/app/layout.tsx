@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import { AppMainShell } from '@/components/layout/app-main-shell'
-import { TopNav } from '@/components/layout/top-nav'
+import { CockpitShell } from '@/components/layout/cockpit-shell'
 import { ThemeProvider } from '@/components/theme/theme-provider'
 import { ToastProvider } from '@/components/ui/toast'
 import { WebVitalsBridge } from '@/app/_components/web-vitals'
@@ -52,10 +51,7 @@ export default async function RootLayout({
           <AppProviders>
             <WebVitalsBridge />
             <ToastProvider>
-              <div className="min-h-screen bg-background">
-                <TopNav userName={userName} userRole={userRole} />
-                <AppMainShell>{children}</AppMainShell>
-              </div>
+              <CockpitShell userName={userName} userRole={userRole}>{children}</CockpitShell>
             </ToastProvider>
           </AppProviders>
         </ThemeProvider>

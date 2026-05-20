@@ -9,6 +9,7 @@ import {
 } from '@/lib/admin/saturday-distribution-schedule'
 import { isVacationActive, resolveCurrentPmplOwner } from '@/lib/orders/pmpl-routing'
 import type { PmplOwnerResolution } from '@/lib/orders/pmpl-routing'
+import { PMPL_FALLBACK_OWNER_EMAIL } from '@/lib/admin/admin-identity-catalog'
 import type { AdminPerson } from '@/components/admin/admin-people-types'
 import type {
   EscalaDistribuicaoSabado,
@@ -63,12 +64,14 @@ async function loadAdminPeople(supabase: Awaited<ReturnType<typeof createClient>
   const fullPeopleResult = await supabase
     .from('administradores')
     .select('id, nome, email, role, especialidade, ativo, em_ferias, data_inicio_ferias, data_fim_ferias')
+    .neq('email', PMPL_FALLBACK_OWNER_EMAIL)
     .order('nome', { ascending: true })
 
   if (fullPeopleResult.error && isMissingVacationColumnsError(fullPeopleResult.error)) {
     const legacyPeopleResult = await supabase
       .from('administradores')
       .select('id, nome, email, role, ativo, em_ferias')
+      .neq('email', PMPL_FALLBACK_OWNER_EMAIL)
       .order('nome', { ascending: true })
 
     if (legacyPeopleResult.error) throw legacyPeopleResult.error

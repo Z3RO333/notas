@@ -1,13 +1,12 @@
 import 'server-only'
 
 import { cookies } from 'next/headers'
-import { MVIEW_COOKIE_NAME } from '@/lib/auth/maintainer-view'
+import { MVIEW_COOKIE_NAME, resolveMaintainerViewFromCookie } from '@/lib/auth/maintainer-view'
 import {
   getCurrentAdminContextFromSupabase,
   type CurrentAdminContext,
   type ServerSupabaseClient,
 } from '@/lib/auth/current-admin-context'
-import { resolveMaintainerViewFromCookie } from '@/lib/auth/shared'
 import { createClient } from '@/lib/supabase/server'
 import type { UserRole } from '@/lib/types/database'
 

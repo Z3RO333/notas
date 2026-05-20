@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation'
-import { AdminNav } from '@/components/admin/admin-nav'
 import { AdminDashboardRoutingBootstrap } from '@/components/admin/admin-dashboard-routing-bootstrap'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 
@@ -19,12 +18,9 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-3.5rem)] w-full flex-col px-3 pb-8 pt-4 sm:px-4 lg:px-6 xl:px-6">
+    <div className="flex min-h-[calc(100vh-3.5rem)] w-full flex-col pb-8">
       <AdminDashboardRoutingBootstrap />
-      <div className="flex flex-1 flex-col gap-3 lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[288px_minmax(0,1fr)] xl:gap-10">
-        <AdminNav />
-        <main className="min-w-0 w-full">{children}</main>
-      </div>
+      <main className="min-w-0 w-full">{children}</main>
     </div>
   )
 }

@@ -30,6 +30,27 @@ function hasMessage(error: { message?: string; details?: string | null; hint?: s
   return haystack.includes(token.toLowerCase())
 }
 
+function normalizeSupplierLookupValue(value: string | null | undefined): string | null {
+  const text = (value ?? '').trim()
+  const probe = text.replace(/[%_\s\\]+/g, '')
+  return probe.length >= 3 ? text : null
+}
+
+function normalizeSupplierText(value: string | null | undefined): string {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+function normalizeSupplierCode(value: string | null | undefined, stripLeadingZeros = true): string | null {
+  const text = (value ?? '').trim().toUpperCase().replace(/^0+/, '')
+  const raw = (value ?? '').trim().toUpperCase()
+  const normalized = stripLeadingZeros ? text : raw
+  return normalized.length > 0 ? normalized : null
+}
+
 function isMissingRelation(
   error: { code?: string; message?: string; details?: string | null; hint?: string | null } | null
 ): boolean {
@@ -103,6 +124,7 @@ export async function GET(request: Request) {
   const ordemId = asUuid(searchParams.get('ordemId'))
   const notaId = asUuid(searchParams.get('notaId'))
   const lookupToken = normalizePrivateOwnerLookupValue(searchParams.get('lookupQ'))
+  const supplierLookup = normalizeSupplierLookupValue(searchParams.get('supplierQ'))
 
   if (!ordemId && !notaId) {
     return NextResponse.json({ error: 'ordemId ou notaId invalido' }, { status: 400 })
@@ -154,11 +176,56 @@ export async function GET(request: Request) {
   const canAccessByLookup = currentAdminContext.role === 'admin'
     && lookupToken !== null
     && matchesPrivateOwnerLookupRow(ordem, lookupToken)
+  let canAccessBySupplierLookup = false
+
+  if (
+    currentAdminContext.role === 'admin'
+    && supplierLookup !== null
+    && ordem.responsavel_atual_id !== currentAdminContext.adminId
+  ) {
+    const supplierResult = await supabase
+      .from('ordens_notas_acompanhamento')
+      .select('fornecedor_codigo, fornecedor_nome')
+      .eq('id', ordem.ordem_id)
+      .maybeSingle()
+
+    if (supplierResult.error) {
+      return NextResponse.json({ error: supplierResult.error.message }, { status: 500 })
+    }
+
+    const needle = normalizeSupplierText(supplierLookup)
+    const rawSupplierCode = normalizeSupplierCode(supplierResult.data?.fornecedor_codigo, false)
+    const supplierCode = normalizeSupplierCode(supplierResult.data?.fornecedor_codigo)
+    const code = normalizeSupplierText(supplierCode)
+    const name = normalizeSupplierText(supplierResult.data?.fornecedor_nome)
+    let canonicalName = ''
+
+    const supplierCodeCandidates = Array.from(new Set([rawSupplierCode, supplierCode].filter(Boolean))) as string[]
+    if (supplierCodeCandidates.length > 0) {
+      const supplierDimensionResult = await supabase
+        .from('dim_fornecedores')
+        .select('nome')
+        .in('codigo', supplierCodeCandidates)
+        .limit(1)
+        .maybeSingle()
+
+      if (supplierDimensionResult.error) {
+        return NextResponse.json({ error: supplierDimensionResult.error.message }, { status: 500 })
+      }
+
+      canonicalName = normalizeSupplierText(supplierDimensionResult.data?.nome)
+    }
+
+    canAccessBySupplierLookup = Boolean(
+      needle && (code.includes(needle) || name.includes(needle) || canonicalName.includes(needle))
+    )
+  }
 
   if (
     !currentAdminContext.canViewGlobal
     && ordem.responsavel_atual_id !== currentAdminContext.adminId
     && !canAccessByLookup
+    && !canAccessBySupplierLookup
   ) {
     return NextResponse.json({ error: 'Sem permissao para visualizar esta ordem' }, { status: 403 })
   }

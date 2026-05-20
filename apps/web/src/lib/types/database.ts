@@ -349,6 +349,14 @@ export interface OrdemNotaAcompanhamento {
   aguardando_confirmacao_sync?: boolean
 }
 
+export interface FornecedorOrderSearchRow extends Omit<OrdemNotaAcompanhamento, 'nota_id'> {
+  nota_id: string | null
+  fornecedor_codigo: string | null
+  fornecedor_nome: string | null
+  data_entrada: string | null
+  texto_breve: string | null
+}
+
 export interface OrderOwnerGroup {
   id: string
   nome: string

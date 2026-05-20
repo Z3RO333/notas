@@ -7,6 +7,7 @@ export interface OrderDetailQueryParams {
   ordemId: string | null
   notaId: string | null
   lookupQuery?: string | null
+  supplierLookupQuery?: string | null
 }
 
 export function createOrderDetailQueryKey(params: OrderDetailQueryParams) {
@@ -15,6 +16,7 @@ export function createOrderDetailQueryKey(params: OrderDetailQueryParams) {
     params.ordemId ?? 'sem-ordem',
     params.notaId ?? 'sem-nota',
     params.lookupQuery?.trim() ?? '',
+    params.supplierLookupQuery?.trim() ?? '',
   ] as const
 }
 
@@ -25,6 +27,7 @@ export async function fetchOrderDetail(
   const safeOrdemId = params.ordemId?.trim() || null
   const safeNotaId = params.notaId?.trim() || null
   const safeLookupQuery = params.lookupQuery?.trim() || null
+  const safeSupplierLookupQuery = params.supplierLookupQuery?.trim() || null
 
   if (!safeOrdemId && !safeNotaId) {
     throw new Error('ordemId ou notaId invalido')
@@ -38,6 +41,9 @@ export async function fetchOrderDetail(
   }
   if (safeLookupQuery) {
     searchParams.set('lookupQ', safeLookupQuery)
+  }
+  if (safeSupplierLookupQuery) {
+    searchParams.set('supplierQ', safeSupplierLookupQuery)
   }
 
   const response = await fetch(`/api/ordens/detalhe?${searchParams.toString()}`, {

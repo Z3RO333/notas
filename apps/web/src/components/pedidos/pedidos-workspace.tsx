@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { CockpitFilters } from '@/components/cockpit/cockpit-filters'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
 import { PedidosKpiStrip } from '@/components/pedidos/pedidos-kpi-strip'
 import { PedidoRow } from '@/components/pedidos/pedido-row'
 import { PedidoDetailDrawer } from '@/components/pedidos/pedido-detail-drawer'
@@ -52,6 +54,24 @@ export function PedidosWorkspace({ initialFilters, initialUser }: PedidosWorkspa
   })
 
   const virtualItems = virtualizer.getVirtualItems()
+  const activeFiltersCount = [
+    filters.q,
+    filters.status !== 'all' ? filters.status : '',
+    filters.adminId !== 'all' ? filters.adminId : '',
+    filters.anoExtracao && filters.anoExtracao !== '2026' ? filters.anoExtracao : '',
+    filters.mesExtracao,
+  ].filter(Boolean).length
+
+  function handleClearFilters() {
+    setSearchInput('')
+    setFilters({
+      q: '',
+      status: 'all',
+      adminId: 'all',
+      anoExtracao: '2026',
+      mesExtracao: null,
+    })
+  }
 
   useEffect(() => {
     parentRef.current?.scrollTo({ top: 0 })
@@ -69,7 +89,12 @@ export function PedidosWorkspace({ initialFilters, initialUser }: PedidosWorkspa
     <div className="space-y-4">
       <PedidosKpiStrip kpis={kpis} loading={loadingInitial} />
 
-      {/* Filters bar */}
+      <CockpitFilters
+        title="Filtros"
+        description="Ajuste status, periodo e administrador."
+        activeCount={activeFiltersCount}
+        onClear={handleClearFilters}
+      >
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -168,6 +193,7 @@ export function PedidosWorkspace({ initialFilters, initialUser }: PedidosWorkspa
           </Select>
         )}
       </div>
+      </CockpitFilters>
 
       {/* Error */}
       {error && (
@@ -185,7 +211,7 @@ export function PedidosWorkspace({ initialFilters, initialUser }: PedidosWorkspa
       {loadingInitial ? (
         <div className="space-y-2">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-20 rounded-lg border bg-muted/30 animate-pulse" />
+            <Skeleton key={i} className="h-20 rounded-md" />
           ))}
         </div>
       ) : rows.length === 0 ? (

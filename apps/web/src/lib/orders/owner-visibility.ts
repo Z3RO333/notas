@@ -47,14 +47,12 @@ export function buildVisibleOwnerSummary(params: BuildVisibleOwnerSummaryParams)
     && !selectionActive
     && !params.hasScopedFilters
   )
-  const shouldHideOwner = params.tipoOrdem !== 'PMPL'
-
   const scopedOwnerSummary = params.isPrivateScope
     ? params.ownerSummary.filter((owner) => owner.administrador_id === params.currentAdminId)
     : params.ownerSummary
 
   const filtered = scopedOwnerSummary.filter((owner) => {
-    if (shouldHideOwner && shouldHideOwnerOutsidePmpl(owner.nome)) return false
+    if (shouldHideOwnerOutsidePmpl(owner.nome)) return false
 
     if (selectedOwnerKey) {
       return toOrderOwnerKey(owner.administrador_id) === selectedOwnerKey

@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
 import type {
   PedidoCompra,
   PedidosKpis,
@@ -55,6 +55,7 @@ export function usePedidosData({ filters }: UsePedidosDataOptions) {
       return res.json() as Promise<PedidosWorkspaceResponse>
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    placeholderData: keepPreviousData,
     staleTime: 30_000,
     gcTime: 5 * 60_000,
     retry: 1,

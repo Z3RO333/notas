@@ -3,6 +3,7 @@
 import { memo, useMemo } from 'react'
 import { Copy, Download, Loader2, RefreshCcw } from 'lucide-react'
 import { OperacionaisEmCampoDialog } from '@/components/orders/operacionais-em-campo-dialog'
+import { CockpitFilters } from '@/components/cockpit/cockpit-filters'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SearchableSelect } from '@/components/ui/searchable-select'
@@ -136,6 +137,13 @@ export const OrdersWorkspaceFiltersBar = memo(function OrdersWorkspaceFiltersBar
   onRefresh,
 }: OrdersWorkspaceFiltersBarProps) {
   const years = useMemo(() => makeYearOptions(), [])
+  const activeFiltersCount = [
+    filters.q,
+    filters.status && filters.status !== 'ativas' ? filters.status : '',
+    filters.responsavel && filters.responsavel !== 'todos' ? filters.responsavel : '',
+    filters.unidade,
+    filters.prioridade && filters.prioridade !== 'todas' ? filters.prioridade : '',
+  ].filter(Boolean).length
 
   const periodControlsClassName = cn(
     'grid gap-2 sm:grid-cols-2',
@@ -163,8 +171,32 @@ export const OrdersWorkspaceFiltersBar = memo(function OrdersWorkspaceFiltersBar
     }
   }
 
+  function handleClearFilters() {
+    const today = utcYmd(0)
+    const currentYear = new Date().getUTCFullYear()
+    setSearchInput('')
+    setFilters((prev) => ({
+      ...prev,
+      periodMode: 'range',
+      year: currentYear,
+      month: new Date().getUTCMonth() + 1,
+      startDate: `${currentYear}-01-01`,
+      endDate: today,
+      q: '',
+      status: 'ativas',
+      responsavel: 'todos',
+      unidade: '',
+      prioridade: 'todas',
+    }))
+  }
+
   return (
-    <div className="sticky top-2 z-30 rounded-lg border bg-background/95 p-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <CockpitFilters
+      title="Filtros"
+      description="Ajuste periodo, status, responsavel e unidade."
+      activeCount={activeFiltersCount}
+      onClear={handleClearFilters}
+    >
       <div className="grid gap-3 xl:grid-cols-12 xl:items-start">
         <Input
           ref={searchInputRef}
@@ -392,6 +424,6 @@ export const OrdersWorkspaceFiltersBar = memo(function OrdersWorkspaceFiltersBar
                 : 'Busca inteligente ativa: texto em descrição e termos relacionados.'}
         </p>
       )}
-    </div>
+    </CockpitFilters>
   )
 })

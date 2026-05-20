@@ -1,5 +1,4 @@
 import type { UserRole } from '@/lib/types/database'
-import { verifyMviewToken } from '@/lib/auth/maintainer-view'
 
 export const BEMOL_EMAIL_DOMAIN = '@bemol.com.br'
 
@@ -40,22 +39,6 @@ export function isBemolEmail(value: string): boolean {
 
 export function isAllowedAuthRole(role: string | null | undefined): role is UserRole {
   return role === 'admin' || role === 'gestor' || role === 'viewer'
-}
-
-export function resolveMaintainerViewFromCookie(
-  cookieValue: string | undefined,
-  email: string | null | undefined,
-  secret: string | undefined,
-): UserRole | null {
-  if (!secret) return null
-  if (!cookieValue) return null
-
-  const tokenData = verifyMviewToken(cookieValue, secret)
-  if (!tokenData) return null
-
-  if (tokenData.email !== normalizeEmail(email ?? '')) return null
-
-  return tokenData.role
 }
 
 export function mapLoginErrorMessage(rawMessage: string): string {

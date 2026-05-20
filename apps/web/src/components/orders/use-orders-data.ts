@@ -604,6 +604,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
     isLoadingHighlights,
     isFetchingHighlights,
     nextCursor,
+    isFetching,
     loadingInitial,
     loadingMore,
     error,

@@ -3,6 +3,7 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { LayoutGrid, Rows3, Search } from 'lucide-react'
+import { CockpitFilters } from '@/components/cockpit/cockpit-filters'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -419,6 +420,14 @@ export function CollaboratorPanel({
     }
   }
 
+  function clearAllFilters() {
+    setSearch('')
+    handleStatusChange('abertas')
+    if (showResponsavelFilter) handleResponsavelChange('todos')
+    if (showUnidadeFilter) handleUnidadeChange('todas')
+    if (activeNotesKpi) replaceQuery({ kpi: null })
+  }
+
   return (
     <div className="space-y-4">
       {resultsArePartial && (
@@ -442,6 +451,12 @@ export function CollaboratorPanel({
         />
       )}
 
+      <CockpitFilters
+        title="Filtros"
+        description="Refine por texto, status, responsavel e unidade."
+        activeCount={activeFilterChips.length}
+        onClear={clearAllFilters}
+      >
       <div className="flex flex-col gap-3 xl:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -556,6 +571,7 @@ export function CollaboratorPanel({
           ))}
         </div>
       )}
+      </CockpitFilters>
 
       {viewMode === 'list' ? (
         <>

@@ -35,40 +35,15 @@ export async function listarCarteiraPmpl(supabase: SupabaseClient): Promise<Pmpl
 }
 
 export async function listarFornecedoresSemDono(supabase: SupabaseClient): Promise<PmplFornecedorSemDono[]> {
-  const { data: mapeados, error: erroMapeados } = await supabase
-    .from('pmpl_carteira_fornecedor')
-    .select('fornecedor_codigo')
-    .eq('ativo', true)
-
-  if (erroMapeados) throw erroMapeados
-
-  const codigosMapeados = (mapeados ?? []).map((r) => r.fornecedor_codigo)
-
   const { data, error } = await supabase
-    .from('ordens_notas_acompanhamento')
-    .select('fornecedor_codigo, fornecedor_nome')
-    .eq('tipo_ordem', 'PMPL')
-    .not('fornecedor_codigo', 'is', null)
-    .not('status_ordem_raw', 'in', '("CONCLUIDO","CANCELADO","FINALIZADO","REJEITADA")')
+    .from('vw_pmpl_fornecedores_sem_dono')
+    .select('fornecedor_codigo, fornecedor_nome, qtd_abertas')
 
   if (error) throw error
 
-  const contagem = new Map<string, { nome: string | null; qtd: number }>()
-
-  for (const row of data ?? []) {
-    const codigo = (row.fornecedor_codigo ?? '').trim().toUpperCase()
-    if (!codigo || codigosMapeados.includes(codigo)) continue
-
-    const entry = contagem.get(codigo) ?? { nome: row.fornecedor_nome ?? null, qtd: 0 }
-    entry.qtd += 1
-    contagem.set(codigo, entry)
-  }
-
-  return Array.from(contagem.entries())
-    .map(([codigo, entry]) => ({
-      fornecedorCodigo: codigo,
-      fornecedorNome: entry.nome,
-      qtdAbertas: entry.qtd,
-    }))
-    .sort((a, b) => b.qtdAbertas - a.qtdAbertas)
+  return (data ?? []).map((row) => ({
+    fornecedorCodigo: row.fornecedor_codigo,
+    fornecedorNome: row.fornecedor_nome ?? null,
+    qtdAbertas: row.qtd_abertas ?? 0,
+  }))
 }

@@ -157,10 +157,10 @@ export function OrderCompactCard({
 
   return (
     <div
-      className={`group rounded-lg border border-l-4 bg-card px-3 py-2.5 transition-all ${semaforoBorder} ${
+      className={`group rounded-md border border-l-4 bg-card px-3 py-2.5 shadow-sm transition-colors ${semaforoBorder} ${
         selected ? 'ring-2 ring-primary/60' : ''
       } ${
-        isClickable ? 'cursor-pointer hover:shadow-md' : 'hover:bg-muted/30'
+        isClickable ? 'cursor-pointer hover:border-primary/30 hover:bg-muted/20' : 'hover:bg-muted/20'
       }`}
       onClick={handleOpenDetails}
       onMouseEnter={onPrefetchDetails}
@@ -170,7 +170,7 @@ export function OrderCompactCard({
       role={isClickable ? 'button' : undefined}
       tabIndex={isClickable ? 0 : undefined}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         {showCheckbox && hasLinkedNote && (
           <input
             type="checkbox"
@@ -228,14 +228,14 @@ export function OrderCompactCard({
           </span>
         </span>
 
-        <div className="flex shrink-0 items-center gap-1" onClick={(event) => event.stopPropagation()}>
+        <div className="flex shrink-0 flex-wrap items-center gap-1 sm:justify-end" onClick={(event) => event.stopPropagation()}>
           {row.aguardando_confirmacao_sync && (
             <span className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-100">
               Aguardando confirmacao do sync
             </span>
           )}
 
-          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${getSemaforoClass(row.semaforo_atraso)}`}>
+          <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-semibold ${getSemaforoClass(row.semaforo_atraso)}`}>
             {getSemaforoLabel(row.semaforo_atraso)}
           </span>
 

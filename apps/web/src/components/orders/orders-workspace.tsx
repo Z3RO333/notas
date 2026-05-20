@@ -28,6 +28,8 @@ import { useOrdersData } from '@/components/orders/use-orders-data'
 import { OrdersWorkspaceFiltersBar } from '@/components/orders/orders-workspace-filters-bar'
 import { OrdersWorkspaceHighlightsPanel } from '@/components/orders/orders-workspace-highlights-panel'
 import { OrdersWorkspaceOwnerCards } from '@/components/orders/orders-workspace-owner-cards'
+import { SupplierOrderLocator } from '@/components/orders/supplier-order-locator'
+import { Skeleton } from '@/components/ui/skeleton'
 import type {
   Especialidade,
   OrderOwnerGroup,
@@ -163,7 +165,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   // --- Data + smart search ---
   const {
     rows, pendingSyncRows, unitOptions: fetchedUnitOptions, kpis, ownerSummary, reassignTargets, poolGroups, poolCentros, highlights,
-    isLoadingHighlights, isFetchingHighlights, nextCursor, loadingInitial, loadingMore, error, currentUser, parentRef, smartSearch, effectiveFilters, fetchWorkspace,
+    isLoadingHighlights, isFetchingHighlights, nextCursor, isFetching, loadingInitial, loadingMore, error, currentUser, parentRef, smartSearch, effectiveFilters, fetchWorkspace,
     applyOptimisticReassignments,
   } = useOrdersData({
     filters,
@@ -278,7 +280,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     return scopedOwnerSummary
       .filter((s) => {
         if (s.total <= 0) return false
-        // Gustavo deve aparecer na aba PMPL; em PMOS mantém regra legada de ocultar.
         if (filters.tipoOrdem !== 'PMPL' && shouldHideOwnerOutsidePmpl(s.nome)) return false
         if (!selectedOwnerKey) return true
         return toOrderOwnerKey(s.administrador_id) === selectedOwnerKey
@@ -621,6 +622,19 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         </p>
       )}
 
+      {!presentation.isViewerMode && (
+        <div className="flex items-center justify-end">
+          <SupplierOrderLocator
+            currentAdminId={currentUser.adminId}
+            canReassign={canReassign}
+            reassignTargets={reassignTargets}
+            onReassigned={({ notaId, novoAdminId }) => {
+              applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])
+            }}
+          />
+        </div>
+      )}
+
       {!presentation.isViewerMode && !privateOwnerLookupActive && (
         <OrdersPendingSyncSection
           rows={pendingSyncRows}
@@ -707,6 +721,10 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         />
       )}
 
+      {isFetching && !loadingInitial && (
+        <p className="text-xs text-muted-foreground">Atualizando...</p>
+      )}
+
       {canReassign && selectedNotaIds.length > 0 && (
         <div className="sticky bottom-4 z-40">
           <OrdersBulkReassignBar
@@ -724,9 +742,10 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       {presentation.showWorkspaceTable && <>
       <div ref={parentRef} className="h-[68vh] overflow-auto rounded-lg border">
         {loadingInitial ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Carregando ordens...
+          <div className="space-y-2 p-3">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <Skeleton key={index} className="h-24 rounded-md" />
+            ))}
           </div>
         ) : rows.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Nenhuma ordem para os filtros aplicados.</div>

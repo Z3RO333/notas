@@ -15,6 +15,7 @@ import {
   shouldKeepRefrigeracaoOrderWithSuelem,
   shouldRouteOrderToRefrigeracao,
 } from '@/lib/orders/refrigeracao-routing'
+import { isCdManausEquipamento } from '@/lib/orders/cd-manaus-routing'
 import type { UserRole } from '@/lib/types/database'
 
 const ROUTING_BATCH_SIZE = 1000
@@ -339,9 +340,15 @@ function routeOrder(row: RoutingCandidateRow, context: RouteOrderContext): Route
 
   const fixedOwnerKey = resolveFixedOwnerKeyByUnit(row.unidade)
   if (fixedOwnerKey) {
+    // CD MANAUS: equipamentos vão para Duran, predial vai para Brenda
+    const resolvedKey =
+      fixedOwnerKey === 'brenda' && isCdManausEquipamento(row.descricao)
+        ? 'duran'
+        : fixedOwnerKey
+
     return {
       page: 'PMOS',
-      ownerId: context.fixedOwnerByKey[fixedOwnerKey]?.id ?? null,
+      ownerId: context.fixedOwnerByKey[resolvedKey]?.id ?? null,
       reason: 'cd',
     }
   }
@@ -542,6 +549,7 @@ async function resolveFixedCdOwnersByKey(supabase: RoutingSupabase): Promise<Par
   const fixedOwnerKeyByEmail: Record<string, FixedOwnerKey> = {
     [normalizeAdminEmail(FIXED_OWNER_EMAIL_BY_KEY.brenda)]: 'brenda',
     [normalizeAdminEmail(FIXED_OWNER_EMAIL_BY_KEY.adriano)]: 'adriano',
+    [normalizeAdminEmail(FIXED_OWNER_EMAIL_BY_KEY.duran)]: 'duran',
   }
 
   const data = await fetchAdministradoresWithVacationFallback(supabase, (columns) => (

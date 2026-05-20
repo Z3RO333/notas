@@ -1,6 +1,6 @@
 import type { OrdersOwnerSummary } from '@/lib/types/database'
 
-export type FixedOwnerKey = 'brenda' | 'adriano'
+export type FixedOwnerKey = 'brenda' | 'adriano' | 'duran'
 
 export type KnownOwnerCargoLabel =
   | 'PREVENTIVAS'
@@ -20,19 +20,22 @@ export const REFRIGERACAO_FALLBACK_GESTOR_EMAILS = [
 export const FIXED_OWNER_EMAIL_BY_KEY: Record<FixedOwnerKey, string> = {
   brenda: 'brendafonseca@bemol.com.br',
   adriano: 'adrianobezerra@bemol.com.br',
+  duran: 'danielduran@bemol.com.br',
 }
 
 export const FIXED_OWNER_LABEL_BY_KEY: Record<FixedOwnerKey, string> = {
   brenda: 'Brenda Rodrigues',
   adriano: 'Adriano Bezerra',
+  duran: 'Daniel Duran',
 }
 
 const FIXED_OWNER_AVATAR_BY_KEY: Record<FixedOwnerKey, string> = {
   brenda: '/avatars/BRENDA.jpg',
   adriano: '/avatars/ADRIANO.jpg',
+  duran: '/avatars/DANIELDURAN.jpg',
 }
 
-const FIXED_OWNER_CARD_ORDER: FixedOwnerKey[] = ['brenda', 'adriano']
+const FIXED_OWNER_CARD_ORDER: FixedOwnerKey[] = ['brenda', 'duran', 'adriano']
 
 const UNIT_TO_FIXED_OWNER_KEY: Record<string, FixedOwnerKey> = {
   'CD MANAUS': 'brenda',

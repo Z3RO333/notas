@@ -1,5 +1,8 @@
+import 'server-only'
+
 import { createHmac, timingSafeEqual } from 'crypto'
 import type { UserRole } from '@/lib/types/database'
+import { normalizeEmail } from '@/lib/auth/shared'
 
 export const MVIEW_COOKIE_NAME = '__cockpit_mview'
 export const MVIEW_COOKIE_MAX_AGE = 3600
@@ -80,4 +83,20 @@ export function verifyMviewToken(
   }
 
   return { role: payload.role, adminId: payload.adminId, email: payload.email }
+}
+
+export function resolveMaintainerViewFromCookie(
+  cookieValue: string | undefined,
+  email: string | null | undefined,
+  secret: string | undefined,
+): UserRole | null {
+  if (!secret) return null
+  if (!cookieValue) return null
+
+  const tokenData = verifyMviewToken(cookieValue, secret)
+  if (!tokenData) return null
+
+  if (tokenData.email !== normalizeEmail(email ?? '')) return null
+
+  return tokenData.role
 }

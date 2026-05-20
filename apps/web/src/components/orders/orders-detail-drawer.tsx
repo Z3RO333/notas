@@ -15,6 +15,7 @@ import {
   getSemaforoLabel,
 } from '@/lib/orders/metrics'
 import type {
+  FornecedorOrderSearchRow,
   OrderDetailDrawerData,
   OrdemNotaAcompanhamento,
   OrderReassignTarget,
@@ -26,9 +27,11 @@ interface OrdersDetailDrawerProps {
   ordemId: string | null
   notaId: string | null
   lookupQuery?: string | null
-  row: OrdemNotaAcompanhamento | null
+  supplierLookupQuery?: string | null
+  row: OrdemNotaAcompanhamento | FornecedorOrderSearchRow | null
   canReassign: boolean
   reassignTargets: OrderReassignTarget[]
+  allowLinkedNoteNavigation?: boolean
   onReassigned?: (payload: { notaId: string; novoAdminId: string }) => void
 }
 
@@ -51,9 +54,11 @@ export function OrdersDetailDrawer({
   ordemId,
   notaId,
   lookupQuery = null,
+  supplierLookupQuery = null,
   row,
   canReassign,
   reassignTargets,
+  allowLinkedNoteNavigation = true,
   onReassigned,
 }: OrdersDetailDrawerProps) {
   const safeOrdemId = ordemId?.trim() || null
@@ -63,11 +68,13 @@ export function OrdersDetailDrawer({
       ordemId: safeOrdemId,
       notaId: safeNotaId,
       lookupQuery,
+      supplierLookupQuery,
     }),
     queryFn: ({ signal }) => fetchOrderDetail({
       ordemId: safeOrdemId,
       notaId: safeNotaId,
       lookupQuery,
+      supplierLookupQuery,
     }, signal),
     enabled: open && Boolean(safeOrdemId || safeNotaId),
     staleTime: 60_000,
@@ -190,13 +197,17 @@ export function OrdersDetailDrawer({
             )}
           </div>
 
-          {linkedNotaId ? (
+          {linkedNotaId && allowLinkedNoteNavigation ? (
             <Button asChild variant="outline" className="w-full">
               <Link href={`/notas/${linkedNotaId}`}>
                 <ArrowRightLeft className="mr-2 h-4 w-4" />
                 Abrir detalhe completo
               </Link>
             </Button>
+          ) : linkedNotaId ? (
+            <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
+              Detalhe completo da nota indisponível para ordens de outra carteira.
+            </div>
           ) : (
             <div className="space-y-2">
               <Button type="button" variant="outline" className="w-full" disabled>

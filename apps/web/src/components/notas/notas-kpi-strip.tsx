@@ -1,9 +1,8 @@
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import type { ComponentType } from 'react'
 import { AlertTriangle, Clock3, ListChecks, Sparkles } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CockpitKpiStrip, type CockpitKpiItem } from '@/components/cockpit/cockpit-kpi-strip'
 import { updateSearchParams } from '@/lib/grid/query'
 import type { CriticalityLevel, NotesKpiFilter } from '@/lib/types/database'
 
@@ -38,6 +37,7 @@ export function NotasKpiStrip({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const criticality = resolveCriticality(total, doisMais)
+  const stripTone = criticality === 'critico' ? 'critical' : criticality === 'atencao' ? 'attention' : undefined
 
   function handleToggle(kpi: NotesKpiFilter) {
     const nextKpi = activeKpi === kpi ? null : kpi
@@ -48,54 +48,25 @@ export function NotasKpiStrip({
     router.replace(queryString ? `${pathname}?${queryString}` : pathname)
   }
 
-  const cards: Array<{
-    key: NotesKpiFilter
-    label: string
-    value: number
-    icon: ComponentType<{ className?: string }>
-    valueClass: string
-  }> = [
-    { key: 'notas', label: 'Notas', value: total, icon: ListChecks, valueClass: 'text-foreground' },
-    { key: 'novas', label: 'Hoje', value: novas, icon: Sparkles, valueClass: 'text-emerald-700' },
-    { key: 'um_dia', label: '1 dia', value: umDia, icon: Clock3, valueClass: 'text-amber-700' },
-    { key: 'dois_mais', label: '2+ dias', value: doisMais, icon: AlertTriangle, valueClass: 'text-red-700' },
-  ]
+  const items: CockpitKpiItem[] = [
+    { id: 'notas', kpi: 'notas' as const, label: 'Notas', value: total, icon: ListChecks },
+    { id: 'novas', kpi: 'novas' as const, label: 'Hoje', value: novas, icon: Sparkles },
+    { id: 'um_dia', kpi: 'um_dia' as const, label: '1 dia', value: umDia, icon: Clock3 },
+    { id: 'dois_mais', kpi: 'dois_mais' as const, label: '2+ dias', value: doisMais, icon: AlertTriangle },
+  ].map((item) => ({
+    id: item.id,
+    label: item.label,
+    value: fmt(item.value),
+    icon: item.icon,
+    active: activeKpi === item.kpi,
+    helper: activeKpi === item.kpi ? 'Clique para limpar' : undefined,
+    tone: item.kpi === 'dois_mais' && item.value > 0
+      ? 'critical'
+      : item.kpi === 'um_dia' && item.value > 0
+        ? 'attention'
+        : 'neutral',
+    onClick: () => handleToggle(item.kpi),
+  }))
 
-  const frameClass = criticality === 'critico'
-    ? 'border-red-300 bg-red-50/30'
-    : criticality === 'atencao'
-      ? 'border-amber-300 bg-amber-50/30'
-      : 'border-border'
-
-  return (
-    <div className={`rounded-lg border p-2 ${frameClass}`}>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {cards.map((item) => {
-          const Icon = item.icon
-          const active = activeKpi === item.key
-          return (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => handleToggle(item.key)}
-              className="text-left"
-            >
-              <Card className={`transition-all hover:shadow-sm ${active ? 'ring-2 ring-primary bg-primary/5' : ''}`}>
-                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{item.label}</CardTitle>
-                  <Icon className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent className="space-y-1">
-                  <p className={`text-3xl font-bold ${item.valueClass}`}>{fmt(item.value)}</p>
-                  {active && (
-                    <p className="text-xs text-muted-foreground">KPI ativo. Clique para limpar.</p>
-                  )}
-                </CardContent>
-              </Card>
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
+  return <CockpitKpiStrip items={items} tone={stripTone} />
 }
