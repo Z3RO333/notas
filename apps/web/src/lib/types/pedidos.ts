@@ -68,3 +68,17 @@ export interface PedidosWorkspaceResponse {
   nextCursor: PedidosWorkspaceCursor | null
   meta?: PedidosWorkspaceMeta
 }
+
+export interface PedidosAdminSummary {
+  adminId: string
+  nome: string
+  avatar_url: string | null
+  especialidade: string | null
+  em_aberto: number
+  encerrado: number
+  cancelado: number
+}
+
+export interface PedidosSummaryResponse {
+  admins: PedidosAdminSummary[]
+}
