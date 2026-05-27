@@ -92,6 +92,13 @@ export const PedidoRow = memo(function PedidoRow({ pedido, onOpen, adminNome, ad
               <span>Data: <span className="font-medium text-foreground">{fmtDate(pedido.data_documento)}</span></span>
             )}
             <span>Ref: <span className="font-medium text-foreground">{fmtMes(pedido.mes_extracao)}</span></span>
+            {pedido.nf_referencias.length > 0 && (
+              <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                NF: {pedido.nf_referencias.length === 1
+                  ? pedido.nf_referencias[0]
+                  : `${pedido.nf_referencias.length} NFs`}
+              </span>
+            )}
             {adminNome && (
               <span>Admin: <span className="font-medium text-foreground">{adminNome}</span></span>
             )}

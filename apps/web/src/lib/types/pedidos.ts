@@ -17,6 +17,7 @@ export interface PedidoCompra {
   mes_extracao: string
   created_at: string
   updated_at: string
+  nf_referencias: string[]
 }
 
 export interface PedidoCompraItem {
@@ -77,6 +78,7 @@ export interface PedidosAdminSummary {
   em_aberto: number
   encerrado: number
   cancelado: number
+  valor_total: number
 }
 
 export interface PedidosSummaryResponse {

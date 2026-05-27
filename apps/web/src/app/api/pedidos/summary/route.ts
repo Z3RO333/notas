@@ -11,6 +11,7 @@ type SummaryRpcRow = {
   em_aberto: number
   encerrado: number
   cancelado: number
+  valor_total: number
 }
 
 export async function GET() {
@@ -46,6 +47,7 @@ export async function GET() {
     em_aberto: Number(row.em_aberto),
     encerrado: Number(row.encerrado),
     cancelado: Number(row.cancelado),
+    valor_total: Number(row.valor_total),
   }))
 
   const response: PedidosSummaryResponse = { admins }

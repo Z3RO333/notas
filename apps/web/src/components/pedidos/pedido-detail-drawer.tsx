@@ -232,6 +232,24 @@ export function PedidoDetailDrawer({ open, onOpenChange, pedido, adminNome }: Pe
           </div>
         </section>
 
+        {pedido.nf_referencias.length > 0 && (
+          <section>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Notas fiscais ({pedido.nf_referencias.length})
+            </h3>
+            <div className="flex flex-wrap gap-1.5">
+              {pedido.nf_referencias.map((nf) => (
+                <span
+                  key={nf}
+                  className="inline-flex items-center rounded-md border bg-muted px-2 py-0.5 font-mono text-xs text-foreground"
+                >
+                  {nf}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Itens do pedido

@@ -86,6 +86,7 @@ function toPedidoCompraRow(row: PedidosWorkspaceRpcRow): PedidoCompra {
     mes_extracao: row.mes_extracao,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    nf_referencias: Array.isArray(row.nf_referencias) ? row.nf_referencias : [],
   }
 }
 
