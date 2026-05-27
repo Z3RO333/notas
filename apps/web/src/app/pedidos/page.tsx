@@ -3,48 +3,13 @@ import { cookies } from 'next/headers'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { MVIEW_COOKIE_NAME, resolveMaintainerViewFromCookie } from '@/lib/auth/maintainer-view'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
-import { PedidosWorkspace } from '@/components/pedidos/pedidos-workspace'
+import { PedidosPanel } from '@/components/pedidos/pedidos-panel'
 import type { UserRole } from '@/lib/types/database'
-import type { PedidoCompraStatus, PedidosWorkspaceFilters } from '@/lib/types/pedidos'
 
 export const dynamic = 'force-dynamic'
 
-interface PedidosPageProps {
-  searchParams?: Promise<{
-    q?: string | string[]
-    status?: string | string[]
-    adminId?: string | string[]
-    ano?: string | string[]
-    mes?: string | string[]
-  }>
-}
-
-function parseParam(value: string | string[] | undefined): string {
-  if (!value) return ''
-  return Array.isArray(value) ? (value[0] ?? '') : value
-}
-
-function parseInitialFilters(params: Awaited<PedidosPageProps['searchParams']>): PedidosWorkspaceFilters {
-  const rawStatus = parseParam(params?.status)
-  const rawAno = parseParam(params?.ano)
-  const validStatuses: PedidoCompraStatus[] = ['em_aberto', 'encerrado', 'cancelado']
-  const status = validStatuses.includes(rawStatus as PedidoCompraStatus)
-    ? (rawStatus as PedidoCompraStatus)
-    : 'all'
-
-  return {
-    q: parseParam(params?.q),
-    status,
-    adminId: parseParam(params?.adminId) || 'all',
-    anoExtracao: rawAno === 'all' ? null : (rawAno || '2026'),
-    mesExtracao: parseParam(params?.mes) || null,
-  }
-}
-
-export default async function PedidosPage({ searchParams }: PedidosPageProps) {
+export default async function PedidosPage() {
   const currentAdminContext = await getCurrentAdminContext()
-  const resolvedSearchParams = searchParams ? await searchParams : undefined
-  const initialFilters = parseInitialFilters(resolvedSearchParams)
 
   if (!currentAdminContext.isAuthenticated || !currentAdminContext.email) {
     redirect('/login')
@@ -70,9 +35,8 @@ export default async function PedidosPage({ searchParams }: PedidosPageProps) {
   return (
     <div className="space-y-6">
       <PageTitleBlock title="Pedidos de Compra" />
-      <PedidosWorkspace
+      <PedidosPanel
         key={`${initialUser.adminId}:${initialUser.role}`}
-        initialFilters={initialFilters}
         initialUser={initialUser}
       />
     </div>
