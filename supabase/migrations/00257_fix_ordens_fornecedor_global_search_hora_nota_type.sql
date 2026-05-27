@@ -1,25 +1,9 @@
--- 00256_ordens_fornecedor_global_search.sql
+-- 00257_fix_ordens_fornecedor_global_search_hora_nota_type.sql
 --
--- Localizador global controlado de ordens por fornecedor.
--- Nao altera a view/RPC do workspace nem seus KPIs; a busca fica em RPC dedicada,
--- ancorada na vw_ordens_notas_painel para preservar a elegibilidade canonica.
+-- Corrige o tipo de retorno de hora_nota no localizador global por fornecedor.
+-- vw_ordens_notas_painel expõe hora_nota como TEXT, não TIMESTAMPTZ.
 
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-CREATE EXTENSION IF NOT EXISTS unaccent;
-
-CREATE INDEX IF NOT EXISTS ordens_fornecedor_codigo_trgm_idx
-  ON public.ordens_notas_acompanhamento
-  USING gin (fornecedor_codigo gin_trgm_ops)
-  WHERE fornecedor_codigo IS NOT NULL;
-
-CREATE INDEX IF NOT EXISTS ordens_fornecedor_nome_trgm_idx
-  ON public.ordens_notas_acompanhamento
-  USING gin (fornecedor_nome gin_trgm_ops)
-  WHERE fornecedor_nome IS NOT NULL;
-
-CREATE INDEX IF NOT EXISTS dim_fornecedores_nome_trgm_idx
-  ON public.dim_fornecedores
-  USING gin (nome gin_trgm_ops);
+DROP FUNCTION IF EXISTS public.buscar_ordens_fornecedor_global(TEXT, UUID, INTEGER);
 
 CREATE OR REPLACE FUNCTION public.buscar_ordens_fornecedor_global(
   p_q TEXT,
@@ -172,3 +156,5 @@ COMMENT ON FUNCTION public.buscar_ordens_fornecedor_global(TEXT, UUID, INTEGER) 
 
 REVOKE ALL ON FUNCTION public.buscar_ordens_fornecedor_global(TEXT, UUID, INTEGER) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.buscar_ordens_fornecedor_global(TEXT, UUID, INTEGER) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';

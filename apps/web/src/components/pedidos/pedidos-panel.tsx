@@ -6,15 +6,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { PedidosMiniCard } from '@/components/pedidos/pedidos-mini-card'
 import { PedidosAccordion } from '@/components/pedidos/pedidos-accordion'
 import type { PedidosAdminSummary, PedidosSummaryResponse } from '@/lib/types/pedidos'
-import type { UserRole } from '@/lib/types/database'
-
-interface PedidosPanelProps {
-  initialUser: {
-    role: UserRole
-    adminId: string
-    canViewGlobal: boolean
-  }
-}
 
 function usePedidosSummary() {
   return useQuery<PedidosAdminSummary[]>({
@@ -33,7 +24,7 @@ function usePedidosSummary() {
   })
 }
 
-export function PedidosPanel({ initialUser }: PedidosPanelProps) {
+export function PedidosPanel() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const { data: admins, isPending, error } = usePedidosSummary()
 

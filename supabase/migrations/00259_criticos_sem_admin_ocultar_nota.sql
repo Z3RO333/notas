@@ -1,0 +1,4 @@
+-- 00259_criticos_sem_admin_ocultar_nota.sql
+-- ATENÇÃO: Esta migration criou a função com tipo errado (INTEGER em vez de UUID).
+-- Corrigida pela 00260_fix_distribuir_notas_criticos_ocultar.sql.
+-- Não aplicar isoladamente.
