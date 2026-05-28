@@ -1,6 +1,7 @@
 // Regression test — TanStack Query v5 já trata races via signal/keepPreviousData.
 // Este teste documenta a expectativa pra pegar regressões futuras se a config de
 // cache mudar.
+/* eslint-disable @typescript-eslint/no-explicit-any -- test fixtures usam casts deliberados para shapes parciais */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -37,6 +38,7 @@ function makeFilters(responsavel: string) {
     unidade: 'todas',
     prioridade: 'todas',
     tipoOrdem: 'todas',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any
 }
 
@@ -84,6 +86,7 @@ describe('useOrdersData — troca rápida de filtros (regressão)', () => {
       canAccessPmpl: true,
       userEmail: 'x@y',
       canUseDeveloperViewSwitcher: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any
 
     const { result, rerender } = renderHook(
