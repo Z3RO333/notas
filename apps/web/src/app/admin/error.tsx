@@ -24,13 +24,13 @@ export default function GestorError({
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
         <AlertTriangle className="h-6 w-6" />
       </div>
-      <h2 className="mt-5 text-xl font-semibold tracking-tight">Nao foi possivel abrir o painel</h2>
+      <h2 className="mt-5 text-xl font-semibold tracking-tight">Não foi possível abrir o painel</h2>
       <p className="mt-2 mx-auto max-w-md text-sm leading-6 text-muted-foreground">
         Tente atualizar a tela. Se o erro continuar, use o código abaixo para investigação.
       </p>
       {error.digest ? (
         <p className="mt-4 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-          Codigo: {error.digest}
+          Código: {error.digest}
         </p>
       ) : null}
       <Button onClick={reset} className="mt-6">Tentar novamente</Button>
