@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Copy, ExternalLink } from 'lucide-react'
+import { Copy, ExternalLink, Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { OrderReassignDialog } from '@/components/orders/order-reassign-dialog'
 import { useToast } from '@/components/ui/toast'
@@ -27,6 +27,7 @@ interface OrderCompactCardProps {
   onPrefetchDetails?: () => void
   notaLinkHref?: string
   highlightQuery?: string
+  isLoading?: boolean
 }
 
 function escapeRegExp(value: string): string {
@@ -74,6 +75,7 @@ export function OrderCompactCard({
   onPrefetchDetails,
   notaLinkHref,
   highlightQuery,
+  isLoading = false,
 }: OrderCompactCardProps) {
   const { toast } = useToast()
   const isClickable = typeof onOpenDetails === 'function'
@@ -157,7 +159,7 @@ export function OrderCompactCard({
 
   return (
     <div
-      className={`group rounded-md border border-l-4 bg-card px-3 py-2.5 shadow-sm transition-all duration-150 hover:shadow-md ${semaforoBorder} ${
+      className={`group relative rounded-md border border-l-4 bg-card px-3 py-2.5 shadow-sm transition-all duration-150 hover:shadow-md ${semaforoBorder} ${
         selected ? 'ring-2 ring-primary/60' : ''
       } ${
         isClickable ? 'cursor-pointer hover:border-primary/30 hover:bg-muted/30' : 'hover:bg-muted/30'
@@ -170,6 +172,11 @@ export function OrderCompactCard({
       role={isClickable ? 'button' : undefined}
       tabIndex={isClickable ? 0 : undefined}
     >
+      {isLoading && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/60 backdrop-blur-sm">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        </div>
+      )}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         {showCheckbox && hasLinkedNote && (
           <input

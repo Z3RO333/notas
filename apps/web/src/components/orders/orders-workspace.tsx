@@ -110,6 +110,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     () => resolveOrdersWorkspacePresentation(initialUser.role).defaultOwnerCardsViewMode
   )
   const [copyFilterLoading, setCopyFilterLoading] = useState(false)
+  const [pendingReassignNotaIds, setPendingReassignNotaIds] = useState<Set<string>>(new Set())
 
   // --- Filter state ---
   const { filters, setFilters, searchInput, setSearchInput, searchInputRef, pendingSearchEnterActionRef } = useOrdersFilters({
@@ -357,6 +358,18 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
   function applyReassignResult(assignments: Array<{ nota_id: string; administrador_destino_id: string }>) {
     if (assignments.length === 0) return
+
+    // Marca essas notas como pending por ~600ms pra dar feedback visual
+    const newPending = new Set(assignments.map((a) => a.nota_id).filter(Boolean) as string[])
+    setPendingReassignNotaIds((prev) => new Set([...prev, ...newPending]))
+    setTimeout(() => {
+      setPendingReassignNotaIds((prev) => {
+        const next = new Set(prev)
+        for (const id of newPending) next.delete(id)
+        return next
+      })
+    }, 600)
+
     applyOptimisticReassignments(assignments)
 
     const assignByNota = new Map(
@@ -761,6 +774,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                   <OrderCompactCard
                     row={row}
                     selected={selected}
+                    isLoading={notaId ? pendingReassignNotaIds.has(notaId) : false}
                     showCheckbox={canReassign}
                     highlightQuery={smartSearch.highlightQuery}
                     onToggleSelection={toggleSelection}
