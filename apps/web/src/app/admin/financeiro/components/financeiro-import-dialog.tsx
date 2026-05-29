@@ -1,6 +1,5 @@
 'use client'
 
-import * as XLSX from 'xlsx'
 import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, CheckCircle2, FileSpreadsheet, Upload } from 'lucide-react'
@@ -188,6 +187,7 @@ export function FinanceiroImportDialog() {
     if (!file) return
 
     try {
+      const XLSX = await import('xlsx')
       const buffer = await file.arrayBuffer()
       const workbook = XLSX.read(buffer, {
         type: 'array',
