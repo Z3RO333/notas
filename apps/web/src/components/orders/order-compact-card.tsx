@@ -157,10 +157,10 @@ export function OrderCompactCard({
 
   return (
     <div
-      className={`group rounded-md border border-l-4 bg-card px-3 py-2.5 shadow-sm transition-colors ${semaforoBorder} ${
+      className={`group rounded-md border border-l-4 bg-card px-3 py-2.5 shadow-sm transition-all duration-150 hover:shadow-md ${semaforoBorder} ${
         selected ? 'ring-2 ring-primary/60' : ''
       } ${
-        isClickable ? 'cursor-pointer hover:border-primary/30 hover:bg-muted/20' : 'hover:bg-muted/20'
+        isClickable ? 'cursor-pointer hover:border-primary/30 hover:bg-muted/30' : 'hover:bg-muted/30'
       }`}
       onClick={handleOpenDetails}
       onMouseEnter={onPrefetchDetails}

@@ -1,3 +1,5 @@
+import Image from 'next/image'
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { KpisNotasOrdens } from '@/lib/types/indicadores'
 
@@ -39,8 +41,15 @@ export function AdminPessoalCard({ nome, avatarUrl, kpis }: AdminPessoalCardProp
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt={nome} className="h-12 w-12 rounded-full object-cover" />
+              <div className="relative h-12 w-12 overflow-hidden rounded-full">
+                <Image
+                  src={avatarUrl}
+                  alt={nome}
+                  fill
+                  sizes="48px"
+                  className="object-cover"
+                />
+              </div>
             ) : (
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/15 text-sm font-bold text-violet-600 dark:text-violet-300">
                 {initials}
