@@ -26,6 +26,7 @@ import { fetchAllFilteredOrderCodes } from '@/lib/orders/workspace-copy'
 import { cn } from '@/lib/utils'
 import { useOrdersFilters, sanitizeText } from '@/components/orders/use-orders-filters'
 import { useOrdersData } from '@/components/orders/use-orders-data'
+import { BackToTopButton } from '@/components/ui/back-to-top-button'
 import { OrdersWorkspaceFiltersBar } from '@/components/orders/orders-workspace-filters-bar'
 import { OrdersWorkspaceHighlightsPanel } from '@/components/orders/orders-workspace-highlights-panel'
 import { OrdersWorkspaceOwnerCards } from '@/components/orders/orders-workspace-owner-cards'
@@ -897,6 +898,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])
         }}
       />
+      <BackToTopButton scrollContainerRef={parentRef} />
       </>}
     </div>
   )
