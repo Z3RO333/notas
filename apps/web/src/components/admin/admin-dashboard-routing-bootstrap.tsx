@@ -31,6 +31,10 @@ export function AdminDashboardRoutingBootstrap() {
   useEffect(() => {
     if (shouldSkipDueToThrottle()) return
 
+    // Marca cedo: a request foi disparada. Evita re-disparos durante a janela mesmo
+    // se o usuário navegar antes do POST completar (a operação no servidor segue).
+    markCompleted()
+
     let cancelled = false
 
     async function run() {
@@ -42,9 +46,7 @@ export function AdminDashboardRoutingBootstrap() {
 
         if (cancelled) return
 
-        if (response.ok) {
-          markCompleted()
-        } else {
+        if (!response.ok) {
           const payload = (await response.json().catch(() => ({}))) as { error?: string }
           console.error('[admin/auto-routing] request failed:', payload.error ?? response.statusText)
         }
