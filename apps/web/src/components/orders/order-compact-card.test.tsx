@@ -58,7 +58,7 @@ describe('OrderCompactCard', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Selecionar nota 10171264' }))
 
     expect(onToggleSelection).toHaveBeenCalledTimes(1)
-    expect(onToggleSelection).toHaveBeenCalledWith('22222222-2222-4222-8222-222222222222')
+    expect(onToggleSelection).toHaveBeenCalledWith('22222222-2222-4222-8222-222222222222', false)
     expect(onOpenDetails).not.toHaveBeenCalled()
   })
 })
