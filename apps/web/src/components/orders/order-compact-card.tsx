@@ -20,7 +20,7 @@ interface OrderCompactCardProps {
   row: OrdemNotaAcompanhamento
   selected?: boolean
   showCheckbox?: boolean
-  onToggleSelection?: (notaId: string) => void
+  onToggleSelection?: (notaId: string, shiftKey?: boolean) => void
   showReassign?: boolean
   reassignProps?: OrderCompactCardReassignProps
   onOpenDetails?: () => void
@@ -98,7 +98,8 @@ export function OrderCompactCard({
   function handleToggleSelection(event: React.MouseEvent | React.ChangeEvent) {
     event.stopPropagation()
     if (!onToggleSelection || !linkedNotaId) return
-    onToggleSelection(linkedNotaId)
+    const shiftKey = 'shiftKey' in event ? event.shiftKey : false
+    onToggleSelection(linkedNotaId, shiftKey)
   }
 
   function handleOpenDetails() {

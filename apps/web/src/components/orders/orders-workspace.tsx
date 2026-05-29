@@ -104,6 +104,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const [selectedNotaIds, setSelectedNotaIds] = useState<string[]>([])
+  const [lastSelectedNotaId, setLastSelectedNotaId] = useState<string | null>(null)
   const [knownOrderCodesByNotaId, setKnownOrderCodesByNotaId] = useState<Record<string, string>>({})
   const [detailRow, setDetailRow] = useState<OrdemNotaAcompanhamento | null>(null)
   const [ownerCardsViewMode, setOwnerCardsViewMode] = useState<PanelViewMode>(
@@ -332,10 +333,29 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     [rowsWithLinkedNote, selectedNotaIdsSet],
   )
 
-  function toggleSelection(notaId: string) {
+  function toggleSelection(notaId: string, shiftKey = false) {
     const normalizedNotaId = normalizeNotaId(notaId)
     if (!normalizedNotaId) return
+
+    if (shiftKey && lastSelectedNotaId) {
+      const visibleNotaIds = rowsWithLinkedNote
+        .map((row) => getRowNotaId(row))
+        .filter((id): id is string => Boolean(id))
+
+      const startIdx = visibleNotaIds.indexOf(lastSelectedNotaId)
+      const endIdx = visibleNotaIds.indexOf(normalizedNotaId)
+
+      if (startIdx >= 0 && endIdx >= 0) {
+        const [from, to] = startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx]
+        const rangeIds = visibleNotaIds.slice(from, to + 1)
+        setSelectedNotaIds((prev) => Array.from(new Set([...prev, ...rangeIds])))
+        setLastSelectedNotaId(normalizedNotaId)
+        return
+      }
+    }
+
     setSelectedNotaIds((prev) => toggleSelectedNotaIds(prev, normalizedNotaId))
+    setLastSelectedNotaId(normalizedNotaId)
   }
 
   function toggleSelectAllLoaded() {

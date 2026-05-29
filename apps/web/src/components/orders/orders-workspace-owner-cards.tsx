@@ -45,7 +45,7 @@ export interface OrdersWorkspaceOwnerCardsProps {
   onFilterUnassigned: () => void
   onFilterAll: () => void
   onToggleOwner: (ownerKey: string) => void
-  onToggleSelection: (notaId: string) => void
+  onToggleSelection: (notaId: string, shiftKey?: boolean) => void
   onLoadMore: () => void
 }
 

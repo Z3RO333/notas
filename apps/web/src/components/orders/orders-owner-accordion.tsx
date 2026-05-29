@@ -8,7 +8,7 @@ interface OrdersOwnerAccordionProps {
   isOpen: boolean
   canReassign: boolean
   selectedNotaIds: Set<string>
-  onToggleRowSelection: (notaId: string) => void
+  onToggleRowSelection: (notaId: string, shiftKey?: boolean) => void
   reassignTargets?: OrderReassignTarget[]
 }
 
