@@ -99,6 +99,19 @@ function getRowNotaId(row: OrdemNotaAcompanhamento): string | null {
   return normalizeNotaId(row.nota_id)
 }
 
+function buildEmptyMessage(filters: OrdersWorkspaceFilters, canViewGlobal: boolean): string {
+  const parts: string[] = []
+  if (filters.q) parts.push(`busca "${filters.q}"`)
+  if (filters.status && filters.status !== 'todas') parts.push(`status ${filters.status}`)
+  if (filters.responsavel && filters.responsavel !== 'todos' && canViewGlobal) parts.push('responsável selecionado')
+  if (filters.unidade) parts.push(`unidade ${filters.unidade}`)
+  if (filters.prioridade && filters.prioridade !== 'todas') parts.push(`prioridade ${filters.prioridade}`)
+  if (parts.length === 0) {
+    return 'Nenhuma ordem ativa no escopo selecionado.'
+  }
+  return `Os filtros aplicados (${parts.join(', ')}) não retornaram resultados.`
+}
+
 export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspaceProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -755,7 +768,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       )}
 
       {isFetching && !loadingInitial && (
-        <p className="text-xs text-muted-foreground">Atualizando...</p>
+        <div className="sticky top-0 z-30 h-0.5 w-full overflow-hidden">
+          <div className="h-full w-1/3 animate-pulse rounded-full bg-primary/60" />
+        </div>
       )}
 
       {canReassign && selectedNotaIds.length > 0 && (
@@ -781,7 +796,28 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             ))}
           </div>
         ) : rows.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Nenhuma ordem para os filtros aplicados.</div>
+          <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+            <p className="text-sm font-medium text-foreground">Nenhuma ordem encontrada</p>
+            <p className="max-w-md text-sm text-muted-foreground">
+              {buildEmptyMessage(filters, currentUser.canViewGlobal)}
+            </p>
+            {hasListScopeFilters && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setFilters((prev) => ({
+                  ...prev,
+                  q: '',
+                  status: 'todas',
+                  responsavel: 'todos',
+                  unidade: '',
+                  prioridade: 'todas',
+                }))}
+              >
+                Limpar filtros
+              </Button>
+            )}
+          </div>
         ) : (
           <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
             {virtualRows.map((virtualRow) => {
