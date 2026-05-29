@@ -1,6 +1,8 @@
 'use client'
 
-import * as XLSX from 'xlsx'
+import type * as XLSX from 'xlsx'
+
+type XlsxModule = typeof import('xlsx')
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, CheckCircle2, CreditCard, Upload } from 'lucide-react'
@@ -56,7 +58,7 @@ function normalizeMoney(value: unknown): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? Number(parsed.toFixed(2)) : null
 }
 
-function parseDateToIso(value: unknown): string | null {
+function parseDateToIso(value: unknown, xlsx: XlsxModule): string | null {
   const text = normalizeText(value)
   if (!text) return null
 
@@ -73,7 +75,7 @@ function parseDateToIso(value: unknown): string | null {
   // Tenta parsear como número serial do Excel (dias desde 1900-01-01)
   const num = Number(text)
   if (Number.isFinite(num) && num > 40000 && num < 60000) {
-    const date = XLSX.SSF.parse_date_code(num)
+    const date = xlsx.SSF.parse_date_code(num)
     if (date) {
       return `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`
     }
@@ -91,8 +93,8 @@ function findColumn(headers: string[], candidates: string[]): string | null {
   return null
 }
 
-function parseSheetRows(sheet: XLSX.WorkSheet, sheetName: string): CartaoImportRow[] {
-  const rawLines = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+function parseSheetRows(sheet: XLSX.WorkSheet, sheetName: string, xlsx: XlsxModule): CartaoImportRow[] {
+  const rawLines = xlsx.utils.sheet_to_json<unknown[]>(sheet, {
     header: 1,
     raw: true,
     dateNF: 'YYYY-MM-DD',
@@ -129,7 +131,7 @@ function parseSheetRows(sheet: XLSX.WorkSheet, sheetName: string): CartaoImportR
       row[header] = raw[idx]
     })
 
-    const data = parseDateToIso(row[dataCol])
+    const data = parseDateToIso(row[dataCol], xlsx)
     const fornecedor = normalizeText(row[fornecedorCol])
     const valor = normalizeMoney(row[valorCol])
     const centroCusto = centroCustoCol ? normalizeText(row[centroCustoCol]) : null
@@ -189,10 +191,11 @@ export function CartaoImportDialog() {
     setOpen(nextOpen)
   }
 
-  function loadSheet(wb: XLSX.WorkBook, sheet: string) {
+  async function loadSheet(wb: XLSX.WorkBook, sheet: string) {
     const ws = wb.Sheets[sheet]
     if (!ws) return
-    const parsed = parseSheetRows(ws, sheet)
+    const xlsx = await import('xlsx')
+    const parsed = parseSheetRows(ws, sheet, xlsx)
     setRows(parsed)
   }
 
@@ -201,6 +204,7 @@ export function CartaoImportDialog() {
     if (!file) return
 
     try {
+      const XLSX = await import('xlsx')
       const buffer = await file.arrayBuffer()
       const wb = XLSX.read(buffer, { type: 'array', raw: true })
 
@@ -218,7 +222,7 @@ export function CartaoImportDialog() {
       // Seleciona a aba mais recente por padrão
       const defaultSheet = validSheets[validSheets.length - 1] ?? validSheets[0] ?? ''
       setSelectedSheet(defaultSheet)
-      if (defaultSheet) loadSheet(wb, defaultSheet)
+      if (defaultSheet) await loadSheet(wb, defaultSheet)
     } catch {
       toast({
         title: 'Erro ao ler planilha',
@@ -233,7 +237,7 @@ export function CartaoImportDialog() {
   function handleSheetChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const sheet = event.target.value
     setSelectedSheet(sheet)
-    if (workbook) loadSheet(workbook, sheet)
+    if (workbook) void loadSheet(workbook, sheet)
   }
 
   async function handleImport() {

@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-export default function GestorError({
+export default function OrdensError({
   error,
   reset,
 }: {
@@ -12,7 +12,7 @@ export default function GestorError({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error('Admin route error:', {
+    console.error('Ordens route error:', {
       message: error.message,
       digest: error.digest,
       stack: error.stack,
@@ -24,7 +24,7 @@ export default function GestorError({
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
         <AlertTriangle className="h-6 w-6" />
       </div>
-      <h2 className="mt-5 text-xl font-semibold tracking-tight">Não foi possível abrir o painel</h2>
+      <h2 className="mt-5 text-xl font-semibold tracking-tight">Não foi possível abrir o painel de ordens</h2>
       <p className="mt-2 mx-auto max-w-md text-sm leading-6 text-muted-foreground">
         Tente atualizar a tela. Se o erro continuar, use o código abaixo para investigação.
       </p>

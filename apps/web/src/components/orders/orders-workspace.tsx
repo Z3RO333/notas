@@ -23,8 +23,10 @@ import { isPrivateOwnerLookupActive as hasPrivateOwnerLookup } from '@/lib/order
 import { getSelectedOrderCodes, mergeKnownOrderCodes, toggleSelectedNotaIds, toggleVisibleNotaIds } from '@/lib/orders/selection'
 import { isRawOrderActive } from '@/lib/orders/status-raw'
 import { fetchAllFilteredOrderCodes } from '@/lib/orders/workspace-copy'
+import { cn } from '@/lib/utils'
 import { useOrdersFilters, sanitizeText } from '@/components/orders/use-orders-filters'
 import { useOrdersData } from '@/components/orders/use-orders-data'
+import { BackToTopButton } from '@/components/ui/back-to-top-button'
 import { OrdersWorkspaceFiltersBar } from '@/components/orders/orders-workspace-filters-bar'
 import { OrdersWorkspaceHighlightsPanel } from '@/components/orders/orders-workspace-highlights-panel'
 import { OrdersWorkspaceOwnerCards } from '@/components/orders/orders-workspace-owner-cards'
@@ -99,17 +101,32 @@ function getRowNotaId(row: OrdemNotaAcompanhamento): string | null {
   return normalizeNotaId(row.nota_id)
 }
 
+function buildEmptyMessage(filters: OrdersWorkspaceFilters, canViewGlobal: boolean): string {
+  const parts: string[] = []
+  if (filters.q) parts.push(`busca "${filters.q}"`)
+  if (filters.status && filters.status !== 'todas') parts.push(`status ${filters.status}`)
+  if (filters.responsavel && filters.responsavel !== 'todos' && canViewGlobal) parts.push('responsável selecionado')
+  if (filters.unidade) parts.push(`unidade ${filters.unidade}`)
+  if (filters.prioridade && filters.prioridade !== 'todas') parts.push(`prioridade ${filters.prioridade}`)
+  if (parts.length === 0) {
+    return 'Nenhuma ordem ativa no escopo selecionado.'
+  }
+  return `Os filtros aplicados (${parts.join(', ')}) não retornaram resultados.`
+}
+
 export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspaceProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const [selectedNotaIds, setSelectedNotaIds] = useState<string[]>([])
+  const [lastSelectedNotaId, setLastSelectedNotaId] = useState<string | null>(null)
   const [knownOrderCodesByNotaId, setKnownOrderCodesByNotaId] = useState<Record<string, string>>({})
   const [detailRow, setDetailRow] = useState<OrdemNotaAcompanhamento | null>(null)
   const [ownerCardsViewMode, setOwnerCardsViewMode] = useState<PanelViewMode>(
     () => resolveOrdersWorkspacePresentation(initialUser.role).defaultOwnerCardsViewMode
   )
   const [copyFilterLoading, setCopyFilterLoading] = useState(false)
+  const [pendingReassignNotaIds, setPendingReassignNotaIds] = useState<Set<string>>(new Set())
 
   // --- Filter state ---
   const { filters, setFilters, searchInput, setSearchInput, searchInputRef, pendingSearchEnterActionRef } = useOrdersFilters({
@@ -331,10 +348,29 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
     [rowsWithLinkedNote, selectedNotaIdsSet],
   )
 
-  function toggleSelection(notaId: string) {
+  function toggleSelection(notaId: string, shiftKey = false) {
     const normalizedNotaId = normalizeNotaId(notaId)
     if (!normalizedNotaId) return
+
+    if (shiftKey && lastSelectedNotaId) {
+      const visibleNotaIds = rowsWithLinkedNote
+        .map((row) => getRowNotaId(row))
+        .filter((id): id is string => Boolean(id))
+
+      const startIdx = visibleNotaIds.indexOf(lastSelectedNotaId)
+      const endIdx = visibleNotaIds.indexOf(normalizedNotaId)
+
+      if (startIdx >= 0 && endIdx >= 0) {
+        const [from, to] = startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx]
+        const rangeIds = visibleNotaIds.slice(from, to + 1)
+        setSelectedNotaIds((prev) => Array.from(new Set([...prev, ...rangeIds])))
+        setLastSelectedNotaId(normalizedNotaId)
+        return
+      }
+    }
+
     setSelectedNotaIds((prev) => toggleSelectedNotaIds(prev, normalizedNotaId))
+    setLastSelectedNotaId(normalizedNotaId)
   }
 
   function toggleSelectAllLoaded() {
@@ -357,6 +393,18 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
   function applyReassignResult(assignments: Array<{ nota_id: string; administrador_destino_id: string }>) {
     if (assignments.length === 0) return
+
+    // Marca essas notas como pending por ~600ms pra dar feedback visual
+    const newPending = new Set(assignments.map((a) => a.nota_id).filter(Boolean) as string[])
+    setPendingReassignNotaIds((prev) => new Set([...prev, ...newPending]))
+    setTimeout(() => {
+      setPendingReassignNotaIds((prev) => {
+        const next = new Set(prev)
+        for (const id of newPending) next.delete(id)
+        return next
+      })
+    }, 600)
+
     applyOptimisticReassignments(assignments)
 
     const assignByNota = new Map(
@@ -722,7 +770,9 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       )}
 
       {isFetching && !loadingInitial && (
-        <p className="text-xs text-muted-foreground">Atualizando...</p>
+        <div className="sticky top-0 z-30 h-0.5 w-full overflow-hidden">
+          <div className="h-full w-1/3 animate-pulse rounded-full bg-primary/60" />
+        </div>
       )}
 
       {canReassign && selectedNotaIds.length > 0 && (
@@ -740,7 +790,13 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       {error && <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
 
       {presentation.showWorkspaceTable && <>
-      <div ref={parentRef} className="h-[68vh] overflow-auto rounded-lg border">
+      <div
+        ref={parentRef}
+        className={cn(
+          'h-[68vh] overflow-auto rounded-lg border transition-opacity duration-150',
+          isFetching && !loadingInitial && 'opacity-70',
+        )}
+      >
         {loadingInitial ? (
           <div className="space-y-2 p-3">
             {Array.from({ length: 8 }).map((_, index) => (
@@ -748,7 +804,28 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
             ))}
           </div>
         ) : rows.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Nenhuma ordem para os filtros aplicados.</div>
+          <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+            <p className="text-sm font-medium text-foreground">Nenhuma ordem encontrada</p>
+            <p className="max-w-md text-sm text-muted-foreground">
+              {buildEmptyMessage(filters, currentUser.canViewGlobal)}
+            </p>
+            {hasListScopeFilters && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setFilters((prev) => ({
+                  ...prev,
+                  q: '',
+                  status: 'todas',
+                  responsavel: 'todos',
+                  unidade: '',
+                  prioridade: 'todas',
+                }))}
+              >
+                Limpar filtros
+              </Button>
+            )}
+          </div>
         ) : (
           <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
             {virtualRows.map((virtualRow) => {
@@ -761,6 +838,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
                   <OrderCompactCard
                     row={row}
                     selected={selected}
+                    isLoading={notaId ? pendingReassignNotaIds.has(notaId) : false}
                     showCheckbox={canReassign}
                     highlightQuery={smartSearch.highlightQuery}
                     onToggleSelection={toggleSelection}
@@ -820,6 +898,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])
         }}
       />
+      <BackToTopButton scrollContainerRef={parentRef} />
       </>}
     </div>
   )

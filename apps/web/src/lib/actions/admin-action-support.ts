@@ -19,13 +19,10 @@ export interface AuthenticatedAdminActionContext {
 }
 
 export function revalidateCockpitPaths() {
-  revalidatePath('/')
-  revalidatePath('/ordens')
-  revalidatePath('/admin')
-  revalidatePath('/admin/administracao')
-  revalidatePath('/admin/distribuicao')
-  revalidatePath('/admin/pessoas')
-  revalidatePath('/admin/auditoria')
+  revalidatePath('/', 'layout')
+  revalidatePath('/admin', 'layout')
+  revalidatePath('/ordens', 'layout')
+  revalidatePath('/notas', 'layout')
 }
 
 export async function getAuthenticatedAdminActionContext(): Promise<AuthenticatedAdminActionContext> {

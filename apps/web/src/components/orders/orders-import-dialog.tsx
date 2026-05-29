@@ -1,6 +1,5 @@
 'use client'
 
-import * as XLSX from 'xlsx'
 import { useCallback, useRef, useState } from 'react'
 import { AlertCircle, CheckCircle2, Download, FileSpreadsheet, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -245,6 +244,7 @@ export function OrdersImportDialog({ open, onOpenChange, userRole }: OrdersImpor
     if (!file) return
 
     try {
+      const XLSX = await import('xlsx')
       const buffer = await file.arrayBuffer()
       const workbook = XLSX.read(buffer, { type: 'array', raw: false, dateNF: 'YYYY-MM-DD' })
       const sheetName = workbook.SheetNames[0]

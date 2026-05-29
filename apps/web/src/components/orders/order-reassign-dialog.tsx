@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { useToast } from '@/components/ui/toast'
 import { reatribuirNota } from '@/lib/actions/nota-actions'
 import type { OrderReassignTarget } from '@/lib/types/database'
 
@@ -37,6 +38,7 @@ export function OrderReassignDialog({
   onReassigned,
 }: OrderReassignDialogProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [selectedAdmin, setSelectedAdmin] = useState('')
   const [motivo, setMotivo] = useState('')
@@ -60,10 +62,16 @@ export function OrderReassignDialog({
         motivo: motivo || undefined,
       })
 
+      const nomeDoNovoAdmin = admins.find((a) => a.id === selectedAdmin)?.nome
       setOpen(false)
       setSelectedAdmin('')
       setMotivo('')
       onReassigned?.({ notaId, novoAdminId: selectedAdmin })
+      toast({
+        title: 'Reatribuição concluída',
+        description: `Ordem reatribuída para ${nomeDoNovoAdmin || 'novo responsável'}`,
+        variant: 'success',
+      })
       if (!skipRouterRefresh) {
         router.refresh()
       }

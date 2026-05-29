@@ -237,7 +237,9 @@ export function resolveSmartSearch(
 
   const normalized = normalizeSearchToken(clean)
   if (canViewGlobal && (currentResponsavel === 'todos' || !currentResponsavel) && normalized.length >= 3) {
-    const matches = ownerCandidates.filter((owner) => normalizeSearchToken(owner.nome).includes(normalized))
+    const matches = ownerCandidates.filter(
+      (owner) => Boolean(owner?.id) && Boolean(owner?.nome) && normalizeSearchToken(owner.nome).includes(normalized),
+    )
     if (matches.length === 1) {
       return {
         mode: 'responsavel',
@@ -289,7 +291,10 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
   const parentRef = useRef<HTMLDivElement | null>(null)
 
   const searchOwnerCandidates = useMemo(
-    () => reassignTargets.map((t) => ({ id: t.id, nome: t.nome })),
+    () =>
+      reassignTargets
+        .filter((t): t is OrderReassignTarget => Boolean(t?.id) && Boolean(t?.nome))
+        .map((t) => ({ id: t.id, nome: t.nome })),
     [reassignTargets],
   )
   const reassignTargetById = useMemo(

@@ -482,7 +482,11 @@ function RankingPodium({
     )
   }
 
-  const entryByRank = new Map(entries.map((entry) => [entry.rank, entry]))
+  const entryByRank = new Map(
+    entries
+      .filter((entry) => entry != null && entry.key != null && entry.rank != null)
+      .map((entry) => [entry.rank, entry]),
+  )
 
   return (
     <div className="border-b bg-muted/10 px-6 pb-6 pt-4">
@@ -490,8 +494,8 @@ function RankingPodium({
         {PODIUM_LAYOUT.map((rank) => {
           const entry = entryByRank.get(rank)
 
-          if (!entry) {
-            return <div key={rank} />
+          if (!entry?.key) {
+            return <div key={`empty-${rank}`} />
           }
 
           const style = getPodiumStyle(rank)

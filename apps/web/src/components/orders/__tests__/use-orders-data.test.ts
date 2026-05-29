@@ -74,3 +74,26 @@ describe('resolveSmartSearch', () => {
     expect(r.mode).toBe('texto')
   })
 })
+
+describe('resolveSmartSearch — robustez contra owners malformados', () => {
+  it('ignora owners com id ou nome null/undefined', () => {
+    const owners = [
+      { id: 'u1', nome: 'Paula Matos' },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { id: null as any, nome: 'Sem ID' },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { id: 'u3', nome: null as any },
+      { id: '', nome: '' },
+      { id: 'u4', nome: 'Wanderlucio Mendes' },
+    ]
+
+    // Nenhuma chamada deve crashar
+    const r = resolveSmartSearch('paula', owners, 'todos', true)
+    expect(r.mode).toBe('responsavel')
+    expect(r.derivedResponsavel).toBe('u1')
+
+    // Busca vazia também não deve crashar
+    const r2 = resolveSmartSearch('', owners, 'todos', true)
+    expect(r2.mode).toBe('none')
+  })
+})
