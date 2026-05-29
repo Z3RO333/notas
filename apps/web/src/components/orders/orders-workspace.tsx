@@ -23,6 +23,7 @@ import { isPrivateOwnerLookupActive as hasPrivateOwnerLookup } from '@/lib/order
 import { getSelectedOrderCodes, mergeKnownOrderCodes, toggleSelectedNotaIds, toggleVisibleNotaIds } from '@/lib/orders/selection'
 import { isRawOrderActive } from '@/lib/orders/status-raw'
 import { fetchAllFilteredOrderCodes } from '@/lib/orders/workspace-copy'
+import { cn } from '@/lib/utils'
 import { useOrdersFilters, sanitizeText } from '@/components/orders/use-orders-filters'
 import { useOrdersData } from '@/components/orders/use-orders-data'
 import { OrdersWorkspaceFiltersBar } from '@/components/orders/orders-workspace-filters-bar'
@@ -788,7 +789,13 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       {error && <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
 
       {presentation.showWorkspaceTable && <>
-      <div ref={parentRef} className="h-[68vh] overflow-auto rounded-lg border">
+      <div
+        ref={parentRef}
+        className={cn(
+          'h-[68vh] overflow-auto rounded-lg border transition-opacity duration-150',
+          isFetching && !loadingInitial && 'opacity-70',
+        )}
+      >
         {loadingInitial ? (
           <div className="space-y-2 p-3">
             {Array.from({ length: 8 }).map((_, index) => (
