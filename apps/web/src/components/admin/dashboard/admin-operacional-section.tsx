@@ -14,10 +14,12 @@ import type {
   ProdutividadeLoja,
 } from '@/lib/types/database'
 import { ProdutividadeTable } from './produtividade-table'
-import { StatusBarChart } from './status-bar-chart'
-import { OrdensAbertasLojaChart } from './ordens-abertas-loja-chart'
-import { EvolucaoMensalOperacionalChart } from './evolucao-mensal-operacional-chart'
-import { ProdutividadeLojaChart } from './produtividade-loja-chart'
+import {
+  StatusBarChart,
+  OrdensAbertasLojaChart,
+  EvolucaoMensalOperacionalChart,
+  ProdutividadeLojaChart,
+} from './charts-lazy'
 import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
 import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
 

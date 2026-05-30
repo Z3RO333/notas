@@ -44,6 +44,7 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.2.6",
     "@playwright/test": "^1.58.2",
     "@rollup/rollup-linux-x64-gnu": "^4.59.0",
     "@testing-library/jest-dom": "^6.9.1",

@@ -6,9 +6,8 @@ import type {
   FinanceiroRankingRow,
   FinanceiroTipoOrdem,
 } from '@/lib/types/database'
-import { FinanceiroCostByUnitChart } from './financeiro-cost-by-unit-chart'
+import { FinanceiroCostByUnitChart, FinanceiroMonthlyChart } from './charts-lazy'
 import { FinanceiroKpiStrip } from './financeiro-kpi-strip'
-import { FinanceiroMonthlyChart } from './financeiro-monthly-chart'
 import { FinanceiroRankingTable } from './financeiro-ranking-table'
 
 interface FinanceiroSectionProps {

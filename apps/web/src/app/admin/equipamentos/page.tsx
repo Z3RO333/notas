@@ -5,9 +5,11 @@ import type {
   GestaoTopServico,
 } from '@/lib/types/database'
 import { GestaoFilters } from '../graficos/components/gestao-filters'
-import { TopLojasChart } from '../graficos/components/top-lojas-chart'
-import { TopServicosChart } from '../graficos/components/top-servicos-chart'
-import { EvolucaoMensalChart } from '../graficos/components/evolucao-mensal-chart'
+import {
+  TopLojasChart,
+  TopServicosChart,
+  EvolucaoMensalChart,
+} from '../graficos/components/charts-individual-lazy'
 import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
 import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
 import { Zap, Thermometer } from 'lucide-react'
