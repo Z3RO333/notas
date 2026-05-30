@@ -22,8 +22,7 @@ import {
 } from './comparativos-utils'
 import { ComparisonKpiStrip } from './components/comparison-kpi-strip'
 import { ComparativosFilters } from './components/comparativos-filters'
-import { FinanceComparisonChart } from './components/finance-comparison-chart'
-import { OrdersComparisonChart } from './components/orders-comparison-chart'
+import { FinanceComparisonChart, OrdersComparisonChart } from './components/charts-lazy'
 import { SuppliersComparisonSection } from './components/suppliers-comparison-section'
 
 export const dynamic = 'force-dynamic'

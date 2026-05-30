@@ -17,8 +17,7 @@ import {
   normalizeFornecedorCodigo,
   pickOperationalAvatarCodes,
 } from '@/lib/dashboard/admin-productivity-data'
-import { EvolucaoMensalOperacionalChart } from './evolucao-mensal-operacional-chart'
-import { StatusBarChart } from './status-bar-chart'
+import { EvolucaoMensalOperacionalChart, StatusBarChart } from './charts-lazy'
 import type { AdminProductivityPeriod } from '@/lib/dashboard/productivity-month'
 import type {
   EvolucaoMensalOperacional,

@@ -17,7 +17,7 @@ import {
   type SupplierSortDirection,
   type SupplierSortKey,
 } from '../comparativos-utils'
-import { SupplierMonthlyChart } from './supplier-monthly-chart'
+import { SupplierMonthlyChart } from './charts-lazy'
 
 interface SuppliersComparisonSectionProps {
   annualRows: SupplierAnnualComparisonRow[]
