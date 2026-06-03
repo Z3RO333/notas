@@ -12,6 +12,7 @@ interface NotesKpiStripProps {
   umDia: number
   doisMais: number
   activeKpi: NotesKpiFilter | null
+  useNativeHistorySync?: boolean
 }
 
 function fmt(value: number): string {
@@ -32,6 +33,7 @@ export function NotasKpiStrip({
   umDia,
   doisMais,
   activeKpi,
+  useNativeHistorySync = false,
 }: NotesKpiStripProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -45,7 +47,14 @@ export function NotasKpiStrip({
       kpi: nextKpi,
     })
     const queryString = next.toString()
-    router.replace(queryString ? `${pathname}?${queryString}` : pathname)
+    const href = queryString ? `${pathname}?${queryString}` : pathname
+
+    if (useNativeHistorySync && typeof window !== 'undefined') {
+      window.history.replaceState(null, '', href)
+      return
+    }
+
+    router.replace(href)
   }
 
   const items: CockpitKpiItem[] = [

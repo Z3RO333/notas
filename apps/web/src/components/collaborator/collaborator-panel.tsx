@@ -53,6 +53,7 @@ interface CollaboratorPanelProps {
   currentAdminRole?: string | null
   ordensAcompanhamento?: OrdemAcompanhamento[]
   syncWithUrl?: boolean
+  useNativeHistorySync?: boolean
   initialSearch?: string
   initialStatus?: string
   initialResponsavel?: string
@@ -104,6 +105,7 @@ export function CollaboratorPanel({
   currentAdminRole,
   ordensAcompanhamento = [],
   syncWithUrl = false,
+  useNativeHistorySync = false,
   initialSearch = '',
   initialStatus = '',
   initialResponsavel = '',
@@ -220,8 +222,15 @@ export function CollaboratorPanel({
     if (!syncWithUrl) return
     const next = updateSearchParams(new URLSearchParams(searchParams.toString()), updates)
     const queryString = next.toString()
-    router.replace(queryString ? `${pathname}?${queryString}` : pathname)
-  }, [pathname, router, searchParams, syncWithUrl])
+    const href = queryString ? `${pathname}?${queryString}` : pathname
+
+    if (useNativeHistorySync && typeof window !== 'undefined') {
+      window.history.replaceState(null, '', href)
+      return
+    }
+
+    router.replace(href)
+  }, [pathname, router, searchParams, syncWithUrl, useNativeHistorySync])
 
   useEffect(() => {
     if (!syncWithUrl) return
