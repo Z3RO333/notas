@@ -18,6 +18,15 @@ interface GraficosIndicadoresSectionServerProps {
   }
 }
 
+interface GraficosIndicadoresPayload {
+  kpis?: Partial<KpisNotasOrdens>
+  resumoDiario?: ResumoDiarioRow[]
+  lojas?: LojaIndicadoresRow[]
+  colaboradores?: ColaboradorIndicadoresRow[]
+  lojasOrdens?: LojaOrdensIndicadoresRow[]
+  colaboradoresOrdens?: ColaboradorOrdensIndicadoresRow[]
+}
+
 export async function GraficosIndicadoresSectionServer({
   params,
   adminCtx,
@@ -26,56 +35,19 @@ export async function GraficosIndicadoresSectionServer({
   const { startDate, endDate, startIso, endExclusiveIso } = resolvePeriodoIndicadores(params)
   const adminScope = adminCtx.isGestor ? null : (adminCtx.adminId ?? null)
 
-  const [kpisRes, resumoDiarioRes, lojasRes, colaboradoresRes, lojasOrdensRes, colaboradoresOrdensRes] = await Promise.all([
-    supabase.rpc('calcular_kpis_notas_ordens', {
-      p_start_iso: startIso,
-      p_end_exclusive_iso: endExclusiveIso,
-      p_admin_id: adminScope,
-    }),
-    supabase.rpc('calcular_resumo_diario_notas_ordens', {
-      p_start_iso: startIso,
-      p_end_exclusive_iso: endExclusiveIso,
-      p_admin_id: adminScope,
-    }),
-    supabase.rpc('calcular_indicadores_por_loja_notas', {
-      p_start_iso: startIso,
-      p_end_exclusive_iso: endExclusiveIso,
-      p_admin_id: adminScope,
-    }),
-    adminCtx.isGestor
-      ? supabase.rpc('calcular_indicadores_por_colaborador', {
-          p_start_iso: startIso,
-          p_end_exclusive_iso: endExclusiveIso,
-        })
-      : Promise.resolve({ data: [], error: null }),
-    supabase.rpc('calcular_indicadores_por_loja_ordens', {
-      p_start_iso: startIso,
-      p_end_exclusive_iso: endExclusiveIso,
-      p_admin_id: adminScope,
-    }),
-    adminCtx.isGestor
-      ? supabase.rpc('calcular_indicadores_por_colaborador_ordens', {
-          p_start_iso: startIso,
-          p_end_exclusive_iso: endExclusiveIso,
-          p_admin_id: adminScope,
-        })
-      : Promise.resolve({ data: [], error: null }),
-  ])
+  const payloadResult = await supabase.rpc('buscar_graficos_indicadores_agregado', {
+    p_start_iso: startIso,
+    p_end_exclusive_iso: endExclusiveIso,
+    p_admin_id: adminScope,
+    p_include_colaboradores: adminCtx.isGestor,
+  })
 
-  const mainError = [
-    kpisRes.error,
-    resumoDiarioRes.error,
-    lojasRes.error,
-    colaboradoresRes.error,
-    lojasOrdensRes.error,
-    colaboradoresOrdensRes.error,
-  ].find(Boolean)
-
-  if (mainError) {
-    throw mainError
+  if (payloadResult.error) {
+    throw payloadResult.error
   }
 
-  const kpis = (kpisRes.data ?? {
+  const payload = (payloadResult.data ?? {}) as GraficosIndicadoresPayload
+  const kpis = (payload.kpis ?? {
     total_notas: 0,
     notas_convertidas: 0,
     taxa_conversao: 0,
@@ -90,11 +62,11 @@ export async function GraficosIndicadoresSectionServer({
       startDate={startDate}
       endDate={endDate}
       kpis={kpis}
-      resumoDiario={(resumoDiarioRes.data ?? []) as ResumoDiarioRow[]}
-      lojas={(lojasRes.data ?? []) as LojaIndicadoresRow[]}
-      colaboradores={(colaboradoresRes.data ?? []) as ColaboradorIndicadoresRow[]}
-      lojasOrdens={(lojasOrdensRes.data ?? []) as LojaOrdensIndicadoresRow[]}
-      colaboradoresOrdens={(colaboradoresOrdensRes.data ?? []) as ColaboradorOrdensIndicadoresRow[]}
+      resumoDiario={payload.resumoDiario ?? []}
+      lojas={payload.lojas ?? []}
+      colaboradores={payload.colaboradores ?? []}
+      lojasOrdens={payload.lojasOrdens ?? []}
+      colaboradoresOrdens={payload.colaboradoresOrdens ?? []}
     />
   )
 }

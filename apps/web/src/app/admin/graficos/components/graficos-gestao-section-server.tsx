@@ -28,66 +28,38 @@ interface GraficosGestaoSectionServerProps {
   params: Record<string, string | undefined>
 }
 
+interface GraficosGestaoPayload {
+  topLojas?: TopLojasRaw[]
+  topServicos?: TopServRaw[]
+  evolucao?: EvolucaoRaw[]
+  segmentos?: SegRaw[]
+  opcoes?: OpcoesRaw[]
+}
+
 export async function GraficosGestaoSectionServer({
   params,
 }: GraficosGestaoSectionServerProps) {
   const filters = resolveGraficosFilters(params)
   const supabase = await createClient()
 
-  const [
-    topLojasRes,
-    topServRes,
-    evolucaoRes,
-    segmentosRes,
-    opcoesRes,
-  ] = await Promise.all([
-    supabase.rpc('calcular_gestao_top_lojas_por_status', {
-      p_ano: filters.ano ?? null,
-      p_mes: filters.mes ?? null,
-      p_tipo_ordem: filters.tipoOrdem ?? null,
-      p_nome_loja: filters.nomeLoja ?? null,
-      p_texto_breve: filters.textoBreve ?? null,
-    }),
-    supabase.rpc('calcular_gestao_top_servicos', {
-      p_ano: filters.ano ?? null,
-      p_mes: filters.mes ?? null,
-      p_tipo_ordem: filters.tipoOrdem ?? null,
-      p_nome_loja: filters.nomeLoja ?? null,
-      p_texto_breve: filters.textoBreve ?? null,
-    }),
-    supabase.rpc('calcular_gestao_evolucao_mensal', {
-      p_ano: filters.ano ?? null,
-      p_tipo_ordem: filters.tipoOrdem ?? null,
-      p_nome_loja: filters.nomeLoja ?? null,
-      p_texto_breve: filters.textoBreve ?? null,
-    }),
-    supabase.rpc('calcular_gestao_resumo_segmentos', {
-      p_ano: filters.ano ?? null,
-      p_mes: filters.mes ?? null,
-      p_tipo_ordem: filters.tipoOrdem ?? null,
-      p_nome_loja: filters.nomeLoja ?? null,
-      p_texto_breve: filters.textoBreve ?? null,
-    }),
-    supabase.rpc('listar_gestao_filtros'),
-  ])
+  const payloadResult = await supabase.rpc('buscar_graficos_gestao_agregado', {
+    p_ano: filters.ano ?? null,
+    p_mes: filters.mes ?? null,
+    p_tipo_ordem: filters.tipoOrdem ?? null,
+    p_nome_loja: filters.nomeLoja ?? null,
+    p_texto_breve: filters.textoBreve ?? null,
+  })
 
-  const mainError = [
-    topLojasRes.error,
-    topServRes.error,
-    evolucaoRes.error,
-    segmentosRes.error,
-    opcoesRes.error,
-  ].find(Boolean)
-
-  if (mainError) {
-    throw mainError
+  if (payloadResult.error) {
+    throw payloadResult.error
   }
 
-  const topLojasRaw = (topLojasRes.data ?? []) as TopLojasRaw[]
-  const topServRaw = (topServRes.data ?? []) as TopServRaw[]
-  const evolucaoRaw = (evolucaoRes.data ?? []) as EvolucaoRaw[]
-  const segRaw = (segmentosRes.data ?? []) as SegRaw[]
-  const opcoesRaw = (opcoesRes.data ?? []) as OpcoesRaw[]
+  const payload = (payloadResult.data ?? {}) as GraficosGestaoPayload
+  const topLojasRaw = payload.topLojas ?? []
+  const topServRaw = payload.topServicos ?? []
+  const evolucaoRaw = payload.evolucao ?? []
+  const segRaw = payload.segmentos ?? []
+  const opcoesRaw = payload.opcoes ?? []
 
   const topLojasBySegmento = Object.fromEntries(
     TIPOS.map((tipo) => {
