@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   getNotesPanelListData,
+  getNotesPanelListBaseData,
   getNotesPanelSummaryData,
   loadNotesPanelSupportingData,
   type NotesPageSearchParams,
@@ -71,17 +72,24 @@ export function NotesPanelPageContent({
     searchParams,
     currentAdminContext,
   })
+  const listBaseData = getNotesPanelListBaseData({
+    searchParams,
+    currentAdminContext,
+    supportingData,
+  })
 
   const summaryPromise = getNotesPanelSummaryData({
     searchParams,
     currentAdminContext,
     supportingData,
+    listBaseData,
   })
 
   const listPromise = getNotesPanelListData({
     searchParams,
     currentAdminContext,
     supportingData,
+    listBaseData,
   })
 
   return (

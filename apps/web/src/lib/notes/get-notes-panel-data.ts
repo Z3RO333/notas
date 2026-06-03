@@ -83,6 +83,7 @@ interface NotesPanelSupportingData {
 
 interface NotesPanelLoaderParams extends NotesPanelBaseParams {
   supportingData?: Promise<NotesPanelSupportingData>
+  listBaseData?: Promise<NotesPanelListBaseData>
 }
 
 export interface NotesPanelSummaryData {
@@ -124,6 +125,11 @@ export interface NotesPanelListData {
 }
 
 export interface NotesPanelPageData extends NotesPanelSummaryData, NotesPanelListData {}
+
+export interface NotesPanelListBaseData {
+  notasFiltradasBase: NotaPanelData[]
+  hasMore: boolean
+}
 
 function getNotaUnidadeLabel(nota: Pick<NotaPanelData, 'centro' | 'denominacao_unidade'>): string | null {
   const denominacao = nota.denominacao_unidade?.trim()
@@ -417,11 +423,28 @@ export async function getNotesPanelSummaryData(
 ): Promise<NotesPanelSummaryData> {
   const supportingData = await resolveSupportingData(params)
   const supabase = await createClient()
-  const { rows: notasFiltradas } = await fetchPanelNotes<SummaryNoteRow>(
-    supabase,
-    supportingData,
-    NOTE_SUMMARY_FIELDS,
-  )
+  let notasFiltradas: SummaryNoteRow[]
+
+  if (params.listBaseData) {
+    const listBaseData = await params.listBaseData
+    if (!listBaseData.hasMore) {
+      notasFiltradas = listBaseData.notasFiltradasBase
+    } else {
+      const result = await fetchPanelNotes<SummaryNoteRow>(
+        supabase,
+        supportingData,
+        NOTE_SUMMARY_FIELDS,
+      )
+      notasFiltradas = result.rows
+    }
+  } else {
+    const result = await fetchPanelNotes<SummaryNoteRow>(
+      supabase,
+      supportingData,
+      NOTE_SUMMARY_FIELDS,
+    )
+    notasFiltradas = result.rows
+  }
 
   const notasAtribuidas = notasFiltradas.filter((nota) => Boolean(nota.administrador_id))
   const notasSemAtribuir = notasFiltradas.filter((nota) => !nota.administrador_id)
@@ -512,9 +535,9 @@ export async function getNotesPanelSummaryData(
   }
 }
 
-export async function getNotesPanelListData(
+export async function getNotesPanelListBaseData(
   params: NotesPanelLoaderParams,
-): Promise<NotesPanelListData> {
+): Promise<NotesPanelListBaseData> {
   const supportingData = await resolveSupportingData(params)
   const supabase = await createClient()
   const { rows: notasFiltradasBase, hasMore } = await fetchPanelNotes<NotaPanelData>(
@@ -523,6 +546,17 @@ export async function getNotesPanelListData(
     NOTA_FIELDS,
     NOTES_PANEL_LIST_LIMIT,
   )
+
+  return { notasFiltradasBase, hasMore }
+}
+
+export async function getNotesPanelListData(
+  params: NotesPanelLoaderParams,
+): Promise<NotesPanelListData> {
+  const supabase = await createClient()
+  const { notasFiltradasBase, hasMore } = params.listBaseData
+    ? await params.listBaseData
+    : await getNotesPanelListBaseData(params)
 
   const noteIds = notasFiltradasBase.map((nota) => nota.id)
   const { operationalByNotaId, degraded } = await loadOperationalStateByNotaId(supabase, noteIds)
@@ -550,9 +584,10 @@ export async function getNotesPanelListData(
 
 export async function getNotesPanelData(params: NotesPanelBaseParams): Promise<NotesPanelPageData> {
   const supportingData = loadNotesPanelSupportingData(params)
+  const listBaseData = getNotesPanelListBaseData({ ...params, supportingData })
   const [summaryData, listData] = await Promise.all([
-    getNotesPanelSummaryData({ ...params, supportingData }),
-    getNotesPanelListData({ ...params, supportingData }),
+    getNotesPanelSummaryData({ ...params, supportingData, listBaseData }),
+    getNotesPanelListData({ ...params, supportingData, listBaseData }),
   ])
 
   return {
