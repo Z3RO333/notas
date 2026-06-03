@@ -320,9 +320,16 @@ export async function GET(request: Request) {
   } satisfies Record<string, unknown>
 
   const unitsRpcParams = {
-    ...summaryRpcParams,
-    p_unidade: null,
-    p_q: null,
+    p_period_mode: parsedRequest.periodMode,
+    p_year: parsedRequest.year,
+    p_month: parsedRequest.month,
+    p_start_iso: parsedRequest.startIso,
+    p_end_exclusive_iso: parsedRequest.endExclusiveIso,
+    p_status: parsedRequest.status,
+    p_responsavel: responsavelFilter,
+    p_prioridade: parsedRequest.prioridade,
+    p_admin_scope: adminScope,
+    p_tipo_ordem: parsedRequest.tipoOrdem,
   } satisfies Record<string, unknown>
 
   const shouldLoadPendingSyncRows = !parsedRequest.cursorDetectada && !parsedRequest.cursorOrdemId
@@ -395,7 +402,7 @@ export async function GET(request: Request) {
     callRpcWithOptionalTipoOrdem<OrdemNotaAcompanhamento[]>(supabase, 'buscar_ordens_workspace', rowsRpcParams),
     callRpcWithOptionalTipoOrdem<OrdersWorkspaceKpis>(supabase, 'calcular_kpis_ordens_operacional', kpisRpcParams),
     callRpcWithOptionalTipoOrdem<Array<Partial<OrdersOwnerSummary>>>(supabase, 'calcular_resumo_colaboradores_ordens', summaryRpcParams),
-    callRpcWithOptionalTipoOrdem<Array<Pick<OrdemNotaAcompanhamento, 'unidade'>>>(supabase, 'filtrar_ordens_workspace', unitsRpcParams),
+    callRpcWithOptionalTipoOrdem<Array<Pick<OrdemNotaAcompanhamento, 'unidade'>>>(supabase, 'listar_ordens_workspace_unidades', unitsRpcParams),
     canManageWorkspace
       ? supabase
         .from('administradores')

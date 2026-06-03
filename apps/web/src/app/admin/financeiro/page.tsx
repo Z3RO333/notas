@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import type {
   FinanceiroEvolucaoMes,
   FinanceiroKpiSummary,
-  FinanceiroOrdemRow,
   FinanceiroRankingRow,
   FinanceiroTipoOrdem,
 } from '@/lib/types/database'
@@ -19,112 +18,113 @@ import type { CartaoMesData } from './components/cartao-monthly-chart'
 import type { CartaoRankingRow } from './components/cartao-ranking-fornecedores'
 import { FINANCEIRO_MONTH_LABELS } from './financeiro-format'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
-import { buildMonthlyEvolution, buildRanking, buildSummary, toNumber } from './financeiro-data'
+import { toNumber } from './financeiro-data'
 
 export const dynamic = 'force-dynamic'
 
 const TIPOS: FinanceiroTipoOrdem[] = ['PMOS', 'PMPL']
-const FETCH_PAGE_SIZE = 1000
 
 interface FinanceiroPageProps {
   searchParams?: Promise<Record<string, string | undefined>>
 }
 
-type FetchPageResult = {
-  data: unknown[] | null
-  error: unknown
+type FinanceiroAggregatedTipo = {
+  summary?: Partial<FinanceiroKpiSummary>
+  evolucao?: Array<Partial<FinanceiroEvolucaoMes>>
+  unidades?: Array<Partial<FinanceiroRankingRow>>
+  servicos?: Array<Partial<FinanceiroRankingRow>>
+  fornecedores?: Array<Partial<FinanceiroRankingRow>>
 }
 
-type CartaoGastoRow = {
-  data: string
-  fornecedor: string
-  centro_custo: string | null
-  valor: number
-  ano: number
-  mes: number
+type FinanceiroAggregatedPayload = {
+  yearOptions?: unknown[]
+  tipos?: Partial<Record<FinanceiroTipoOrdem, FinanceiroAggregatedTipo>>
 }
 
-function buildCartaoKpi(rows: CartaoGastoRow[]): CartaoKpiData {
-  const total = rows.reduce((sum, row) => sum + row.valor, 0)
+type CartaoAggregatedPayload = {
+  yearOptions?: unknown[]
+  kpi?: Partial<CartaoKpiData>
+  mensal?: Array<Partial<CartaoMesData>>
+  fornecedores?: Array<Partial<CartaoRankingRow>>
+  centros?: Array<Partial<CartaoRankingRow>>
+}
+
+function toYearOptions(...sources: Array<unknown[] | undefined>) {
+  const currentYear = new Date().getFullYear()
+  const years = new Set<number>([currentYear])
+  for (const source of sources) {
+    for (const value of source ?? []) {
+      const year = toNumber(value)
+      if (year > 0) years.add(year)
+    }
+  }
+  return Array.from(years).sort((left, right) => right - left)
+}
+
+function mapFinanceiroSummary(tipo: FinanceiroTipoOrdem, value: Partial<FinanceiroKpiSummary> | undefined): FinanceiroKpiSummary {
   return {
-    total_gasto: total,
-    qtd_transacoes: rows.length,
-    ticket_medio: rows.length > 0 ? total / rows.length : 0,
+    tipo_ordem: tipo,
+    total_ordens: toNumber(value?.total_ordens),
+    ordens_com_custo_real: toNumber(value?.ordens_com_custo_real),
+    custo_realizado: toNumber(value?.custo_realizado),
+    custo_previsto_pendente: toNumber(value?.custo_previsto_pendente),
+    ticket_medio_realizado: toNumber(value?.ticket_medio_realizado),
+    cobertura_percentual: toNumber(value?.cobertura_percentual),
   }
 }
 
-function buildCartaoMensal(rows: CartaoGastoRow[]): CartaoMesData[] {
-  const grouped = new Map<string, CartaoMesData>()
-
-  for (const row of rows) {
-    const key = `${row.ano}-${String(row.mes).padStart(2, '0')}`
-    const existing = grouped.get(key)
-    if (existing) {
-      existing.total += row.valor
-      existing.qtd += 1
-      continue
+function mapFinanceiroEvolucao(rows: Array<Partial<FinanceiroEvolucaoMes>> | undefined): FinanceiroEvolucaoMes[] {
+  return (rows ?? []).map((row) => {
+    const ano = toNumber(row.ano)
+    const mes = toNumber(row.mes)
+    const realizado = toNumber(row.realizado)
+    const previsto = toNumber(row.previsto_pendente)
+    return {
+      ano,
+      mes,
+      label: `${FINANCEIRO_MONTH_LABELS[mes] ?? mes}/${String(ano).slice(2)}`,
+      realizado,
+      previsto_pendente: previsto,
+      total_gasto: toNumber(row.total_gasto) || realizado,
+      compromisso_total: toNumber(row.compromisso_total) || realizado + previsto,
     }
-    grouped.set(key, {
-      ano: row.ano,
-      mes: row.mes,
-      label: `${FINANCEIRO_MONTH_LABELS[row.mes] ?? row.mes}/${String(row.ano).slice(2)}`,
-      total: row.valor,
-      qtd: 1,
-    })
-  }
-
-  return Array.from(grouped.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([, row]) => row)
+  })
 }
 
-function buildCartaoRanking(rows: CartaoGastoRow[], resolveKey: (row: CartaoGastoRow) => string, limit: number): CartaoRankingRow[] {
-  const grouped = new Map<string, CartaoRankingRow>()
-
-  for (const row of rows) {
-    const key = resolveKey(row).trim() || 'Sem classificacao'
-    const current = grouped.get(key)
-    if (current) {
-      current.total += row.valor
-      current.qtd += 1
-      continue
+function mapFinanceiroRanking(rows: Array<Partial<FinanceiroRankingRow>> | undefined): FinanceiroRankingRow[] {
+  return (rows ?? []).map((row) => {
+    const realizado = toNumber(row.realizado)
+    const previsto = toNumber(row.previsto_pendente)
+    return {
+      nome: String(row.nome ?? 'Sem classificacao'),
+      realizado,
+      previsto_pendente: previsto,
+      total_gasto: toNumber(row.total_gasto) || realizado,
+      compromisso_total: toNumber(row.compromisso_total) || realizado + previsto,
     }
-    grouped.set(key, { nome: key, total: row.valor, qtd: 1 })
-  }
-
-  return Array.from(grouped.values())
-    .sort((a, b) => b.total - a.total)
-    .slice(0, limit)
+  })
 }
 
-const PARALLEL_PAGES = 10 // handles up to 10 000 rows per round
-
-async function fetchAllRows<T>(
-  fetchPage: (from: number, to: number) => PromiseLike<FetchPageResult>,
-  pageSize = FETCH_PAGE_SIZE,
-) {
-  const rows: T[] = []
-
-  for (let offset = 0; ; offset += PARALLEL_PAGES * pageSize) {
-    const results = await Promise.all(
-      Array.from({ length: PARALLEL_PAGES }, (_, i) => {
-        const from = offset + i * pageSize
-        return fetchPage(from, from + pageSize - 1)
-      }),
-    )
-
-    let done = false
-    for (const { data, error } of results) {
-      if (error) throw error
-      const batch = (data ?? []) as T[]
-      rows.push(...batch)
-      if (batch.length < pageSize) { done = true; break }
+function mapCartaoMensal(rows: Array<Partial<CartaoMesData>> | undefined): CartaoMesData[] {
+  return (rows ?? []).map((row) => {
+    const ano = toNumber(row.ano)
+    const mes = toNumber(row.mes)
+    return {
+      ano,
+      mes,
+      label: `${FINANCEIRO_MONTH_LABELS[mes] ?? mes}/${String(ano).slice(2)}`,
+      total: toNumber(row.total),
+      qtd: toNumber(row.qtd),
     }
+  })
+}
 
-    if (done) break
-  }
-
-  return rows
+function mapCartaoRanking(rows: Array<Partial<CartaoRankingRow>> | undefined): CartaoRankingRow[] {
+  return (rows ?? []).map((row) => ({
+    nome: String(row.nome ?? 'Sem classificacao'),
+    total: toNumber(row.total),
+    qtd: toNumber(row.qtd),
+  }))
 }
 
 export default async function FinanceiroPage({ searchParams }: FinanceiroPageProps) {
@@ -139,93 +139,33 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
 
   const supabase = await createClient()
 
-  const [rows, yearsFromOrdensRaw, yearsFromCartaoRaw, cartaoRows] = await Promise.all([
-    fetchAllRows<FinanceiroOrdemRow>((from, to) => {
-      let query = supabase
-        .from('vw_financeiro_ordens')
-        .select([
-          'id',
-          'ordem_codigo',
-          'tipo_ordem',
-          'numero_nota',
-          'data_entrada',
-          'denominacao_unidade',
-          'texto_breve',
-          'fornecedor_codigo',
-          'fornecedor_nome',
-          'custos_estimados',
-          'custos_totais_materiais',
-          'custos_adicionais',
-          'custos_totais_reais',
-          'competencia_ano',
-          'competencia_mes',
-          'valor_realizado',
-          'valor_previsto_pendente',
-          'tem_custo_real',
-          'valor_servico_calculado',
-          'source_file_name',
-          'imported_by',
-          'importado_em',
-          'created_at',
-          'updated_at',
-        ].join(','))
-        .in('tipo_ordem', TIPOS)
-
-      if (ano) query = query.eq('competencia_ano', ano)
-      if (mes) query = query.eq('competencia_mes', mes)
-
-      return query
-        .order('data_entrada', { ascending: true })
-        .range(from, to)
+  const [financeiroResult, cartaoResult] = await Promise.all([
+    supabase.rpc('buscar_financeiro_dashboard_agregado', {
+      p_ano: ano ?? null,
+      p_mes: mes ?? null,
     }),
-    fetchAllRows<{ competencia_ano: number | string | null }>((from, to) => {
-      return supabase
-        .from('vw_financeiro_ordens')
-        .select('competencia_ano')
-        .not('competencia_ano', 'is', null)
-        .range(from, to)
-    }),
-    fetchAllRows<{ ano: number | string | null }>((from, to) => {
-      return supabase
-        .from('cartao_corporativo_gastos')
-        .select('ano')
-        .not('ano', 'is', null)
-        .range(from, to)
-    }),
-    fetchAllRows<CartaoGastoRow>((from, to) => {
-      let query = supabase
-        .from('cartao_corporativo_gastos')
-        .select('data,fornecedor,centro_custo,valor,ano,mes')
-
-      if (ano) query = query.eq('ano', ano)
-      if (mes) query = query.eq('mes', mes)
-
-      return query
-        .order('data', { ascending: true })
-        .range(from, to)
+    supabase.rpc('buscar_cartao_dashboard_agregado', {
+      p_ano: ano ?? null,
+      p_mes: mes ?? null,
     }),
   ])
 
-  const yearsFromOrdens = yearsFromOrdensRaw
-    .map((row) => row.competencia_ano)
-    .map((value) => toNumber(value))
-    .filter((value) => value > 0)
-  const yearsFromCartao = yearsFromCartaoRaw
-    .map((row) => row.ano)
-    .map((value) => toNumber(value))
-    .filter((value) => value > 0)
-  const yearOptions = Array.from(new Set([currentYear, ...yearsFromOrdens, ...yearsFromCartao]))
-    .sort((left, right) => right - left)
+  if (financeiroResult.error) throw financeiroResult.error
+  if (cartaoResult.error) throw cartaoResult.error
+
+  const financeiroPayload = (financeiroResult.data ?? {}) as FinanceiroAggregatedPayload
+  const cartaoPayload = (cartaoResult.data ?? {}) as CartaoAggregatedPayload
+  const yearOptions = toYearOptions(financeiroPayload.yearOptions, cartaoPayload.yearOptions)
 
   const byTipo = Object.fromEntries(
     TIPOS.map((tipo) => {
-      const filteredRows = rows.filter((row) => row.tipo_ordem === tipo)
+      const aggregated = financeiroPayload.tipos?.[tipo] ?? {}
       return [tipo, {
-        summary: buildSummary(tipo, filteredRows),
-        evolucao: buildMonthlyEvolution(filteredRows),
-        unidades: buildRanking(filteredRows, (row) => row.denominacao_unidade ?? 'Sem unidade', 10),
-        servicos: buildRanking(filteredRows, (row) => row.texto_breve ?? 'Sem servico', 12),
-        fornecedores: buildRanking(filteredRows, (row) => row.fornecedor_nome ?? row.fornecedor_codigo ?? 'Sem fornecedor', 12),
+        summary: mapFinanceiroSummary(tipo, aggregated.summary),
+        evolucao: mapFinanceiroEvolucao(aggregated.evolucao),
+        unidades: mapFinanceiroRanking(aggregated.unidades),
+        servicos: mapFinanceiroRanking(aggregated.servicos),
+        fornecedores: mapFinanceiroRanking(aggregated.fornecedores),
       }]
     })
   ) as Record<FinanceiroTipoOrdem, {
@@ -236,11 +176,15 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
     fornecedores: FinanceiroRankingRow[]
   }>
 
-  const cartaoKpi = buildCartaoKpi(cartaoRows)
-  const cartaoMensal = buildCartaoMensal(cartaoRows)
-  const cartaoFornecedores = buildCartaoRanking(cartaoRows, (row) => row.fornecedor, 10)
-  const cartaoCentros = buildCartaoRanking(cartaoRows, (row) => row.centro_custo ?? 'Sem centro', 10)
-  const hasCartaoData = cartaoRows.length > 0
+  const cartaoKpi: CartaoKpiData = {
+    total_gasto: toNumber(cartaoPayload.kpi?.total_gasto),
+    qtd_transacoes: toNumber(cartaoPayload.kpi?.qtd_transacoes),
+    ticket_medio: toNumber(cartaoPayload.kpi?.ticket_medio),
+  }
+  const cartaoMensal = mapCartaoMensal(cartaoPayload.mensal)
+  const cartaoFornecedores = mapCartaoRanking(cartaoPayload.fornecedores)
+  const cartaoCentros = mapCartaoRanking(cartaoPayload.centros)
+  const hasCartaoData = cartaoKpi.qtd_transacoes > 0
 
   const hasImportedData = yearOptions.length > 0
 
