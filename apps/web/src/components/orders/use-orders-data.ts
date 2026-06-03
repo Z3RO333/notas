@@ -281,7 +281,9 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
   const [pendingSyncRows, setPendingSyncRows] = useState<OrdemNotaAcompanhamento[]>([])
   const [kpis, setKpis] = useState<OrdersWorkspaceKpis>(INITIAL_KPIS)
   const [ownerSummary, setOwnerSummary] = useState<OrdersOwnerSummary[]>([])
+  const [unitOptions, setUnitOptions] = useState<string[]>([])
   const [poolGroups, setPoolGroups] = useState<Array<Omit<OrdersPoolGroup, 'rows'>>>([])
+  const [poolCentros, setPoolCentros] = useState<Record<string, string>>({})
   const [nextCursor, setNextCursor] = useState<OrdersWorkspaceCursor | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
@@ -321,7 +323,9 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
     [effectiveFilters],
   )
 
-  // Main query: page 0, uses skip_highlights for faster response
+  const shouldLoadAggregatesWithMain = !currentUser.canViewGlobal && effectiveFilters.q.trim().length > 0
+
+  // Main query: page 0 only. Side data and KPIs are split out unless a private lookup needs row-derived totals.
   const {
     data: freshData,
     isPlaceholderData,
@@ -332,6 +336,10 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
     queryFn: async ({ signal }) => {
       const params = buildWorkspaceParams(effectiveFilters, null, BATCH_SIZE)
       params.set('skip_highlights', '1')
+      if (!shouldLoadAggregatesWithMain) {
+        params.set('skip_kpis', '1')
+        params.set('skip_side_data', '1')
+      }
       const res = await fetch(`/api/ordens/workspace?${params.toString()}`, {
         signal,
         cache: 'no-store',
@@ -346,6 +354,51 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
     staleTime: 30_000,
     gcTime: 5 * 60_000,
     retry: 1,
+  })
+
+  const { data: sideData } = useQuery({
+    queryKey: workspaceQueryKeys.side,
+    queryFn: async ({ signal }) => {
+      const params = buildWorkspaceParams(effectiveFilters, null, BATCH_SIZE)
+      params.set('side_data_only', '1')
+      const res = await fetch(`/api/ordens/workspace?${params.toString()}`, {
+        signal,
+        cache: 'no-store',
+      })
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(payload.error || 'Falha ao carregar resumo de ordens')
+      }
+      return res.json() as Promise<OrdersWorkspaceResponse>
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 45_000,
+    gcTime: 5 * 60_000,
+    retry: 1,
+    enabled: !shouldLoadAggregatesWithMain,
+  })
+
+  const { data: freshKpis } = useQuery({
+    queryKey: workspaceQueryKeys.kpis,
+    queryFn: async ({ signal }) => {
+      const params = buildWorkspaceParams(effectiveFilters, null, BATCH_SIZE)
+      params.set('kpis_only', '1')
+      const res = await fetch(`/api/ordens/workspace?${params.toString()}`, {
+        signal,
+        cache: 'no-store',
+      })
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(payload.error || 'Falha ao carregar KPIs de ordens')
+      }
+      const payload = (await res.json()) as { kpis: OrdersWorkspaceKpis }
+      return payload.kpis
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    retry: 1,
+    enabled: !shouldLoadAggregatesWithMain,
   })
 
   // Highlights query: runs in parallel, deferred display
@@ -383,20 +436,45 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
 
     setRows(freshData.rows)
     setPendingSyncRows(freshData.pendingSyncRows ?? [])
-    setKpis(freshData.kpis ?? INITIAL_KPIS)
-    setOwnerSummary(freshData.ownerSummary ?? [])
-    setPoolGroups((freshData.poolGroups ?? []) as Array<Omit<OrdersPoolGroup, 'rows'>>)
     setNextCursor(freshData.nextCursor)
-    setReassignTargets(freshData.reassignTargets)
     setCurrentUser((prev) => ({
       ...freshData.currentUser,
       userEmail: prev.userEmail,
       actualRole: prev.actualRole,
       canUseDeveloperViewSwitcher: prev.canUseDeveloperViewSwitcher,
     }))
+    if (shouldLoadAggregatesWithMain) {
+      setKpis(freshData.kpis ?? INITIAL_KPIS)
+      setOwnerSummary(freshData.ownerSummary ?? [])
+      setUnitOptions(freshData.unitOptions ?? [])
+      setPoolGroups((freshData.poolGroups ?? []) as Array<Omit<OrdersPoolGroup, 'rows'>>)
+      setPoolCentros(freshData.poolCentros ?? {})
+      setReassignTargets(freshData.reassignTargets)
+    }
 
     void onResetSuccess(freshData.rows)
-  }, [freshData, isPlaceholderData, onResetSuccess])
+  }, [freshData, isPlaceholderData, onResetSuccess, shouldLoadAggregatesWithMain])
+
+  useEffect(() => {
+    if (!sideData || shouldLoadAggregatesWithMain) return
+
+    setOwnerSummary(sideData.ownerSummary ?? [])
+    setUnitOptions(sideData.unitOptions ?? [])
+    setPoolGroups((sideData.poolGroups ?? []) as Array<Omit<OrdersPoolGroup, 'rows'>>)
+    setPoolCentros(sideData.poolCentros ?? {})
+    setReassignTargets(sideData.reassignTargets)
+    setCurrentUser((prev) => ({
+      ...sideData.currentUser,
+      userEmail: prev.userEmail,
+      actualRole: prev.actualRole,
+      canUseDeveloperViewSwitcher: prev.canUseDeveloperViewSwitcher,
+    }))
+  }, [sideData, shouldLoadAggregatesWithMain])
+
+  useEffect(() => {
+    if (!freshKpis || shouldLoadAggregatesWithMain) return
+    setKpis(freshKpis)
+  }, [freshKpis, shouldLoadAggregatesWithMain])
 
   // Load more pages (cursor-based pagination)
   const loadMore = useCallback(
@@ -406,6 +484,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
       try {
         const params = buildWorkspaceParams(effectiveFilters, cursor, BATCH_SIZE)
         params.set('skip_highlights', '1')
+        params.set('rows_only', '1')
         const res = await fetch(`/api/ordens/workspace?${params.toString()}`, { cache: 'no-store' })
         if (!res.ok) {
           const payload = (await res.json().catch(() => ({}))) as { error?: string }
@@ -497,7 +576,7 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
             ...nextKpis,
             sem_responsavel: Math.max(0, nextKpis.sem_responsavel - 1),
           }
-          nextPoolGroups = patchPoolGroupsForAssignment(nextPoolGroups, sourceRow, freshData?.poolCentros ?? {})
+          nextPoolGroups = patchPoolGroupsForAssignment(nextPoolGroups, sourceRow, poolCentros)
         }
 
         nextOwnerSummary = patchOwnerSummaryForAssignment(
@@ -526,6 +605,16 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
           poolGroups: nextPoolGroups,
         }
       })
+      queryClient.setQueryData<OrdersWorkspaceResponse>(workspaceQueryKeys.side, (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          ownerSummary: nextOwnerSummary,
+          poolGroups: nextPoolGroups,
+          poolCentros,
+        }
+      })
+      queryClient.setQueryData<OrdersWorkspaceKpis>(workspaceQueryKeys.kpis, nextKpis)
       queryClient.setQueryData<{ highlights: OrdersWorkspaceHighlights }>(workspaceQueryKeys.highlights, (old) => {
         if (!old) return old
         return {
@@ -556,28 +645,40 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
       )
 
       void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.highlights, exact: true })
+      void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.side, exact: true })
+      void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.kpis, exact: true })
     },
     [
       effectiveFilters.responsavel,
-      freshData?.poolCentros,
       highlightsData?.highlights.attention,
       highlightsData?.highlights.oldest,
       kpis,
       ownerSummary,
       pendingSyncRows,
       poolGroups,
+      poolCentros,
       queryClient,
       reassignTargetById,
       rows,
       workspaceQueryKeys.highlights,
+      workspaceQueryKeys.kpis,
       workspaceQueryKeys.main,
+      workspaceQueryKeys.side,
     ],
   )
 
   const invalidateWorkspace = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.main, exact: true })
+    void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.side, exact: true })
+    void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.kpis, exact: true })
     void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.highlights, exact: true })
-  }, [queryClient, workspaceQueryKeys.highlights, workspaceQueryKeys.main])
+  }, [
+    queryClient,
+    workspaceQueryKeys.highlights,
+    workspaceQueryKeys.kpis,
+    workspaceQueryKeys.main,
+    workspaceQueryKeys.side,
+  ])
 
   // Backward-compatible fetchWorkspace: reset triggers invalidation, paginate triggers loadMore
   const fetchWorkspace = useCallback(
@@ -599,12 +700,12 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
     setRows,
     pendingSyncRows,
     setPendingSyncRows,
-    unitOptions: freshData?.unitOptions ?? [],
+    unitOptions,
     kpis,
     ownerSummary,
     reassignTargets,
     poolGroups,
-    poolCentros: freshData?.poolCentros ?? {},
+    poolCentros,
     highlights: highlightsData?.highlights ?? INITIAL_HIGHLIGHTS,
     isLoadingHighlights,
     isFetchingHighlights,

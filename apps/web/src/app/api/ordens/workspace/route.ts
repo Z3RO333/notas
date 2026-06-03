@@ -238,15 +238,6 @@ export async function GET(request: Request) {
   const canViewGlobal = currentAdminContext.canViewGlobal
   const canManageWorkspace = currentAdminContext.isGestor
 
-  let fixedOwnerLabelByAdminId = new Map<string, string>()
-  try {
-    fixedOwnerLabelByAdminId = await getFixedOwnerLabelByAdminId(supabase)
-  } catch (error) {
-    logger.warn('[orders/workspace] nao foi possivel carregar labels fixos de CD:', error)
-  }
-
-  const fixedOwnerAvatarByAdminId = buildFixedOwnerAvatarByAdminId(fixedOwnerLabelByAdminId)
-
   let canAccessPmpl = canViewGlobal
   if (!canViewGlobal) {
     try {
@@ -263,11 +254,16 @@ export async function GET(request: Request) {
   }
 
   const parsedRequest = parseOrdersWorkspaceRequest(url.searchParams, canAccessPmpl)
-  const skipHighlights = url.searchParams.get('skip_highlights') === '1'
+  const rowsOnly = url.searchParams.get('rows_only') === '1'
+  const sideDataOnly = url.searchParams.get('side_data_only') === '1'
+  const kpisOnly = url.searchParams.get('kpis_only') === '1'
+  const skipHighlights = rowsOnly || sideDataOnly || url.searchParams.get('skip_highlights') === '1'
   const highlightsOnly = url.searchParams.get('highlights_only') === '1'
+  const skipKpis = rowsOnly || sideDataOnly || url.searchParams.get('skip_kpis') === '1'
+  const skipSideData = rowsOnly || url.searchParams.get('skip_side_data') === '1'
   const adminScope = canViewGlobal ? null : currentAdminContext.adminId
   const responsavelFilter = canViewGlobal ? parsedRequest.responsavel : null
-  const privateOwnerLookupPromise = !canViewGlobal && role === 'admin'
+  const privateOwnerLookupPromise = !rowsOnly && !sideDataOnly && !canViewGlobal && role === 'admin'
     ? fetchPrivateOwnerLookupRows(supabase, parsedRequest)
     : Promise.resolve({ rows: [] as OrdemNotaAcompanhamento[], error: null, lookupToken: null })
 
@@ -332,7 +328,7 @@ export async function GET(request: Request) {
     p_tipo_ordem: parsedRequest.tipoOrdem,
   } satisfies Record<string, unknown>
 
-  const shouldLoadPendingSyncRows = !parsedRequest.cursorDetectada && !parsedRequest.cursorOrdemId
+  const shouldLoadPendingSyncRows = !rowsOnly && !sideDataOnly && !parsedRequest.cursorDetectada && !parsedRequest.cursorOrdemId
 
   const pendingSyncRpcParams = {
     p_period_mode: parsedRequest.periodMode,
@@ -357,6 +353,24 @@ export async function GET(request: Request) {
     p_start_iso: parsedRequest.startIso,
     p_end_exclusive_iso: parsedRequest.endExclusiveIso,
     p_tipo_ordem: parsedRequest.tipoOrdem,
+  }
+
+  if (kpisOnly) {
+    const kpisResult = await callRpcWithOptionalTipoOrdem<OrdersWorkspaceKpis>(
+      supabase,
+      'calcular_kpis_ordens_operacional',
+      kpisRpcParams,
+    )
+
+    if (kpisResult.error) {
+      return NextResponse.json({ error: kpisResult.error.message }, { status: 500 })
+    }
+
+    if (parsedRequest.tipoOrdem === 'PMPL' && !kpisResult.supportsTipoOrdem) {
+      return NextResponse.json({ error: ORDERS_TIPO_ORDEM_MIGRATION_HINT }, { status: 412 })
+    }
+
+    return NextResponse.json({ kpis: mapKpis(kpisResult.data) })
   }
 
   if (highlightsOnly) {
@@ -399,11 +413,19 @@ export async function GET(request: Request) {
   }
 
   const [rowsResult, kpisResult, summaryResult, unitsResult, targetsResult, poolResult, poolCentrosResult, pendingSyncResult, privateOwnerLookupResult] = await Promise.all([
-    callRpcWithOptionalTipoOrdem<OrdemNotaAcompanhamento[]>(supabase, 'buscar_ordens_workspace', rowsRpcParams),
-    callRpcWithOptionalTipoOrdem<OrdersWorkspaceKpis>(supabase, 'calcular_kpis_ordens_operacional', kpisRpcParams),
-    callRpcWithOptionalTipoOrdem<Array<Partial<OrdersOwnerSummary>>>(supabase, 'calcular_resumo_colaboradores_ordens', summaryRpcParams),
-    callRpcWithOptionalTipoOrdem<Array<Pick<OrdemNotaAcompanhamento, 'unidade'>>>(supabase, 'listar_ordens_workspace_unidades', unitsRpcParams),
-    canManageWorkspace
+    sideDataOnly
+      ? Promise.resolve({ data: [] as OrdemNotaAcompanhamento[], error: null, supportsTipoOrdem: true })
+      : callRpcWithOptionalTipoOrdem<OrdemNotaAcompanhamento[]>(supabase, 'buscar_ordens_workspace', rowsRpcParams),
+    skipKpis
+      ? Promise.resolve({ data: null as OrdersWorkspaceKpis | null, error: null, supportsTipoOrdem: true })
+      : callRpcWithOptionalTipoOrdem<OrdersWorkspaceKpis>(supabase, 'calcular_kpis_ordens_operacional', kpisRpcParams),
+    skipSideData
+      ? Promise.resolve({ data: [] as Array<Partial<OrdersOwnerSummary>>, error: null, supportsTipoOrdem: true })
+      : callRpcWithOptionalTipoOrdem<Array<Partial<OrdersOwnerSummary>>>(supabase, 'calcular_resumo_colaboradores_ordens', summaryRpcParams),
+    skipSideData
+      ? Promise.resolve({ data: [] as Array<Pick<OrdemNotaAcompanhamento, 'unidade'>>, error: null, supportsTipoOrdem: true })
+      : callRpcWithOptionalTipoOrdem<Array<Pick<OrdemNotaAcompanhamento, 'unidade'>>>(supabase, 'listar_ordens_workspace_unidades', unitsRpcParams),
+    !skipSideData && canManageWorkspace
       ? supabase
         .from('administradores')
         .select('id, nome, avatar_url, especialidade')
@@ -412,10 +434,10 @@ export async function GET(request: Request) {
         .eq('em_ferias', false)
         .order('nome')
       : Promise.resolve({ data: [] as OrderReassignTarget[], error: null }),
-    canViewGlobal
+    !skipSideData && canViewGlobal
       ? supabase.rpc('calcular_resumo_pool_centros', poolRpcParams)
       : Promise.resolve({ data: [], error: null }),
-    canViewGlobal
+    !skipSideData && canViewGlobal
       ? supabase.from('centros_pool').select('centro, pool_nome')
       : Promise.resolve({ data: [], error: null }),
     shouldLoadPendingSyncRows
@@ -464,6 +486,17 @@ export async function GET(request: Request) {
   const rowsFromRpc = (rowsResult.data ?? []) as OrdemNotaAcompanhamento[]
   let rows = rowsFromRpc
   let unitOptions = buildUnitOptionsFromRows((unitsResult.data ?? []) as Array<Pick<OrdemNotaAcompanhamento, 'unidade'>>)
+
+  let fixedOwnerLabelByAdminId = new Map<string, string>()
+  if (!skipSideData) {
+    try {
+      fixedOwnerLabelByAdminId = await getFixedOwnerLabelByAdminId(supabase)
+    } catch (error) {
+      logger.warn('[orders/workspace] nao foi possivel carregar labels fixos de CD:', error)
+    }
+  }
+
+  const fixedOwnerAvatarByAdminId = buildFixedOwnerAvatarByAdminId(fixedOwnerLabelByAdminId)
 
   let ownerSummary = ((summaryResult.data ?? []) as Array<Partial<OrdersOwnerSummary>>).map((item) => {
     const adminId = item.administrador_id ?? null
