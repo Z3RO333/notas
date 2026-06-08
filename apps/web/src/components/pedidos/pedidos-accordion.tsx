@@ -1,61 +1,40 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Search, X } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PedidoRow } from '@/components/pedidos/pedido-row'
 import { PedidoDetailDrawer } from '@/components/pedidos/pedido-detail-drawer'
 import { usePedidosData } from '@/components/pedidos/use-pedidos-data'
-import type { PedidoCompra, PedidoCompraStatus, PedidosWorkspaceFilters } from '@/lib/types/pedidos'
+import type { PedidoCompra, PedidosWorkspaceFilters } from '@/lib/types/pedidos'
+
+export type PedidosGlobalFilters = Omit<PedidosWorkspaceFilters, 'adminId'>
 
 interface PedidosAccordionProps {
   adminId: string
   isOpen: boolean
+  filters: PedidosGlobalFilters
 }
 
-export function PedidosAccordion({ adminId, isOpen }: PedidosAccordionProps) {
+export function PedidosAccordion({ adminId, isOpen, filters }: PedidosAccordionProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const [q, setQ] = useState('')
-  const [searchInput, setSearchInput] = useState('')
-  const [status, setStatus] = useState<PedidoCompraStatus | 'all'>('all')
-  const [anoExtracao, setAnoExtracao] = useState<string | null>(null)
-  const [mesExtracao, setMesExtracao] = useState<string | null>(null)
-  const [carteiraEspecial, setCarteiraEspecial] = useState(false)
   const [selectedPedido, setSelectedPedido] = useState<PedidoCompra | null>(null)
 
-  useEffect(() => {
-    const timer = setTimeout(() => setQ(searchInput), 300)
-    return () => clearTimeout(timer)
-  }, [searchInput])
-
-  const filters: PedidosWorkspaceFilters = {
-    q,
-    status,
-    adminId,
-    anoExtracao,
-    mesExtracao,
-    carteiraEspecial,
-  }
+  const fullFilters: PedidosWorkspaceFilters = { ...filters, adminId }
 
   const {
     rows,
-    availableAnos,
-    availableMeses,
     isFetching,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
     loadingInitial,
     error,
-  } = usePedidosData({ filters })
+  } = usePedidosData({ filters: fullFilters })
 
   useEffect(() => {
     ref.current?.scrollTo({ top: 0 })
-  }, [q, status, anoExtracao, mesExtracao, carteiraEspecial])
+  }, [filters.q, filters.status, filters.anoExtracao, filters.mesExtracao])
 
   useEffect(() => {
     if (isOpen) {
@@ -67,86 +46,6 @@ export function PedidosAccordion({ adminId, isOpen }: PedidosAccordionProps) {
 
   return (
     <div ref={ref} className="mt-2 space-y-3 rounded-lg border bg-muted/30 p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Buscar fornecedor ou pedido..."
-            className="pl-8 pr-8 h-8 text-sm"
-          />
-          {searchInput && (
-            <button
-              type="button"
-              onClick={() => { setSearchInput(''); setQ('') }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-
-        <Select
-          value={status}
-          onValueChange={(val) => setStatus(val as PedidoCompraStatus | 'all')}
-        >
-          <SelectTrigger className="w-[130px] h-8 text-sm">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="em_aberto">Em aberto</SelectItem>
-            <SelectItem value="encerrado">Encerrado</SelectItem>
-            <SelectItem value="cancelado">Cancelado</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {availableAnos.length > 0 && (
-          <Select
-            value={anoExtracao ?? 'all'}
-            onValueChange={(val) => {
-              setAnoExtracao(val === 'all' ? null : val)
-              setMesExtracao(null)
-            }}
-          >
-            <SelectTrigger className="w-[100px] h-8 text-sm">
-              <SelectValue placeholder="Ano" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os anos</SelectItem>
-              {availableAnos.map((ano) => (
-                <SelectItem key={ano} value={ano}>{ano}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        {availableMeses.length > 0 && (
-          <Select
-            value={mesExtracao ?? 'all'}
-            onValueChange={(val) => setMesExtracao(val === 'all' ? null : val)}
-          >
-            <SelectTrigger className="w-[110px] h-8 text-sm">
-              <SelectValue placeholder="Mês" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os meses</SelectItem>
-              {availableMeses.map((mes) => (
-                <SelectItem key={mes} value={mes}>
-                  {mes.slice(4, 6)}/{mes.slice(0, 4)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Switch checked={carteiraEspecial} onCheckedChange={setCarteiraEspecial} />
-          Só carteira especial
-        </label>
-      </div>
-
       {!loadingInitial && (
         <p className="text-xs text-muted-foreground">
           {isFetching && !isFetchingNextPage

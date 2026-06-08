@@ -12,7 +12,6 @@ function syncFiltersToUrl(filters: PedidosWorkspaceFilters) {
   setOrDelete('adminId', filters.adminId !== 'all' ? filters.adminId : null)
   params.set('ano', filters.anoExtracao ?? 'all')
   setOrDelete('mes', filters.mesExtracao)
-  setOrDelete('carteiraEspecial', filters.carteiraEspecial ? '1' : null)
   const query = params.toString()
   window.history.replaceState({}, '', query ? `?${query}` : window.location.pathname)
 }

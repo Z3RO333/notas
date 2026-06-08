@@ -53,7 +53,6 @@ export interface PedidosWorkspaceFilters {
   adminId: string | 'all'
   anoExtracao: string | null
   mesExtracao: string | null
-  carteiraEspecial: boolean
 }
 
 export interface PedidosWorkspaceCursor {
@@ -66,6 +65,12 @@ export interface PedidosWorkspaceMeta {
   availableAdmins: { id: string; nome: string; avatar_url: string | null }[]
   availableAnos: string[]
   availableMeses: string[]
+}
+
+export interface PedidosFiltrosResponse {
+  availableAnos: string[]
+  availableMeses: string[]
+  kpis: PedidosKpis
 }
 
 export interface PedidosWorkspaceResponse {

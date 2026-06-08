@@ -1,15 +1,22 @@
 'use client'
 
-import { Fragment, useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { Fragment, useEffect, useState } from 'react'
+import { ChevronDown, ChevronRight, Search, X } from 'lucide-react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PedidosAccordion } from '@/components/pedidos/pedidos-accordion'
 import { PedidosKpiStrip } from '@/components/pedidos/pedidos-kpi-strip'
 import { FornecedoresCarteiraPanel } from '@/components/pedidos/fornecedores-carteira-panel'
 import { cn } from '@/lib/utils'
-import type { PedidosAdminSummary, PedidosSummaryResponse } from '@/lib/types/pedidos'
+import type {
+  PedidoCompraStatus,
+  PedidosAdminSummary,
+  PedidosFiltrosResponse,
+  PedidosSummaryResponse,
+} from '@/lib/types/pedidos'
 
 type PedidosSubaba = 'pedidos' | 'fornecedores'
 
@@ -40,11 +47,23 @@ function PedidosSubabaToggle({ value, onChange }: { value: PedidosSubaba; onChan
   )
 }
 
-function usePedidosSummary() {
+interface PedidosSummaryParams {
+  q: string
+  status: PedidoCompraStatus | 'all'
+  anoExtracao: string | null
+  mesExtracao: string | null
+}
+
+function usePedidosSummary({ q, status, anoExtracao, mesExtracao }: PedidosSummaryParams) {
   return useQuery<PedidosAdminSummary[]>({
-    queryKey: ['pedidos-summary'],
+    queryKey: ['pedidos-summary', q, status, anoExtracao, mesExtracao],
     queryFn: async () => {
-      const res = await fetch('/api/pedidos/summary', { cache: 'no-store' })
+      const params = new URLSearchParams()
+      if (q) params.set('q', q)
+      if (status !== 'all') params.set('status', status)
+      params.set('ano', anoExtracao ?? 'all')
+      if (mesExtracao) params.set('mes', mesExtracao)
+      const res = await fetch(`/api/pedidos/summary?${params.toString()}`, { cache: 'no-store' })
       if (!res.ok) {
         const payload = (await res.json().catch(() => ({}))) as { error?: string }
         throw new Error(payload.error || 'Falha ao carregar resumo de pedidos')
@@ -52,7 +71,37 @@ function usePedidosSummary() {
       const data = (await res.json()) as PedidosSummaryResponse
       return data.admins
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+  })
+}
+
+interface PedidosFiltrosMetaParams {
+  q: string
+  status: PedidoCompraStatus | 'all'
+  anoExtracao: string | null
+  mesExtracao: string | null
+}
+
+function usePedidosFiltrosMeta({ q, status, anoExtracao, mesExtracao }: PedidosFiltrosMetaParams) {
+  return useQuery<PedidosFiltrosResponse>({
+    queryKey: ['pedidos-filtros-meta', q, status, anoExtracao, mesExtracao],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      if (q) params.set('q', q)
+      if (status !== 'all') params.set('status', status)
+      params.set('ano', anoExtracao ?? 'all')
+      if (mesExtracao) params.set('mes', mesExtracao)
+      const res = await fetch(`/api/pedidos/filtros?${params.toString()}`, { cache: 'no-store' })
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(payload.error || 'Falha ao carregar filtros de pedidos')
+      }
+      return res.json() as Promise<PedidosFiltrosResponse>
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
     gcTime: 5 * 60_000,
   })
 }
@@ -64,7 +113,24 @@ interface PedidosPanelProps {
 export function PedidosPanel({ isGestor }: PedidosPanelProps) {
   const [subaba, setSubaba] = useState<PedidosSubaba>('pedidos')
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const { data: admins, isPending, error } = usePedidosSummary()
+
+  const [searchInput, setSearchInput] = useState('')
+  const [q, setQ] = useState('')
+  const [status, setStatus] = useState<PedidoCompraStatus | 'all'>('all')
+  const [anoExtracao, setAnoExtracao] = useState<string | null>(null)
+  const [mesExtracao, setMesExtracao] = useState<string | null>(null)
+
+  const { data: admins, isPending, error } = usePedidosSummary({ q, status, anoExtracao, mesExtracao })
+  const { data: filtrosMeta } = usePedidosFiltrosMeta({ q, status, anoExtracao, mesExtracao })
+  const meta = filtrosMeta ?? { availableAnos: [], availableMeses: [] }
+  const kpis = filtrosMeta?.kpis ?? { total: 0, em_aberto: 0, encerrado: 0, cancelado: 0, valor_total: 0 }
+
+  useEffect(() => {
+    const timer = setTimeout(() => setQ(searchInput), 300)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
+  const globalFilters = { q, status, anoExtracao, mesExtracao }
 
   function handleRowClick(adminId: string) {
     setExpandedId((prev) => (prev === adminId ? null : adminId))
@@ -131,21 +197,87 @@ export function PedidosPanel({ isGestor }: PedidosPanelProps) {
     )
   }
 
-  const kpis = admins.reduce(
-    (acc, a) => ({
-      total: acc.total + a.em_aberto + a.encerrado + a.cancelado,
-      em_aberto: acc.em_aberto + a.em_aberto,
-      encerrado: acc.encerrado + a.encerrado,
-      cancelado: acc.cancelado + a.cancelado,
-      valor_total: acc.valor_total + a.valor_total,
-    }),
-    { total: 0, em_aberto: 0, encerrado: 0, cancelado: 0, valor_total: 0 }
-  )
-
   return (
     <div className="space-y-4">
     <PedidosSubabaToggle value={subaba} onChange={setSubaba} />
     <PedidosKpiStrip kpis={kpis} />
+
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="relative flex-1 min-w-[180px]">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Buscar fornecedor ou pedido..."
+          className="pl-8 pr-8 h-8 text-sm"
+        />
+        {searchInput && (
+          <button
+            type="button"
+            onClick={() => { setSearchInput(''); setQ('') }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            aria-label="Limpar busca"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      <Select
+        value={status}
+        onValueChange={(val) => setStatus(val as PedidoCompraStatus | 'all')}
+      >
+        <SelectTrigger className="w-[130px] h-8 text-sm">
+          <SelectValue placeholder="Status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos</SelectItem>
+          <SelectItem value="em_aberto">Em aberto</SelectItem>
+          <SelectItem value="encerrado">Encerrado</SelectItem>
+          <SelectItem value="cancelado">Cancelado</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {meta.availableAnos.length > 0 && (
+        <Select
+          value={anoExtracao ?? 'all'}
+          onValueChange={(val) => {
+            setAnoExtracao(val === 'all' ? null : val)
+            setMesExtracao(null)
+          }}
+        >
+          <SelectTrigger className="w-[100px] h-8 text-sm">
+            <SelectValue placeholder="Ano" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os anos</SelectItem>
+            {meta.availableAnos.map((ano) => (
+              <SelectItem key={ano} value={ano}>{ano}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {meta.availableMeses.length > 0 && (
+        <Select
+          value={mesExtracao ?? 'all'}
+          onValueChange={(val) => setMesExtracao(val === 'all' ? null : val)}
+        >
+          <SelectTrigger className="w-[110px] h-8 text-sm">
+            <SelectValue placeholder="Mês" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os meses</SelectItem>
+            {meta.availableMeses.map((mes) => (
+              <SelectItem key={mes} value={mes}>
+                {mes.slice(4, 6)}/{mes.slice(0, 4)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </div>
+
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">
@@ -235,6 +367,7 @@ export function PedidosPanel({ isGestor }: PedidosPanelProps) {
                             key={admin.adminId}
                             adminId={admin.adminId}
                             isOpen={true}
+                            filters={globalFilters}
                           />
                         </td>
                       </tr>

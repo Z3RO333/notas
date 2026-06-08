@@ -93,12 +93,6 @@ function toPedidoCompraRow(row: PedidosWorkspaceRpcRow): PedidoCompra {
   }
 }
 
-function normalizeCarteiraEspecial(value: string | null | undefined): boolean | null {
-  const normalized = (value ?? '').trim().toLowerCase()
-  if (normalized === '1' || normalized === 'true') return true
-  return null
-}
-
 export async function GET(request: Request) {
   const supabase = await createClient()
   const currentAdminContext = await getCurrentRequestAdminContext({
@@ -123,7 +117,6 @@ export async function GET(request: Request) {
   const mesExtracao = normalizeMes(url.searchParams.get('mes') ?? url.searchParams.get('mesExtracao'))
   const adminScope = canViewGlobal ? null : currentAdminContext.adminId
   const adminFilter = adminScope ? null : normalizeUuid(url.searchParams.get('adminId'))
-  const carteiraEspecial = normalizeCarteiraEspecial(url.searchParams.get('carteiraEspecial'))
   const cursorDate = normalizeCursorDate(url.searchParams.get('cursorDate'))
   const cursorId = normalizeUuid(url.searchParams.get('cursorId'))
   const cursorReady = cursorDate !== null && cursorId !== null
@@ -149,7 +142,6 @@ export async function GET(request: Request) {
       p_cursor_data_documento: cursorReady ? cursorDate : null,
       p_cursor_id: cursorReady ? cursorId : null,
       p_limit: PAGE_SIZE + 1,
-      p_carteira_especial: carteiraEspecial,
     }),
     includeMeta
       ? supabase.rpc('calcular_kpis_pedidos_workspace', {
