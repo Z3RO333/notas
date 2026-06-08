@@ -19,7 +19,7 @@ export default async function PedidosPage() {
   return (
     <div className="space-y-6">
       <PageTitleBlock title="Pedidos de Compra" />
-      <PedidosPanel />
+      <PedidosPanel isGestor={currentAdminContext.isGestor} />
     </div>
   )
 }

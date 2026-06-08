@@ -18,6 +18,9 @@ export interface PedidoCompra {
   created_at: string
   updated_at: string
   nf_referencias: string[]
+  fornecedor_owner_admin_id?: string | null
+  fornecedor_owner_nome?: string | null
+  na_carteira_especial?: boolean
 }
 
 export interface PedidoCompraItem {
@@ -50,6 +53,7 @@ export interface PedidosWorkspaceFilters {
   adminId: string | 'all'
   anoExtracao: string | null
   mesExtracao: string | null
+  carteiraEspecial: boolean
 }
 
 export interface PedidosWorkspaceCursor {
@@ -83,4 +87,35 @@ export interface PedidosAdminSummary {
 
 export interface PedidosSummaryResponse {
   admins: PedidosAdminSummary[]
+}
+
+export interface PedidosCarteiraFornecedorRow {
+  fornecedorCodigo: string
+  fornecedorNome: string
+  adminId: string
+  adminNome: string | null
+  adminAvatar: string | null
+  qtdPedidos: number
+  emAberto: number
+  encerrado: number
+  cancelado: number
+  valorTotal: number
+}
+
+export interface PedidosCarteiraKpis {
+  totalFornecedores: number
+  totalPedidos: number
+  valorTotal: number
+  emAberto: number
+  encerrado: number
+  cancelado: number
+}
+
+export interface PedidosCarteiraResumo {
+  rows: PedidosCarteiraFornecedorRow[]
+  kpis: PedidosCarteiraKpis
+}
+
+export interface PedidosCarteiraResponse extends PedidosCarteiraResumo {
+  availableAdmins: { id: string; nome: string; avatar_url: string | null }[]
 }

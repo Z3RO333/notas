@@ -74,6 +74,9 @@ export const PedidoRow = memo(function PedidoRow({ pedido, onOpen, adminNome, ad
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-sm font-semibold">{pedido.documento_compras}</span>
             <Badge variant={STATUS_VARIANT[pedido.status]}>{STATUS_LABEL[pedido.status]}</Badge>
+            {pedido.na_carteira_especial && pedido.fornecedor_owner_nome && (
+              <Badge variant="outline">Carteira: {pedido.fornecedor_owner_nome}</Badge>
+            )}
             {pedido.tipo_documento && (
               <span className="text-xs text-muted-foreground">{pedido.tipo_documento}</span>
             )}

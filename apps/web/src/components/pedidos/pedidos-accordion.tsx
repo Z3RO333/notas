@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PedidoRow } from '@/components/pedidos/pedido-row'
@@ -23,6 +24,7 @@ export function PedidosAccordion({ adminId, isOpen }: PedidosAccordionProps) {
   const [status, setStatus] = useState<PedidoCompraStatus | 'all'>('all')
   const [anoExtracao, setAnoExtracao] = useState<string | null>(null)
   const [mesExtracao, setMesExtracao] = useState<string | null>(null)
+  const [carteiraEspecial, setCarteiraEspecial] = useState(false)
   const [selectedPedido, setSelectedPedido] = useState<PedidoCompra | null>(null)
 
   useEffect(() => {
@@ -36,6 +38,7 @@ export function PedidosAccordion({ adminId, isOpen }: PedidosAccordionProps) {
     adminId,
     anoExtracao,
     mesExtracao,
+    carteiraEspecial,
   }
 
   const {
@@ -52,7 +55,7 @@ export function PedidosAccordion({ adminId, isOpen }: PedidosAccordionProps) {
 
   useEffect(() => {
     ref.current?.scrollTo({ top: 0 })
-  }, [q, status, anoExtracao, mesExtracao])
+  }, [q, status, anoExtracao, mesExtracao, carteiraEspecial])
 
   useEffect(() => {
     if (isOpen) {
@@ -137,6 +140,11 @@ export function PedidosAccordion({ adminId, isOpen }: PedidosAccordionProps) {
             </SelectContent>
           </Select>
         )}
+
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Switch checked={carteiraEspecial} onCheckedChange={setCarteiraEspecial} />
+          Só carteira especial
+        </label>
       </div>
 
       {!loadingInitial && (

@@ -26,6 +26,7 @@ function buildQueryParams(
   if (filters.adminId !== 'all') params.set('adminId', filters.adminId)
   params.set('ano', filters.anoExtracao ?? 'all')
   if (filters.mesExtracao) params.set('mes', filters.mesExtracao)
+  if (filters.carteiraEspecial) params.set('carteiraEspecial', '1')
   if (cursor?.cursorDate) params.set('cursorDate', cursor.cursorDate)
   if (cursor?.cursorId) params.set('cursorId', cursor.cursorId)
   if (!includeMeta) params.set('includeMeta', '0')
@@ -37,7 +38,7 @@ interface UsePedidosDataOptions {
 }
 
 export function usePedidosData({ filters }: UsePedidosDataOptions) {
-  const queryKey = ['pedidos-workspace', filters.q, filters.status, filters.adminId, filters.anoExtracao, filters.mesExtracao]
+  const queryKey = ['pedidos-workspace', filters.q, filters.status, filters.adminId, filters.anoExtracao, filters.mesExtracao, filters.carteiraEspecial]
 
   const query = useInfiniteQuery({
     queryKey,

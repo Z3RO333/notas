@@ -7,7 +7,38 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PedidosAccordion } from '@/components/pedidos/pedidos-accordion'
 import { PedidosKpiStrip } from '@/components/pedidos/pedidos-kpi-strip'
+import { FornecedoresCarteiraPanel } from '@/components/pedidos/fornecedores-carteira-panel'
+import { cn } from '@/lib/utils'
 import type { PedidosAdminSummary, PedidosSummaryResponse } from '@/lib/types/pedidos'
+
+type PedidosSubaba = 'pedidos' | 'fornecedores'
+
+const SUBABA_OPTIONS: Array<{ id: PedidosSubaba; label: string }> = [
+  { id: 'pedidos', label: 'Pedidos' },
+  { id: 'fornecedores', label: 'Carteira de Fornecedores' },
+]
+
+function PedidosSubabaToggle({ value, onChange }: { value: PedidosSubaba; onChange: (next: PedidosSubaba) => void }) {
+  return (
+    <div className="inline-flex gap-1 rounded-full border border-border/60 bg-muted/30 p-1">
+      {SUBABA_OPTIONS.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          onClick={() => onChange(option.id)}
+          className={cn(
+            'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+            value === option.id
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 function usePedidosSummary() {
   return useQuery<PedidosAdminSummary[]>({
@@ -26,7 +57,12 @@ function usePedidosSummary() {
   })
 }
 
-export function PedidosPanel() {
+interface PedidosPanelProps {
+  isGestor: boolean
+}
+
+export function PedidosPanel({ isGestor }: PedidosPanelProps) {
+  const [subaba, setSubaba] = useState<PedidosSubaba>('pedidos')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const { data: admins, isPending, error } = usePedidosSummary()
 
@@ -34,9 +70,19 @@ export function PedidosPanel() {
     setExpandedId((prev) => (prev === adminId ? null : adminId))
   }
 
+  if (subaba === 'fornecedores') {
+    return (
+      <div className="space-y-4">
+        <PedidosSubabaToggle value={subaba} onChange={setSubaba} />
+        <FornecedoresCarteiraPanel isGestor={isGestor} />
+      </div>
+    )
+  }
+
   if (isPending) {
     return (
       <div className="space-y-4">
+        <PedidosSubabaToggle value={subaba} onChange={setSubaba} />
         <PedidosKpiStrip
           kpis={{ total: 0, em_aberto: 0, encerrado: 0, cancelado: 0, valor_total: 0 }}
           loading
@@ -63,19 +109,25 @@ export function PedidosPanel() {
 
   if (error) {
     return (
-      <p className="text-sm text-destructive">
-        {error instanceof Error ? error.message : 'Erro ao carregar pedidos.'}
-      </p>
+      <div className="space-y-4">
+        <PedidosSubabaToggle value={subaba} onChange={setSubaba} />
+        <p className="text-sm text-destructive">
+          {error instanceof Error ? error.message : 'Erro ao carregar pedidos.'}
+        </p>
+      </div>
     )
   }
 
   if (!admins || admins.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-16 text-center text-sm text-muted-foreground">
-          Nenhum administrador encontrado.
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <PedidosSubabaToggle value={subaba} onChange={setSubaba} />
+        <Card>
+          <CardContent className="py-16 text-center text-sm text-muted-foreground">
+            Nenhum administrador encontrado.
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 
@@ -92,6 +144,7 @@ export function PedidosPanel() {
 
   return (
     <div className="space-y-4">
+    <PedidosSubabaToggle value={subaba} onChange={setSubaba} />
     <PedidosKpiStrip kpis={kpis} />
     <Card>
       <CardHeader className="pb-2">
