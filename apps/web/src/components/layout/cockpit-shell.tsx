@@ -183,6 +183,7 @@ export function CockpitShell({ children, userName, userRole }: CockpitShellProps
   const links = useMemo(() => getVisibleLinks(userRole), [userRole])
   const activeLink = getActiveLink(pathname, links)
   const isViewer = userRole === 'viewer'
+  const isOperacional = userRole === 'operacional'
 
   useEffect(() => {
     const stored = window.localStorage.getItem(SIDEBAR_STORAGE_KEY)
@@ -203,6 +204,33 @@ export function CockpitShell({ children, userName, userRole }: CockpitShellProps
 
   if (isAuthFreePath(pathname)) {
     return <div className="min-h-screen bg-background">{children}</div>
+  }
+
+  if (isOperacional) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-50 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white shadow-sm">
+            <Image src="/login-logo.png" alt="Cockpit" width={22} height={22} />
+          </span>
+          <span className="flex-1 truncate text-sm font-semibold tracking-tight">Cockpit</span>
+          {userName && (
+            <span className="max-w-[140px] truncate text-xs text-muted-foreground">{userName}</span>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            onClick={handleLogout}
+            aria-label="Sair"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </header>
+        <main className="min-h-[calc(100vh-3.5rem)]">{children}</main>
+      </div>
+    )
   }
 
   return (

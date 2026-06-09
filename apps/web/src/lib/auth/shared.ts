@@ -38,7 +38,7 @@ export function isBemolEmail(value: string): boolean {
 }
 
 export function isAllowedAuthRole(role: string | null | undefined): role is UserRole {
-  return role === 'admin' || role === 'gestor' || role === 'viewer'
+  return role === 'admin' || role === 'gestor' || role === 'viewer' || role === 'operacional'
 }
 
 export function mapLoginErrorMessage(rawMessage: string): string {

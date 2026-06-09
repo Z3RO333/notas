@@ -108,8 +108,25 @@ export async function middleware(request: NextRequest) {
         ? '/admin'
         : admin.role === 'viewer'
           ? '/ordens'
-          : '/'
+          : admin.role === 'operacional'
+            ? '/operacional/consultas'
+            : '/'
     return NextResponse.redirect(url)
+  }
+
+  if (admin.role === 'operacional') {
+    const isAllowed =
+      pathname.startsWith('/operacional') ||
+      pathname.startsWith('/api/operacional') ||
+      pathname === '/api/auth/landing' ||
+      pathname === '/reset-password'
+    if (!isAllowed) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/operacional/consultas'
+      url.search = ''
+      return NextResponse.redirect(url)
+    }
+    return supabaseResponse
   }
 
   if (pathname.startsWith('/admin') && admin.role !== 'gestor') {

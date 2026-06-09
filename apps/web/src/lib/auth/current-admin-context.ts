@@ -18,7 +18,7 @@ export interface CurrentAdminContext {
 }
 
 function normalizeUserRole(value: string | null | undefined): UserRole | null {
-  if (value === 'admin' || value === 'gestor' || value === 'viewer') return value
+  if (value === 'admin' || value === 'gestor' || value === 'viewer' || value === 'operacional') return value
   return null
 }
 

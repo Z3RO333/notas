@@ -49,6 +49,10 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${origin}/ordens`)
     }
 
+    if (authorization.admin.role === 'operacional') {
+      return NextResponse.redirect(`${origin}/operacional/consultas`)
+    }
+
     return NextResponse.redirect(`${origin}/`)
   } catch (error) {
     console.error('GET /api/auth/landing failed:', error)
