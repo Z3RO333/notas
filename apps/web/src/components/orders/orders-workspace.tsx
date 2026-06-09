@@ -228,7 +228,11 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         body: JSON.stringify({ role: value }),
       })
     }
-    router.refresh()
+    if (value === 'operacional') {
+      router.push('/operacional/consultas')
+    } else {
+      router.refresh()
+    }
   }, [router])
 
   // Restore persisted view mode on mount
@@ -621,6 +625,7 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
               <SelectItem value="admin">Simular admin</SelectItem>
               <SelectItem value="gestor">Simular gestor</SelectItem>
               <SelectItem value="viewer">Simular viewer</SelectItem>
+              <SelectItem value="operacional">Simular operacional</SelectItem>
             </SelectContent>
           </Select>
 

@@ -7,7 +7,7 @@ import { buildMviewToken, MVIEW_COOKIE_NAME, MVIEW_COOKIE_MAX_AGE } from '@/lib/
 import { logger } from '@/lib/logger'
 
 const ElevateBodySchema = z.object({
-  role: z.enum(['gestor', 'admin', 'viewer']),
+  role: z.enum(['gestor', 'admin', 'viewer', 'operacional']),
 })
 
 export async function POST(request: Request) {
