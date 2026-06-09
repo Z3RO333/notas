@@ -47,22 +47,13 @@ export function RealtimeListener() {
     }
 
     const channel = supabase
-      .channel('notas-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notas_manutencao',
-        },
-        debouncedRefresh
-      )
+      .channel('sync-trigger')
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'notas_historico',
+          table: 'sync_log',
         },
         debouncedRefresh
       )
