@@ -25,6 +25,16 @@ import type {
 
 const ALL_VALUE = '__all__'
 
+// Fornecedores mapeados na seed dos pedidos anuais 2026 (migration 00281)
+const PEDIDO_ANUAL_2026_CODIGOS = new Set([
+  '41', '15327', '500', '9331', '17162', '9214', '12034', '10745',
+  '16904', '672', '15594', '13851', '17017', '1188', '14604',
+  '13400', '16513', '15202', '16119', '12697', '11371', '6405',
+  '8059', '10364', '16744', '7949',
+  '101',
+  '9542', '17753', '12171', '10070', '10295', '15738', '14897', '12029', '13379', '15363', '18053',
+])
+
 function fmtCount(value: number): string {
   return new Intl.NumberFormat('pt-BR').format(value)
 }
@@ -206,7 +216,14 @@ export function FornecedoresCarteiraPanel({ isGestor }: FornecedoresCarteiraPane
             {rowsFiltradas.map((row) => (
               <tr key={row.fornecedorCodigo} className="bg-card/30 hover:bg-muted/20 transition-colors">
                 <td className="px-4 py-3">
-                  <p className="font-medium leading-tight">{row.fornecedorNome}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium leading-tight">{row.fornecedorNome}</p>
+                    {PEDIDO_ANUAL_2026_CODIGOS.has(row.fornecedorCodigo) && (
+                      <Badge variant="outline" className="text-[10px] font-normal">
+                        Pedido Anual
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">cod. {row.fornecedorCodigo}</p>
                 </td>
                 <td className="px-4 py-3">
