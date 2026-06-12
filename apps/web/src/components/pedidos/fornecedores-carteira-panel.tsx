@@ -21,7 +21,9 @@ import { PedidosCarteiraRealocarDialog } from '@/components/pedidos/pedidos-cart
 import type {
   PedidosCarteiraFornecedorRow,
   PedidosCarteiraResponse,
+  PedidosCarteiraTipo,
 } from '@/lib/types/pedidos'
+import { CARTEIRA_EMPTY_MESSAGES } from '@/lib/pedidos/carteira-helpers'
 
 const ALL_VALUE = '__all__'
 
@@ -81,11 +83,11 @@ function fmtCurrency(value: number): string {
   }).format(value)
 }
 
-function useCarteiraFornecedores() {
+function useCarteiraFornecedores(tipoCarteira: PedidosCarteiraTipo) {
   return useQuery<PedidosCarteiraResponse>({
-    queryKey: ['pedidos-carteira-fornecedores'],
+    queryKey: ['pedidos-carteira-fornecedores', tipoCarteira],
     queryFn: async () => {
-      const res = await fetch('/api/pedidos/carteira-fornecedores', { cache: 'no-store' })
+      const res = await fetch(`/api/pedidos/carteira-fornecedores?tipo=${tipoCarteira}`, { cache: 'no-store' })
       if (!res.ok) {
         const payload = (await res.json().catch(() => ({}))) as { error?: string }
         throw new Error(payload.error || 'Falha ao carregar carteira de fornecedores')
@@ -99,10 +101,11 @@ function useCarteiraFornecedores() {
 
 interface FornecedoresCarteiraPanelProps {
   isGestor: boolean
+  tipoCarteira: PedidosCarteiraTipo
 }
 
-export function FornecedoresCarteiraPanel({ isGestor }: FornecedoresCarteiraPanelProps) {
-  const { data, isPending, error } = useCarteiraFornecedores()
+export function FornecedoresCarteiraPanel({ isGestor, tipoCarteira }: FornecedoresCarteiraPanelProps) {
+  const { data, isPending, error } = useCarteiraFornecedores(tipoCarteira)
   const [busca, setBusca] = useState('')
   const [filtroAdmin, setFiltroAdmin] = useState(ALL_VALUE)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -146,7 +149,7 @@ export function FornecedoresCarteiraPanel({ isGestor }: FornecedoresCarteiraPane
     return (
       <Card>
         <CardContent className="py-16 text-center text-sm text-muted-foreground">
-          Nenhum fornecedor mapeado na carteira.
+          {CARTEIRA_EMPTY_MESSAGES[tipoCarteira]}
         </CardContent>
       </Card>
     )
@@ -251,11 +254,12 @@ export function FornecedoresCarteiraPanel({ isGestor }: FornecedoresCarteiraPane
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <p className="font-medium leading-tight">{row.fornecedorNome}</p>
-                    {PEDIDO_ANUAL_2026_NUMEROS[row.fornecedorCodigo]?.map((numero) => (
-                      <Badge key={numero} variant="outline" className="text-sm font-mono font-normal px-2 py-0.5">
-                        {numero}
-                      </Badge>
-                    ))}
+                    {tipoCarteira === 'preventiva_anual' &&
+                      PEDIDO_ANUAL_2026_NUMEROS[row.fornecedorCodigo]?.map((numero) => (
+                        <Badge key={numero} variant="outline" className="text-sm font-mono font-normal px-2 py-0.5">
+                          {numero}
+                        </Badge>
+                      ))}
                   </div>
                   <p className="text-xs text-muted-foreground">cod. {row.fornecedorCodigo}</p>
                 </td>
