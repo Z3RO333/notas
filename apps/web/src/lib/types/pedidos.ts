@@ -94,9 +94,12 @@ export interface PedidosSummaryResponse {
   admins: PedidosAdminSummary[]
 }
 
+export type PedidosCarteiraTipo = 'corretiva' | 'preventiva_anual'
+
 export interface PedidosCarteiraFornecedorRow {
   fornecedorCodigo: string
   fornecedorNome: string
+  tipoCarteira: PedidosCarteiraTipo
   adminId: string
   adminNome: string | null
   adminAvatar: string | null
