@@ -25,15 +25,48 @@ import type {
 
 const ALL_VALUE = '__all__'
 
-// Fornecedores mapeados na seed dos pedidos anuais 2026 (migration 00281)
-const PEDIDO_ANUAL_2026_CODIGOS = new Set([
-  '41', '15327', '500', '9331', '17162', '9214', '12034', '10745',
-  '16904', '672', '15594', '13851', '17017', '1188', '14604',
-  '13400', '16513', '15202', '16119', '12697', '11371', '6405',
-  '8059', '10364', '16744', '7949',
-  '101',
-  '9542', '17753', '12171', '10070', '10295', '15738', '14897', '12029', '13379', '15363', '18053',
-])
+// Fornecedores mapeados na seed dos pedidos anuais 2026 (migration 00281),
+// com os números de pedido (SAP) correspondentes
+const PEDIDO_ANUAL_2026_NUMEROS: Record<string, string[]> = {
+  '41': ['4508545460', '4508540137'],
+  '15327': ['4508548452'],
+  '500': ['4508546423'],
+  '9331': ['4508546761'],
+  '17162': ['4508557436'],
+  '9214': ['4508554021'],
+  '12034': ['4508554000'],
+  '10745': ['4508561865'],
+  '16904': ['4508551006'],
+  '672': ['4508539789'],
+  '15594': ['4508547151'],
+  '13851': ['4508546803'],
+  '17017': ['4508607259'],
+  '1188': ['4508553643', '4508551149', '4508595428'],
+  '14604': ['4508557420'],
+  '13400': ['4508539831'],
+  '16513': ['4508546120'],
+  '15202': ['4508537868'],
+  '16119': ['4508548763'],
+  '12697': ['4508551000'],
+  '11371': ['4508550869'],
+  '6405': ['4508554010', '4508565238'],
+  '8059': ['4508548699'],
+  '10364': ['4508548366'],
+  '16744': ['4508564720'],
+  '7949': ['4508591118'],
+  '101': ['4508557761', '4508560364', '4508590825'],
+  '9542': ['4508539437'],
+  '17753': ['4508539797'],
+  '12171': ['4508539985'],
+  '10070': ['4508539572'],
+  '10295': ['4508540048'],
+  '15738': ['4508540095'],
+  '14897': ['4508540165'],
+  '12029': ['4508540202'],
+  '13379': ['4508540214'],
+  '15363': ['4508540220'],
+  '18053': ['4508621364'],
+}
 
 function fmtCount(value: number): string {
   return new Intl.NumberFormat('pt-BR').format(value)
@@ -216,13 +249,13 @@ export function FornecedoresCarteiraPanel({ isGestor }: FornecedoresCarteiraPane
             {rowsFiltradas.map((row) => (
               <tr key={row.fornecedorCodigo} className="bg-card/30 hover:bg-muted/20 transition-colors">
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <p className="font-medium leading-tight">{row.fornecedorNome}</p>
-                    {PEDIDO_ANUAL_2026_CODIGOS.has(row.fornecedorCodigo) && (
-                      <Badge variant="outline" className="text-[10px] font-normal">
-                        Pedido Anual
+                    {PEDIDO_ANUAL_2026_NUMEROS[row.fornecedorCodigo]?.map((numero) => (
+                      <Badge key={numero} variant="outline" className="text-sm font-mono font-normal px-2 py-0.5">
+                        {numero}
                       </Badge>
-                    )}
+                    ))}
                   </div>
                   <p className="text-xs text-muted-foreground">cod. {row.fornecedorCodigo}</p>
                 </td>
