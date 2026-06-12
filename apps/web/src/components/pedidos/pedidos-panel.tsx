@@ -18,11 +18,12 @@ import type {
   PedidosSummaryResponse,
 } from '@/lib/types/pedidos'
 
-type PedidosSubaba = 'pedidos' | 'fornecedores'
+type PedidosSubaba = 'pedidos' | 'corretivas' | 'preventivas_anuais'
 
 const SUBABA_OPTIONS: Array<{ id: PedidosSubaba; label: string }> = [
   { id: 'pedidos', label: 'Pedidos' },
-  { id: 'fornecedores', label: 'Carteira de Fornecedores' },
+  { id: 'corretivas', label: 'Corretivas' },
+  { id: 'preventivas_anuais', label: 'Preventivas Anuais' },
 ]
 
 function PedidosSubabaToggle({ value, onChange }: { value: PedidosSubaba; onChange: (next: PedidosSubaba) => void }) {
@@ -136,11 +137,14 @@ export function PedidosPanel({ isGestor }: PedidosPanelProps) {
     setExpandedId((prev) => (prev === adminId ? null : adminId))
   }
 
-  if (subaba === 'fornecedores') {
+  if (subaba === 'corretivas' || subaba === 'preventivas_anuais') {
     return (
       <div className="space-y-4">
         <PedidosSubabaToggle value={subaba} onChange={setSubaba} />
-        <FornecedoresCarteiraPanel isGestor={isGestor} />
+        <FornecedoresCarteiraPanel
+          isGestor={isGestor}
+          tipoCarteira={subaba === 'corretivas' ? 'corretiva' : 'preventiva_anual'}
+        />
       </div>
     )
   }
