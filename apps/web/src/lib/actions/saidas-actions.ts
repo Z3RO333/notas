@@ -13,7 +13,7 @@ export async function criarSaidaOperacional(
 ): Promise<{ data: { id: string } | null; error: string | null }> {
   try {
     if (!operacionalCodigo.trim()) return { data: null, error: 'Técnico é obrigatório' }
-    if (new Date(dataSaida).toString() === 'Invalid Date') return { data: null, error: 'Data de saída inválida' }
+    if (isNaN(Date.parse(dataSaida))) return { data: null, error: 'Data de saída inválida' }
 
     const { supabase, admin } = await getAuthenticatedAdminActionContext()
 
@@ -74,9 +74,8 @@ export async function registrarResultadoOrdem(
 
     if (!adminData) return { error: 'Usuário não encontrado' }
 
-    const allowedRoles = ['admin', 'gestor', 'operacional']
-    if (!allowedRoles.includes(adminData.role as string)) {
-      return { error: 'Acesso não autorizado' }
+    if (adminData.role !== 'operacional') {
+      return { error: 'Apenas técnicos operacionais podem registrar resultados' }
     }
 
     const opCodigo = (adminData as { operacional_codigo?: string | null }).operacional_codigo

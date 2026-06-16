@@ -14,7 +14,6 @@ export interface OperacionalSaida {
   observacao: string | null
   createdAt: string
   totalOrdens: number
-  ordensComResultado: number
 }
 
 export interface SaidaOrdem {
@@ -33,6 +32,7 @@ export interface SaidaOrdem {
 }
 
 export interface SaidaDetalhe extends OperacionalSaida {
+  ordensComResultado: number
   ordens: SaidaOrdem[]
 }
 

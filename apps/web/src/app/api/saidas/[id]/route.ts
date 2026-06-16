@@ -33,11 +33,12 @@ export async function GET(
 
   // Técnico só acessa sua própria saída
   if (ctx.role === 'operacional') {
-    const { data: adminData } = await supabase
+    const { data: adminData, error: adminError } = await supabase
       .from('administradores')
       .select('operacional_codigo')
       .eq('id', ctx.adminId)
       .maybeSingle()
+    if (adminError) return NextResponse.json({ error: 'Erro ao verificar acesso' }, { status: 500 })
     const opCodigo = (adminData as { operacional_codigo?: string | null } | null)?.operacional_codigo
     if (opCodigo !== (saida as Record<string, unknown>).operacional_codigo) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })

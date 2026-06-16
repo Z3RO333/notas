@@ -44,7 +44,6 @@ export async function GET(request: Request) {
       observacao: r.observacao as string | null,
       createdAt: r.created_at as string,
       totalOrdens: ordens[0]?.count ?? 0,
-      ordensComResultado: 0,
     }
   })
 

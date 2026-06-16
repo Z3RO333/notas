@@ -46,7 +46,6 @@ export async function GET() {
     observacao: s.observacao as string | null,
     createdAt: s.created_at as string,
     totalOrdens: ordens[0]?.count ?? 0,
-    ordensComResultado: 0,
   }
 
   return NextResponse.json({ saida })

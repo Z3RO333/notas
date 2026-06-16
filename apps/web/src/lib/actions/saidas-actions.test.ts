@@ -44,6 +44,17 @@ describe('criarSaidaOperacional', () => {
     expect(result).toEqual({ data: null, error: 'Não autorizado' })
   })
 
+  it('retorna erro quando getAuthenticatedAdminActionContext lança Administrador nao encontrado', async () => {
+    const { getAuthenticatedAdminActionContext } = await import('@/lib/actions/admin-action-support')
+    vi.mocked(getAuthenticatedAdminActionContext).mockRejectedValueOnce(
+      new Error('Administrador nao encontrado'),
+    )
+
+    const { criarSaidaOperacional } = await import('@/lib/actions/saidas-actions')
+    const result = await criarSaidaOperacional('OP001', '2026-06-16', null, [])
+    expect(result).toEqual({ data: null, error: 'Administrador nao encontrado' })
+  })
+
   it('retorna { id } no sucesso', async () => {
     const mockRpc = vi.fn().mockResolvedValue({ data: 'saida-uuid-123', error: null })
     const { getAuthenticatedAdminActionContext } = await import('@/lib/actions/admin-action-support')
@@ -229,7 +240,7 @@ describe('registrarResultadoOrdem', () => {
     expect(result).toEqual({ error: 'Usuário não encontrado' })
   })
 
-  it('retorna erro quando role não é permitido', async () => {
+  it('retorna erro quando role não é operacional (viewer)', async () => {
     const { createClient } = await import('@/lib/supabase/server')
     vi.mocked(createClient).mockResolvedValueOnce(
       buildSupabaseMock({
@@ -239,7 +250,20 @@ describe('registrarResultadoOrdem', () => {
 
     const { registrarResultadoOrdem } = await import('@/lib/actions/saidas-actions')
     const result = await registrarResultadoOrdem('ordem-1', 'resolvida', null)
-    expect(result).toEqual({ error: 'Acesso não autorizado' })
+    expect(result).toEqual({ error: 'Apenas técnicos operacionais podem registrar resultados' })
+  })
+
+  it('retorna erro quando role é admin (não operacional)', async () => {
+    const { createClient } = await import('@/lib/supabase/server')
+    vi.mocked(createClient).mockResolvedValueOnce(
+      buildSupabaseMock({
+        adminData: { id: 'admin-1', role: 'admin', operacional_codigo: 'OP001' },
+      }) as never,
+    )
+
+    const { registrarResultadoOrdem } = await import('@/lib/actions/saidas-actions')
+    const result = await registrarResultadoOrdem('ordem-1', 'resolvida', null)
+    expect(result).toEqual({ error: 'Apenas técnicos operacionais podem registrar resultados' })
   })
 
   it('retorna erro quando operacional_codigo é null', async () => {
@@ -303,19 +327,16 @@ describe('registrarResultadoOrdem', () => {
     expect(result).toEqual({ error: 'Resultado já registrado' })
   })
 
-  it('aceita roles admin e gestor além de operacional', async () => {
-    for (const role of ['admin', 'gestor'] as const) {
-      vi.clearAllMocks()
-      const { createClient } = await import('@/lib/supabase/server')
-      vi.mocked(createClient).mockResolvedValueOnce(
-        buildSupabaseMock({
-          adminData: { id: 'admin-1', role, operacional_codigo: 'OP001' },
-        }) as never,
-      )
+  it('retorna erro quando role é gestor (não operacional)', async () => {
+    const { createClient } = await import('@/lib/supabase/server')
+    vi.mocked(createClient).mockResolvedValueOnce(
+      buildSupabaseMock({
+        adminData: { id: 'admin-1', role: 'gestor', operacional_codigo: 'OP001' },
+      }) as never,
+    )
 
-      const { registrarResultadoOrdem } = await import('@/lib/actions/saidas-actions')
-      const result = await registrarResultadoOrdem('ordem-1', 'reagendada', null)
-      expect(result).toEqual({ error: null })
-    }
+    const { registrarResultadoOrdem } = await import('@/lib/actions/saidas-actions')
+    const result = await registrarResultadoOrdem('ordem-1', 'reagendada', null)
+    expect(result).toEqual({ error: 'Apenas técnicos operacionais podem registrar resultados' })
   })
 })
