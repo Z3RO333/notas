@@ -2,15 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
+import { getAuthenticatedAdminActionContext } from '@/lib/actions/admin-action-support'
 import type { CriarSaidaOrdemInput, SaidaOrdemResultado } from '@/lib/types/saidas'
-
-async function assertAdminOuGestor() {
-  const ctx = await getCurrentAdminContext()
-  if (!ctx.isAuthenticated || !ctx.adminId) throw new Error('Não autenticado')
-  if (ctx.role !== 'admin' && ctx.role !== 'gestor') throw new Error('Acesso restrito a admins e gestores')
-  return ctx
-}
 
 export async function criarSaidaOperacional(
   operacionalCodigo: string,
@@ -19,20 +12,22 @@ export async function criarSaidaOperacional(
   ordens: CriarSaidaOrdemInput[],
 ): Promise<{ data: { id: string } | null; error: string | null }> {
   try {
-    const ctx = await assertAdminOuGestor()
-    const supabase = await createClient()
+    if (!operacionalCodigo.trim()) return { data: null, error: 'Técnico é obrigatório' }
+    if (new Date(dataSaida).toString() === 'Invalid Date') return { data: null, error: 'Data de saída inválida' }
+
+    const { supabase, admin } = await getAuthenticatedAdminActionContext()
 
     const { data, error } = await supabase.rpc('criar_saida_operacional', {
       p_operacional_codigo: operacionalCodigo,
       p_data_saida: dataSaida,
-      p_admin_id: ctx.adminId!,
+      p_admin_id: admin.id,
       p_ordens: ordens,
       p_observacao: observacao,
     })
 
     if (error) return { data: null, error: error.message }
 
-    revalidatePath('/admin/saidas')
+    revalidatePath('/admin/saidas', 'layout')
     return { data: { id: data as string }, error: null }
   } catch (err) {
     return { data: null, error: err instanceof Error ? err.message : 'Erro inesperado' }
@@ -43,8 +38,9 @@ export async function cancelarSaidaOperacional(
   saidaId: string,
 ): Promise<{ error: string | null }> {
   try {
-    await assertAdminOuGestor()
-    const supabase = await createClient()
+    if (!saidaId.trim()) return { error: 'ID da saída é obrigatório' }
+
+    const { supabase } = await getAuthenticatedAdminActionContext()
 
     const { error } = await supabase.rpc('cancelar_saida_operacional', {
       p_saida_id: saidaId,
@@ -52,8 +48,7 @@ export async function cancelarSaidaOperacional(
 
     if (error) return { error: error.message }
 
-    revalidatePath('/admin/saidas')
-    revalidatePath(`/admin/saidas/${saidaId}`)
+    revalidatePath('/admin/saidas', 'layout')
     return { error: null }
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Erro inesperado' }
@@ -66,21 +61,28 @@ export async function registrarResultadoOrdem(
   observacao: string | null,
 ): Promise<{ error: string | null }> {
   try {
-    const ctx = await getCurrentAdminContext()
-    if (!ctx.isAuthenticated || !ctx.adminId) return { error: 'Não autenticado' }
-
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // Verifica que a saída pertence ao técnico logado
+    if (!user?.email) return { error: 'Não autenticado' }
+
     const { data: adminData } = await supabase
       .from('administradores')
-      .select('operacional_codigo')
-      .eq('id', ctx.adminId)
+      .select('id, role, operacional_codigo')
+      .eq('email', user.email)
       .maybeSingle()
-    const operacionalCodigo = (adminData as { operacional_codigo?: string | null } | null)?.operacional_codigo
 
-    if (!operacionalCodigo) return { error: 'Usuário não vinculado a operacional' }
+    if (!adminData) return { error: 'Usuário não encontrado' }
 
+    const allowedRoles = ['admin', 'gestor', 'operacional']
+    if (!allowedRoles.includes(adminData.role as string)) {
+      return { error: 'Acesso não autorizado' }
+    }
+
+    const opCodigo = (adminData as { operacional_codigo?: string | null }).operacional_codigo
+    if (!opCodigo) return { error: 'Usuário não vinculado a operacional' }
+
+    // Verifica que a saída pertence ao técnico logado
     const { data: ordemData } = await supabase
       .from('operacional_saida_ordens')
       .select('saida_id, operacional_saidas!inner(operacional_codigo)')
@@ -89,7 +91,7 @@ export async function registrarResultadoOrdem(
 
     const saida = ordemData as { saida_id: string; operacional_saidas: { operacional_codigo: string } } | null
     if (!saida) return { error: 'Ordem não encontrada' }
-    if (saida.operacional_saidas.operacional_codigo !== operacionalCodigo) {
+    if (saida.operacional_saidas.operacional_codigo !== opCodigo) {
       return { error: 'Acesso negado: saída não pertence a este técnico' }
     }
 
