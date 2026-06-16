@@ -3,8 +3,13 @@
 -- técnico registra resultado por ordem. Auto-finaliza quando todas têm resultado.
 
 -- Enums
-CREATE TYPE public.saida_operacional_status AS ENUM ('em_rota', 'finalizada', 'cancelada');
-CREATE TYPE public.saida_ordem_resultado AS ENUM ('resolvida', 'nao_resolvida', 'reagendada');
+DO $$ BEGIN
+  CREATE TYPE public.saida_operacional_status AS ENUM ('em_rota', 'finalizada', 'cancelada');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.saida_ordem_resultado AS ENUM ('resolvida', 'nao_resolvida', 'reagendada');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Tabela principal da saída
 CREATE TABLE IF NOT EXISTS public.operacional_saidas (
@@ -74,6 +79,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_auto_finalizar_saida ON public.operacional_saida_ordens;
 CREATE TRIGGER trg_auto_finalizar_saida
   AFTER UPDATE OF resultado ON public.operacional_saida_ordens
   FOR EACH ROW
@@ -83,9 +89,9 @@ CREATE TRIGGER trg_auto_finalizar_saida
 CREATE OR REPLACE FUNCTION public.criar_saida_operacional(
   p_operacional_codigo text,
   p_data_saida         timestamptz,
-  p_observacao         text,
   p_admin_id           uuid,
-  p_ordens             jsonb  -- array de {ordem_codigo, numero_nota, unidade, texto_breve, status_ordem_raw_snapshot, tipo_ordem}
+  p_ordens             jsonb,  -- array de {ordem_codigo, numero_nota, unidade, texto_breve, status_ordem_raw_snapshot, tipo_ordem}
+  p_observacao         text DEFAULT NULL
 )
 RETURNS uuid
 LANGUAGE plpgsql
@@ -99,6 +105,10 @@ BEGIN
   SELECT nome INTO v_nome FROM public.dim_operacionais WHERE codigo = p_operacional_codigo;
   IF v_nome IS NULL THEN
     RAISE EXCEPTION 'Operacional não encontrado: %', p_operacional_codigo;
+  END IF;
+
+  IF jsonb_array_length(p_ordens) = 0 THEN
+    RAISE EXCEPTION 'A saída deve conter ao menos uma ordem';
   END IF;
 
   INSERT INTO public.operacional_saidas (
@@ -139,6 +149,10 @@ BEGIN
   UPDATE public.operacional_saidas
   SET status = 'cancelada'
   WHERE id = p_saida_id AND status = 'em_rota';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Saída não encontrada ou não está em rota: %', p_saida_id;
+  END IF;
 END;
 $$;
 
@@ -154,10 +168,22 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.operacional_saidas s
+    JOIN public.operacional_saida_ordens o ON o.saida_id = s.id
+    WHERE o.id = p_saida_ordem_id AND s.status = 'em_rota'
+  ) THEN
+    RAISE EXCEPTION 'Saída não está em rota ou ordem não encontrada';
+  END IF;
+
   UPDATE public.operacional_saida_ordens
   SET resultado          = p_resultado,
       observacao_retorno = p_observacao,
       data_resultado     = now()
   WHERE id = p_saida_ordem_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Ordem não encontrada: %', p_saida_ordem_id;
+  END IF;
 END;
 $$;
