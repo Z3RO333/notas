@@ -211,65 +211,117 @@ export function FornecedoresCarteiraPanel({ isGestor, tipoCarteira }: Fornecedor
                 </td>
               </tr>
             )}
-            {rowsFiltradas.map((row) => (
-              <tr key={row.fornecedorCodigo} className="bg-card/30 hover:bg-muted/20 transition-colors">
-                <td className="px-4 py-3">
-                  <p className="font-medium leading-tight">{row.fornecedorNome}</p>
-                  <p className="text-xs text-muted-foreground">cod. {row.fornecedorCodigo}</p>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Avatar src={row.adminAvatar} nome={row.adminNome ?? '?'} size="sm" />
-                    <span>{row.adminNome ?? '—'}</span>
-                  </div>
-                </td>
-                {tipoCarteira === 'preventiva_anual' && (
+            {rowsFiltradas.flatMap((row) => {
+              if (tipoCarteira === 'preventiva_anual') {
+                const pedidos = row.documentosCompras.length > 0 ? row.documentosCompras : [null]
+                return pedidos.map((numero, idx) => (
+                  <tr key={`${row.fornecedorCodigo}-${numero ?? 'none'}`} className="bg-card/30 hover:bg-muted/20 transition-colors">
+                    <td className="px-4 py-3">
+                      <p className="font-medium leading-tight">{row.fornecedorNome}</p>
+                      <p className="text-xs text-muted-foreground">cod. {row.fornecedorCodigo}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Avatar src={row.adminAvatar} nome={row.adminNome ?? '?'} size="sm" />
+                        <span>{row.adminNome ?? '—'}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="font-mono text-xs tabular-nums">
+                        {numero ?? '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums font-medium">
+                      {idx === 0 ? fmtCount(row.qtdPedidos) : ''}
+                    </td>
+                    <td className="px-4 py-3">
+                      {idx === 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge variant="default" className="text-[11px]">
+                            {row.emAberto} aberto{row.emAberto === 1 ? '' : 's'}
+                          </Badge>
+                          <Badge variant="secondary" className="text-[11px]">
+                            {row.encerrado} encerrado{row.encerrado === 1 ? '' : 's'}
+                          </Badge>
+                          {row.cancelado > 0 && (
+                            <Badge variant="destructive" className="text-[11px]">
+                              {row.cancelado} cancelado{row.cancelado === 1 ? '' : 's'}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums font-medium">
+                      {idx === 0 ? fmtCurrency(row.valorTotal) : ''}
+                    </td>
+                    {isGestor && (
+                      <td className="px-4 py-3 text-right">
+                        {idx === 0 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 gap-1.5 text-xs"
+                            onClick={() => handleRealocar(row)}
+                          >
+                            <ArrowLeftRight className="h-3.5 w-3.5" />
+                            Realocar
+                          </Button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                ))
+              }
+
+              return [(
+                <tr key={row.fornecedorCodigo} className="bg-card/30 hover:bg-muted/20 transition-colors">
                   <td className="px-4 py-3">
-                    <div className="flex flex-col gap-1">
-                      {row.documentosCompras.map((numero) => (
-                        <span key={numero} className="font-mono text-xs tabular-nums text-foreground">
-                          {numero}
-                        </span>
-                      )) ?? <span className="text-xs text-muted-foreground">—</span>}
+                    <p className="font-medium leading-tight">{row.fornecedorNome}</p>
+                    <p className="text-xs text-muted-foreground">cod. {row.fornecedorCodigo}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Avatar src={row.adminAvatar} nome={row.adminNome ?? '?'} size="sm" />
+                      <span>{row.adminNome ?? '—'}</span>
                     </div>
                   </td>
-                )}
-                <td className="px-4 py-3 text-right tabular-nums font-medium">
-                  {fmtCount(row.qtdPedidos)}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    <Badge variant="default" className="text-[11px]">
-                      {row.emAberto} aberto{row.emAberto === 1 ? '' : 's'}
-                    </Badge>
-                    <Badge variant="secondary" className="text-[11px]">
-                      {row.encerrado} encerrado{row.encerrado === 1 ? '' : 's'}
-                    </Badge>
-                    {row.cancelado > 0 && (
-                      <Badge variant="destructive" className="text-[11px]">
-                        {row.cancelado} cancelado{row.cancelado === 1 ? '' : 's'}
-                      </Badge>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums font-medium">
-                  {fmtCurrency(row.valorTotal)}
-                </td>
-                {isGestor && (
-                  <td className="px-4 py-3 text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 gap-1.5 text-xs"
-                      onClick={() => handleRealocar(row)}
-                    >
-                      <ArrowLeftRight className="h-3.5 w-3.5" />
-                      Realocar
-                    </Button>
+                  <td className="px-4 py-3 text-right tabular-nums font-medium">
+                    {fmtCount(row.qtdPedidos)}
                   </td>
-                )}
-              </tr>
-            ))}
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge variant="default" className="text-[11px]">
+                        {row.emAberto} aberto{row.emAberto === 1 ? '' : 's'}
+                      </Badge>
+                      <Badge variant="secondary" className="text-[11px]">
+                        {row.encerrado} encerrado{row.encerrado === 1 ? '' : 's'}
+                      </Badge>
+                      {row.cancelado > 0 && (
+                        <Badge variant="destructive" className="text-[11px]">
+                          {row.cancelado} cancelado{row.cancelado === 1 ? '' : 's'}
+                        </Badge>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums font-medium">
+                    {fmtCurrency(row.valorTotal)}
+                  </td>
+                  {isGestor && (
+                    <td className="px-4 py-3 text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 text-xs"
+                        onClick={() => handleRealocar(row)}
+                      >
+                        <ArrowLeftRight className="h-3.5 w-3.5" />
+                        Realocar
+                      </Button>
+                    </td>
+                  )}
+                </tr>
+              )]
+            })}
           </tbody>
         </table>
       </div>
