@@ -7,7 +7,9 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { OrdemConsultaCard } from '@/components/operacional/ordem-consulta-card'
+import { SaidaView } from '@/components/operacional/saida-view'
 import type { ConsultasResponse, OrdemConsulta } from '@/lib/types/operacional'
+import type { SaidaDetalhe } from '@/lib/types/saidas'
 
 const STATUS_OPTIONS = [
   { value: 'EQUIPAMENTO_EM_CONSERTO', label: 'Em conserto' },
@@ -18,13 +20,14 @@ const STATUS_OPTIONS = [
 
 interface ConsultasPanelProps {
   operacionalCodigo: string | null
+  saidaAtiva: SaidaDetalhe | null
 }
 
-export function ConsultasPanel({ operacionalCodigo }: ConsultasPanelProps) {
+export function ConsultasPanel({ operacionalCodigo, saidaAtiva }: ConsultasPanelProps) {
   const [searchInput, setSearchInput] = useState('')
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
-  const [minhasOrdens, setMinhasOrdens] = useState(false)
+  const [minhasOrdens, setMinhasOrdens] = useState(Boolean(operacionalCodigo))
 
   const [ordens, setOrdens] = useState<OrdemConsulta[]>([])
   const [loading, setLoading] = useState(false)
@@ -39,13 +42,14 @@ export function ConsultasPanel({ operacionalCodigo }: ConsultasPanelProps) {
 
   const fetchOrdens = useCallback(
     async (cursor?: { detectada: string; id: string }) => {
+      if (minhasOrdens) return
+
       setLoading(true)
       setError(null)
       try {
         const params = new URLSearchParams()
         if (q) params.set('q', q)
         if (status) params.set('status', status)
-        if (minhasOrdens && operacionalCodigo) params.set('fornecedor_codigo', operacionalCodigo)
         if (cursor) {
           params.set('cursor_detectada', cursor.detectada)
           params.set('cursor_id', cursor.id)
@@ -66,7 +70,7 @@ export function ConsultasPanel({ operacionalCodigo }: ConsultasPanelProps) {
         setLoading(false)
       }
     },
-    [q, status, minhasOrdens, operacionalCodigo],
+    [q, status, minhasOrdens],
   )
 
   useEffect(() => {
@@ -82,9 +86,18 @@ export function ConsultasPanel({ operacionalCodigo }: ConsultasPanelProps) {
             variant={minhasOrdens ? 'default' : 'outline'}
             size="sm"
             className="rounded-full"
-            onClick={() => setMinhasOrdens((prev) => !prev)}
+            onClick={() => setMinhasOrdens(true)}
           >
             Minhas Ordens
+          </Button>
+          <Button
+            type="button"
+            variant={!minhasOrdens ? 'default' : 'outline'}
+            size="sm"
+            className="rounded-full"
+            onClick={() => setMinhasOrdens(false)}
+          >
+            Consultar base
           </Button>
           {minhasOrdens && (
             <span className="text-xs text-muted-foreground">Cód. {operacionalCodigo}</span>
@@ -92,6 +105,16 @@ export function ConsultasPanel({ operacionalCodigo }: ConsultasPanelProps) {
         </div>
       )}
 
+      {minhasOrdens ? (
+        saidaAtiva ? (
+          <SaidaView saida={saidaAtiva} />
+        ) : (
+          <div className="rounded-lg border p-10 text-center text-sm text-muted-foreground">
+            Nenhuma saída atribuída no momento.
+          </div>
+        )
+      ) : (
+        <>
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -167,6 +190,8 @@ export function ConsultasPanel({ operacionalCodigo }: ConsultasPanelProps) {
         >
           {loading ? 'Carregando...' : 'Carregar mais'}
         </Button>
+      )}
+        </>
       )}
     </div>
   )

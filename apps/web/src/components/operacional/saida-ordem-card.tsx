@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { CheckCircle2, XCircle, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -25,6 +26,7 @@ interface SaidaOrdemCardProps {
 }
 
 export function SaidaOrdemCard({ ordem }: SaidaOrdemCardProps) {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [mostrarObs, setMostrarObs] = useState(false)
   const [observacao, setObservacao] = useState('')
@@ -49,6 +51,7 @@ export function SaidaOrdemCard({ ordem }: SaidaOrdemCardProps) {
         setResultado(pendingResultado)
         setMostrarObs(false)
         setErro(null)
+        router.refresh()
       }
     })
   }
