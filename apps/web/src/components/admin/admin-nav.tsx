@@ -13,6 +13,7 @@ import {
   ScrollText,
   Settings,
   ShieldAlert,
+  Truck,
   UserCog,
   X,
   Zap,
@@ -50,6 +51,7 @@ const navSections: AdminNavSection[] = [
     links: [
       { href: '/admin/radar-preventivo', label: 'Radar Preventivo', icon: ShieldAlert },
       { href: '/admin/operacional', label: 'Operacional', icon: HardHat },
+      { href: '/admin/saidas', label: 'Saídas', icon: Truck },
       { href: '/admin/equipamentos', label: 'Equipamentos', icon: Zap },
     ],
   },
