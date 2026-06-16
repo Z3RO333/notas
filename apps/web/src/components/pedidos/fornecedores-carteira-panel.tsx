@@ -213,22 +213,22 @@ export function FornecedoresCarteiraPanel({ isGestor, tipoCarteira }: Fornecedor
             )}
             {rowsFiltradas.flatMap((row) => {
               if (tipoCarteira === 'preventiva_anual') {
-                const pedidos = row.documentosCompras.length > 0 ? row.documentosCompras : [null]
-                return pedidos.map((numero, idx) => (
-                  <tr key={`${row.fornecedorCodigo}-${numero ?? 'none'}`} className="bg-card/30 hover:bg-muted/20 transition-colors">
+                const pedidos = row.pedidosContratos.length > 0 ? row.pedidosContratos : [null]
+                return pedidos.map((pedido, idx) => (
+                  <tr key={`${row.fornecedorCodigo}-${pedido?.numero ?? 'none'}`} className="bg-card/30 hover:bg-muted/20 transition-colors">
                     <td className="px-4 py-3">
                       <p className="font-medium leading-tight">{row.fornecedorNome}</p>
                       <p className="text-xs text-muted-foreground">cod. {row.fornecedorCodigo}</p>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Avatar src={row.adminAvatar} nome={row.adminNome ?? '?'} size="sm" />
-                        <span>{row.adminNome ?? '—'}</span>
+                        <Avatar src={pedido?.admin_avatar ?? row.adminAvatar} nome={pedido?.admin_nome ?? row.adminNome ?? '?'} size="sm" />
+                        <span>{pedido?.admin_nome ?? row.adminNome ?? '—'}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className="font-mono text-xs tabular-nums">
-                        {numero ?? '—'}
+                        {pedido?.numero ?? '—'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums font-medium">

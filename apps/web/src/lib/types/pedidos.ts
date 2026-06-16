@@ -96,6 +96,13 @@ export interface PedidosSummaryResponse {
 
 export type PedidosCarteiraTipo = 'corretiva' | 'preventiva_anual'
 
+export interface PedidoContratoAnual {
+  numero: string
+  admin_id: string | null
+  admin_nome: string | null
+  admin_avatar: string | null
+}
+
 export interface PedidosCarteiraFornecedorRow {
   fornecedorCodigo: string
   fornecedorNome: string
@@ -109,6 +116,7 @@ export interface PedidosCarteiraFornecedorRow {
   cancelado: number
   valorTotal: number
   documentosCompras: string[]
+  pedidosContratos: PedidoContratoAnual[]
 }
 
 export interface PedidosCarteiraKpis {
