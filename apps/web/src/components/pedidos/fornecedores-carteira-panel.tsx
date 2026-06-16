@@ -225,6 +225,11 @@ export function FornecedoresCarteiraPanel({ isGestor, tipoCarteira }: Fornecedor
               <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Responsável
               </th>
+              {tipoCarteira === 'preventiva_anual' && (
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Nº Pedido
+                </th>
+              )}
               <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Pedidos
               </th>
@@ -244,7 +249,7 @@ export function FornecedoresCarteiraPanel({ isGestor, tipoCarteira }: Fornecedor
           <tbody className="divide-y divide-border/40">
             {rowsFiltradas.length === 0 && (
               <tr>
-                <td colSpan={isGestor ? 6 : 5} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                <td colSpan={isGestor ? (tipoCarteira === 'preventiva_anual' ? 7 : 6) : (tipoCarteira === 'preventiva_anual' ? 6 : 5)} className="px-4 py-8 text-center text-sm text-muted-foreground">
                   Nenhum fornecedor encontrado.
                 </td>
               </tr>
@@ -252,15 +257,7 @@ export function FornecedoresCarteiraPanel({ isGestor, tipoCarteira }: Fornecedor
             {rowsFiltradas.map((row) => (
               <tr key={row.fornecedorCodigo} className="bg-card/30 hover:bg-muted/20 transition-colors">
                 <td className="px-4 py-3">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <p className="font-medium leading-tight">{row.fornecedorNome}</p>
-                    {tipoCarteira === 'preventiva_anual' &&
-                      PEDIDO_ANUAL_2026_NUMEROS[row.fornecedorCodigo]?.map((numero) => (
-                        <Badge key={numero} variant="outline" className="text-sm font-mono font-normal px-2 py-0.5">
-                          {numero}
-                        </Badge>
-                      ))}
-                  </div>
+                  <p className="font-medium leading-tight">{row.fornecedorNome}</p>
                   <p className="text-xs text-muted-foreground">cod. {row.fornecedorCodigo}</p>
                 </td>
                 <td className="px-4 py-3">
@@ -269,6 +266,17 @@ export function FornecedoresCarteiraPanel({ isGestor, tipoCarteira }: Fornecedor
                     <span>{row.adminNome ?? '—'}</span>
                   </div>
                 </td>
+                {tipoCarteira === 'preventiva_anual' && (
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col gap-1">
+                      {PEDIDO_ANUAL_2026_NUMEROS[row.fornecedorCodigo]?.map((numero) => (
+                        <span key={numero} className="font-mono text-xs tabular-nums text-foreground">
+                          {numero}
+                        </span>
+                      )) ?? <span className="text-xs text-muted-foreground">—</span>}
+                    </div>
+                  </td>
+                )}
                 <td className="px-4 py-3 text-right tabular-nums font-medium">
                   {fmtCount(row.qtdPedidos)}
                 </td>

@@ -8,6 +8,8 @@ import sys
 from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
 
+from sync_runtime import JobTimings
+
 
 def _ensure_runtime_dependency(package_name: str, module_name: str | None = None) -> None:
     target_module = module_name or package_name
@@ -164,6 +166,14 @@ def _extract_single_rpc_row(result, default=None):
 def _is_statement_timeout_error(error: Exception) -> bool:
     text = str(error).lower()
     return "statement timeout" in text and ("57014" in text or "canceling statement due to statement timeout" in text)
+
+
+def _is_missing_reference_creator_column(error: Exception) -> bool:
+    text = str(error).lower()
+    return (
+        "criado_por_sap_codigo" in text
+        and ("pgrst204" in text or "schema cache" in text or "column" in text)
+    )
 
 
 def _calculate_maintenance_reference_completeness(candidate: dict) -> int:
@@ -526,7 +536,26 @@ def upsert_orders_maintenance_reference(sync_id: str, references: list[dict]) ->
     ]
     for i in range(0, len(payload), ORDERS_MAINTENANCE_UPSERT_BATCH_SIZE):
         batch = payload[i:i + ORDERS_MAINTENANCE_UPSERT_BATCH_SIZE]
-        supabase.table("ordens_manutencao_referencia").upsert(batch, on_conflict="ordem_codigo_norm").execute()
+        try:
+            supabase.table("ordens_manutencao_referencia").upsert(
+                batch,
+                on_conflict="ordem_codigo_norm",
+            ).execute()
+        except Exception as exc:
+            if not _is_missing_reference_creator_column(exc):
+                raise
+            logger.warning(
+                "Coluna criado_por_sap_codigo ausente em ordens_manutencao_referencia. "
+                "Repetindo lote sem o campo ate a migration de compatibilidade ser aplicada."
+            )
+            compatible_batch = [
+                {key: value for key, value in item.items() if key != "criado_por_sap_codigo"}
+                for item in batch
+            ]
+            supabase.table("ordens_manutencao_referencia").upsert(
+                compatible_batch,
+                on_conflict="ordem_codigo_norm",
+            ).execute()
 
     inserted_count = sum(1 for item in references if item["ordem_codigo_norm"] not in existing_orders)
     updated_count = len(references) - inserted_count
@@ -631,6 +660,13 @@ def main() -> None:
     ordens_tipo_ref_atualizadas = 0
     ordens_ref_v2_inseridas = 0
     ordens_ref_v2_atualizadas = 0
+    job_timings = JobTimings(
+        on_record=lambda step, duration_ms: logger.info(
+            "Etapa %s concluida em %.1f ms",
+            step,
+            duration_ms,
+        )
+    )
 
     orders_document_metrics: dict[str, object] = {
         "total_rows": 0,
@@ -683,34 +719,40 @@ def main() -> None:
 
     try:
         current_step = "read_orders_document_reference"
-        orders_document_reference, orders_document_metrics = read_orders_document_reference(spark)
+        with job_timings.measure(current_step):
+            orders_document_reference, orders_document_metrics = read_orders_document_reference(spark)
 
         current_step = "upsert_orders_document_reference"
-        ordens_tipo_ref_inseridas, ordens_tipo_ref_atualizadas = upsert_orders_document_reference(
-            sync_id,
-            orders_document_reference,
-        )
+        with job_timings.measure(current_step):
+            ordens_tipo_ref_inseridas, ordens_tipo_ref_atualizadas = upsert_orders_document_reference(
+                sync_id,
+                orders_document_reference,
+            )
 
         current_step = "run_tipo_ordem_reference_enrichment"
-        tipo_ordem_enrichment_metrics = run_tipo_ordem_reference_enrichment()
+        with job_timings.measure(current_step):
+            tipo_ordem_enrichment_metrics = run_tipo_ordem_reference_enrichment()
 
         try:
             current_step = "read_orders_maintenance_reference"
-            orders_ref_v2_reference, orders_ref_v2_metrics = read_orders_maintenance_reference(
-                spark,
-                sync_start_date=HEAVY_SYNC_START_DATE,
-                lookback_days=HEAVY_ORDERS_REF_V2_LOOKBACK_DAYS,
-            )
+            with job_timings.measure(current_step):
+                orders_ref_v2_reference, orders_ref_v2_metrics = read_orders_maintenance_reference(
+                    spark,
+                    sync_start_date=HEAVY_SYNC_START_DATE,
+                    lookback_days=HEAVY_ORDERS_REF_V2_LOOKBACK_DAYS,
+                )
 
             current_step = "upsert_orders_maintenance_reference"
-            ordens_ref_v2_inseridas, ordens_ref_v2_atualizadas = upsert_orders_maintenance_reference(
-                sync_id,
-                orders_ref_v2_reference,
-            )
+            with job_timings.measure(current_step):
+                ordens_ref_v2_inseridas, ordens_ref_v2_atualizadas = upsert_orders_maintenance_reference(
+                    sync_id,
+                    orders_ref_v2_reference,
+                )
 
             try:
                 current_step = "run_orders_maintenance_reference_enrichment"
-                orders_ref_v2_enrichment_metrics = run_orders_maintenance_reference_enrichment()
+                with job_timings.measure(current_step):
+                    orders_ref_v2_enrichment_metrics = run_orders_maintenance_reference_enrichment()
                 orders_ref_v2_status = "success"
                 orders_ref_v2_failure_streak = 0
                 orders_ref_v2_error = None
@@ -736,11 +778,13 @@ def main() -> None:
                 ) from exc
 
         current_step = "run_backfill_and_register_v2"
-        backfill_v2_metrics = run_backfill_and_register_v2(sync_id)
+        with job_timings.measure(current_step):
+            backfill_v2_metrics = run_backfill_and_register_v2(sync_id)
 
         if HEAVY_RUN_COCKPIT_SYNC:
             current_step = "run_cockpit_convergencia_sync"
-            cockpit_sync_metrics = run_cockpit_convergencia_sync(sync_id)
+            with job_timings.measure(current_step):
+                cockpit_sync_metrics = run_cockpit_convergencia_sync(sync_id)
 
         finalize_sync_log(
             sync_id,
@@ -756,6 +800,8 @@ def main() -> None:
                 "orders_maintenance_source_table": ORDERS_MAINTENANCE_SOURCE_TABLE,
                 "orders_ref_v2_lookback_days": HEAVY_ORDERS_REF_V2_LOOKBACK_DAYS,
                 "orders_ref_v2_tolerated_failures": HEAVY_ORDERS_REF_V2_TOLERATED_FAILURES,
+                "step_durations_ms": job_timings.snapshot(),
+                "processing_duration_ms": job_timings.total_ms(),
                 "ordens_tipo_ref_total_rows": orders_document_metrics["total_rows"],
                 "ordens_tipo_ref_valid_rows": orders_document_metrics["valid_rows"],
                 "ordens_tipo_ref_invalid_order": orders_document_metrics["invalid_order"],
@@ -810,6 +856,8 @@ def main() -> None:
                 "orders_maintenance_source_table": ORDERS_MAINTENANCE_SOURCE_TABLE,
                 "orders_ref_v2_lookback_days": HEAVY_ORDERS_REF_V2_LOOKBACK_DAYS,
                 "orders_ref_v2_tolerated_failures": HEAVY_ORDERS_REF_V2_TOLERATED_FAILURES,
+                "step_durations_ms": job_timings.snapshot(),
+                "processing_duration_ms": job_timings.total_ms(),
                 "ordens_tipo_ref_inseridas": ordens_tipo_ref_inseridas,
                 "ordens_tipo_ref_atualizadas": ordens_tipo_ref_atualizadas,
                 "tipo_ordem_enrichment_status": tipo_ordem_enrichment_metrics.get("status"),

@@ -23,6 +23,8 @@ from decimal import Decimal
 from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
 
+from sync_runtime import JobTimings, resolve_watermark_start
+
 
 def _ensure_runtime_dependency(package_name: str, module_name: str | None = None) -> None:
     target_module = module_name or package_name
@@ -55,6 +57,7 @@ ORDERS_MAINTENANCE_SOURCE_TABLE = "manutencao.silver.selecao_ordens_manutencao"
 VALID_WINDOWS = {30, 90, 180, 365}
 DEFAULT_WINDOW_DAYS = 30
 DEFAULT_SYNC_START_DATE = "2026-01-01"
+DEFAULT_WATERMARK_LOOKBACK_DAYS = 2
 MAX_WATERMARK_FUTURE_DAYS = 1
 VALID_BOOTSTRAP_MODES = {"auto", "force", "off"}
 DEFAULT_BOOTSTRAP_MODE = "auto"
@@ -181,6 +184,16 @@ NOTA_CENTRO_COLUMNS_CANDIDATES = [
 NOTA_UPDATED_AT_COLUMNS_CANDIDATES = [
     "__timestamp",
     "DATA_ATUALIZACAO",
+]
+NOTA_RECENCY_COLUMNS_CANDIDATES = [
+    *NOTA_UPDATED_AT_COLUMNS_CANDIDATES,
+    "HORA_MODIFICACAO",
+    "HORA_NOTA",
+    "DATA_CRIACAO",
+    "DATA_ENTRADA",
+    "DATA_ABERTURA",
+    "DT_CRIACAO",
+    "DT_ENTRADA",
 ]
 
 PMPL_CENTRO_COLUMN = "CENTRO_LOCALIZACAO"
@@ -492,6 +505,21 @@ def _build_data_criacao_date_expr(spark: SparkSession) -> str:
     return _build_date_expr_from_columns(existing)
 
 
+def _build_notes_source_recency_date_expr(spark: SparkSession) -> str:
+    existing = _resolve_existing_columns(
+        spark,
+        STREAMING_TABLE,
+        NOTA_RECENCY_COLUMNS_CANDIDATES,
+    )
+    if not existing:
+        logger.warning(
+            "Nenhuma coluna de recencia encontrada na tabela %s. Candidatas=%s",
+            STREAMING_TABLE,
+            NOTA_RECENCY_COLUMNS_CANDIDATES,
+        )
+    return _build_date_expr_from_columns(existing)
+
+
 def _log_empty_result_diagnostics(spark: SparkSession, effective_start: str, data_criacao_expr: str):
     """Loga diagnosticos do source quando a leitura retorna zero linhas."""
     try:
@@ -558,9 +586,25 @@ def should_force_window(spark: SparkSession) -> bool:
 
 
 def should_ignore_watermark(spark: SparkSession) -> bool:
-    # Default TRUE: lê desde sync_start_date quando não houver force_window.
-    raw = spark.conf.get("cockpit.sync.ignore_watermark", "true")
+    raw = spark.conf.get("cockpit.sync.ignore_watermark", "false")
     return str(raw).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def get_watermark_lookback_days(spark: SparkSession) -> int:
+    raw = spark.conf.get(
+        "cockpit.sync.watermark_lookback_days",
+        str(DEFAULT_WATERMARK_LOOKBACK_DAYS),
+    )
+    try:
+        parsed = int(raw)
+    except ValueError:
+        logger.warning(
+            "Valor invalido em cockpit.sync.watermark_lookback_days=%s. Usando %s.",
+            raw,
+            DEFAULT_WATERMARK_LOOKBACK_DAYS,
+        )
+        return DEFAULT_WATERMARK_LOOKBACK_DAYS
+    return max(parsed, 0)
 
 
 def get_sync_start_date(spark: SparkSession) -> str:
@@ -747,7 +791,18 @@ def create_sync_log(spark: SparkSession, metadata: dict | None = None) -> str:
 
 
 def get_watermark() -> str | None:
-    """Busca a ultima data_criacao_sap no Supabase (watermark)."""
+    """Busca a recencia mais nova persistida no Supabase."""
+    streaming_result = (
+        supabase.table("notas_manutencao")
+        .select("streaming_timestamp")
+        .not_.is_("streaming_timestamp", "null")
+        .order("streaming_timestamp", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if streaming_result.data and streaming_result.data[0].get("streaming_timestamp"):
+        return streaming_result.data[0]["streaming_timestamp"]
+
     result = (
         supabase.table("notas_manutencao")
         .select("data_criacao_sap")
@@ -1307,21 +1362,23 @@ def read_new_notes(
     force_window: bool,
     ignore_watermark: bool,
     sync_start_date: str,
+    watermark_lookback_days: int,
     full_bootstrap: bool,
 ) -> tuple[list[dict], dict]:
     """Le notas do streaming table. Usa watermark, com opcao de forcar janela."""
     watermark = get_watermark()
     logger.info(
-        "Parametros leitura -> watermark_bruto=%s, sync_start_date=%s, force_window=%s, ignore_watermark=%s, full_bootstrap=%s, window_days=%s",
+        "Parametros leitura -> watermark_bruto=%s, sync_start_date=%s, watermark_lookback_days=%s, force_window=%s, ignore_watermark=%s, full_bootstrap=%s, window_days=%s",
         watermark,
         sync_start_date,
+        watermark_lookback_days,
         force_window,
         ignore_watermark,
         full_bootstrap,
         window_days,
     )
 
-    data_criacao_expr = _build_data_criacao_date_expr(spark)
+    source_recency_expr = _build_notes_source_recency_date_expr(spark)
     source_metrics = _summarize_note_source_columns(spark)
 
     if full_bootstrap:
@@ -1333,11 +1390,11 @@ def read_new_notes(
         df = spark.sql(f"""
             SELECT *
             FROM (
-                SELECT *, {data_criacao_expr} AS DATA_CRIACAO_NORM
+                SELECT *, {source_recency_expr} AS SOURCE_RECENCY_NORM
                 FROM {STREAMING_TABLE}
             ) t
-            WHERE DATA_CRIACAO_NORM >= date('{sync_start_date}')
-            ORDER BY DATA_CRIACAO_NORM ASC, NUMERO_NOTA ASC
+            WHERE SOURCE_RECENCY_NORM >= date('{sync_start_date}')
+            ORDER BY SOURCE_RECENCY_NORM ASC, NUMERO_NOTA ASC
         """)
         effective_start = sync_start_date
     elif force_window:
@@ -1363,10 +1420,15 @@ def read_new_notes(
             )
             watermark_date = None
         if watermark_date:
-            effective_start = max(watermark_date, sync_start_date)
-            logger.info(
-                "Watermark (DATA_CRIACAO): %s | inicio_configurado=%s | inicio_efetivo=%s",
+            effective_start = resolve_watermark_start(
+                sync_start_date,
                 watermark_date,
+                watermark_lookback_days,
+            )
+            logger.info(
+                "Watermark (DATA_CRIACAO): %s | lookback_dias=%s | inicio_configurado=%s | inicio_efetivo=%s",
+                watermark_date,
+                watermark_lookback_days,
                 sync_start_date,
                 effective_start,
             )
@@ -1378,17 +1440,17 @@ def read_new_notes(
         df = spark.sql(f"""
             SELECT *
             FROM (
-                SELECT *, {data_criacao_expr} AS DATA_CRIACAO_NORM
+                SELECT *, {source_recency_expr} AS SOURCE_RECENCY_NORM
                 FROM {STREAMING_TABLE}
             ) t
-            WHERE DATA_CRIACAO_NORM >= date('{effective_start}')
-            ORDER BY DATA_CRIACAO_NORM ASC, NUMERO_NOTA ASC
+            WHERE SOURCE_RECENCY_NORM >= date('{effective_start}')
+            ORDER BY SOURCE_RECENCY_NORM ASC, NUMERO_NOTA ASC
         """)
 
     rows = df.collect()
     if not rows:
         diagnostics_start = effective_start or sync_start_date
-        _log_empty_result_diagnostics(spark, diagnostics_start, data_criacao_expr)
+        _log_empty_result_diagnostics(spark, diagnostics_start, source_recency_expr)
 
     notes: list[dict] = []
     missing_centro = 0
@@ -1482,7 +1544,9 @@ def read_new_notes(
         "source_distinct_centros": len(distinct_centros),
         "source_effective_start": effective_start,
         "source_watermark_raw": watermark,
-        "source_data_criacao_expr": data_criacao_expr,
+        "source_watermark_lookback_days": watermark_lookback_days,
+        "source_recency_expr": source_recency_expr,
+        "source_data_criacao_expr": source_recency_expr,
         "source_raw_data_payload_mode": "object",
         "source_raw_data_payload_object_count": len(notes),
     }
@@ -2567,6 +2631,7 @@ def main():
     force_window = should_force_window(spark)
     ignore_watermark = should_ignore_watermark(spark)
     sync_start_date = get_sync_start_date(spark)
+    watermark_lookback_days = get_watermark_lookback_days(spark)
     bootstrap_mode = get_bootstrap_mode(spark)
     pmpl_min_age_days = get_pmpl_min_age_days(spark)
     pmpl_standalone_window_days = get_pmpl_standalone_window_days(spark)
@@ -2575,6 +2640,13 @@ def main():
     copy_intent_confirm_repair_minutes = get_copy_intent_confirm_repair_minutes(spark)
     sap_status_aux_required = get_sap_status_aux_required(spark)
     current_step = "startup"
+    job_timings = JobTimings(
+        on_record=lambda step, duration_ms: logger.info(
+            "Etapa %s concluida em %.1f ms",
+            step,
+            duration_ms,
+        )
+    )
 
     _ensure_supabase_healthcheck()
 
@@ -2700,6 +2772,7 @@ def main():
         "source_distinct_centros": 0,
         "source_effective_start": None,
         "source_watermark_raw": None,
+        "source_recency_expr": None,
         "source_data_criacao_expr": None,
         "source_raw_data_payload_mode": "object",
         "source_raw_data_payload_object_count": 0,
@@ -2708,18 +2781,21 @@ def main():
     try:
         full_bootstrap = should_run_full_bootstrap(bootstrap_mode, sync_start_date)
         current_step = "read_new_notes"
-        notes, note_batch_metrics = read_new_notes(
-            spark,
-            window_days=window_days,
-            force_window=force_window,
-            ignore_watermark=ignore_watermark,
-            sync_start_date=sync_start_date,
-            full_bootstrap=full_bootstrap,
-        )
+        with job_timings.measure(current_step):
+            notes, note_batch_metrics = read_new_notes(
+                spark,
+                window_days=window_days,
+                force_window=force_window,
+                ignore_watermark=ignore_watermark,
+                sync_start_date=sync_start_date,
+                watermark_lookback_days=watermark_lookback_days,
+                full_bootstrap=full_bootstrap,
+            )
         logger.info("Lidas: %s notas da fonte %s", len(notes), STREAMING_TABLE)
 
         current_step = "upsert_notes"
-        inserted, updated = upsert_notes(notes, sync_id)
+        with job_timings.measure(current_step):
+            inserted, updated = upsert_notes(notes, sync_id)
 
         try:
             current_step = "run_sap_status_aux_sync"
@@ -2736,7 +2812,8 @@ def main():
                 raise
 
         current_step = "run_register_orders"
-        ordens_detectadas, notas_auto_concluidas = run_register_orders(sync_id)
+        with job_timings.measure(current_step):
+            ordens_detectadas, notas_auto_concluidas = run_register_orders(sync_id)
 
         try:
             current_step = "reconcile_copy_intent_states"
@@ -2849,10 +2926,12 @@ def main():
         backfill_v2_metrics = run_backfill_and_register_v2(sync_id)
 
         current_step = "run_distribution"
-        distributed = run_distribution(sync_id)
+        with job_timings.measure(current_step):
+            distributed = run_distribution(sync_id)
 
         current_step = "run_cockpit_convergencia_sync"
-        cockpit_sync_metrics = run_cockpit_convergencia_sync(sync_id)
+        with job_timings.measure(current_step):
+            cockpit_sync_metrics = run_cockpit_convergencia_sync(sync_id)
 
         metadata = {
             "current_step": current_step,
@@ -2860,6 +2939,9 @@ def main():
             "force_window": force_window,
             "ignore_watermark": ignore_watermark,
             "sync_start_date": sync_start_date,
+            "watermark_lookback_days": watermark_lookback_days,
+            "step_durations_ms": job_timings.snapshot(),
+            "processing_duration_ms": job_timings.total_ms(),
             "streaming_table": STREAMING_TABLE,
             **note_batch_metrics,
             "bootstrap_mode": bootstrap_mode,
@@ -2987,6 +3069,9 @@ def main():
                     "force_window": force_window,
                     "ignore_watermark": ignore_watermark,
                     "sync_start_date": sync_start_date,
+                    "watermark_lookback_days": watermark_lookback_days,
+                    "step_durations_ms": job_timings.snapshot(),
+                    "processing_duration_ms": job_timings.total_ms(),
                     "streaming_table": STREAMING_TABLE,
                     **note_batch_metrics,
                     "bootstrap_mode": bootstrap_mode,

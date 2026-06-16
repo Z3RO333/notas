@@ -8,6 +8,8 @@ import sys
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
+from sync_runtime import JobTimings
+
 
 def _ensure_runtime_dependency(package_name: str, module_name: str | None = None) -> None:
     target_module = module_name or package_name
@@ -366,7 +368,12 @@ def push_pmpl_updates(sync_id: str, updates: list[dict]) -> tuple[int, int, int]
     return total_recebidas, ordens_atualizadas, mudancas_status
 
 
-def read_standalone_pmpl_orders(spark: SparkSession, window_days: int, sync_start_date: str, ignore_watermark: bool) -> list[dict]:
+def read_standalone_pmpl_orders(
+    spark: SparkSession,
+    window_days: int,
+    sync_start_date: str,
+    ignore_watermark: bool,
+) -> tuple[list[dict], str]:
     if ignore_watermark:
         effective_start = sync_start_date
     else:
@@ -435,7 +442,7 @@ def read_standalone_pmpl_orders(spark: SparkSession, window_days: int, sync_star
             if current.get("texto_breve") is None and texto_breve is not None:
                 current["texto_breve"] = texto_breve
 
-    return [
+    orders = [
         {
             "ordem_codigo": v["ordem_codigo"],
             "status_raw": v["status_raw"],
@@ -449,6 +456,7 @@ def read_standalone_pmpl_orders(spark: SparkSession, window_days: int, sync_star
         }
         for v in best_by_order.values()
     ]
+    return orders, effective_start
 
 
 def push_standalone_pmpl_orders(sync_id: str, orders: list[dict]) -> tuple[int, int, int]:
@@ -571,6 +579,14 @@ def main() -> None:
     ordens_mudanca_status = 0
     standalone_orders: list[dict] = []
     eligible_orders: list[str] = []
+    pmpl_standalone_effective_start: str | None = None
+    job_timings = JobTimings(
+        on_record=lambda step, duration_ms: logger.info(
+            "Etapa %s concluida em %.1f ms",
+            step,
+            duration_ms,
+        )
+    )
 
     standalone_owner_metrics: dict[str, object] = {
         "status": "not_run",
@@ -604,36 +620,47 @@ def main() -> None:
 
     try:
         current_step = "read_standalone_pmpl_orders"
-        standalone_orders = read_standalone_pmpl_orders(
-            spark,
-            window_days=MEDIUM_PMPL_STANDALONE_WINDOW_DAYS,
-            sync_start_date=MEDIUM_SYNC_START_DATE,
-            ignore_watermark=MEDIUM_STANDALONE_IGNORE_WATERMARK,
-        )
+        with job_timings.measure(current_step):
+            standalone_orders, pmpl_standalone_effective_start = read_standalone_pmpl_orders(
+                spark,
+                window_days=MEDIUM_PMPL_STANDALONE_WINDOW_DAYS,
+                sync_start_date=MEDIUM_SYNC_START_DATE,
+                ignore_watermark=MEDIUM_STANDALONE_IGNORE_WATERMARK,
+            )
 
         current_step = "push_standalone_pmpl_orders"
-        _, pmpl_standalone_inseridas, pmpl_standalone_atualizadas = push_standalone_pmpl_orders(sync_id, standalone_orders)
+        with job_timings.measure(current_step):
+            _, pmpl_standalone_inseridas, pmpl_standalone_atualizadas = push_standalone_pmpl_orders(
+                sync_id,
+                standalone_orders,
+            )
 
         current_step = "get_orders_for_pmpl_refresh"
-        eligible_orders = get_orders_for_pmpl_refresh(MEDIUM_PMPL_MIN_AGE_DAYS)
+        with job_timings.measure(current_step):
+            eligible_orders = get_orders_for_pmpl_refresh(MEDIUM_PMPL_MIN_AGE_DAYS)
 
         current_step = "consolidate_pmpl_status_by_order"
-        pmpl_updates = consolidate_pmpl_status_by_order(spark, eligible_orders)
+        with job_timings.measure(current_step):
+            pmpl_updates = consolidate_pmpl_status_by_order(spark, eligible_orders)
 
         current_step = "push_pmpl_updates"
-        _, ordens_status_atualizadas, ordens_mudanca_status = push_pmpl_updates(sync_id, pmpl_updates)
+        with job_timings.measure(current_step):
+            _, ordens_status_atualizadas, ordens_mudanca_status = push_pmpl_updates(sync_id, pmpl_updates)
 
         if MEDIUM_RUN_OWNER_ASSIGNMENT:
             current_step = "run_standalone_owner_assignment"
-            standalone_owner_metrics = run_standalone_owner_assignment()
+            with job_timings.measure(current_step):
+                standalone_owner_metrics = run_standalone_owner_assignment()
 
         if MEDIUM_RUN_OWNER_REALIGN:
             current_step = "run_standalone_pmpl_owner_realign"
-            standalone_pmpl_realign_metrics = run_standalone_pmpl_owner_realign()
+            with job_timings.measure(current_step):
+                standalone_pmpl_realign_metrics = run_standalone_pmpl_owner_realign()
 
         if MEDIUM_RUN_COCKPIT_SYNC:
             current_step = "run_cockpit_convergencia_sync"
-            cockpit_sync_metrics = run_cockpit_convergencia_sync(sync_id)
+            with job_timings.measure(current_step):
+                cockpit_sync_metrics = run_cockpit_convergencia_sync(sync_id)
 
         finalize_sync_log(
             sync_id,
@@ -648,7 +675,10 @@ def main() -> None:
                 "pmpl_table": PMPL_TABLE,
                 "pmpl_standalone_window_days": MEDIUM_PMPL_STANDALONE_WINDOW_DAYS,
                 "pmpl_standalone_ignore_watermark": MEDIUM_STANDALONE_IGNORE_WATERMARK,
+                "pmpl_standalone_effective_start": pmpl_standalone_effective_start,
                 "pmpl_min_age_days": MEDIUM_PMPL_MIN_AGE_DAYS,
+                "step_durations_ms": job_timings.snapshot(),
+                "processing_duration_ms": job_timings.total_ms(),
                 "pmpl_standalone_lidas": len(standalone_orders),
                 "pmpl_standalone_inseridas": pmpl_standalone_inseridas,
                 "pmpl_standalone_atualizadas": pmpl_standalone_atualizadas,
@@ -691,7 +721,10 @@ def main() -> None:
                 "pmpl_table": PMPL_TABLE,
                 "pmpl_standalone_window_days": MEDIUM_PMPL_STANDALONE_WINDOW_DAYS,
                 "pmpl_standalone_ignore_watermark": MEDIUM_STANDALONE_IGNORE_WATERMARK,
+                "pmpl_standalone_effective_start": pmpl_standalone_effective_start,
                 "pmpl_min_age_days": MEDIUM_PMPL_MIN_AGE_DAYS,
+                "step_durations_ms": job_timings.snapshot(),
+                "processing_duration_ms": job_timings.total_ms(),
                 "pmpl_standalone_lidas": len(standalone_orders),
                 "pmpl_standalone_inseridas": pmpl_standalone_inseridas,
                 "pmpl_standalone_atualizadas": pmpl_standalone_atualizadas,

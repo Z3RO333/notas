@@ -10,6 +10,8 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import uuid4
 
+from sync_runtime import JobTimings, resolve_watermark_start
+
 
 def _ensure_runtime_dependency(package_name: str, module_name: str | None = None) -> None:
     target_module = module_name or package_name
@@ -133,6 +135,7 @@ FAST_WINDOW_DAYS = 30
 FAST_FORCE_WINDOW = False
 FAST_IGNORE_WATERMARK = False
 FAST_SYNC_START_DATE = "2026-01-01"
+FAST_WATERMARK_LOOKBACK_DAYS = 2
 FAST_BOOTSTRAP_MODE = "auto"
 FAST_RUN_SAP_STATUS_AUX = True
 FAST_SAP_STATUS_AUX_REQUIRED = False
@@ -930,13 +933,15 @@ def read_new_notes(
     force_window: bool,
     ignore_watermark: bool,
     sync_start_date: str,
+    watermark_lookback_days: int,
     full_bootstrap: bool,
 ) -> tuple[list[dict], dict]:
     watermark = get_watermark()
     logger.info(
-        "Parametros leitura -> watermark_bruto=%s, sync_start_date=%s, force_window=%s, ignore_watermark=%s, full_bootstrap=%s, window_days=%s",
+        "Parametros leitura -> watermark_bruto=%s, sync_start_date=%s, watermark_lookback_days=%s, force_window=%s, ignore_watermark=%s, full_bootstrap=%s, window_days=%s",
         watermark,
         sync_start_date,
+        watermark_lookback_days,
         force_window,
         ignore_watermark,
         full_bootstrap,
@@ -967,7 +972,11 @@ def read_new_notes(
         watermark_date = _normalize_iso_date(watermark)
         if watermark_date and _watermark_is_too_future(watermark_date):
             watermark_date = None
-        effective_start = max(watermark_date, sync_start_date) if watermark_date else sync_start_date
+        effective_start = resolve_watermark_start(
+            sync_start_date,
+            watermark_date,
+            watermark_lookback_days,
+        )
 
     if not full_bootstrap:
         df = spark.sql(f"""
@@ -1075,6 +1084,7 @@ def read_new_notes(
         "source_distinct_centros": len(distinct_centros),
         "source_effective_start": effective_start,
         "source_watermark_raw": watermark,
+        "source_watermark_lookback_days": watermark_lookback_days,
         "source_recency_expr": source_recency_expr,
         "source_data_criacao_expr": source_recency_expr,
         "source_raw_data_payload_mode": "object",
@@ -1242,6 +1252,13 @@ def main() -> None:
     updated = 0
     distributed = 0
     full_bootstrap = False
+    job_timings = JobTimings(
+        on_record=lambda step, duration_ms: logger.info(
+            "Etapa %s concluida em %.1f ms",
+            step,
+            duration_ms,
+        )
+    )
 
     note_batch_metrics: dict[str, object] = {}
     sap_status_aux_metrics: dict[str, object] = {
@@ -1275,19 +1292,22 @@ def main() -> None:
         full_bootstrap = should_run_full_bootstrap(FAST_BOOTSTRAP_MODE, notes_source_table, FAST_SYNC_START_DATE)
 
         current_step = "read_new_notes"
-        notes, note_batch_metrics = read_new_notes(
-            spark,
-            source_table=notes_source_table,
-            window_days=FAST_WINDOW_DAYS,
-            force_window=FAST_FORCE_WINDOW,
-            ignore_watermark=FAST_IGNORE_WATERMARK,
-            sync_start_date=FAST_SYNC_START_DATE,
-            full_bootstrap=full_bootstrap,
-        )
+        with job_timings.measure(current_step):
+            notes, note_batch_metrics = read_new_notes(
+                spark,
+                source_table=notes_source_table,
+                window_days=FAST_WINDOW_DAYS,
+                force_window=FAST_FORCE_WINDOW,
+                ignore_watermark=FAST_IGNORE_WATERMARK,
+                sync_start_date=FAST_SYNC_START_DATE,
+                watermark_lookback_days=FAST_WATERMARK_LOOKBACK_DAYS,
+                full_bootstrap=full_bootstrap,
+            )
         read_count = len(notes)
 
         current_step = "upsert_notes"
-        inserted, updated = upsert_notes(notes, sync_id)
+        with job_timings.measure(current_step):
+            inserted, updated = upsert_notes(notes, sync_id)
 
         if FAST_RUN_SAP_STATUS_AUX:
             try:
@@ -1303,7 +1323,8 @@ def main() -> None:
                     raise
 
         current_step = "run_register_orders"
-        ordens_detectadas, notas_auto_concluidas = run_register_orders(sync_id)
+        with job_timings.measure(current_step):
+            ordens_detectadas, notas_auto_concluidas = run_register_orders(sync_id)
 
         try:
             current_step = "reconcile_copy_intent_states"
@@ -1319,11 +1340,13 @@ def main() -> None:
             copy_reconcile_error = f"{type(exc).__name__}: {exc}"
 
         current_step = "run_distribution"
-        distributed = run_distribution(sync_id)
+        with job_timings.measure(current_step):
+            distributed = run_distribution(sync_id)
 
         if FAST_RUN_COCKPIT_SYNC:
             current_step = "run_cockpit_convergencia_sync"
-            cockpit_sync_metrics = run_cockpit_convergencia_sync(sync_id)
+            with job_timings.measure(current_step):
+                cockpit_sync_metrics = run_cockpit_convergencia_sync(sync_id)
 
         finalize_sync_log(
             sync_id,
@@ -1338,6 +1361,9 @@ def main() -> None:
                 "force_window": FAST_FORCE_WINDOW,
                 "ignore_watermark": FAST_IGNORE_WATERMARK,
                 "sync_start_date": FAST_SYNC_START_DATE,
+                "watermark_lookback_days": FAST_WATERMARK_LOOKBACK_DAYS,
+                "step_durations_ms": job_timings.snapshot(),
+                "processing_duration_ms": job_timings.total_ms(),
                 "bootstrap_mode": FAST_BOOTSTRAP_MODE,
                 "full_bootstrap": full_bootstrap,
                 "streaming_table": notes_source_table,
@@ -1376,6 +1402,9 @@ def main() -> None:
                 "force_window": FAST_FORCE_WINDOW,
                 "ignore_watermark": FAST_IGNORE_WATERMARK,
                 "sync_start_date": FAST_SYNC_START_DATE,
+                "watermark_lookback_days": FAST_WATERMARK_LOOKBACK_DAYS,
+                "step_durations_ms": job_timings.snapshot(),
+                "processing_duration_ms": job_timings.total_ms(),
                 "bootstrap_mode": FAST_BOOTSTRAP_MODE,
                 "full_bootstrap": full_bootstrap,
                 "streaming_table": notes_source_table,
