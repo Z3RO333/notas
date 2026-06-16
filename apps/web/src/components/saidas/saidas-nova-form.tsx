@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { X } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -40,17 +41,22 @@ export function SaidasNovaForm({ operacionais }: SaidasNovaFormProps) {
   const [selecionadas, setSelecionadas] = useState<Map<string, OrdemBuscaItem>>(new Map())
   const [submitError, setSubmitError] = useState<string | null>(null)
 
-  const { data: resultadosBusca, isFetching } = useQuery<{ rows: OrdemBuscaItem[] }>({
+  const { data: resultadosBusca, isFetching, error: buscaError } = useQuery<{ rows: OrdemBuscaItem[] }>({
     queryKey: ['busca-ordens-saida', busca],
     queryFn: async () => {
       if (!busca.trim() || busca.trim().length < 3) return { rows: [] }
       const res = await fetch(`/api/ordens/busca-simples?q=${encodeURIComponent(busca)}`)
-      if (!res.ok) return { rows: [] }
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null) as { error?: string } | null
+        throw new Error(payload?.error ?? 'Falha ao buscar ordens')
+      }
       return res.json()
     },
     staleTime: 10_000,
     enabled: busca.trim().length >= 3,
   })
+
+  const ordensSelecionadas = Array.from(selecionadas.values())
 
   function toggleOrdem(item: OrdemBuscaItem) {
     setSelecionadas((prev) => {
@@ -121,12 +127,41 @@ export function SaidasNovaForm({ operacionais }: SaidasNovaFormProps) {
                 rows={3}
               />
             </div>
-            {selecionadas.size > 0 && (
-              <p className="text-sm text-muted-foreground">{selecionadas.size} ordem(ns) selecionada(s)</p>
-            )}
+            <div className="space-y-2 rounded-md border border-border/70 bg-muted/20 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium">Ordens desta saída</p>
+                <span className="text-xs text-muted-foreground">{selecionadas.size} selecionada(s)</span>
+              </div>
+              {ordensSelecionadas.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Busque e adicione todas as ordens que o técnico vai atender.</p>
+              ) : (
+                <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+                  {ordensSelecionadas.map((item) => (
+                    <div key={item.ordem_codigo} className="flex items-start gap-3 rounded-md border bg-background/70 p-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-mono text-sm font-semibold">{item.ordem_codigo}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {item.unidade ?? 'Sem unidade'} · {item.texto_breve ?? 'Sem descrição'}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0"
+                        onClick={() => toggleOrdem(item)}
+                        aria-label={`Remover ordem ${item.ordem_codigo}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             {submitError && <p className="text-sm text-destructive">{submitError}</p>}
             <Button type="submit" disabled={isPending} className="w-full">
-              {isPending ? 'Criando…' : 'Criar saída'}
+              {isPending ? 'Criando…' : `Criar saída com ${selecionadas.size} ordem(ns)`}
             </Button>
           </CardContent>
         </Card>
@@ -144,7 +179,12 @@ export function SaidasNovaForm({ operacionais }: SaidasNovaFormProps) {
             </div>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {isFetching && <p className="text-sm text-muted-foreground">Buscando…</p>}
-              {!isFetching && resultadosBusca?.rows.length === 0 && busca.trim().length >= 3 && (
+              {!isFetching && buscaError && (
+                <p className="text-sm text-destructive">
+                  {buscaError instanceof Error ? buscaError.message : 'Falha ao buscar ordens'}
+                </p>
+              )}
+              {!isFetching && !buscaError && resultadosBusca?.rows.length === 0 && busca.trim().length >= 3 && (
                 <p className="text-sm text-muted-foreground">Nenhuma ordem encontrada.</p>
               )}
               {resultadosBusca?.rows.map((item) => (
