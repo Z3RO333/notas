@@ -108,6 +108,7 @@ export interface PedidosCarteiraFornecedorRow {
   encerrado: number
   cancelado: number
   valorTotal: number
+  documentosCompras: string[]
 }
 
 export interface PedidosCarteiraKpis {

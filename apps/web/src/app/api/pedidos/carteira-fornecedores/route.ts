@@ -24,6 +24,7 @@ type CarteiraResumoViewRow = {
   encerrado: number
   cancelado: number
   valor_total: number
+  documentos_compras: string[] | null
 }
 
 function toCarteiraRow(row: CarteiraResumoViewRow): PedidosCarteiraFornecedorRow {
@@ -39,6 +40,7 @@ function toCarteiraRow(row: CarteiraResumoViewRow): PedidosCarteiraFornecedorRow
     encerrado: Number(row.encerrado ?? 0),
     cancelado: Number(row.cancelado ?? 0),
     valorTotal: Number(row.valor_total ?? 0),
+    documentosCompras: row.documentos_compras ?? [],
   }
 }
 
@@ -71,7 +73,7 @@ export async function GET(request: Request) {
   const resumoResult = await supabase
     .from('vw_pedidos_carteira_fornecedor_resumo')
     .select(
-      'fornecedor_codigo, fornecedor_nome, tipo_carteira, admin_id, admin_nome, admin_avatar, qtd_pedidos, em_aberto, encerrado, cancelado, valor_total'
+      'fornecedor_codigo, fornecedor_nome, tipo_carteira, admin_id, admin_nome, admin_avatar, qtd_pedidos, em_aberto, encerrado, cancelado, valor_total, documentos_compras'
     )
 
   if (resumoResult.error) {
