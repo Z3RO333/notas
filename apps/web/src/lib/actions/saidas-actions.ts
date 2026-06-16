@@ -14,21 +14,53 @@ export async function criarSaidaOperacional(
   try {
     if (!operacionalCodigo.trim()) return { data: null, error: 'Técnico é obrigatório' }
     if (isNaN(Date.parse(dataSaida))) return { data: null, error: 'Data de saída inválida' }
+    if (ordens.length === 0) return { data: null, error: 'Selecione ao menos uma ordem' }
 
     const { supabase, admin } = await getAuthenticatedAdminActionContext()
 
-    const { data, error } = await supabase.rpc('criar_saida_operacional', {
-      p_operacional_codigo: operacionalCodigo,
-      p_data_saida: dataSaida,
-      p_admin_id: admin.id,
-      p_ordens: ordens,
-      p_observacao: observacao,
-    })
+    const { data: operacional, error: operacionalError } = await supabase
+      .from('dim_operacionais')
+      .select('nome')
+      .eq('codigo', operacionalCodigo)
+      .eq('ativo', true)
+      .maybeSingle()
 
-    if (error) return { data: null, error: error.message }
+    if (operacionalError) return { data: null, error: operacionalError.message }
+    if (!operacional?.nome) return { data: null, error: `Operacional não encontrado: ${operacionalCodigo}` }
+
+    const { data: saida, error: saidaError } = await supabase
+      .from('operacional_saidas')
+      .insert({
+        operacional_codigo: operacionalCodigo,
+        operacional_nome_snapshot: operacional.nome,
+        criado_por_admin_id: admin.id,
+        data_saida: dataSaida,
+        observacao,
+      })
+      .select('id')
+      .single()
+
+    if (saidaError) return { data: null, error: saidaError.message }
+
+    const { error: ordensError } = await supabase
+      .from('operacional_saida_ordens')
+      .insert(ordens.map((ordem) => ({
+        saida_id: saida.id,
+        ordem_codigo: ordem.ordem_codigo,
+        numero_nota: ordem.numero_nota,
+        unidade: ordem.unidade,
+        texto_breve: ordem.texto_breve,
+        status_ordem_raw_snapshot: ordem.status_ordem_raw_snapshot,
+        tipo_ordem: ordem.tipo_ordem,
+      })))
+
+    if (ordensError) {
+      await supabase.from('operacional_saidas').delete().eq('id', saida.id)
+      return { data: null, error: ordensError.message }
+    }
 
     revalidatePath('/admin/saidas', 'layout')
-    return { data: { id: data as string }, error: null }
+    return { data: { id: saida.id as string }, error: null }
   } catch (err) {
     return { data: null, error: err instanceof Error ? err.message : 'Erro inesperado' }
   }
