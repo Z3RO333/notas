@@ -2,7 +2,12 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { SaidaDetalhePanel } from '@/components/saidas/saida-detalhe-panel'
-import type { SaidaDetalhe, SaidaOrdem } from '@/lib/types/saidas'
+import type {
+  RotaDispatchStatus,
+  RotaDispatchSummary,
+  SaidaDetalhe,
+  SaidaOrdem,
+} from '@/lib/types/saidas'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Saída Operacional | Cockpit' }
@@ -11,19 +16,27 @@ export default async function SaidaDetalhePage({ params }: { params: Promise<{ i
   const { id } = await params
   const supabase = await createClient()
 
-  const { data, error } = await supabase
-    .from('operacional_saidas')
-    .select(`
-      id, operacional_codigo, operacional_nome_snapshot, criado_por_admin_id,
-      status, data_saida, data_finalizacao, observacao, created_at,
-      operacional_saida_ordens (
-        id, saida_id, ordem_codigo, numero_nota, unidade, texto_breve,
-        status_ordem_raw_snapshot, tipo_ordem, resultado,
-        observacao_retorno, data_resultado, created_at
-      )
-    `)
-    .eq('id', id)
-    .maybeSingle()
+  const [{ data, error }, { data: dispatch }] = await Promise.all([
+    supabase
+      .from('operacional_saidas')
+      .select(`
+        id, operacional_codigo, operacional_nome_snapshot, criado_por_admin_id,
+        status, data_saida, data_finalizacao, observacao, created_at,
+        operacional_saida_ordens (
+          id, saida_id, ordem_codigo, numero_nota, unidade, texto_breve,
+          status_ordem_raw_snapshot, tipo_ordem, resultado,
+          observacao_retorno, data_resultado, created_at
+        )
+      `)
+      .eq('id', id)
+      .maybeSingle(),
+    supabase
+      .schema('integration')
+      .from('route_dispatches')
+      .select('id, status, published_at')
+      .eq('cockpit_cargo_id', id)
+      .maybeSingle(),
+  ])
 
   if (error || !data) notFound()
 
@@ -58,12 +71,20 @@ export default async function SaidaDetalhePage({ params }: { params: Promise<{ i
     })),
   }
 
+  const rotaDispatch: RotaDispatchSummary | null = dispatch
+    ? {
+        id: dispatch.id as string,
+        status: dispatch.status as RotaDispatchStatus,
+        publishedAt: dispatch.published_at as string,
+      }
+    : null
+
   return (
     <div className="px-4 py-5 sm:px-6">
       <div className="mb-5">
         <h1 className="text-lg font-semibold">Saída Operacional</h1>
       </div>
-      <SaidaDetalhePanel saida={saida} />
+      <SaidaDetalhePanel saida={saida} rotaDispatch={rotaDispatch} />
     </div>
   )
 }

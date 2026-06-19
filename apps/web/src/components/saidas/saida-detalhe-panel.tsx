@@ -2,10 +2,18 @@
 
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { LoaderCircle, Route as RouteIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { cancelarSaidaOperacional } from '@/lib/actions/saidas-actions'
-import type { SaidaDetalhe, SaidaOperacionalStatus, SaidaOrdemResultado } from '@/lib/types/saidas'
+import { useToast } from '@/components/ui/toast'
+import { cancelarSaidaOperacional, publicarSaidaNoRota } from '@/lib/actions/saidas-actions'
+import type {
+  RotaDispatchStatus,
+  RotaDispatchSummary,
+  SaidaDetalhe,
+  SaidaOperacionalStatus,
+  SaidaOrdemResultado,
+} from '@/lib/types/saidas'
 
 const STATUS_LABEL: Record<SaidaOperacionalStatus, string> = {
   em_rota: 'Em rota',
@@ -31,22 +39,52 @@ const RESULTADO_VARIANT: Record<SaidaOrdemResultado, 'default' | 'secondary' | '
   reagendada: 'secondary',
 }
 
+const ROTA_STATUS_LABEL: Record<RotaDispatchStatus, string> = {
+  published: 'Publicada',
+  accepted: 'Aceita',
+  rejected: 'Rejeitada',
+  cancelled: 'Cancelada',
+}
+
 function fmtDate(iso: string) {
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso))
 }
 
 interface SaidaDetalhePanelProps {
   saida: SaidaDetalhe
+  rotaDispatch: RotaDispatchSummary | null
 }
 
-export function SaidaDetalhePanel({ saida }: SaidaDetalhePanelProps) {
+export function SaidaDetalhePanel({ saida, rotaDispatch }: SaidaDetalhePanelProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [isPending, startTransition] = useTransition()
 
   function handleCancelar() {
     if (!confirm('Cancelar esta saída?')) return
     startTransition(async () => {
       await cancelarSaidaOperacional(saida.id)
+      router.refresh()
+    })
+  }
+
+  function handlePublicarNoRota() {
+    startTransition(async () => {
+      const result = await publicarSaidaNoRota(saida.id)
+      if (result.error) {
+        toast({
+          title: 'Não foi possível publicar no ROTA',
+          description: result.error,
+          variant: 'error',
+        })
+        return
+      }
+
+      toast({
+        title: 'Rota publicada',
+        description: `${saida.totalOrdens} ordens enviadas para ${saida.operacionalNomeSnapshot}`,
+        variant: 'success',
+      })
       router.refresh()
     })
   }
@@ -59,7 +97,22 @@ export function SaidaDetalhePanel({ saida }: SaidaDetalhePanelProps) {
           <p className="text-sm text-muted-foreground">{fmtDate(saida.dataSaida)}</p>
           {saida.observacao && <p className="text-sm">{saida.observacao}</p>}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:justify-end">
+          {rotaDispatch ? (
+            <Badge variant="secondary" className="gap-1.5">
+              <RouteIcon className="h-3.5 w-3.5" />
+              ROTA: {ROTA_STATUS_LABEL[rotaDispatch.status]}
+            </Badge>
+          ) : saida.status === 'em_rota' ? (
+            <Button variant="outline" size="sm" onClick={handlePublicarNoRota} disabled={isPending}>
+              {isPending ? (
+                <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RouteIcon className="mr-2 h-4 w-4" />
+              )}
+              Publicar no ROTA
+            </Button>
+          ) : null}
           <Badge variant={STATUS_VARIANT[saida.status]}>{STATUS_LABEL[saida.status]}</Badge>
           <span className="text-sm tabular-nums text-muted-foreground">
             {saida.ordensComResultado} de {saida.totalOrdens} ordens concluídas

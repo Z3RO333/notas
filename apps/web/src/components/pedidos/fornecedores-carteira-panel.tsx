@@ -23,7 +23,11 @@ import type {
   PedidosCarteiraResponse,
   PedidosCarteiraTipo,
 } from '@/lib/types/pedidos'
-import { CARTEIRA_EMPTY_MESSAGES } from '@/lib/pedidos/carteira-helpers'
+import {
+  CARTEIRA_EMPTY_MESSAGES,
+  deriveCarteiraFilterAdmins,
+  filterCarteiraRowsByAdmin,
+} from '@/lib/pedidos/carteira-helpers'
 
 const ALL_VALUE = '__all__'
 
@@ -123,12 +127,13 @@ export function FornecedoresCarteiraPanel({ isGestor, tipoCarteira }: Fornecedor
     { id: 'valor_total', label: 'Valor', value: fmtCurrency(kpis.valorTotal), icon: TrendingUp },
   ]
 
-  const adminsUnicos = Array.from(
-    new Map(rows.map((r) => [r.adminId, { id: r.adminId, nome: r.adminNome }])).values(),
-  ).sort((a, b) => (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR'))
+  const adminsUnicos = deriveCarteiraFilterAdmins(rows, tipoCarteira)
 
-  const rowsFiltradas = rows.filter((row) => {
-    if (filtroAdmin !== ALL_VALUE && row.adminId !== filtroAdmin) return false
+  const rowsFiltradas = filterCarteiraRowsByAdmin(
+    rows,
+    tipoCarteira,
+    filtroAdmin === ALL_VALUE ? null : filtroAdmin,
+  ).filter((row) => {
     if (busca) {
       const q = busca.toLowerCase()
       const nome = row.fornecedorNome.toLowerCase()

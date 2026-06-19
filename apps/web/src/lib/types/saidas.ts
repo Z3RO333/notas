@@ -2,6 +2,13 @@
 
 export type SaidaOperacionalStatus = 'em_rota' | 'finalizada' | 'cancelada'
 export type SaidaOrdemResultado = 'resolvida' | 'nao_resolvida' | 'reagendada'
+export type RotaDispatchStatus = 'published' | 'accepted' | 'rejected' | 'cancelled'
+
+export interface RotaDispatchSummary {
+  id: string
+  status: RotaDispatchStatus
+  publishedAt: string
+}
 
 export interface OperacionalSaida {
   id: string

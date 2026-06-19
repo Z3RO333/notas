@@ -47,6 +47,7 @@ Variaveis usadas em fluxos administrativos e APIs server-side:
 - `MAINTAINER_SESSION_SECRET`
 - `CRON_SECRET`
 - `MAINTAINER_EMAILS`
+- `ROTA_API_URL` (por exemplo, `http://localhost:3001/api` no desenvolvimento)
 - `UPSTASH_REDIS_REST_URL` quando o rate limit estiver habilitado
 - `DEBUG_ORDERS_ROUTING` e `DEBUG_ORDERS_CD_ROUTING` para diagnostico
 

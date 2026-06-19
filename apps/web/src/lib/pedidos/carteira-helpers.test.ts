@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   filterCarteiraRowsByTipo,
+  filterCarteiraRowsByAdmin,
   deriveAvailableAdmins,
+  deriveCarteiraFilterAdmins,
   buildCarteiraKpis,
   isValidCarteiraTipo,
   CARTEIRA_EMPTY_MESSAGES,
@@ -21,6 +23,8 @@ function makeRow(overrides: Partial<PedidosCarteiraFornecedorRow>): PedidosCarte
     encerrado: 7,
     cancelado: 1,
     valorTotal: 1000,
+    documentosCompras: [],
+    pedidosContratos: [],
     ...overrides,
   }
 }
@@ -58,6 +62,37 @@ describe('deriveAvailableAdmins', () => {
 
   it('returns an empty array for no rows', () => {
     expect(deriveAvailableAdmins([])).toEqual([])
+  })
+})
+
+describe('preventiva anual admin filter', () => {
+  const rows = [
+    makeRow({
+      fornecedorCodigo: '9542',
+      tipoCarteira: 'preventiva_anual',
+      adminId: 'fabiola',
+      adminNome: 'Fabíola Tentunge',
+      pedidosContratos: [
+        { numero: '45001', admin_id: 'fabiola', admin_nome: 'Fabíola Tentunge', admin_avatar: null },
+        { numero: '45002', admin_id: 'suelem', admin_nome: 'Suelém Silva', admin_avatar: null },
+      ],
+    }),
+  ]
+
+  it('derives filter options from the responsible admin shown on each contract', () => {
+    expect(deriveCarteiraFilterAdmins(rows, 'preventiva_anual')).toEqual([
+      { id: 'fabiola', nome: 'Fabíola Tentunge' },
+      { id: 'suelem', nome: 'Suelém Silva' },
+    ])
+  })
+
+  it('keeps only contracts owned by the selected admin', () => {
+    const result = filterCarteiraRowsByAdmin(rows, 'preventiva_anual', 'fabiola')
+
+    expect(result).toHaveLength(1)
+    expect(result[0].pedidosContratos).toEqual([
+      { numero: '45001', admin_id: 'fabiola', admin_nome: 'Fabíola Tentunge', admin_avatar: null },
+    ])
   })
 })
 
