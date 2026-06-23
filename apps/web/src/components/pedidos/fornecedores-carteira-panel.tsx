@@ -188,9 +188,14 @@ export function FornecedoresCarteiraPanel({ isGestor, tipoCarteira }: Fornecedor
                 Responsável
               </th>
               {tipoCarteira === 'preventiva_anual' && (
-                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Nº Pedido
-                </th>
+                <>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Nº Pedido
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Ciclo
+                  </th>
+                </>
               )}
               <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Pedidos
@@ -211,7 +216,7 @@ export function FornecedoresCarteiraPanel({ isGestor, tipoCarteira }: Fornecedor
           <tbody className="divide-y divide-border/40">
             {rowsFiltradas.length === 0 && (
               <tr>
-                <td colSpan={isGestor ? (tipoCarteira === 'preventiva_anual' ? 7 : 6) : (tipoCarteira === 'preventiva_anual' ? 6 : 5)} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                <td colSpan={isGestor ? (tipoCarteira === 'preventiva_anual' ? 8 : 6) : (tipoCarteira === 'preventiva_anual' ? 7 : 5)} className="px-4 py-8 text-center text-sm text-muted-foreground">
                   Nenhum fornecedor encontrado.
                 </td>
               </tr>
@@ -234,6 +239,11 @@ export function FornecedoresCarteiraPanel({ isGestor, tipoCarteira }: Fornecedor
                     <td className="px-4 py-3">
                       <span className="font-mono text-xs tabular-nums">
                         {pedido?.numero ?? '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs text-muted-foreground">
+                        {pedido?.ciclo ?? '—'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums font-medium">

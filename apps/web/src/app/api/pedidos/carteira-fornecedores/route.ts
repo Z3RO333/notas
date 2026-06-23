@@ -25,7 +25,7 @@ type CarteiraResumoViewRow = {
   cancelado: number
   valor_total: number
   documentos_compras: string[] | null
-  pedidos_contratos: { numero: string; admin_id: string | null; admin_nome: string | null; admin_avatar: string | null }[] | null
+  pedidos_contratos: { numero: string; ciclo: string | null; admin_id: string | null; admin_nome: string | null; admin_avatar: string | null }[] | null
 }
 
 function toCarteiraRow(row: CarteiraResumoViewRow): PedidosCarteiraFornecedorRow {

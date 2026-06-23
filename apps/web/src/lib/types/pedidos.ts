@@ -98,6 +98,7 @@ export type PedidosCarteiraTipo = 'corretiva' | 'preventiva_anual'
 
 export interface PedidoContratoAnual {
   numero: string
+  ciclo: string | null
   admin_id: string | null
   admin_nome: string | null
   admin_avatar: string | null

@@ -73,8 +73,8 @@ describe('preventiva anual admin filter', () => {
       adminId: 'fabiola',
       adminNome: 'Fabíola Tentunge',
       pedidosContratos: [
-        { numero: '45001', admin_id: 'fabiola', admin_nome: 'Fabíola Tentunge', admin_avatar: null },
-        { numero: '45002', admin_id: 'suelem', admin_nome: 'Suelém Silva', admin_avatar: null },
+        { numero: '45001', ciclo: 'MENSAL', admin_id: 'fabiola', admin_nome: 'Fabíola Tentunge', admin_avatar: null },
+        { numero: '45002', ciclo: 'TRIMESTRAL', admin_id: 'suelem', admin_nome: 'Suelém Silva', admin_avatar: null },
       ],
     }),
   ]
