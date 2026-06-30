@@ -68,7 +68,9 @@ FROM (VALUES
 ) AS v(doc, ciclo)
 WHERE public.pedidos_compra.documento_compras = v.doc;
 
--- 3) Atualiza view com pedidos_contratos JSONB array (inclui ciclo + admin por pedido)
+-- 3) Atualiza view com pedidos_contratos JSONB array
+-- admin_id/nome/avatar = dono da CARTEIRA (não do pedido), para que cada admin
+-- veja apenas seu próprio nome nos contratos dos seus fornecedores.
 CREATE OR REPLACE VIEW public.vw_pedidos_carteira_fornecedor_resumo AS
 SELECT
   c.fornecedor_codigo,
@@ -93,9 +95,9 @@ SELECT
       jsonb_build_object(
         'numero', p.documento_compras,
         'ciclo', p.ciclo,
-        'admin_id', pa.id,
-        'admin_nome', pa.nome,
-        'admin_avatar', pa.avatar_url
+        'admin_id', a.id,
+        'admin_nome', a.nome,
+        'admin_avatar', a.avatar_url
       ) ORDER BY p.documento_compras
     ) FILTER (WHERE p.is_contrato_anual = true AND p.documento_compras IS NOT NULL),
     '[]'::jsonb
@@ -104,7 +106,6 @@ FROM public.pedidos_compra_carteira_fornecedor c
 JOIN public.administradores a ON a.id = c.administrador_id
 LEFT JOIN public.pedidos_compra p
   ON public.normalize_supplier_code(p.fornecedor::text) = c.fornecedor_codigo
-LEFT JOIN public.administradores pa ON pa.id = p.administrador_id
 WHERE c.ativo = true
 GROUP BY c.fornecedor_codigo, c.fornecedor_nome, a.id, a.nome, a.avatar_url, c.tipo_carteira
 ORDER BY COALESCE(SUM(p.valor_liquido_total), 0) DESC NULLS LAST;

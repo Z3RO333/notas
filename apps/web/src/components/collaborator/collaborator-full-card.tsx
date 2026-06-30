@@ -27,6 +27,10 @@ function sortByUrgency(notas: NotaPanelData[]): NotaPanelData[] {
     const bOpen = isOpenStatus(b.status) ? 1 : 0
     if (aOpen !== bOpen) return bOpen - aOpen
 
+    const aCritical = a.equipamento_critico ? 1 : 0
+    const bCritical = b.equipamento_critico ? 1 : 0
+    if (aCritical !== bCritical) return bCritical - aCritical
+
     const diff = getAgingDays(b) - getAgingDays(a)
     if (diff !== 0) return diff
     return a.numero_nota.localeCompare(b.numero_nota)
