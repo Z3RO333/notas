@@ -28,7 +28,6 @@ import { useOrdersFilters, sanitizeText } from '@/components/orders/use-orders-f
 import { useOrdersData } from '@/components/orders/use-orders-data'
 import { BackToTopButton } from '@/components/ui/back-to-top-button'
 import { OrdersWorkspaceFiltersBar } from '@/components/orders/orders-workspace-filters-bar'
-import { OrdersWorkspaceHighlightsPanel } from '@/components/orders/orders-workspace-highlights-panel'
 import { OrdersWorkspaceOwnerCards } from '@/components/orders/orders-workspace-owner-cards'
 import { SupplierOrderLocator } from '@/components/orders/supplier-order-locator'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -181,8 +180,8 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
 
   // --- Data + smart search ---
   const {
-    rows, pendingSyncRows, unitOptions: fetchedUnitOptions, kpis, ownerSummary, reassignTargets, poolGroups, poolCentros, highlights,
-    isLoadingHighlights, isFetchingHighlights, nextCursor, isFetching, loadingInitial, loadingMore, error, currentUser, parentRef, smartSearch, effectiveFilters, fetchWorkspace,
+    rows, pendingSyncRows, unitOptions: fetchedUnitOptions, kpis, ownerSummary, reassignTargets, poolGroups, poolCentros,
+    nextCursor, isFetching, loadingInitial, loadingMore, error, currentUser, parentRef, smartSearch, effectiveFilters, fetchWorkspace,
     applyOptimisticReassignments,
   } = useOrdersData({
     filters,
@@ -462,16 +461,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
       }))
     return options
   }, [ownerSummary])
-  const priorityTotals = useMemo(() => {
-    return ownerSummary.reduce(
-      (acc, owner) => {
-        acc.oldest += owner.atrasadas
-        acc.attention += owner.atencao
-        return acc
-      },
-      { oldest: 0, attention: 0 },
-    )
-  }, [ownerSummary])
   const copyButtonLabel = useMemo(() => {
     if (!copyUsesSelection) {
       return copyFilterLoading ? 'Copiando filtro...' : 'Copiar filtro'
@@ -701,23 +690,6 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           }}
           collapsible={currentUser.role === 'gestor' && currentUser.canViewGlobal}
           defaultCollapsed={currentUser.role === 'gestor' && currentUser.canViewGlobal}
-        />
-      )}
-
-      {presentation.showPriorityLanes && !privateOwnerLookupActive && (
-        <OrdersWorkspaceHighlightsPanel
-          highlights={highlights}
-          isLoading={isLoadingHighlights}
-          isFetching={isFetchingHighlights}
-          priorityTotals={priorityTotals}
-          highlightQuery={smartSearch.highlightQuery}
-          canReassign={canReassign}
-          reassignTargets={reassignTargets}
-          onFilterOldest={() => setFilters((prev) => ({ ...prev, status: 'ativas', prioridade: 'vermelho' }))}
-          onFilterAttention={() => setFilters((prev) => ({ ...prev, status: 'ativas', prioridade: 'amarelo' }))}
-          onOpenDetails={setDetailRow}
-          onPrefetchDetails={prefetchOrderDetail}
-          onReassigned={({ notaId, novoAdminId }) => applyReassignResult([{ nota_id: notaId, administrador_destino_id: novoAdminId }])}
         />
       )}
 

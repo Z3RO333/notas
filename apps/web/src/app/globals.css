@@ -11,7 +11,15 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
+
+    /* === Paleta "painel de controle industrial" ===
+     * primary/info = azul-aço (#5B7A99) — identificação neutra (ordem, links),
+     * não compete com o semáforo de status.
+     * destructive/warning/success seguem o mesmo hue-family do semáforo de
+     * atraso (vermelho-sinal / âmbar / verde-operação) usado em getSemaforoClass,
+     * para que badges feitos com os tokens semânticos e o semáforo leiam como
+     * o mesmo sistema de cor. */
+    --primary: 210 38% 33%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -19,17 +27,17 @@
     --muted-foreground: 215.4 16.3% 46.9%;
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 55% 46%;
     --destructive-foreground: 210 40% 98%;
-    --success: 142 71% 45%;
+    --success: 156 45% 33%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 39 75% 46%;
     --warning-foreground: 20 14% 4%;
-    --info: 199 89% 48%;
+    --info: 210 48% 42%;
     --info-foreground: 0 0% 100%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 210 38% 33%;
     --radius: 0.5rem;
   }
 
@@ -58,27 +66,27 @@
     --accent: 220 32% 22%;
     --accent-foreground: 210 35% 95%;
 
-    /* === Cores interativas === */
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
+    /* === Cores interativas (azul-aço, ver nota em :root) === */
+    --primary: 210 50% 62%;
+    --primary-foreground: 222 47% 9%;
 
-    /* === Estados semânticos === */
-    --destructive: 0 70% 55%;
+    /* === Estados semânticos (mesma família de hue do semáforo de atraso) === */
+    --destructive: 0 65% 58%;
     --destructive-foreground: 0 0% 98%;
 
-    --success: 142 69% 42%;
-    --success-foreground: 0 0% 100%;
+    --success: 156 42% 48%;
+    --success-foreground: 222 47% 9%;
 
-    --warning: 38 92% 50%;
+    --warning: 39 80% 58%;
     --warning-foreground: 20 14% 4%;
 
-    --info: 199 89% 48%;
-    --info-foreground: 0 0% 100%;
+    --info: 210 55% 62%;
+    --info-foreground: 222 47% 9%;
 
     /* === Bordas e inputs === */
     --border: 220 32% 20%;
     --input: 222 44% 11%;
-    --ring: 217 91% 60%;
+    --ring: 210 50% 62%;
 
     --radius: 0.5rem;
   }

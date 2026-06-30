@@ -252,10 +252,10 @@ export function FornecedoresCarteiraPanel({ isGestor, tipoCarteira }: Fornecedor
                     <td className="px-4 py-3">
                       {idx === 0 && (
                         <div className="flex flex-wrap gap-1.5">
-                          <Badge variant="default" className="text-[11px]">
+                          <Badge variant="warning" className="text-[11px]">
                             {row.emAberto} aberto{row.emAberto === 1 ? '' : 's'}
                           </Badge>
-                          <Badge variant="secondary" className="text-[11px]">
+                          <Badge variant="success" className="text-[11px]">
                             {row.encerrado} encerrado{row.encerrado === 1 ? '' : 's'}
                           </Badge>
                           {row.cancelado > 0 && (
@@ -305,10 +305,10 @@ export function FornecedoresCarteiraPanel({ isGestor, tipoCarteira }: Fornecedor
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1.5">
-                      <Badge variant="default" className="text-[11px]">
+                      <Badge variant="warning" className="text-[11px]">
                         {row.emAberto} aberto{row.emAberto === 1 ? '' : 's'}
                       </Badge>
-                      <Badge variant="secondary" className="text-[11px]">
+                      <Badge variant="success" className="text-[11px]">
                         {row.encerrado} encerrado{row.encerrado === 1 ? '' : 's'}
                       </Badge>
                       {row.cancelado > 0 && (

@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/toast'
-import { getAgingBadge, getAgingBucket, isOpenStatus } from '@/lib/collaborator/aging'
+import { AGING_BORDER_LEFT_CLASS, getAgingBadge, getAgingBucket, isOpenStatus } from '@/lib/collaborator/aging'
 import { emitNotaOperacaoEvent, marcarNotaEmGeracao } from '@/lib/notes/copy-intent'
 import { copyToClipboard } from '@/lib/orders/copy'
 import type { NotaOperacaoEstado, NotaPanelData } from '@/lib/types/database'
@@ -52,12 +52,14 @@ export function NotaListItem({ nota, allowOperationalActions = true }: NotaListI
   const unidadeLabel = nota.denominacao_unidade?.trim() || nota.centro?.trim() || null
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const aging = isOpenStatus(nota.status)
-    ? getAgingBadge(getAgingBucket(nota))
+  const agingBucket = isOpenStatus(nota.status) ? getAgingBucket(nota) : null
+  const aging = agingBucket
+    ? getAgingBadge(agingBucket)
     : {
       label: nota.status === 'concluida' ? 'Concluida' : 'Cancelada',
       chip: 'bg-slate-100 text-slate-600',
     }
+  const borderLeftClass = agingBucket ? AGING_BORDER_LEFT_CLASS[agingBucket] : 'border-l-slate-300'
 
   const createdLabel = nota.data_criacao_sap
     ? format(new Date(`${nota.data_criacao_sap}T00:00:00`), 'dd/MM')
@@ -187,7 +189,7 @@ export function NotaListItem({ nota, allowOperationalActions = true }: NotaListI
         tabIndex={allowOperationalActions ? 0 : undefined}
         onClick={allowOperationalActions ? () => { void handleCopyAction() } : undefined}
         onKeyDown={allowOperationalActions ? handleRowKeyDown : undefined}
-        className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 transition-colors ${allowOperationalActions ? 'cursor-pointer select-none hover:bg-muted/40' : 'bg-muted/10'}`}
+        className={`flex items-center justify-between gap-3 rounded-lg border border-l-4 px-3 py-2.5 transition-colors ${borderLeftClass} ${allowOperationalActions ? 'cursor-pointer select-none hover:bg-muted/40' : 'bg-muted/10'}`}
         title={allowOperationalActions ? `Clique para copiar #${nota.numero_nota}` : undefined}
       >
         <div className="min-w-0 flex-1">

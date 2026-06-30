@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Copy, ExternalLink, Loader2 } from 'lucide-react'
+import { Copy, ExternalLink, Loader2, RefreshCw } from 'lucide-react'
 import { format } from 'date-fns'
 import { OrderReassignDialog } from '@/components/orders/order-reassign-dialog'
 import { useToast } from '@/components/ui/toast'
@@ -238,8 +238,11 @@ export function OrderCompactCard({
 
         <div className="flex shrink-0 flex-wrap items-center gap-1 sm:justify-end" onClick={(event) => event.stopPropagation()}>
           {row.aguardando_confirmacao_sync && (
-            <span className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-100">
-              Aguardando confirmacao do sync
+            <span
+              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-amber-600 dark:text-amber-300"
+              title="Aguardando confirmação do sync"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
             </span>
           )}
 

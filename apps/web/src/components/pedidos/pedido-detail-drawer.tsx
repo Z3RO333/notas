@@ -21,9 +21,9 @@ const STATUS_LABEL: Record<PedidoCompraStatus, string> = {
   cancelado: 'Cancelado',
 }
 
-const STATUS_VARIANT: Record<PedidoCompraStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  em_aberto: 'default',
-  encerrado: 'secondary',
+const STATUS_VARIANT: Record<PedidoCompraStatus, 'warning' | 'success' | 'destructive'> = {
+  em_aberto: 'warning',
+  encerrado: 'success',
   cancelado: 'destructive',
 }
 

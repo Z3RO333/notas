@@ -46,6 +46,12 @@ export function isOpenStatus(status: NotaStatus): boolean {
   return OPEN_STATUSES.includes(status)
 }
 
+export const AGING_BORDER_LEFT_CLASS: Record<AgingBucket, string> = {
+  novo: 'border-l-emerald-500',
+  um_dia: 'border-l-amber-500',
+  dois_mais: 'border-l-red-500',
+}
+
 export function getAgingBadge(bucket: AgingBucket): { label: string; chip: string; text: string } {
   if (bucket === 'novo') {
     return {
