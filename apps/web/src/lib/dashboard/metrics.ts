@@ -4,6 +4,7 @@ import type {
   DashboardProdutividade60d,
   Especialidade,
   NotaStatus,
+  SyncHealthRow,
   SyncLog,
 } from '@/lib/types/database'
 import { resolveAvatarUrl } from '@/lib/collaborator/avatar-presentation'
@@ -280,6 +281,7 @@ export function buildKpis(summary: DashboardSummaryMetrics): DashboardKpiItem[] 
 export function buildAlerts(params: {
   summary: DashboardSummaryMetrics
   latestSync: SyncLog | null
+  syncHealth?: SyncHealthRow | null
   now?: Date
 }): DashboardAlert[] {
   const now = params.now ?? new Date()
@@ -295,14 +297,28 @@ export function buildAlerts(params: {
     })
   }
 
-  if (!params.latestSync) {
+  if (params.syncHealth?.health_status === 'critical') {
+    alerts.push({
+      id: 'sync-critico',
+      level: 'critical',
+      title: 'Saude do sync em risco',
+      description: params.syncHealth.health_reason,
+    })
+  } else if (params.syncHealth?.health_status === 'warning') {
+    alerts.push({
+      id: 'sync-aviso',
+      level: 'warning',
+      title: 'Sync precisa de atencao',
+      description: params.syncHealth.health_reason,
+    })
+  } else if (!params.latestSync) {
     alerts.push({
       id: 'sync-ausente',
       level: 'critical',
       title: 'Sem histórico de sync',
       description: 'Nenhum sync encontrado no sistema.',
     })
-  } else {
+  } else if (!params.syncHealth) {
     const startedAtMs = Date.parse(params.latestSync.started_at)
     const isSyncError = params.latestSync.status === 'error'
     const minutesSinceSync = Number.isFinite(startedAtMs)

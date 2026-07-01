@@ -7,6 +7,7 @@ export interface AdminPerson {
   role: 'admin' | 'gestor'
   especialidade: string
   ativo: boolean
+  recebe_distribuicao: boolean
   em_ferias: boolean
   data_inicio_ferias: string | null
   data_fim_ferias: string | null

@@ -63,14 +63,14 @@ function isMissingVacationColumnsError(error: { code?: string; message?: string 
 async function loadAdminPeople(supabase: Awaited<ReturnType<typeof createClient>>): Promise<AdminPerson[]> {
   const fullPeopleResult = await supabase
     .from('administradores')
-    .select('id, nome, email, role, especialidade, ativo, em_ferias, data_inicio_ferias, data_fim_ferias')
+    .select('id, nome, email, role, especialidade, ativo, recebe_distribuicao, em_ferias, data_inicio_ferias, data_fim_ferias')
     .neq('email', PMPL_FALLBACK_OWNER_EMAIL)
     .order('nome', { ascending: true })
 
   if (fullPeopleResult.error && isMissingVacationColumnsError(fullPeopleResult.error)) {
     const legacyPeopleResult = await supabase
       .from('administradores')
-      .select('id, nome, email, role, ativo, em_ferias')
+      .select('id, nome, email, role, ativo, recebe_distribuicao, em_ferias')
       .neq('email', PMPL_FALLBACK_OWNER_EMAIL)
       .order('nome', { ascending: true })
 

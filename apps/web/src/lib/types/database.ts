@@ -238,6 +238,33 @@ export interface SyncLog {
   metadata: Record<string, unknown> | null
 }
 
+export interface SyncHealthRow {
+  sync_id: string
+  job_name: string
+  started_at: string
+  finished_at: string | null
+  status: string
+  health_status: 'ok' | 'warning' | 'critical'
+  health_reason: string
+  health_rank: number
+  minutes_since_last_event: number
+  runtime_minutes: number
+  warning_after_minutes: number
+  critical_after_minutes: number
+  notas_lidas: number
+  notas_inseridas: number
+  notas_atualizadas: number
+  notas_distribuidas: number
+  source_total_rows: number | null
+  source_rows_read: number | null
+  processing_duration_ms: number | null
+  internal_error_count: number
+  internal_error_keys: string[]
+  erro_mensagem: string | null
+  databricks_job_id: string | null
+  metadata: Record<string, unknown> | null
+}
+
 export type Especialidade = 'refrigeracao' | 'elevadores' | 'geral' | 'cd_manaus' | 'cd_manaus_equip' | 'cd_taruma' | 'criticos'
 
 export interface CargaAdministrador {

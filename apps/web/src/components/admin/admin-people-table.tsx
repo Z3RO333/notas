@@ -17,6 +17,7 @@ interface AdminPeopleTableProps {
   pmplSubstitutoId?: string | null
   onEdit: (person: AdminPerson) => void
   onQuickUpdate: (person: AdminPerson, patch: Partial<PersonFormState>) => void
+  onToggleDistribuicao: (person: AdminPerson, value: boolean) => void
 }
 
 export function AdminPeopleTable({
@@ -26,6 +27,7 @@ export function AdminPeopleTable({
   pmplSubstitutoId = null,
   onEdit,
   onQuickUpdate,
+  onToggleDistribuicao,
 }: AdminPeopleTableProps) {
   return (
     <div className="overflow-x-auto rounded-md border">
@@ -37,6 +39,7 @@ export function AdminPeopleTable({
             <th className="px-3 py-2 text-left font-medium">Cargo</th>
             <th className="px-3 py-2 text-left font-medium">Função</th>
             <th className="px-3 py-2 text-left font-medium">Ativo</th>
+            <th className="px-3 py-2 text-left font-medium">Distribuição</th>
             <th className="px-3 py-2 text-left font-medium">Em férias</th>
             <th className="px-3 py-2 text-left font-medium">Período</th>
             <th className="px-3 py-2 text-right font-medium">Ações</th>
@@ -75,6 +78,13 @@ export function AdminPeopleTable({
                     checked={person.ativo}
                     onCheckedChange={(checked) => onQuickUpdate(person, { ativo: checked })}
                     disabled={isPending}
+                  />
+                </td>
+                <td className="px-3 py-2">
+                  <Switch
+                    checked={person.recebe_distribuicao}
+                    onCheckedChange={(checked) => onToggleDistribuicao(person, checked)}
+                    disabled={isPending || !person.ativo || person.role === 'gestor'}
                   />
                 </td>
                 <td className="px-3 py-2">

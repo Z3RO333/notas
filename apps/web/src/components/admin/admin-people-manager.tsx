@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus } from 'lucide-react'
-import { salvarPessoaAdmin } from '@/lib/actions/admin-actions'
+import { salvarPessoaAdmin, toggleDistribuicao } from '@/lib/actions/admin-actions'
 import { AdminPersonDialog } from '@/components/admin/admin-person-dialog'
 import { AdminPeopleTable } from '@/components/admin/admin-people-table'
 import type {
@@ -72,6 +72,22 @@ export function AdminPeopleManager({
     })
   }
 
+  function handleToggleDistribuicao(person: AdminPerson, value: boolean) {
+    startTransition(async () => {
+      try {
+        await toggleDistribuicao(person.id, value)
+        toast({ title: 'Distribuição atualizada', variant: 'success' })
+        router.refresh()
+      } catch (error) {
+        toast({
+          title: 'Erro ao atualizar distribuição',
+          description: error instanceof Error ? error.message : 'Falha inesperada',
+          variant: 'error',
+        })
+      }
+    })
+  }
+
   function handleSave() {
     startTransition(async () => {
       try {
@@ -125,6 +141,7 @@ export function AdminPeopleManager({
         pmplSubstitutoId={pmplSubstitutoId}
         onEdit={openForEdit}
         onQuickUpdate={handleQuickUpdate}
+        onToggleDistribuicao={handleToggleDistribuicao}
       />
 
       <AdminPersonDialog
