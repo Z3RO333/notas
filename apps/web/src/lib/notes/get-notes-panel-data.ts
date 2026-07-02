@@ -31,7 +31,10 @@ const NOTE_SUMMARY_FIELDS = 'id, status, administrador_id, centro, denominacao_u
 const EMPTY_UUID = '00000000-0000-0000-0000-000000000000'
 const NOTA_OPERATIONAL_FIELDS = 'nota_id, numero_nota, status_operacional, em_geracao_por_admin_id, em_geracao_por_email, em_geracao_em, ultima_copia_em, ttl_minutos, numero_ordem_confirmada, confirmada_em, created_at, updated_at' as const
 
-const CARGA_ADMIN_FIELDS = 'id, nome, email, ativo, max_notas, avatar_url, especialidade, recebe_distribuicao, em_ferias, qtd_nova, qtd_em_andamento, qtd_encaminhada, qtd_abertas, qtd_concluidas, qtd_canceladas, qtd_ordens_ativas, meta_semanal, notas_recebidas_7d, ordens_recebidas_7d' as const
+// vw_carga_real_administradores não tem qtd_canceladas (existe só na view
+// irmã vw_carga_administradores, usada no copilot) — CargaAdministrador
+// exige o campo no tipo, default 0 abaixo.
+const CARGA_ADMIN_FIELDS = 'id, nome, email, ativo, max_notas, avatar_url, especialidade, recebe_distribuicao, em_ferias, qtd_nova, qtd_em_andamento, qtd_encaminhada, qtd_abertas, qtd_concluidas, qtd_ordens_ativas, meta_semanal, notas_recebidas_7d, ordens_recebidas_7d' as const
 
 // A view agrega 5 CTEs sobre notas+ordens para devolver ~14 linhas idênticas
 // para todos os usuários — era recalculada a cada load do painel (10k+ calls
@@ -47,7 +50,7 @@ const getCargaAdministradoresCached = unstable_cache(
       .select(CARGA_ADMIN_FIELDS)
       .order('nome')
     if (error) throw new Error(error.message)
-    return (data ?? []) as unknown as CargaAdministrador[]
+    return (data ?? []).map((row) => ({ ...row, qtd_canceladas: 0 })) as unknown as CargaAdministrador[]
   },
   ['carga-real-administradores'],
   { revalidate: 60, tags: ['carga-admins'] },
