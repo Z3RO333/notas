@@ -43,7 +43,7 @@ export async function AdminNotesSection({ period }: AdminNotesSectionProps) {
   ] = await Promise.all([
     supabase.from('vw_carga_administradores').select('*').order('nome'),
     supabase.from('administradores').select('id').eq('role', 'admin'),
-    supabase.from('sync_log').select('*').order('started_at', { ascending: false }).limit(1),
+    supabase.from('sync_log').select('id, started_at, finished_at, status').order('started_at', { ascending: false }).limit(1),
     supabase.rpc('buscar_sync_health', { p_job: 'fast' }),
     supabase.rpc('calcular_metricas_notas_dashboard', {
       p_start_iso: period.startIso,

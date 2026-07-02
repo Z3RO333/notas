@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { applyAutomaticOrdersRouting } from '@/lib/orders/pmpl-routing'
 import { MAINTAINER_EMAILS } from '@/lib/auth/shared'
@@ -19,6 +19,9 @@ export interface AuthenticatedAdminActionContext {
 }
 
 export function revalidateCockpitPaths() {
+  // Carga por admin é cacheada 60s (get-notes-panel-data) — mutações que
+  // mexem em atribuição/disponibilidade precisam refletir na hora.
+  revalidateTag('carga-admins')
   revalidatePath('/', 'layout')
   revalidatePath('/admin', 'layout')
   revalidatePath('/ordens', 'layout')

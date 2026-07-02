@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useTransition } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const MES_NOMES: Record<string, string> = {
@@ -31,6 +32,7 @@ export function FinanceiroFilters({ anos, anoAtivo, mesAtivo }: FinanceiroFilter
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [isPending, startTransition] = useTransition()
 
   const updateParam = useCallback((key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -41,16 +43,26 @@ export function FinanceiroFilters({ anos, anoAtivo, mesAtivo }: FinanceiroFilter
     } else {
       params.delete(key)
     }
-    router.replace(`${pathname}?${params.toString()}`)
+    startTransition(() => {
+      router.replace(`${pathname}?${params.toString()}`)
+    })
   }, [pathname, router, searchParams])
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border bg-card/60 p-3 sm:p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        Recorte financeiro
-      </p>
+      <div className="flex items-center gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          Recorte financeiro
+        </p>
+        {isPending ? (
+          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Atualizando…
+          </span>
+        ) : null}
+      </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className={`flex flex-wrap items-center gap-2 ${isPending ? 'pointer-events-none opacity-60' : ''}`}>
         <Select
           value={anoAtivo ? String(anoAtivo) : 'todos'}
           onValueChange={(value) => updateParam('ano', value)}

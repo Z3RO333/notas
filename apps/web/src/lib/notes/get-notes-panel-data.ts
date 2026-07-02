@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { unstable_cache } from 'next/cache'
 import {
   isFixedCdOwnerEmail,
   isPmplFallbackOwnerEmail,
@@ -14,6 +15,7 @@ import {
   applyOperationalStateToNota,
   toNotaOperacaoEstado,
 } from '@/lib/notes/operational-state'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import type {
   CargaAdministrador,
@@ -28,6 +30,28 @@ const NOTA_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prior
 const NOTE_SUMMARY_FIELDS = 'id, status, administrador_id, centro, denominacao_unidade, data_criacao_sap, created_at' as const
 const EMPTY_UUID = '00000000-0000-0000-0000-000000000000'
 const NOTA_OPERATIONAL_FIELDS = 'nota_id, numero_nota, status_operacional, em_geracao_por_admin_id, em_geracao_por_email, em_geracao_em, ultima_copia_em, ttl_minutos, numero_ordem_confirmada, confirmada_em, created_at, updated_at' as const
+
+const CARGA_ADMIN_FIELDS = 'id, nome, email, ativo, max_notas, avatar_url, especialidade, recebe_distribuicao, em_ferias, qtd_nova, qtd_em_andamento, qtd_encaminhada, qtd_abertas, qtd_concluidas, qtd_canceladas, qtd_ordens_ativas, meta_semanal, notas_recebidas_7d, ordens_recebidas_7d' as const
+
+// A view agrega 5 CTEs sobre notas+ordens para devolver ~14 linhas idênticas
+// para todos os usuários — era recalculada a cada load do painel (10k+ calls
+// de 715ms em pg_stat_statements). Cache de 60s compartilhado entre requests;
+// mutações que mudam a carga invalidam via revalidateTag('carga-admins')
+// dentro de revalidateCockpitPaths. Usa o admin client porque unstable_cache
+// não pode ler cookies de sessão (a view não tem RLS e o dado é global).
+const getCargaAdministradoresCached = unstable_cache(
+  async (): Promise<CargaAdministrador[]> => {
+    const supabase = createAdminClient()
+    const { data, error } = await supabase
+      .from('vw_carga_real_administradores')
+      .select(CARGA_ADMIN_FIELDS)
+      .order('nome')
+    if (error) throw new Error(error.message)
+    return (data ?? []) as unknown as CargaAdministrador[]
+  },
+  ['carga-real-administradores'],
+  { revalidate: 60, tags: ['carga-admins'] },
+)
 const VALID_NOTES_KPI: NotesKpiFilter[] = ['notas', 'novas', 'um_dia', 'dois_mais']
 const OPEN_NOTES_STATUS_FILTERS = new Set(['abertas', 'nova', 'em_andamento', 'encaminhada_fornecedor'])
 const OPERATIONAL_STATE_BATCH_SIZE = 500
@@ -365,8 +389,8 @@ export async function loadNotesPanelSupportingData(
   const filters = normalizePanelFilters(params.searchParams)
   const shouldLookup = Boolean(filters.q) && !canViewGlobal && Boolean(currentAdminId)
 
-  const [cargaResult, adminsResult, lookupResult] = await Promise.all([
-    supabase.from('vw_carga_real_administradores').select('*').order('nome'),
+  const [allCarga, adminsResult, lookupResult] = await Promise.all([
+    getCargaAdministradoresCached(),
     supabase
       .from('administradores')
       .select('id, nome')
@@ -382,10 +406,8 @@ export async function loadNotesPanelSupportingData(
       : Promise.resolve({ data: null, error: null }),
   ])
 
-  const preloadError = [cargaResult.error, adminsResult.error].find(Boolean)
-  if (preloadError) throw preloadError
+  if (adminsResult.error) throw adminsResult.error
 
-  const allCarga = (cargaResult.data ?? []) as CargaAdministrador[]
   const admins = (adminsResult.data ?? []) as Array<{ id: string; nome: string }>
   const hiddenCdOwnerIds = new Set(
     allCarga

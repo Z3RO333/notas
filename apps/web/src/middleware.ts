@@ -12,7 +12,13 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Public routes — no session required.
-  if (pathname.startsWith('/api/auth') || pathname === '/api/health') {
+  // /api/radar/alerta-pintura é chamada por cron sem cookie de sessão;
+  // a autorização real é o CRON_SECRET validado dentro do handler.
+  if (
+    pathname.startsWith('/api/auth')
+    || pathname === '/api/health'
+    || pathname === '/api/radar/alerta-pintura'
+  ) {
     return NextResponse.next()
   }
 

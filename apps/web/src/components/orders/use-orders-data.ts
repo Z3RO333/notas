@@ -418,8 +418,10 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
       if (!res.ok) throw new Error('Falha ao carregar destaques')
       return res.json() as Promise<{ highlights: OrdersWorkspaceHighlights }>
     },
-    staleTime: 30_000,
-    gcTime: 5 * 60_000,
+    // Destaques mudam no ritmo do sync (minutos), não a cada interação:
+    // cada refetch custa 2 RPCs de workspace no banco.
+    staleTime: 3 * 60_000,
+    gcTime: 10 * 60_000,
     retry: 1,
   })
 
@@ -644,9 +646,12 @@ export function useOrdersData({ filters, initialUser, onResetSuccess }: UseOrder
         },
       )
 
-      void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.highlights, exact: true })
-      void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.side, exact: true })
-      void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.kpis, exact: true })
+      // O estado já foi corrigido otimisticamente acima; marca como stale sem
+      // refetch imediato — o próximo uso natural reconcilia com o servidor,
+      // evitando 3 queries de workspace disparadas em sequência ao patch.
+      void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.highlights, exact: true, refetchType: 'none' })
+      void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.side, exact: true, refetchType: 'none' })
+      void queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.kpis, exact: true, refetchType: 'none' })
     },
     [
       effectiveFilters.responsavel,

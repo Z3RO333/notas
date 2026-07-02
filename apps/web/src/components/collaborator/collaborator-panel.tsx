@@ -234,11 +234,14 @@ export function CollaboratorPanel({
 
   useEffect(() => {
     if (!syncWithUrl) return
+    // 600ms: o filtro local já responde a cada tecla; sincronizar a URL
+    // dispara o refetch do painel no servidor (query cara) — só vale quando
+    // o usuário parou de digitar de verdade.
     const timer = setTimeout(() => {
       const normalized = search.trim()
       if (normalized === initialSearch) return
       replaceQuery({ q: normalized || null })
-    }, 300)
+    }, 600)
 
     return () => clearTimeout(timer)
   }, [search, initialSearch, syncWithUrl, replaceQuery])

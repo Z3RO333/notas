@@ -1,5 +1,6 @@
 'use client'
 
+import { useTransition } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import type { GestaoSegmentoSummary } from '@/lib/types/database'
@@ -21,6 +22,7 @@ export function TipoUnidadeTabs({ segmentos, tipoAtivo }: TipoUnidadeTabsProps) 
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [isPending, startTransition] = useTransition()
 
   function handleSelect(tipo: string) {
     const params = new URLSearchParams(searchParams.toString())
@@ -29,7 +31,9 @@ export function TipoUnidadeTabs({ segmentos, tipoAtivo }: TipoUnidadeTabsProps) 
     } else {
       params.set('tipo', tipo.toLowerCase())
     }
-    router.replace(`${pathname}?${params.toString()}`)
+    startTransition(() => {
+      router.replace(`${pathname}?${params.toString()}`)
+    })
   }
 
   const tipoAtivoUpper = tipoAtivo ? tipoAtivo.toUpperCase() : 'TODOS'
@@ -37,7 +41,7 @@ export function TipoUnidadeTabs({ segmentos, tipoAtivo }: TipoUnidadeTabsProps) 
   const segmentosMap = Object.fromEntries(segmentos.map((s) => [s.tipo, s]))
 
   return (
-    <div className="flex gap-1 border-b pb-px">
+    <div className={cn('flex gap-1 border-b pb-px', isPending && 'pointer-events-none opacity-60')}>
       {TAB_ORDER.map((tipo) => {
         const isActive = tipoAtivoUpper === tipo
         const seg = tipo !== 'TODOS' ? segmentosMap[tipo] : null
@@ -46,6 +50,7 @@ export function TipoUnidadeTabs({ segmentos, tipoAtivo }: TipoUnidadeTabsProps) 
           <button
             key={tipo}
             onClick={() => handleSelect(tipo)}
+            disabled={isPending}
             className={cn(
               'flex items-center gap-2 rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors border-b-2',
               isActive

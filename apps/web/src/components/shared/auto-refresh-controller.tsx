@@ -12,8 +12,8 @@ interface AutoRefreshControllerProps {
 
 export function AutoRefreshController({
   onRefresh,
-  defaultIntervalSec = 30,
-  intervalsSec = [15, 30, 60],
+  defaultIntervalSec = 60,
+  intervalsSec = [30, 60, 120],
 }: AutoRefreshControllerProps) {
   const [enabled, setEnabled] = useState(true)
   const [intervalSec, setIntervalSec] = useState(defaultIntervalSec)
@@ -22,13 +22,37 @@ export function AutoRefreshController({
   useEffect(() => {
     if (!enabled) return
 
-    const timer = setInterval(() => {
+    let hiddenSince: number | null = document.hidden ? Date.now() : null
+
+    const tick = () => {
+      // Aba oculta não paga o custo do refresh (cada tick re-executa o RSC
+      // inteiro no servidor); ao voltar, o handler de visibilidade recupera.
+      if (document.hidden) return
       setRefreshing(true)
       onRefresh()
       setTimeout(() => setRefreshing(false), 800)
-    }, intervalSec * 1000)
+    }
 
-    return () => clearInterval(timer)
+    const timer = setInterval(tick, intervalSec * 1000)
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        hiddenSince = Date.now()
+        return
+      }
+      // Voltou para a aba: refresh imediato só se ficou oculta mais que um intervalo
+      if (hiddenSince !== null && Date.now() - hiddenSince >= intervalSec * 1000) {
+        tick()
+      }
+      hiddenSince = null
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }, [enabled, intervalSec, onRefresh])
 
   const statusLabel = useMemo(() => {

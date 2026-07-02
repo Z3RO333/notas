@@ -6,7 +6,6 @@ import {
   revalidateCockpitPaths,
   writeAdminAuditLog,
 } from '@/lib/actions/admin-action-support'
-import { createClient } from '@/lib/supabase/server'
 
 export async function atualizarStatusNota(params: {
   notaId: string
@@ -106,7 +105,7 @@ export async function buscarCodigosAvaliadas(params: {
   endExclusiveIso: string
   adminId?: string | null
 }): Promise<string[]> {
-  const supabase = await createClient()
+  const { supabase } = await getAuthenticatedAdminActionContext()
   const AVALIADAS_RAW_STATUS = ['EXECUCAO_SATISFATORIO', 'EXECUCAO_SATISFATORIA']
   const PAGE_SIZE = 1000
 

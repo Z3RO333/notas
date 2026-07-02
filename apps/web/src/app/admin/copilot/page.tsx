@@ -37,7 +37,6 @@ import type {
 
 export const dynamic = 'force-dynamic'
 
-const OPEN_NOTAS_FIELDS = 'data_criacao_sap, created_at, status' as const
 const NOTA_PANEL_FIELDS = 'id, numero_nota, descricao, status, administrador_id, prioridade, centro, data_criacao_sap, created_at' as const
 const ORDERS_FETCH_PAGE_SIZE = 1000
 const ORDERS_PANEL_FIELDS = 'unidade, semaforo_atraso, status_ordem_raw' as const
@@ -54,7 +53,6 @@ export default async function CopilotPage() {
     cargaResult,
     adminIdsResult,
     fluxoResult,
-    openNotasResult,
     notasPanelResult,
     syncResult,
     unassignedResult,
@@ -66,11 +64,10 @@ export default async function CopilotPage() {
     supabase.from('vw_carga_administradores').select('*').order('nome'),
     supabase.from('administradores').select('id').eq('role', 'admin'),
     supabase.from('vw_dashboard_fluxo_diario_90d').select('*').order('dia', { ascending: true }),
-    supabase.from('vw_notas_sem_ordem').select(OPEN_NOTAS_FIELDS),
     supabase
       .from('vw_notas_sem_ordem')
       .select(NOTA_PANEL_FIELDS),
-    supabase.from('sync_log').select('*').order('started_at', { ascending: false }).limit(1),
+    supabase.from('sync_log').select('id, started_at, finished_at, status').order('started_at', { ascending: false }).limit(1),
     supabase
       .from('vw_notas_sem_ordem')
       .select('id', { count: 'exact', head: true })
@@ -85,7 +82,6 @@ export default async function CopilotPage() {
     cargaResult.error,
     adminIdsResult.error,
     fluxoResult.error,
-    openNotasResult.error,
     notasPanelResult.error,
     syncResult.error,
     unassignedResult.error,
@@ -128,8 +124,10 @@ export default async function CopilotPage() {
   const carga = ((cargaResult.data ?? []) as CargaAdministrador[])
     .filter((admin) => operationalAdminIds.has(admin.id))
   const fluxoRows = (fluxoResult.data ?? []) as DashboardFluxoDiario90d[]
-  const openNotas = (openNotasResult.data ?? []) as OpenNotaAgingRow[]
   const notasPanel = (notasPanelResult.data ?? []) as NotaPanelData[]
+  // NOTA_PANEL_FIELDS é superconjunto dos campos de aging; a mesma leitura
+  // alimenta os dois usos (antes eram 2 varreduras completas da view).
+  const openNotas = notasPanel as OpenNotaAgingRow[]
   const latestSync = ((syncResult.data ?? []) as SyncLog[])[0] ?? null
   const notasSemAtribuir = unassignedResult.count ?? 0
 

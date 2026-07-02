@@ -580,16 +580,16 @@ export function OrdersOwnerPanel({
       )}
 
       {canViewGlobal && semResponsavelCount > 0 && (
-        <div className="rounded-lg border border-red-300 bg-red-50/80 p-3">
+        <div className="rounded-lg border border-red-300 bg-red-50/80 p-3 dark:border-red-900/60 dark:bg-red-950/40">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="inline-flex items-center gap-2 text-sm font-medium text-red-800">
+            <p className="inline-flex items-center gap-2 text-sm font-medium text-red-800 dark:text-red-300">
               <AlertTriangle className="h-4 w-4" />
               Ordens sem responsável: {semResponsavelCount}
             </p>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 dark:border-red-900/60 dark:bg-red-950/60 dark:text-red-300 dark:hover:bg-red-900/40"
                 onClick={() => replaceQuery({ responsavel: '__sem_atual__', page: 1 })}
               >
                 Filtrar sem responsável
@@ -597,7 +597,7 @@ export function OrdersOwnerPanel({
               {canBulkReassign && semResponsavelVisibleIds.length > 0 && (
                 <button
                   type="button"
-                  className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                  className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 dark:border-red-900/60 dark:bg-red-950/60 dark:text-red-300 dark:hover:bg-red-900/40"
                   onClick={() => setSelectedNotaIds(semResponsavelVisibleIds)}
                 >
                   Selecionar sem responsável
