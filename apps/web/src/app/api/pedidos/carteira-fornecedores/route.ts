@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import {
   buildCarteiraKpis,
   deriveAvailableAdmins,
+  filterCarteiraRowsByAdmin,
   filterCarteiraRowsByTipo,
   isValidCarteiraTipo,
 } from '@/lib/pedidos/carteira-helpers'
@@ -91,9 +92,14 @@ export async function GET(request: Request) {
     avatar_url: admin.avatarUrl,
   }))
 
+  // Escopo por pedido, não por dono nominal da carteira do fornecedor: um
+  // fornecedor pode ter pedidos individuais atribuídos a admins diferentes
+  // do dono registrado em pedidos_compra_carteira_fornecedor (ex: mesmo
+  // fornecedor atende duas categorias, cada uma com um responsável). Filtrar
+  // só por row.adminId vazava pedidos de outras pessoas pra quem não é gestor.
   const rows = canViewGlobal
     ? rowsForTipo
-    : rowsForTipo.filter((row) => row.adminId === currentAdminContext.adminId)
+    : filterCarteiraRowsByAdmin(rowsForTipo, tipo, currentAdminContext.adminId)
 
   const response: PedidosCarteiraResponse = {
     rows,
