@@ -8,7 +8,7 @@ import {
   Trophy,
   Users,
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { Avatar } from '@/components/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
@@ -201,7 +201,7 @@ function isRpcWithoutTipoOrdemSupport(
 }
 
 async function callRpcWithOptionalTipoOrdem<T>(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   rpcName: string,
   params: Record<string, unknown>,
 ): Promise<{ data: T | null; error: { code?: string; message: string } | null }> {
@@ -776,7 +776,7 @@ function AdminSectionSkeleton() {
 }
 
 async function OperacionalSection({ period, especialidade }: AdminProductivityPanelProps) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const filtroEspecialidade = especialidade ?? undefined
 
   const [
@@ -989,7 +989,7 @@ async function OperacionalSection({ period, especialidade }: AdminProductivityPa
 }
 
 async function AdminSection({ period }: { period: AdminProductivityPeriod }) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const [
     currentKpisResult,

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { PostgrestError } from '@supabase/supabase-js'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { OperacionalDashboardPeriod } from '@/lib/dashboard/operacional-period'
 import type {
@@ -50,7 +50,7 @@ function isRpcWithoutOptionalParamSupport(
 }
 
 async function callRpcWithOptionalParam<T>(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   rpcName: string,
   params: Record<string, unknown>,
   optionalParam: string,
@@ -134,7 +134,7 @@ function ServicosRecorrentesList({ rows, periodLabel }: { rows: ServicoMaisFeito
 }
 
 export async function AdminOperacionalSection({ period, fornecedorCodigo, especialidade, avatarByCode = {} }: AdminOperacionalSectionProps) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const filtro = fornecedorCodigo ?? undefined
   const filtroEspecialidade = especialidade ?? undefined
 

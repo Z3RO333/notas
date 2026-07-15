@@ -1,12 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 
 async function assertGestor() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const ctx = await getCurrentAdminContext()
   if (!ctx.isAuthenticated || !ctx.adminId) throw new Error('Nao autenticado')
   if (ctx.role !== 'gestor') throw new Error('Apenas gestores podem gerenciar operacionais')

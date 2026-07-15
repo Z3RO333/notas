@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 
 export interface PmplCarteiraPreview {
@@ -29,7 +29,7 @@ export async function previewRealocarCarteiraPmpl(
   novoAdminId: string,
 ): Promise<{ data: PmplCarteiraPreview | null; error: string | null }> {
   try {
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     const { data, error } = await supabase.rpc('preview_realocar_carteira_pmpl', {
       p_fornecedor_codigo: fornecedorCodigo,
       p_novo_admin_id: novoAdminId,
@@ -70,7 +70,7 @@ export async function realocarCarteiraPmplFornecedor(
       return { data: null, error: 'Apenas gestores podem realocar carteiras PMPL.' }
     }
 
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     const { data, error } = await supabase.rpc('realocar_carteira_pmpl_fornecedor', {
       p_fornecedor_codigo: fornecedorCodigo,
       p_novo_admin_id: novoAdminId,

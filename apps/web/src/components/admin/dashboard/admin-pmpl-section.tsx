@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { OrdersAgingTable } from '@/components/orders/orders-aging-table'
 import { OrdersKpiStrip } from '@/components/orders/orders-kpi-strip'
 import type { AdminDashboardPeriod } from '@/lib/dashboard/period'
@@ -22,7 +22,7 @@ export async function AdminPmplSection({
   period,
   reassignTargets,
 }: AdminPmplSectionProps) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const [pmplKpisResult, pmplRowsResult] = await Promise.all([
     supabase.rpc('calcular_kpis_ordens_operacional', {

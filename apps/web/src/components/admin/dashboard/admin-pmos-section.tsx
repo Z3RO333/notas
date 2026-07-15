@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { OrdersAgingTable } from '@/components/orders/orders-aging-table'
 import { OrdersKpiStrip } from '@/components/orders/orders-kpi-strip'
 import { OrdersRankingAdmin } from '@/components/orders/orders-ranking-admin'
@@ -40,7 +40,7 @@ function isRpcWithoutTipoOrdemSupport(
 }
 
 async function callRpcWithOptionalTipoOrdem<T>(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   rpcName: string,
   params: Record<string, unknown>
 ): Promise<{ data: T | null; error: { code?: string; message: string } | null }> {
@@ -66,7 +66,7 @@ export async function AdminPmosSection({
   period,
   reassignTargets,
 }: AdminPmosSectionProps) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const [
     orderKpisResult,

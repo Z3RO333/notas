@@ -16,7 +16,6 @@ import {
   toNotaOperacaoEstado,
 } from '@/lib/notes/operational-state'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createClient } from '@/lib/supabase/server'
 import type {
   CargaAdministrador,
   NotesKpiFilter,
@@ -208,7 +207,7 @@ function shouldIncludePanelNote(
 }
 
 function buildNotesPanelBaseQuery(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   supportingData: NotesPanelSupportingData,
   fields: string,
 ) {
@@ -252,7 +251,7 @@ function buildNotesPanelBaseQuery(
 }
 
 async function fetchPanelNotes<T extends Pick<NotaPanelData, 'administrador_id' | 'centro' | 'denominacao_unidade'>>(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   supportingData: NotesPanelSupportingData,
   fields: string,
   maxKeptRows?: number,
@@ -289,7 +288,7 @@ async function fetchPanelNotes<T extends Pick<NotaPanelData, 'administrador_id' 
 }
 
 async function loadOperationalStateByNotaId(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   noteIds: string[],
 ): Promise<{
   operationalByNotaId: Map<string, NonNullable<ReturnType<typeof toNotaOperacaoEstado>>>
@@ -385,7 +384,7 @@ function buildUnassignedCollaborator(notasSemAtribuir: SummaryNoteRow[] | NotaPa
 export async function loadNotesPanelSupportingData(
   params: NotesPanelBaseParams,
 ): Promise<NotesPanelSupportingData> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const currentAdminId = params.currentAdminContext.adminId
   const currentAdminRole = params.currentAdminContext.role
   const canViewGlobal = params.currentAdminContext.canViewGlobal
@@ -447,7 +446,7 @@ export async function getNotesPanelSummaryData(
   params: NotesPanelLoaderParams,
 ): Promise<NotesPanelSummaryData> {
   const supportingData = await resolveSupportingData(params)
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   let notasFiltradas: SummaryNoteRow[]
 
   if (params.listBaseData) {
@@ -564,7 +563,7 @@ export async function getNotesPanelListBaseData(
   params: NotesPanelLoaderParams,
 ): Promise<NotesPanelListBaseData> {
   const supportingData = await resolveSupportingData(params)
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { rows: notasFiltradasBase, hasMore } = await fetchPanelNotes<NotaPanelData>(
     supabase,
     supportingData,
@@ -578,7 +577,7 @@ export async function getNotesPanelListBaseData(
 export async function getNotesPanelListData(
   params: NotesPanelLoaderParams,
 ): Promise<NotesPanelListData> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { notasFiltradasBase, hasMore } = params.listBaseData
     ? await params.listBaseData
     : await getNotesPanelListBaseData(params)

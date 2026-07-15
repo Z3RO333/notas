@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 
 export interface PedidosCarteiraRealocacaoResumo {
@@ -24,7 +24,7 @@ export async function realocarCarteiraFornecedorPedidos(
       return { data: null, error: 'Apenas gestores podem realocar a carteira de fornecedores de Pedidos de Compra.' }
     }
 
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     const { data, error } = await supabase.rpc('realocar_carteira_fornecedor_pedidos', {
       p_fornecedor_codigo: fornecedorCodigo,
       p_novo_admin_id: novoAdminId,
