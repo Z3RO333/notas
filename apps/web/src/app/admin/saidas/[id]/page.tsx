@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { SaidaDetalhePanel } from '@/components/saidas/saida-detalhe-panel'
 import type {
   RotaDispatchStatus,
@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: 'Saída Operacional | Cockpit' }
 
 export default async function SaidaDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const [{ data, error }, { data: dispatch }] = await Promise.all([
     supabase

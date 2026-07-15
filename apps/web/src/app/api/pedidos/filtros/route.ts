@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { PedidoCompraStatus, PedidosFiltrosResponse, PedidosKpis } from '@/lib/types/pedidos'
 
 const VALID_STATUS: readonly PedidoCompraStatus[] = ['em_aberto', 'encerrado', 'cancelado']
@@ -38,7 +38,7 @@ function mapKpis(value: Partial<PedidosKpis> | null | undefined): PedidosKpis {
 }
 
 export async function GET(request: Request) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const currentAdminContext = await getCurrentRequestAdminContext({
     allowMaintainerView: true,
   })

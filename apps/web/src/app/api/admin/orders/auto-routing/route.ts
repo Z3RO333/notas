@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { applyAutomaticOrdersRouting } from '@/lib/orders/pmpl-routing'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function POST() {
   const currentAdminContext = await getCurrentAdminContext()
@@ -11,7 +11,7 @@ export async function POST() {
   }
 
   try {
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     await applyAutomaticOrdersRouting({
       supabase,
       gestorId: currentAdminContext.adminId,

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
   buildCarteiraKpis,
   deriveAvailableAdmins,
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
     )
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const currentAdminContext = await getCurrentRequestAdminContext({
     allowMaintainerView: true,
   })

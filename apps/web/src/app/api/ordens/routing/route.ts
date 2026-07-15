@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { applyAutomaticOrdersRouting } from '@/lib/orders/pmpl-routing'
 import { logger } from '@/lib/logger'
 
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Nao autorizado' }, { status: 401 })
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { data: gestor, error: gestorError } = await supabase
     .from('administradores')
