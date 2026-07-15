@@ -221,7 +221,6 @@ function prioritizeOldestHighlights(rows: OrdemNotaAcompanhamento[]): OrdemNotaA
 export async function GET(request: Request) {
   const supabase = await createClient()
   const currentAdminContext = await getCurrentRequestAdminContext({
-    supabase,
     allowMaintainerView: true,
   })
 
@@ -657,7 +656,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const currentAdminContext = await getCurrentRequestAdminContext({ supabase })
+  const currentAdminContext = await getCurrentRequestAdminContext()
 
   if (!currentAdminContext.email) {
     return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
