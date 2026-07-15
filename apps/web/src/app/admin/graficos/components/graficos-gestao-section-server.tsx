@@ -1,6 +1,6 @@
 import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
 import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { buildGestaoLojasDisponiveis } from '../gestao-filter-options'
 import { GestaoFilters } from './gestao-filters'
 import { OfficialUnitSummary } from './official-unit-summary'
@@ -40,7 +40,7 @@ export async function GraficosGestaoSectionServer({
   params,
 }: GraficosGestaoSectionServerProps) {
   const filters = resolveGraficosFilters(params)
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const payloadResult = await supabase.rpc('buscar_graficos_gestao_agregado', {
     p_ano: filters.ano ?? null,

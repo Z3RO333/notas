@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { AuditTable } from '@/components/admin/audit-table'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
 import type { AdminAuditLog, PerspectivaReatribuicaoAdmin30d } from '@/lib/types/database'
@@ -6,7 +6,7 @@ import type { AdminAuditLog, PerspectivaReatribuicaoAdmin30d } from '@/lib/types
 export const dynamic = 'force-dynamic'
 
 export default async function AuditoriaPage() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const [rawLogsResult, perspectivaResult] = await Promise.all([
     supabase

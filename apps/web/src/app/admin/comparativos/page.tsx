@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { ChartLabelsToggle } from '@/components/charts/chart-labels-toggle'
@@ -44,7 +44,7 @@ function resolveTipoOrdem(value?: string): ComparativoTipoOrdemFilter {
 
 export default async function ComparativosPage({ searchParams }: ComparativosPageProps) {
   const params = (await searchParams) ?? {}
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const tipoOrdem = resolveTipoOrdem(params.tipo_ordem)
 
   const yearsResult = await supabase.rpc('listar_comparativo_anos')

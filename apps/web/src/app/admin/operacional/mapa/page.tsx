@@ -2,13 +2,13 @@ import { redirect } from 'next/navigation'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { OperacionalMapa } from '@/components/admin/operacional/operacional-mapa'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { OperacionalAdmin, OperacionalUnidade } from '@/lib/types/database'
 
 export const dynamic = 'force-dynamic'
 
 async function loadMapaData(): Promise<OperacionalAdmin[]> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const [operacionaisResult, unidadesResult] = await Promise.all([
     supabase

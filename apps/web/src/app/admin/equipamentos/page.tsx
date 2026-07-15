@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type {
   GestaoEvolucaoMes,
   GestaoTopLoja,
@@ -68,7 +68,7 @@ export default async function EquipamentosPage({ searchParams }: EquipamentosPag
   const tipoOrdem = params.tipo_ordem ?? undefined
   const equipamento = params.equipamento ?? undefined
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const [
     topElevRes,

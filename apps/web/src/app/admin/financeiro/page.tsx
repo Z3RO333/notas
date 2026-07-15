@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type {
   FinanceiroEvolucaoMes,
   FinanceiroKpiSummary,
@@ -137,7 +137,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
     : (Number.isFinite(parsedAno) ? parsedAno : currentYear)
   const mes = Number.isFinite(parsedMes) ? parsedMes : undefined
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const [financeiroResult, cartaoResult] = await Promise.all([
     supabase.rpc('buscar_financeiro_dashboard_agregado', {
