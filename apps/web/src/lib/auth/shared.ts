@@ -1,6 +1,8 @@
 import type { UserRole } from '@/lib/types/database'
 
-export const BEMOL_EMAIL_DOMAIN = '@bemol.com.br'
+const ALLOWED_EMAIL_DOMAIN = (process.env.ALLOWED_EMAIL_DOMAIN || 'bemol.com.br').toLowerCase()
+
+export const BEMOL_EMAIL_DOMAIN = `@${ALLOWED_EMAIL_DOMAIN}`
 
 function buildMaintainerEmails(): ReadonlySet<string> {
   const raw = process.env.MAINTAINER_EMAILS ?? ''
