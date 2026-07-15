@@ -40,7 +40,6 @@ function mapKpis(value: Partial<PedidosKpis> | null | undefined): PedidosKpis {
 export async function GET(request: Request) {
   const supabase = await createClient()
   const currentAdminContext = await getCurrentRequestAdminContext({
-    supabase,
     allowMaintainerView: true,
   })
 

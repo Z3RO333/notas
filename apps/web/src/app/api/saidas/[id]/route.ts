@@ -9,7 +9,7 @@ export async function GET(
 ) {
   const { id } = await params
   const supabase = await createClient()
-  const ctx = await getCurrentRequestAdminContext({ supabase, allowMaintainerView: true })
+  const ctx = await getCurrentRequestAdminContext({ allowMaintainerView: true })
 
   if (!ctx.email) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
   if (!ctx.adminId) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })

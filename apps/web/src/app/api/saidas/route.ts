@@ -5,7 +5,7 @@ import type { OperacionalSaida } from '@/lib/types/saidas'
 
 export async function GET(request: Request) {
   const supabase = await createClient()
-  const ctx = await getCurrentRequestAdminContext({ supabase, allowMaintainerView: true })
+  const ctx = await getCurrentRequestAdminContext({ allowMaintainerView: true })
 
   if (!ctx.email) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
   if (!ctx.adminId || (ctx.role !== 'admin' && ctx.role !== 'gestor')) {

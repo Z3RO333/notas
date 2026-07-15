@@ -31,7 +31,7 @@ const PAGE_SIZE = 20
 
 export async function GET(request: Request) {
   const supabase = await createClient()
-  const ctx = await getCurrentRequestAdminContext({ supabase, allowMaintainerView: false })
+  const ctx = await getCurrentRequestAdminContext({ allowMaintainerView: false })
 
   if (!ctx.email) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })

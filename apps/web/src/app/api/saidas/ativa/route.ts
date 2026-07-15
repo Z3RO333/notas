@@ -5,7 +5,7 @@ import type { OperacionalSaida } from '@/lib/types/saidas'
 
 export async function GET() {
   const supabase = await createClient()
-  const ctx = await getCurrentRequestAdminContext({ supabase, allowMaintainerView: false })
+  const ctx = await getCurrentRequestAdminContext({ allowMaintainerView: false })
 
   if (!ctx.email || !ctx.adminId) return NextResponse.json({ saida: null })
 
