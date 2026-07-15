@@ -14,6 +14,7 @@ export interface PublishRoutePayload {
   operational_id: string
   planned_date: string
   cockpit_cargo_id: string
+  published_by_email: string
   stops: Array<{
     unit_name: string
     planned_sequence: number
@@ -45,6 +46,7 @@ function formatManausDate(value: string): string {
 export function buildPublishRoutePayload(
   saida: RotaSourceSaida,
   operationalId: string,
+  publishedByEmail: string,
 ): PublishRoutePayload {
   const grouped = new Map<string, { unitName: string; orders: string[] }>()
 
@@ -70,6 +72,7 @@ export function buildPublishRoutePayload(
     operational_id: operationalId,
     planned_date: formatManausDate(saida.dataSaida),
     cockpit_cargo_id: saida.id,
+    published_by_email: publishedByEmail,
     stops: Array.from(grouped.values()).map((group, index) => ({
       unit_name: group.unitName,
       planned_sequence: index + 1,
