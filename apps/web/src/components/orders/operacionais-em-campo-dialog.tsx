@@ -5,15 +5,7 @@ import { HardHat, ChevronDown, ChevronUp } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { createClient } from '@/lib/supabase/client'
-
-interface OperacionalEmCampo {
-  fornecedor_codigo: string
-  fornecedor_nome: string
-  total_em_campo: number
-  ordens: string[]
-  unidades: string[]
-}
+import { buscarOperacionaisEmCampo, type OperacionalEmCampo } from '@/lib/actions/operacionais-em-campo-actions'
 
 export function OperacionaisEmCampoDialog() {
   const [open, setOpen] = useState(false)
@@ -24,11 +16,13 @@ export function OperacionaisEmCampoDialog() {
   useEffect(() => {
     if (!open) return
     setLoading(true)
-    const supabase = createClient()
-    void supabase
-      .rpc('buscar_operacionais_em_campo')
-      .then(({ data: rows }) => {
-        setData((rows as OperacionalEmCampo[]) ?? [])
+    buscarOperacionaisEmCampo()
+      .then((rows) => {
+        setData(rows)
+        setLoading(false)
+      })
+      .catch(() => {
+        setData([])
         setLoading(false)
       })
   }, [open])
