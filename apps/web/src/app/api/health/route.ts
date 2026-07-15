@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,7 +8,8 @@ export async function GET() {
 
   let dbStatus: 'ok' | 'error' = 'ok'
   try {
-    const supabase = await createClient()
+    // Admin client: o healthcheck roda sem sessão e o role anon não tem mais acesso ao schema public
+    const supabase = createAdminClient()
     const { error } = await supabase.from('administradores').select('id').limit(1).single()
     if (error && error.code !== 'PGRST116') dbStatus = 'error'
   } catch {
