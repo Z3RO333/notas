@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { SaidaAtivaBanner } from '@/components/operacional/saida-ativa-banner'
 import type { OperacionalSaida } from '@/lib/types/saidas'
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function OperacionalHomePage() {
   const ctx = await getCurrentAdminContext()
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   let saidaAtiva: OperacionalSaida | null = null
 

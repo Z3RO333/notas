@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
 import type { SaidaDetalhe, SaidaOrdem } from '@/lib/types/saidas'
 
@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const ctx = await getCurrentRequestAdminContext({ allowMaintainerView: true })
 
   if (!ctx.email) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })

@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { isMaintainerEmail } from '@/lib/auth/shared'
 import { MVIEW_COOKIE_NAME, resolveMaintainerViewFromCookie } from '@/lib/auth/maintainer-view'
@@ -31,7 +31,7 @@ interface OrdersPageProps {
 }
 
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const currentAdminContext = await getCurrentAdminContext()
   const resolvedSearchParams = searchParams ? await searchParams : undefined
   const initialFilters = parseInitialFilters(resolvedSearchParams)

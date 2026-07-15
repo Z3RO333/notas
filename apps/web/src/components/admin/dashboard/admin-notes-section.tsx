@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { AlertsPanel } from '@/components/dashboard/alerts-panel'
 import { KpiStrip } from '@/components/dashboard/kpi-strip'
 import { ProductivityRanking } from '@/components/dashboard/productivity-ranking'
@@ -29,7 +29,7 @@ interface AdminNotesSectionProps {
 }
 
 export async function AdminNotesSection({ period }: AdminNotesSectionProps) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const now = new Date()
 
   const [
