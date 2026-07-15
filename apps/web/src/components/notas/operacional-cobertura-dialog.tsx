@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { HardHat, Loader2, MapPin } from 'lucide-react'
 import {
   Dialog,
@@ -12,18 +12,10 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/avatar'
-import { createClient } from '@/lib/supabase/client'
+import { buscarCoberturaOperacional, type OperacionalCoberturaRow } from '@/lib/actions/operacional-cobertura-actions'
 import { cn } from '@/lib/utils'
 
-interface OperacionalRow {
-  codigo: string
-  nome: string
-  avatar_url: string | null
-  especialidade: string | null
-  unidades: Array<{ unidade: string; grupo_nome: string | null }>
-}
-
-function groupByGrupo(unidades: OperacionalRow['unidades']) {
+function groupByGrupo(unidades: OperacionalCoberturaRow['unidades']) {
   const groups = new Map<string, string[]>()
   for (const u of unidades) {
     const key = u.grupo_nome ?? ''
@@ -34,48 +26,13 @@ function groupByGrupo(unidades: OperacionalRow['unidades']) {
   return groups
 }
 
-async function fetchCobertura(supabase: ReturnType<typeof createClient>): Promise<OperacionalRow[]> {
-  const [opResult, unidadesResult] = await Promise.all([
-    supabase
-      .from('dim_operacionais')
-      .select('codigo, nome, avatar_url, especialidade')
-      .eq('ativo', true)
-      .order('nome'),
-    supabase
-      .from('operacional_unidades')
-      .select('operacional_codigo, unidade, grupo_nome')
-      .order('grupo_nome')
-      .order('unidade'),
-  ])
-
-  if (opResult.error) throw opResult.error
-
-  const unidadesByCode = new Map<string, Array<{ unidade: string; grupo_nome: string | null }>>()
-  for (const u of (unidadesResult.data ?? [])) {
-    const existing = unidadesByCode.get(u.operacional_codigo) ?? []
-    existing.push({ unidade: u.unidade, grupo_nome: u.grupo_nome })
-    unidadesByCode.set(u.operacional_codigo, existing)
-  }
-
-  return (opResult.data ?? [])
-    .map((op) => ({
-      codigo: op.codigo,
-      nome: op.nome,
-      avatar_url: op.avatar_url ?? null,
-      especialidade: op.especialidade ?? null,
-      unidades: unidadesByCode.get(op.codigo) ?? [],
-    }))
-    .filter((op) => op.unidades.length > 0)
-}
-
 interface OperacionalCoberturaDialogProps {
   className?: string
 }
 
 export function OperacionalCoberturaDialog({ className }: OperacionalCoberturaDialogProps) {
-  const supabase = useMemo(() => createClient(), [])
   const [open, setOpen] = useState(false)
-  const [operacionais, setOperacionais] = useState<OperacionalRow[]>([])
+  const [operacionais, setOperacionais] = useState<OperacionalCoberturaRow[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -84,7 +41,7 @@ export function OperacionalCoberturaDialog({ className }: OperacionalCoberturaDi
     if (next) {
       setLoading(true)
       setError(null)
-      fetchCobertura(supabase)
+      buscarCoberturaOperacional()
         .then(setOperacionais)
         .catch((err) => setError(err instanceof Error ? err.message : 'Erro ao carregar cobertura'))
         .finally(() => setLoading(false))
