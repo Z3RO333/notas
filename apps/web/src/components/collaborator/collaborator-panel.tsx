@@ -149,15 +149,13 @@ export function CollaboratorPanel({
         const rows = await listarNotasOperacaoEstado()
         if (cancelled) return
 
-        setOperationalOverridesByNotaId((prev) => {
-          const next = new Map(prev)
-          for (const row of rows) {
-            const notaId = typeof row.nota_id === 'string' ? row.nota_id : null
-            if (!notaId) continue
-            next.set(notaId, toNotaOperacaoEstado(row) ?? 'clear')
-          }
-          return next
-        })
+        const next = new Map<string, NotaOperacaoEstado | 'clear'>()
+        for (const row of rows) {
+          const notaId = typeof row.nota_id === 'string' ? row.nota_id : null
+          if (!notaId) continue
+          next.set(notaId, toNotaOperacaoEstado(row) ?? 'clear')
+        }
+        setOperationalOverridesByNotaId(next)
       } catch {
         // Polling é best-effort — falha numa rodada não deve quebrar o painel
       }
