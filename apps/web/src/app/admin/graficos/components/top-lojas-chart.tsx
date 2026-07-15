@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Bar,
   BarChart,
@@ -33,7 +33,7 @@ import { calculateShare, formatPercent } from '@/components/charts/chart-percent
 import { createWrappedCategoryTickRenderer } from '@/components/charts/wrapped-category-tick'
 import type { GestaoTopLoja, TipoUnidade } from '@/lib/types/database'
 import { useChartLabels } from '@/components/charts/chart-labels-context'
-import { createClient } from '@/lib/supabase/client'
+import { buscarOrdensDrilldown, type OrdemDrilldownRow } from '@/lib/actions/graficos-drilldown-actions'
 
 const TIPO_TITULO: Record<TipoUnidade, string> = {
   LOJA: 'Ordens Geradas por Loja',
@@ -85,20 +85,6 @@ const STATUS_LABEL: Record<string, string> = {
   EXECUCAO_INSATISFATORIO: 'Exec. Insatisfatório',
 }
 
-type OrdemRow = {
-  id: string
-  ordem_codigo: string | null
-  status_ordem_raw: string | null
-  data_entrada: string | null
-  tipo_ordem: string | null
-  criado_por?: string | null
-  // quando vem da query direta:
-  notas_manutencao?: { descricao: string | null; centro: string | null } | null
-  // quando vem da RPC buscar_ordens_equipamento:
-  descricao?: string | null
-  centro?: string | null
-}
-
 interface OrdensDialogProps {
   nomeLoja: string
   ano?: number
@@ -111,55 +97,23 @@ interface OrdensDialogProps {
 }
 
 function OrdensDialog({ nomeLoja, ano, mes, tipoOrdem, equipamento, categoria, open, onClose }: OrdensDialogProps) {
-  const [ordens, setOrdens] = useState<OrdemRow[]>([])
+  const [ordens, setOrdens] = useState<OrdemDrilldownRow[]>([])
   const [loading, setLoading] = useState(false)
-  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
     if (!open) return
     setLoading(true)
 
-    if (categoria) {
-      // Usa RPC que filtra por keyword da categoria (elevadores/refrigeracao)
-      supabase
-        .rpc('buscar_ordens_equipamento', {
-          p_nome_loja: nomeLoja,
-          p_categoria: categoria,
-          p_ano: ano ?? null,
-          p_mes: mes ?? null,
-          p_tipo_ordem: tipoOrdem ?? null,
-          p_equipamento: equipamento ?? null,
-        })
-        .then(({ data }) => {
-          setOrdens((data as unknown as OrdemRow[]) ?? [])
-          setLoading(false)
-        })
-    } else {
-      // Query direta para o drill-down genérico da página Gráficos
-      let q = supabase
-        .from('ordens_notas_acompanhamento')
-        .select('id, ordem_codigo, status_ordem_raw, data_entrada, tipo_ordem, criado_por, notas_manutencao!nota_id(descricao, centro)')
-        .eq('denominacao_unidade', nomeLoja)
-        .order('data_entrada', { ascending: false })
-        .limit(200)
-
-      if (tipoOrdem) q = q.eq('tipo_ordem', tipoOrdem)
-      if (mes && ano) {
-        const pad = String(mes).padStart(2, '0')
-        const lastDay = new Date(ano, mes, 0).getDate()
-        q = q.filter('data_entrada', 'gte', `${ano}-${pad}-01`)
-             .filter('data_entrada', 'lte', `${ano}-${pad}-${lastDay}`)
-      } else if (ano) {
-        q = q.filter('data_entrada', 'gte', `${ano}-01-01`)
-             .filter('data_entrada', 'lte', `${ano}-12-31`)
-      }
-
-      q.then(({ data }) => {
-        setOrdens((data as unknown as OrdemRow[]) ?? [])
+    buscarOrdensDrilldown({ nomeLoja, ano, mes, tipoOrdem, equipamento, categoria })
+      .then((data) => {
+        setOrdens(data)
         setLoading(false)
       })
-    }
-  }, [open, nomeLoja, ano, mes, tipoOrdem, equipamento, categoria, supabase])
+      .catch(() => {
+        setOrdens([])
+        setLoading(false)
+      })
+  }, [open, nomeLoja, ano, mes, tipoOrdem, equipamento, categoria])
 
   const formatDate = (d: string | null) => {
     if (!d) return '—'
