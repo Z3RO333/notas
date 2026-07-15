@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getSessionEmail } from '@/lib/auth/session'
 import { NotaDetail } from '@/components/notas/nota-detail'
 import { NotaActions } from '@/components/notas/nota-actions'
 import { NotaHistoricoTimeline } from '@/components/notas/nota-historico'
@@ -12,8 +13,8 @@ interface PageProps {
 
 export default async function NotaDetailPage({ params }: PageProps) {
   const { notaId } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = createAdminClient()
+  const email = await getSessionEmail()
 
   const [notaResult, historicoResult, adminsResult] = await Promise.all([
     supabase
@@ -40,11 +41,11 @@ export default async function NotaDetailPage({ params }: PageProps) {
 
   const nota = notaResult.data
   const admins = adminsResult.data ?? []
-  const loggedAdminResult = user?.email
+  const loggedAdminResult = email
     ? await supabase
       .from('administradores')
       .select('role')
-      .eq('email', user.email)
+      .eq('email', email)
       .single()
     : { data: null }
   const loggedRole = loggedAdminResult.data?.role ?? null

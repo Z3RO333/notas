@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getSessionEmail } from '@/lib/auth/session'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -38,17 +39,17 @@ function normalizeRpcPayload(value: unknown): UnknownRecord | null {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = createAdminClient()
+  const email = await getSessionEmail()
 
-  if (!user?.email) {
+  if (!email) {
     return NextResponse.json({ code: 'unauthorized', message: 'Não autenticado.' }, { status: 401 })
   }
 
   const adminResult = await supabase
     .from('administradores')
     .select('role, ativo')
-    .eq('email', user.email)
+    .eq('email', email)
     .maybeSingle()
 
   if (adminResult.error) {
