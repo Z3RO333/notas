@@ -4,6 +4,8 @@ import { SaidasNovaForm } from '@/components/saidas/saidas-nova-form'
 
 export const metadata: Metadata = { title: 'Nova Saída Operacional | Cockpit' }
 
+export const dynamic = 'force-dynamic'
+
 export default async function SaidasNovaPage() {
   const supabase = createAdminClient()
   const { data: operacionais } = await supabase
