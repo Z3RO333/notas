@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 
   const adminResult = await supabase
     .from('administradores')
-    .select('role, ativo')
+    .select('id, role, ativo')
     .eq('email', email)
     .maybeSingle()
 
@@ -73,8 +73,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ code: 'invalid_body', message: 'notaId inválido.' }, { status: 400 })
   }
 
-  const rpcResult = await supabase.rpc('marcar_nota_em_geracao', {
+  const rpcResult = await supabase.rpc('marcar_nota_em_geracao_service', {
     p_nota_id: body.notaId,
+    p_actor_id: admin.id,
     p_force_override: body.forceOverride === true,
     p_trigger: 'copy_button',
   })

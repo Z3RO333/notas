@@ -52,7 +52,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Informe pelo menos 3 caracteres para buscar fornecedor' }, { status: 400 })
   }
 
-  const { data, error } = await supabase.rpc('buscar_ordens_fornecedor_global', {
+  const { data, error } = await supabase.rpc('buscar_ordens_fornecedor_global_service', {
     p_q: q,
     p_admin_id: currentAdminContext.adminId,
     p_limit: limit,
