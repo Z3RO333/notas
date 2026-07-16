@@ -132,6 +132,7 @@ export async function AdminPmosSection({
     concluidas: Number(rawOrderKpis.concluidas ?? 0),
     canceladas: Number(rawOrderKpis.canceladas ?? 0),
     avaliadas: Number(rawOrderKpis.avaliadas ?? 0),
+    aguardando_faturamento: Number(rawOrderKpis.aguardando_faturamento ?? 0),
     atrasadas: Number(rawOrderKpis.atrasadas ?? 0),
     sem_responsavel: Number(rawOrderKpis.sem_responsavel ?? 0),
   })

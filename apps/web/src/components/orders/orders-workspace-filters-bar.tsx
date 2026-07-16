@@ -52,6 +52,7 @@ const STATUS_OPTIONS = [
   { value: 'em_avaliacao', label: 'Em avaliação' },
   { value: 'avaliadas', label: 'Avaliadas' },
   { value: 'nao_realizada', label: 'Não realizada' },
+  { value: 'aguardando_faturamento', label: 'Aguardando faturamento' },
   { value: 'concluida', label: 'Concluída' },
   { value: 'cancelada', label: 'Cancelada' },
   { value: 'desconhecido', label: 'Desconhecido' },

@@ -30,6 +30,13 @@ describe('status-raw', () => {
     expect(deriveOrdemStatusFromRaw('EXECUCAO_NAO_REALIZADA')).toBe('em_tratativa')
   })
 
+  it('classifies AGUARDANDO_FATURAMENTO_NF as aguardando_faturamento and final', () => {
+    expect(classifyRawStatusBucket('AGUARDANDO_FATURAMENTO_NF')).toBe('aguardando_faturamento')
+    expect(isRawOrderFinal('AGUARDANDO_FATURAMENTO_NF')).toBe(true)
+    expect(isRawOrderActive('AGUARDANDO_FATURAMENTO_NF')).toBe(false)
+    expect(deriveOrdemStatusFromRaw('AGUARDANDO_FATURAMENTO_NF')).toBe('concluida')
+  })
+
   it('classifies null as desconhecido and active', () => {
     expect(classifyRawStatusBucket(null)).toBe('desconhecido')
     expect(isRawOrderActive(null)).toBe(true)

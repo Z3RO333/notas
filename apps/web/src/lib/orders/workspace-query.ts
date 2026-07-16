@@ -13,6 +13,7 @@ const VALID_STATUS = new Set([
   'em_avaliacao',
   'avaliadas',
   'nao_realizada',
+  'aguardando_faturamento',
   'concluida',
   'cancelada',
   'desconhecido',

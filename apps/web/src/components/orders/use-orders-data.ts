@@ -30,6 +30,7 @@ const INITIAL_KPIS: OrdersWorkspaceKpis = {
   concluidas: 0,
   canceladas: 0,
   avaliadas: 0,
+  aguardando_faturamento: 0,
   atrasadas: 0,
   sem_responsavel: 0,
 }
