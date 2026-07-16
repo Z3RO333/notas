@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { IndicadoresSection } from '@/components/admin/indicadores/indicadores-section'
 import { resolvePeriodoIndicadores } from '../graficos-page-shared'
 import type {
@@ -31,7 +31,7 @@ export async function GraficosIndicadoresSectionServer({
   params,
   adminCtx,
 }: GraficosIndicadoresSectionServerProps) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { startDate, endDate, startIso, endExclusiveIso } = resolvePeriodoIndicadores(params)
   const adminScope = adminCtx.isGestor ? null : (adminCtx.adminId ?? null)
 

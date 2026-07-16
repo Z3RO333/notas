@@ -26,7 +26,14 @@ import {
   inferNotesEmCampoService,
   pickNotesEmCampoSuggestionTarget,
 } from '@/lib/notes/em-campo'
-import { createClient } from '@/lib/supabase/client'
+import {
+  buscarSugestoesOperacionaisNotasEmCampo,
+  listarOperacionaisCargaNotasEmCampo,
+  listarServicosHistoricosNotasEmCampo,
+  type OperacionalCargaRow,
+  type OperacionalSuggestionRow,
+  type ServicoHistoricoRow,
+} from '@/lib/actions/notes-em-campo-actions'
 import type {
   NotaPanelData,
   NotesEmCampoExternalMatchMode,
@@ -39,24 +46,6 @@ interface NotesEmCampoDialogProps {
   unidadeOptions: Array<{ value: string; label: string }>
   defaultUnidade?: string
   className?: string
-}
-
-interface OperacionalCargaRow {
-  fornecedor_codigo: string
-  fornecedor_nome: string
-  total_em_campo: number
-  ordens_mesma_loja_ativas: number
-}
-
-interface ServicoHistoricoRow {
-  texto_breve: string
-  total_ordens: number
-}
-
-interface OperacionalSuggestionRow extends OperacionalCargaRow {
-  historico_loja_servico: number
-  historico_servico_geral: number
-  match_mode: NotesEmCampoExternalMatchMode
 }
 
 interface NoteScopeRow {
@@ -85,7 +74,7 @@ function toOperationalSuggestion(row: OperacionalSuggestionRow): NotesEmCampoOpe
     ordens_mesma_loja_ativas: row.ordens_mesma_loja_ativas,
     historico_loja_servico: row.historico_loja_servico,
     historico_servico_geral: row.historico_servico_geral,
-    match_mode: row.match_mode,
+    match_mode: row.match_mode as NotesEmCampoExternalMatchMode | null,
   }
 }
 
@@ -116,7 +105,6 @@ export function NotesEmCampoDialog({
   defaultUnidade = '',
   className,
 }: NotesEmCampoDialogProps) {
-  const supabase = useMemo(() => createClient(), [])
   const [open, setOpen] = useState(false)
   const [expandedSuggestionId, setExpandedSuggestionId] = useState<string | null>(null)
   const [selectedUnidade, setSelectedUnidade] = useState(defaultUnidade && defaultUnidade !== 'todas' ? defaultUnidade : '')
@@ -168,9 +156,7 @@ export function NotesEmCampoDialog({
 
     void (async () => {
       try {
-        const { data, error } = await supabase.rpc('listar_servicos_historicos_notas_em_campo', { p_limit: 250 })
-
-        if (error) throw error
+        const data = await listarServicosHistoricosNotasEmCampo()
         if (cancelled) return
 
         const rows = (data ?? []) as ServicoHistoricoRow[]
@@ -186,7 +172,7 @@ export function NotesEmCampoDialog({
     return () => {
       cancelled = true
     }
-  }, [open, serviceOptions.length, supabase])
+  }, [open, serviceOptions.length])
 
   useEffect(() => {
     if (!open) return
@@ -198,11 +184,7 @@ export function NotesEmCampoDialog({
 
     void (async () => {
       try {
-        const { data, error } = await supabase.rpc('listar_operacionais_carga_notas_em_campo', {
-          p_nome_loja: selectedLoja || null,
-        })
-
-        if (error) throw error
+        const data = await listarOperacionaisCargaNotasEmCampo(selectedLoja || null)
         if (cancelled) return
 
         setOperationalLoadRows(((data ?? []) as OperacionalCargaRow[]).map(toOperationalLoadSuggestion))
@@ -217,7 +199,7 @@ export function NotesEmCampoDialog({
     return () => {
       cancelled = true
     }
-  }, [open, selectedLoja, supabase])
+  }, [open, selectedLoja])
 
   useEffect(() => {
     if (isCorrelationReady) return
@@ -234,12 +216,7 @@ export function NotesEmCampoDialog({
 
     void (async () => {
       try {
-        const { data, error } = await supabase.rpc('buscar_sugestoes_operacionais_notas_em_campo', {
-          p_nome_loja: selectedLoja,
-          p_texto_breve: selectedService,
-        })
-
-        if (error) throw error
+        const data = await buscarSugestoesOperacionaisNotasEmCampo(selectedLoja, selectedService)
         if (cancelled) return
 
         setOperationalSuggestions(((data ?? []) as OperacionalSuggestionRow[]).map(toOperationalSuggestion))
@@ -254,7 +231,7 @@ export function NotesEmCampoDialog({
     return () => {
       cancelled = true
     }
-  }, [isCorrelationReady, open, selectedLoja, selectedService, supabase])
+  }, [isCorrelationReady, open, selectedLoja, selectedService])
 
   const scopedNotes = useMemo<NoteScopeRow[]>(() => (
     notes
@@ -300,12 +277,7 @@ export function NotesEmCampoDialog({
     void (async () => {
       try {
         const results = await Promise.all(groups.map(async (group) => {
-          const { data, error } = await supabase.rpc('buscar_sugestoes_operacionais_notas_em_campo', {
-            p_nome_loja: group.loja,
-            p_texto_breve: group.servico,
-          })
-
-          if (error) throw error
+          const data = await buscarSugestoesOperacionaisNotasEmCampo(group.loja, group.servico)
 
           return [
             buildCorrelationKey(group.loja, group.servico),
@@ -327,7 +299,7 @@ export function NotesEmCampoDialog({
     return () => {
       cancelled = true
     }
-  }, [loadingServices, open, scopedNotes, supabase])
+  }, [loadingServices, open, scopedNotes])
 
   const visibleOperationalRows = isCorrelationReady ? operationalSuggestions : operationalLoadRows
   const data = useMemo(

@@ -4,8 +4,8 @@ import ComparativosPage from './page'
 
 const rpcMock = vi.fn()
 
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(async () => ({
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
     rpc: rpcMock,
   })),
 }))

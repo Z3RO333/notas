@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import Image from 'next/image'
 import { ClipboardList, ListChecks, Shield, ShoppingCart, Sparkles, LogOut, Menu, X } from 'lucide-react'
+import { signOut } from 'next-auth/react'
 import { ThemeSelector } from '@/components/theme/theme-selector'
 import { PrefetchLink } from '@/components/shared/prefetch-link'
-import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
 interface TopNavProps {
@@ -16,7 +16,6 @@ interface TopNavProps {
 
 export function TopNav({ userName, userRole }: TopNavProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
   const isViewer = userRole === 'viewer'
   const homeHref = isViewer ? '/ordens' : '/'
@@ -34,10 +33,7 @@ export function TopNav({ userName, userRole }: TopNavProps) {
   ]
 
   async function handleLogout() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+    await signOut({ redirectTo: '/login' })
   }
 
   function isLinkActive(href: string) {

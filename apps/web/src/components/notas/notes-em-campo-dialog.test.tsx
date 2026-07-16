@@ -4,12 +4,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NotesEmCampoDialog } from '@/components/notas/notes-em-campo-dialog'
 import type { NotaPanelData } from '@/lib/types/database'
 
-const rpcMock = vi.fn()
+const listarServicosHistoricosMock = vi.fn()
+const listarOperacionaisCargaMock = vi.fn()
+const buscarSugestoesOperacionaisMock = vi.fn()
 
-vi.mock('@/lib/supabase/client', () => ({
-  createClient: () => ({
-    rpc: rpcMock,
-  }),
+vi.mock('@/lib/actions/notes-em-campo-actions', () => ({
+  listarServicosHistoricosNotasEmCampo: (...args: unknown[]) => listarServicosHistoricosMock(...args),
+  listarOperacionaisCargaNotasEmCampo: (...args: unknown[]) => listarOperacionaisCargaMock(...args),
+  buscarSugestoesOperacionaisNotasEmCampo: (...args: unknown[]) => buscarSugestoesOperacionaisMock(...args),
 }))
 
 const notes: NotaPanelData[] = [
@@ -29,68 +31,52 @@ const notes: NotaPanelData[] = [
 
 describe('NotesEmCampoDialog', () => {
   beforeEach(() => {
-    rpcMock.mockReset()
-    rpcMock.mockImplementation(async (fn: string, params?: Record<string, unknown>) => {
-      if (fn === 'listar_operacionais_carga_notas_em_campo') {
-        return {
-          data: [
-            {
-              fornecedor_codigo: '22578',
-              fornecedor_nome: 'CLAUDIOMAR LOPES DA SILVA',
-              total_em_campo: 2,
-              ordens_mesma_loja_ativas: params?.p_nome_loja === 'Loja Manacapuru' ? 1 : 0,
-            },
-            {
-              fornecedor_codigo: '22016',
-              fornecedor_nome: 'EDESON MONTEIRO SOUSA',
-              total_em_campo: 1,
-              ordens_mesma_loja_ativas: 0,
-            },
-          ],
-          error: null,
-        }
-      }
+    listarServicosHistoricosMock.mockReset()
+    listarOperacionaisCargaMock.mockReset()
+    buscarSugestoesOperacionaisMock.mockReset()
 
-      if (fn === 'listar_servicos_historicos_notas_em_campo') {
-        return {
-          data: [
-            {
-              texto_breve: 'INSTALACAO ELETRICA',
-              total_ordens: 12,
-            },
-          ],
-          error: null,
-        }
-      }
+    listarServicosHistoricosMock.mockResolvedValue([
+      {
+        texto_breve: 'INSTALACAO ELETRICA',
+        total_ordens: 12,
+      },
+    ])
 
-      if (fn === 'buscar_sugestoes_operacionais_notas_em_campo') {
-        return {
-          data: [
-            {
-              fornecedor_codigo: '22578',
-              fornecedor_nome: 'CLAUDIOMAR LOPES DA SILVA',
-              total_em_campo: 2,
-              ordens_mesma_loja_ativas: 1,
-              historico_loja_servico: 4,
-              historico_servico_geral: 10,
-              match_mode: 'exato',
-            },
-            {
-              fornecedor_codigo: '22016',
-              fornecedor_nome: 'EDESON MONTEIRO SOUSA',
-              total_em_campo: 1,
-              ordens_mesma_loja_ativas: 0,
-              historico_loja_servico: 2,
-              historico_servico_geral: 6,
-              match_mode: 'fallback_servico',
-            },
-          ],
-          error: null,
-        }
-      }
+    listarOperacionaisCargaMock.mockImplementation(async (nomeLoja: string | null) => [
+      {
+        fornecedor_codigo: '22578',
+        fornecedor_nome: 'CLAUDIOMAR LOPES DA SILVA',
+        total_em_campo: 2,
+        ordens_mesma_loja_ativas: nomeLoja === 'Loja Manacapuru' ? 1 : 0,
+      },
+      {
+        fornecedor_codigo: '22016',
+        fornecedor_nome: 'EDESON MONTEIRO SOUSA',
+        total_em_campo: 1,
+        ordens_mesma_loja_ativas: 0,
+      },
+    ])
 
-      return { data: [], error: null }
-    })
+    buscarSugestoesOperacionaisMock.mockResolvedValue([
+      {
+        fornecedor_codigo: '22578',
+        fornecedor_nome: 'CLAUDIOMAR LOPES DA SILVA',
+        total_em_campo: 2,
+        ordens_mesma_loja_ativas: 1,
+        historico_loja_servico: 4,
+        historico_servico_geral: 10,
+        match_mode: 'exato',
+      },
+      {
+        fornecedor_codigo: '22016',
+        fornecedor_nome: 'EDESON MONTEIRO SOUSA',
+        total_em_campo: 1,
+        ordens_mesma_loja_ativas: 0,
+        historico_loja_servico: 2,
+        historico_servico_geral: 6,
+        match_mode: 'fallback_servico',
+      },
+    ])
   })
 
   it('renders the trigger and shows current operational load when opened without correlacao', async () => {
@@ -136,10 +122,7 @@ describe('NotesEmCampoDialog', () => {
     await user.click(await screen.findByRole('button', { name: 'INSTALACAO ELETRICA' }))
 
     await waitFor(() => {
-      expect(rpcMock).toHaveBeenCalledWith('buscar_sugestoes_operacionais_notas_em_campo', {
-        p_nome_loja: 'Loja Manacapuru',
-        p_texto_breve: 'INSTALACAO ELETRICA',
-      })
+      expect(buscarSugestoesOperacionaisMock).toHaveBeenCalledWith('Loja Manacapuru', 'INSTALACAO ELETRICA')
     })
 
     expect(screen.getAllByText('CLAUDIOMAR LOPES DA SILVA').length).toBeGreaterThan(0)

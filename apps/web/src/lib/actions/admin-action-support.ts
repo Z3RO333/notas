@@ -1,12 +1,13 @@
 import 'server-only'
 
 import { revalidatePath, revalidateTag } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getSessionEmail } from '@/lib/auth/session'
 import { applyAutomaticOrdersRouting } from '@/lib/orders/pmpl-routing'
 import { MAINTAINER_EMAILS } from '@/lib/auth/shared'
 import type { UserRole } from '@/lib/types/database'
 
-type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
+type SupabaseServerClient = ReturnType<typeof createAdminClient>
 
 interface LoggedAdminRow {
   id: string
@@ -29,15 +30,15 @@ export function revalidateCockpitPaths() {
 }
 
 export async function getAuthenticatedAdminActionContext(): Promise<AuthenticatedAdminActionContext> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = createAdminClient()
+  const email = await getSessionEmail()
 
-  if (!user?.email) throw new Error('Nao autenticado')
+  if (!email) throw new Error('Nao autenticado')
 
   const { data: admin } = await supabase
     .from('administradores')
     .select('id, role')
-    .eq('email', user.email)
+    .eq('email', email)
     .single()
 
   if (!admin || (admin.role !== 'admin' && admin.role !== 'gestor')) {
@@ -57,15 +58,15 @@ export async function getGestorActionContext(): Promise<AuthenticatedAdminAction
 }
 
 export async function getGestorOrMaintainerActionContext(): Promise<AuthenticatedAdminActionContext> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = createAdminClient()
+  const email = await getSessionEmail()
 
-  if (!user?.email) throw new Error('Nao autenticado')
+  if (!email) throw new Error('Nao autenticado')
 
   const { data: admin } = await supabase
     .from('administradores')
     .select('id, role')
-    .eq('email', user.email)
+    .eq('email', email)
     .single()
 
   if (!admin || (admin.role !== 'admin' && admin.role !== 'gestor')) {
@@ -73,7 +74,7 @@ export async function getGestorOrMaintainerActionContext(): Promise<Authenticate
   }
 
   const isGestor = admin.role === 'gestor'
-  const isMaintainer = MAINTAINER_EMAILS.has(user.email.toLowerCase())
+  const isMaintainer = MAINTAINER_EMAILS.has(email)
 
   if (!isGestor && !isMaintainer) throw new Error('Sem permissao')
 

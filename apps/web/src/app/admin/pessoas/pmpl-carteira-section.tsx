@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
   listarCarteiraPmpl,
   listarFornecedoresSemDono,
@@ -6,7 +6,7 @@ import {
 import { PmplCarteiraTable } from '@/components/admin/pmpl/pmpl-carteira-table'
 
 export async function PmplCarteiraSection({ isGestor }: { isGestor: boolean }) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const [rows, semDono, candidatesResult] = await Promise.all([
     listarCarteiraPmpl(supabase),

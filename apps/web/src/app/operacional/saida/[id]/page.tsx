@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { SaidaView } from '@/components/operacional/saida-view'
 import type { SaidaDetalhe, SaidaOrdem } from '@/lib/types/saidas'
@@ -14,7 +14,7 @@ export default async function OperacionalSaidaPage({ params }: { params: Promise
 
   if (!ctx.isAuthenticated || !ctx.adminId) redirect('/login')
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { data: adminData } = await supabase
     .from('administradores')

@@ -15,10 +15,11 @@ const saida = {
 
 describe('buildPublishRoutePayload', () => {
   it('groups units, preserves operational order, and removes duplicate orders', () => {
-    expect(buildPublishRoutePayload(saida, 'operational-user-id')).toEqual({
+    expect(buildPublishRoutePayload(saida, 'operational-user-id', 'gestor@example.com')).toEqual({
       operational_id: 'operational-user-id',
       planned_date: '2026-06-19',
       cockpit_cargo_id: saida.id,
+      published_by_email: 'gestor@example.com',
       stops: [
         {
           unit_name: 'matriz',
@@ -42,13 +43,18 @@ describe('buildPublishRoutePayload', () => {
           ordens: [{ ordemCodigo: '  ', unidade: 'MATRIZ', createdAt: '2026-06-19' }],
         },
         'operational-user-id',
+        'gestor@example.com',
       ),
     ).toThrow('A saída não possui ordens válidas')
   })
 
   it('rejects an invalid departure date', () => {
     expect(() =>
-      buildPublishRoutePayload({ ...saida, dataSaida: 'invalid' }, 'operational-user-id'),
+      buildPublishRoutePayload(
+        { ...saida, dataSaida: 'invalid' },
+        'operational-user-id',
+        'gestor@example.com',
+      ),
     ).toThrow('Data de saída inválida')
   })
 })

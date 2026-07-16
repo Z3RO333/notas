@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { DrawerDetalhes } from '@/components/shared/drawer-detalhes'
 import { Badge } from '@/components/ui/badge'
-import { createClient } from '@/lib/supabase/client'
+import { buscarItensPedido } from '@/lib/actions/pedido-itens-actions'
 import type { PedidoCompra, PedidoCompraItem, PedidoCompraStatus } from '@/lib/types/pedidos'
 import styles from './pedido-detail-drawer.module.css'
 
@@ -178,18 +178,13 @@ export function PedidoDetailDrawer({ open, onOpenChange, pedido, adminNome }: Pe
     setLoading(true)
     setError(null)
 
-    const supabase = createClient()
-    void supabase
-      .from('pedidos_compra_itens')
-      .select('*')
-      .eq('documento_compras', pedido.documento_compras)
-      .order('item_numero')
-      .then(({ data, error: err }) => {
-        if (err) {
-          setError(err.message)
-        } else {
-          setItems((data ?? []) as PedidoCompraItem[])
-        }
+    buscarItensPedido(pedido.documento_compras)
+      .then((data) => {
+        setItems(data)
+        setLoading(false)
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Erro ao carregar itens')
         setLoading(false)
       })
   }, [open, pedido])

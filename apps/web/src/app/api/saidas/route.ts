@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
 import type { OperacionalSaida } from '@/lib/types/saidas'
 
 export async function GET(request: Request) {
-  const supabase = await createClient()
-  const ctx = await getCurrentRequestAdminContext({ supabase, allowMaintainerView: true })
+  const supabase = createAdminClient()
+  const ctx = await getCurrentRequestAdminContext({ allowMaintainerView: true })
 
   if (!ctx.email) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
   if (!ctx.adminId || (ctx.role !== 'admin' && ctx.role !== 'gestor')) {

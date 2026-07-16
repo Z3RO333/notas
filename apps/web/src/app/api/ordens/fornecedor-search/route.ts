@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { FornecedorOrderSearchRow } from '@/lib/types/database'
 
 const DEFAULT_LIMIT = 50
@@ -27,9 +27,8 @@ function statusFromRpcError(error: { code?: string; message?: string } | null): 
 }
 
 export async function GET(request: Request) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const currentAdminContext = await getCurrentRequestAdminContext({
-    supabase,
     allowMaintainerView: true,
   })
 
@@ -53,7 +52,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Informe pelo menos 3 caracteres para buscar fornecedor' }, { status: 400 })
   }
 
-  const { data, error } = await supabase.rpc('buscar_ordens_fornecedor_global', {
+  const { data, error } = await supabase.rpc('buscar_ordens_fornecedor_global_service', {
     p_q: q,
     p_admin_id: currentAdminContext.adminId,
     p_limit: limit,

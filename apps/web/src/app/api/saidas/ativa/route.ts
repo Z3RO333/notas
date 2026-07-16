@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
 import type { OperacionalSaida } from '@/lib/types/saidas'
 
 export async function GET() {
-  const supabase = await createClient()
-  const ctx = await getCurrentRequestAdminContext({ supabase, allowMaintainerView: false })
+  const supabase = createAdminClient()
+  const ctx = await getCurrentRequestAdminContext({ allowMaintainerView: false })
 
   if (!ctx.email || !ctx.adminId) return NextResponse.json({ saida: null })
 

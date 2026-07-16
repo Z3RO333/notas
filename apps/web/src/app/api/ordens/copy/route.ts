@@ -9,7 +9,7 @@ import {
   mergeWorkspaceLookupRows,
 } from '@/lib/orders/private-owner-lookup.server'
 import { matchesPrivateOwnerLookupRow } from '@/lib/orders/private-owner-lookup'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
   canAccessPmplTab,
   loadPmplCarteira,
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Viewer nao pode copiar ordens em lote' }, { status: 403 })
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const url = new URL(request.url)
   const { role, canViewGlobal, adminId } = ctx
 

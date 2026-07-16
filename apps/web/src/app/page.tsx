@@ -3,7 +3,7 @@ import { NotesPanelPageContent } from '@/components/notas/notes-panel-page-conte
 import { RealtimeListener } from '@/components/notas/realtime-listener'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { LastSyncBadge } from '@/components/shared/last-sync-badge'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { NotesPageSearchParams } from '@/lib/notes/get-notes-panel-data'
 
 export const dynamic = 'force-dynamic'
@@ -15,7 +15,7 @@ interface NotesPageProps {
 export default async function NotesPanelPage({ searchParams }: NotesPageProps) {
   const currentAdminContext = await getCurrentAdminContext()
   const resolvedSearchParams = searchParams ? await searchParams : undefined
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const latestSyncResult = await supabase
     .from('sync_log')

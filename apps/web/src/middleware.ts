@@ -1,12 +1,7 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { auth } from '@/lib/auth'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { isAllowedAuthRole, normalizeEmail } from '@/lib/auth/shared'
-
-function copySupabaseCookies(source: NextResponse, target: NextResponse) {
-  source.cookies.getAll().forEach(({ name, value, ...options }) => {
-    target.cookies.set(name, value, options)
-  })
-}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -22,88 +17,34 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  let supabaseResponse = NextResponse.next({ request })
+  const session = await auth()
+  const email = normalizeEmail(session?.user?.email ?? '')
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options as never)
-          )
-        },
-      },
-    }
-  )
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  if (!email) {
     if (pathname === '/login') return NextResponse.next()
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  const normalizedEmail = normalizeEmail(user.email ?? '')
-  if (!normalizedEmail) {
-    await supabase.auth.signOut()
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    url.searchParams.set('error', 'unauthorized')
-    const redirectResponse = NextResponse.redirect(url)
-    copySupabaseCookies(supabaseResponse, redirectResponse)
-    return redirectResponse
-  }
-
+  const supabase = createAdminClient()
   const { data: admin } = await supabase
     .from('administradores')
-    .select('role, ativo, auth_user_id')
-    .eq('email', normalizedEmail)
+    .select('role, ativo')
+    .eq('email', email)
     .maybeSingle()
 
   if (!admin || !isAllowedAuthRole(admin.role)) {
-    await supabase.auth.signOut()
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('error', 'unauthorized')
-    const redirectResponse = NextResponse.redirect(url)
-    copySupabaseCookies(supabaseResponse, redirectResponse)
-    return redirectResponse
+    return NextResponse.redirect(url)
   }
 
   if (!admin.ativo) {
-    await supabase.auth.signOut()
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('error', 'inactive')
-    const redirectResponse = NextResponse.redirect(url)
-    copySupabaseCookies(supabaseResponse, redirectResponse)
-    return redirectResponse
-  }
-
-  if (admin.auth_user_id && admin.auth_user_id !== user.id) {
-    await supabase.auth.signOut()
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    url.searchParams.set('error', 'conflict')
-    const redirectResponse = NextResponse.redirect(url)
-    copySupabaseCookies(supabaseResponse, redirectResponse)
-    return redirectResponse
-  }
-
-  if (!admin.auth_user_id && pathname !== '/api/auth/landing' && pathname !== '/reset-password') {
-    const url = request.nextUrl.clone()
-    url.pathname = '/api/auth/landing'
     return NextResponse.redirect(url)
   }
 
@@ -123,16 +64,14 @@ export async function middleware(request: NextRequest) {
   if (admin.role === 'operacional') {
     const isAllowed =
       pathname.startsWith('/operacional') ||
-      pathname.startsWith('/api/operacional') ||
-      pathname === '/api/auth/landing' ||
-      pathname === '/reset-password'
+      pathname.startsWith('/api/operacional')
     if (!isAllowed) {
       const url = request.nextUrl.clone()
       url.pathname = '/operacional/consultas'
       url.search = ''
       return NextResponse.redirect(url)
     }
-    return supabaseResponse
+    return NextResponse.next()
   }
 
   if (pathname.startsWith('/admin') && admin.role !== 'gestor') {
@@ -154,7 +93,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return supabaseResponse
+  return NextResponse.next()
 }
 
 export const config = {

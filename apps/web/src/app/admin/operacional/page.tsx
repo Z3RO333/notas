@@ -11,7 +11,7 @@ import {
   type OperacionalDashboardSearchParams,
 } from '@/lib/dashboard/operacional-period'
 import { readFirstParam } from '@/lib/grid/query'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,7 +46,7 @@ function isMissingSelectColumnSupport(
 }
 
 async function loadOperacionais(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
 ): Promise<{ operacionais: OperacionalFilterRow[]; supportsEspecialidade: boolean }> {
   const withEspecialidade = await supabase
     .from('dim_operacionais')
@@ -104,7 +104,7 @@ export default async function OperacionalPage({ searchParams }: OperacionalPageP
     redirect('/')
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { operacionais, supportsEspecialidade } = await loadOperacionais(supabase)
   const activeEspecialidade = supportsEspecialidade ? especialidade : null
 

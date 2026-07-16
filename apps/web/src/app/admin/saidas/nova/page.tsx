@@ -1,11 +1,13 @@
 import type { Metadata } from 'next'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { SaidasNovaForm } from '@/components/saidas/saidas-nova-form'
 
 export const metadata: Metadata = { title: 'Nova Saída Operacional | Cockpit' }
 
+export const dynamic = 'force-dynamic'
+
 export default async function SaidasNovaPage() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data: operacionais } = await supabase
     .from('dim_operacionais')
     .select('codigo, nome')

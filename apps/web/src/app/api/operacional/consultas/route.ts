@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
 import type { OrdemConsulta, ConsultasResponse } from '@/lib/types/operacional'
 
@@ -30,8 +30,8 @@ function trim(value: string | null | undefined): string | null {
 const PAGE_SIZE = 20
 
 export async function GET(request: Request) {
-  const supabase = await createClient()
-  const ctx = await getCurrentRequestAdminContext({ supabase, allowMaintainerView: false })
+  const supabase = createAdminClient()
+  const ctx = await getCurrentRequestAdminContext({ allowMaintainerView: false })
 
   if (!ctx.email) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })

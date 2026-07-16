@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
 import { getRawStatusLabel } from '@/lib/orders/status-raw'
 
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url)
   const scope = url.searchParams.get('scope') ?? 'ordens'
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   if (scope !== 'ordens') {
     return new NextResponse('Escopo de exportacao inválido', { status: 400 })

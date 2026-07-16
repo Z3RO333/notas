@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
   matchesPrivateOwnerLookupRow,
   normalizePrivateOwnerLookupValue,
@@ -13,7 +13,7 @@ import {
 import { parseOrdersWorkspaceRequest } from '@/lib/orders/workspace-query'
 import type { OrdemNotaAcompanhamento } from '@/lib/types/database'
 
-type SupabaseClient = Awaited<ReturnType<typeof createClient>>
+type SupabaseClient = ReturnType<typeof createAdminClient>
 type ParsedOrdersWorkspaceRequest = ReturnType<typeof parseOrdersWorkspaceRequest>
 
 const LOOKUP_VIEW_LIMIT = 50

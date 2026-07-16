@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { CollaboratorPanel } from '@/components/collaborator/collaborator-panel'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
@@ -42,7 +42,7 @@ function SummaryCard({
 
 export default async function PessoasPage() {
   const adminCtx = await getCurrentAdminContext()
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   let adminKpis: KpisNotasOrdens | null = null
   if (!adminCtx.isGestor && adminCtx.adminId) {

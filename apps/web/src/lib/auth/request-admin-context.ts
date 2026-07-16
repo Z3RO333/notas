@@ -3,11 +3,9 @@ import 'server-only'
 import { cookies } from 'next/headers'
 import { MVIEW_COOKIE_NAME, resolveMaintainerViewFromCookie } from '@/lib/auth/maintainer-view'
 import {
-  getCurrentAdminContextFromSupabase,
+  getCurrentAdminContext,
   type CurrentAdminContext,
-  type ServerSupabaseClient,
 } from '@/lib/auth/current-admin-context'
-import { createClient } from '@/lib/supabase/server'
 import type { UserRole } from '@/lib/types/database'
 
 export interface RequestAdminContext extends CurrentAdminContext {
@@ -17,15 +15,13 @@ export interface RequestAdminContext extends CurrentAdminContext {
 }
 
 interface GetCurrentRequestAdminContextOptions {
-  supabase?: ServerSupabaseClient
   allowMaintainerView?: boolean
 }
 
 export async function getCurrentRequestAdminContext(
   options: GetCurrentRequestAdminContextOptions = {},
 ): Promise<RequestAdminContext> {
-  const supabase = options.supabase ?? await createClient()
-  const currentAdminContext = await getCurrentAdminContextFromSupabase(supabase)
+  const currentAdminContext = await getCurrentAdminContext()
   const actualRole = currentAdminContext.role
 
   let effectiveRole = actualRole

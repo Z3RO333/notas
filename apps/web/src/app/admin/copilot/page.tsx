@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { IsoGauge } from '@/components/copilot/iso-gauge'
 import { DynamicKpiStrip } from '@/components/copilot/dynamic-kpi-strip'
 import { CopilotAlertsPanel } from '@/components/copilot/copilot-alerts-panel'
@@ -42,7 +42,7 @@ const ORDERS_FETCH_PAGE_SIZE = 1000
 const ORDERS_PANEL_FIELDS = 'unidade, semaforo_atraso, status_ordem_raw' as const
 
 export default async function CopilotPage() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // Parallel data fetching
   const [

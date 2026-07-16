@@ -41,7 +41,7 @@ import type {
   OrdemAcompanhamento,
 } from '@/lib/types/database'
 import { updateSearchParams } from '@/lib/grid/query'
-import { createClient } from '@/lib/supabase/client'
+import { listarNotasOperacaoEstado } from '@/lib/actions/notas-operacao-estado-actions'
 
 interface CollaboratorPanelProps {
   collaborators: CollaboratorData[]
@@ -125,7 +125,6 @@ export function CollaboratorPanel({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const supabase = useMemo(() => createClient(), [])
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [search, setSearch] = useState(initialSearch)
@@ -143,53 +142,43 @@ export function CollaboratorPanel({
   }, [notas, notasSemAtribuir])
 
   useEffect(() => {
-    function setOperationalOverride(
-      notaId: string,
-      mode: 'apply' | 'clear',
-      row: Record<string, unknown> | null,
-    ) {
-      setOperationalOverridesByNotaId((prev) => {
-        const next = new Map(prev)
-        if (mode === 'clear') {
-          next.set(notaId, 'clear')
-        } else {
+    let cancelled = false
+
+    async function poll() {
+      try {
+        const rows = await listarNotasOperacaoEstado()
+        if (cancelled) return
+
+        const next = new Map<string, NotaOperacaoEstado | 'clear'>()
+        for (const row of rows) {
+          const notaId = typeof row.nota_id === 'string' ? row.nota_id : null
+          if (!notaId) continue
           next.set(notaId, toNotaOperacaoEstado(row) ?? 'clear')
         }
-        return next
-      })
+        setOperationalOverridesByNotaId(next)
+      } catch {
+        // Polling é best-effort — falha numa rodada não deve quebrar o painel
+      }
     }
 
-    const channel = supabase
-      .channel('notas-operacao-estado-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notas_operacao_estado',
-        },
-        (payload) => {
-          const raw = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Record<string, unknown>
-          const notaId = typeof raw?.nota_id === 'string' ? raw.nota_id : null
-          if (!notaId) return
-
-          const mode = payload.eventType === 'DELETE' ? 'clear' : 'apply'
-          setOperationalOverride(notaId, mode, raw)
-        },
-      )
-      .subscribe()
+    void poll()
+    const interval = setInterval(poll, 30_000)
 
     const unsubscribeLocalEvent = listenNotaOperacaoEvent(({ notaId, state }) => {
       const row = state ? (state as unknown as Record<string, unknown>) : null
-      const mode: 'apply' | 'clear' = state ? 'apply' : 'clear'
-      setOperationalOverride(notaId, mode, row)
+      setOperationalOverridesByNotaId((prev) => {
+        const next = new Map(prev)
+        next.set(notaId, row ? (toNotaOperacaoEstado(row) ?? 'clear') : 'clear')
+        return next
+      })
     })
 
     return () => {
+      cancelled = true
+      clearInterval(interval)
       unsubscribeLocalEvent()
-      supabase.removeChannel(channel)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     setSearch(initialSearch)

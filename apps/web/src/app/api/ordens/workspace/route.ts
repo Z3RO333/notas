@@ -18,7 +18,7 @@ import {
   mergeWorkspaceLookupRows,
 } from '@/lib/orders/private-owner-lookup.server'
 import { matchesPrivateOwnerLookupRow } from '@/lib/orders/private-owner-lookup'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { logger } from '@/lib/logger'
 import {
   applyAutomaticOrdersRouting,
@@ -38,7 +38,7 @@ import type {
 } from '@/lib/types/database'
 
 type RpcError = { code?: string; message: string } | null
-type SupabaseClient = Awaited<ReturnType<typeof createClient>>
+type SupabaseClient = ReturnType<typeof createAdminClient>
 
 const WORKSPACE_HIGHLIGHT_LIMIT = 6
 const WORKSPACE_HIGHLIGHT_FETCH_LIMIT = 24
@@ -219,9 +219,8 @@ function prioritizeOldestHighlights(rows: OrdemNotaAcompanhamento[]): OrdemNotaA
 }
 
 export async function GET(request: Request) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const currentAdminContext = await getCurrentRequestAdminContext({
-    supabase,
     allowMaintainerView: true,
   })
 
@@ -656,8 +655,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const currentAdminContext = await getCurrentRequestAdminContext({ supabase })
+  const supabase = createAdminClient()
+  const currentAdminContext = await getCurrentRequestAdminContext()
 
   if (!currentAdminContext.email) {
     return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })

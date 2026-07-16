@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { callGestaoBaseRpc } from '@/lib/graficos/gestao-base-rpc'
 import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
 import type { TipoUnidade } from '@/lib/types/database'
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Sem permissao' }, { status: 403 })
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { searchParams } = new URL(request.url)
   const servico = normalizeText(searchParams.get('servico'))
   const tipoUnidadeRaw = normalizeText(searchParams.get('tipo_unidade'))

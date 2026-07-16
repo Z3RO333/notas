@@ -16,7 +16,8 @@ Este repositorio concentra a aplicacao web, as migrations do banco Supabase/Post
 ## Stack principal
 
 - Next.js 15 + React 19 + TypeScript
-- Supabase (Postgres, Auth e RPCs)
+- Supabase (Postgres e RPCs)
+- Auth.js/NextAuth com Microsoft Entra ID
 - Tailwind + Radix UI
 - Recharts para graficos
 - Vitest + Testing Library
@@ -39,7 +40,12 @@ Para a aplicacao web, use `apps/web/.env.local`.
 Variaveis minimas para subir a app:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `AZURE_AD_CLIENT_ID`
+- `AZURE_AD_CLIENT_SECRET`
+- `AZURE_AD_TENANT`
+- `NEXTAUTH_SECRET`
+- `ALLOWED_EMAIL_DOMAIN` (em producao: `bemol.com.br`)
 
 Variaveis usadas em fluxos administrativos e APIs server-side:
 
@@ -48,6 +54,7 @@ Variaveis usadas em fluxos administrativos e APIs server-side:
 - `CRON_SECRET`
 - `MAINTAINER_EMAILS`
 - `ROTA_API_URL` (por exemplo, `http://localhost:3001/api` no desenvolvimento)
+- `ROTA_INTEGRATION_SECRET` (o mesmo valor configurado na `rota-api`)
 - `UPSTASH_REDIS_REST_URL` quando o rate limit estiver habilitado
 - `DEBUG_ORDERS_ROUTING` e `DEBUG_ORDERS_CD_ROUTING` para diagnostico
 
@@ -55,6 +62,8 @@ Observacao:
 
 - scripts utilitarios tambem podem usar `.env` ou `.env.local` na raiz do repositorio
 - nao commitar segredos; os arquivos `.env*` ja estao no `.gitignore`
+- em producao, as configuracoes ficam no Azure App Service `CockpitManutencao`
+- as tabelas de aplicacao no schema `public` mantem RLS habilitado; somente os backends com `service_role` acessam dados diretamente
 
 ## Como rodar localmente
 

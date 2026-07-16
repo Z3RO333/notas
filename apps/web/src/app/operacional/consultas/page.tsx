@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentAdminContext } from '@/lib/auth/current-admin-context'
 import { ConsultasPanel } from '@/components/operacional/consultas-panel'
 import type { SaidaDetalhe, SaidaOrdem } from '@/lib/types/saidas'
@@ -12,7 +12,7 @@ export default async function ConsultasPage() {
   let operacionalCodigo: string | null = null
   let saidaAtiva: SaidaDetalhe | null = null
   if (context.adminId) {
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     const { data } = await supabase
       .from('administradores')
       .select('operacional_codigo')

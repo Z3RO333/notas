@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
   buildSaturdayScheduleSlots,
   getSaturdayScheduleMonthWindow,
@@ -60,7 +60,7 @@ function isMissingVacationColumnsError(error: { code?: string; message?: string 
     || (error.message ?? '').toLowerCase().includes('data_fim_ferias')
 }
 
-async function loadAdminPeople(supabase: Awaited<ReturnType<typeof createClient>>): Promise<AdminPerson[]> {
+async function loadAdminPeople(supabase: ReturnType<typeof createAdminClient>): Promise<AdminPerson[]> {
   const fullPeopleResult = await supabase
     .from('administradores')
     .select('id, nome, email, role, especialidade, ativo, recebe_distribuicao, em_ferias, data_inicio_ferias, data_fim_ferias')
@@ -89,7 +89,7 @@ async function loadAdminPeople(supabase: Awaited<ReturnType<typeof createClient>
 }
 
 async function loadSaturdayScheduleSlots(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   monthKey: string,
 ): Promise<SaturdayScheduleSlot[]> {
   const window = getSaturdayScheduleMonthWindow(monthKey)
@@ -121,7 +121,7 @@ async function loadSaturdayScheduleSlots(
 }
 
 async function loadOperacionaisComUnidades(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
 ): Promise<OperacionalAdmin[]> {
   const [opResult, unidadesResult] = await Promise.all([
     supabase
@@ -162,7 +162,7 @@ async function loadOperacionaisComUnidades(
 }
 
 async function loadTodasUnidades(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
 ): Promise<string[]> {
   const { data, error } = await supabase
     .from('dim_centro_unidade')
@@ -176,7 +176,7 @@ async function loadTodasUnidades(
 export async function loadAdministrationPageData(params?: {
   selectedSaturdayScheduleMonth?: string | null
 }): Promise<AdministrationPageData> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const people = await loadAdminPeople(supabase)
   const saturdayScheduleMonthKey = normalizeSaturdayScheduleMonthKey(params?.selectedSaturdayScheduleMonth)
 

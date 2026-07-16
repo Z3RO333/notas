@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getSessionEmail } from '@/lib/auth/session'
 import { isMaintainerEmail } from '@/lib/auth/shared'
 import { buildMviewToken, MVIEW_COOKIE_NAME, MVIEW_COOKIE_MAX_AGE } from '@/lib/auth/maintainer-view'
 import { logger } from '@/lib/logger'
@@ -17,14 +18,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Configuracao do servidor ausente' }, { status: 500 })
   }
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = createAdminClient()
+  const email = await getSessionEmail()
 
-  if (!user?.email) {
+  if (!email) {
     return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
   }
 
-  if (!isMaintainerEmail(user.email)) {
+  if (!isMaintainerEmail(email)) {
     return NextResponse.json({ error: 'Sem permissao' }, { status: 403 })
   }
 
@@ -45,15 +46,15 @@ export async function POST(request: Request) {
   const { data: admin, error: adminError } = await supabase
     .from('administradores')
     .select('id')
-    .eq('email', user.email)
+    .eq('email', email)
     .single()
 
   if (adminError || !admin) {
-    logger.error('[maintainer/elevate] administrador nao encontrado para email:', user.email)
+    logger.error('[maintainer/elevate] administrador nao encontrado para email:', email)
     return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
   }
 
-  const token = buildMviewToken(role, admin.id, user.email, secret)
+  const token = buildMviewToken(role, admin.id, email, secret)
   const expiresAt = new Date(Date.now() + MVIEW_COOKIE_MAX_AGE * 1000).toISOString()
 
   // Auditoria é best-effort — falha não deve bloquear a operação
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
     gestor_id: admin.id,
     acao: 'MAINTAINER_VIEW_ATIVADO',
     alvo_id: null,
-    detalhes: { role_simulado: role, email: user.email, exp: expiresAt },
+    detalhes: { role_simulado: role, email, exp: expiresAt },
   })
 
   if (auditError) {
@@ -87,25 +88,25 @@ export async function DELETE() {
     return NextResponse.json({ error: 'Configuracao do servidor ausente' }, { status: 500 })
   }
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = createAdminClient()
+  const email = await getSessionEmail()
 
-  if (!user?.email) {
+  if (!email) {
     return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
   }
 
-  if (!isMaintainerEmail(user.email)) {
+  if (!isMaintainerEmail(email)) {
     return NextResponse.json({ error: 'Sem permissao' }, { status: 403 })
   }
 
   const { data: admin, error: adminError } = await supabase
     .from('administradores')
     .select('id')
-    .eq('email', user.email)
+    .eq('email', email)
     .single()
 
   if (adminError || !admin) {
-    logger.error('[maintainer/elevate] administrador nao encontrado para email:', user.email)
+    logger.error('[maintainer/elevate] administrador nao encontrado para email:', email)
     return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
   }
 
@@ -114,7 +115,7 @@ export async function DELETE() {
     gestor_id: admin.id,
     acao: 'MAINTAINER_VIEW_DESATIVADO',
     alvo_id: null,
-    detalhes: { email: user.email },
+    detalhes: { email },
   })
 
   if (auditError) {

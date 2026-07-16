@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getSessionEmail } from '@/lib/auth/session'
 import type { UserRole } from '@/lib/types/database'
 
 export type CartaoImportRow = {
@@ -29,17 +29,17 @@ function normalizeText(value: unknown): string | null {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = createAdminClient()
+  const email = await getSessionEmail()
 
-  if (!user?.email) {
+  if (!email) {
     return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
   }
 
   const { data: loggedAdmin, error: adminError } = await supabase
     .from('administradores')
     .select('id, role')
-    .eq('email', user.email)
+    .eq('email', email)
     .single()
 
   if (adminError || !loggedAdmin) {

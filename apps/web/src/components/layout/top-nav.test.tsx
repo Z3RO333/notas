@@ -23,14 +23,6 @@ vi.mock('@/components/theme/theme-selector', () => ({
   ThemeSelector: () => <div>Tema</div>,
 }))
 
-vi.mock('@/lib/supabase/client', () => ({
-  createClient: () => ({
-    auth: {
-      signOut: vi.fn(),
-    },
-  }),
-}))
-
 describe('TopNav', () => {
   it('keeps viewer navigation limited to notes and orders', () => {
     render(<TopNav userName="TV Ordens" userRole="viewer" />)

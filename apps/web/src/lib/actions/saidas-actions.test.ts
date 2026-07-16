@@ -4,8 +4,12 @@ vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }))
 
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(),
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(),
+}))
+
+vi.mock('@/lib/auth/session', () => ({
+  getSessionEmail: vi.fn(),
 }))
 
 vi.mock('@/lib/actions/admin-action-support', () => ({
@@ -172,7 +176,6 @@ describe('registrarResultadoOrdem', () => {
   })
 
   function buildSupabaseMock({
-    user = { email: 'tecnico@empresa.com' },
     adminData = { id: 'admin-1', role: 'operacional', operacional_codigo: 'OP001' },
     ordemData = {
       saida_id: 'saida-uuid-1',
@@ -200,29 +203,25 @@ describe('registrarResultadoOrdem', () => {
       return {}
     })
 
-    return {
-      auth: { getUser: vi.fn().mockResolvedValue({ data: { user } }) },
-      from,
-      rpc,
-    }
+    return { from, rpc }
   }
 
-  it('retorna erro quando usuário não está autenticado (user é null)', async () => {
-    const { createClient } = await import('@/lib/supabase/server')
-    vi.mocked(createClient).mockResolvedValueOnce(
-      buildSupabaseMock({ user: null as never }) as never,
-    )
+  it('retorna erro quando não há sessão (getSessionEmail resolve null)', async () => {
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const { getSessionEmail } = await import('@/lib/auth/session')
+    vi.mocked(createAdminClient).mockReturnValue(buildSupabaseMock() as never)
+    vi.mocked(getSessionEmail).mockResolvedValueOnce(null)
 
     const { registrarResultadoOrdem } = await import('@/lib/actions/saidas-actions')
     const result = await registrarResultadoOrdem('ordem-1', 'resolvida', null)
     expect(result).toEqual({ error: 'Não autenticado' })
   })
 
-  it('retorna erro quando email do usuário está ausente', async () => {
-    const { createClient } = await import('@/lib/supabase/server')
-    vi.mocked(createClient).mockResolvedValueOnce(
-      buildSupabaseMock({ user: { email: '' } as never }) as never,
-    )
+  it('retorna erro quando email da sessão está ausente', async () => {
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const { getSessionEmail } = await import('@/lib/auth/session')
+    vi.mocked(createAdminClient).mockReturnValue(buildSupabaseMock() as never)
+    vi.mocked(getSessionEmail).mockResolvedValueOnce('')
 
     const { registrarResultadoOrdem } = await import('@/lib/actions/saidas-actions')
     const result = await registrarResultadoOrdem('ordem-1', 'resolvida', null)
@@ -230,10 +229,12 @@ describe('registrarResultadoOrdem', () => {
   })
 
   it('retorna erro quando adminData não é encontrado', async () => {
-    const { createClient } = await import('@/lib/supabase/server')
-    vi.mocked(createClient).mockResolvedValueOnce(
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const { getSessionEmail } = await import('@/lib/auth/session')
+    vi.mocked(createAdminClient).mockReturnValue(
       buildSupabaseMock({ adminData: null as never }) as never,
     )
+    vi.mocked(getSessionEmail).mockResolvedValueOnce('tecnico@empresa.com')
 
     const { registrarResultadoOrdem } = await import('@/lib/actions/saidas-actions')
     const result = await registrarResultadoOrdem('ordem-1', 'resolvida', null)
@@ -241,12 +242,14 @@ describe('registrarResultadoOrdem', () => {
   })
 
   it('retorna erro quando role não é operacional (viewer)', async () => {
-    const { createClient } = await import('@/lib/supabase/server')
-    vi.mocked(createClient).mockResolvedValueOnce(
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const { getSessionEmail } = await import('@/lib/auth/session')
+    vi.mocked(createAdminClient).mockReturnValue(
       buildSupabaseMock({
         adminData: { id: 'admin-1', role: 'viewer', operacional_codigo: 'OP001' },
       }) as never,
     )
+    vi.mocked(getSessionEmail).mockResolvedValueOnce('tecnico@empresa.com')
 
     const { registrarResultadoOrdem } = await import('@/lib/actions/saidas-actions')
     const result = await registrarResultadoOrdem('ordem-1', 'resolvida', null)
@@ -254,12 +257,14 @@ describe('registrarResultadoOrdem', () => {
   })
 
   it('retorna erro quando role é admin (não operacional)', async () => {
-    const { createClient } = await import('@/lib/supabase/server')
-    vi.mocked(createClient).mockResolvedValueOnce(
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const { getSessionEmail } = await import('@/lib/auth/session')
+    vi.mocked(createAdminClient).mockReturnValue(
       buildSupabaseMock({
         adminData: { id: 'admin-1', role: 'admin', operacional_codigo: 'OP001' },
       }) as never,
     )
+    vi.mocked(getSessionEmail).mockResolvedValueOnce('tecnico@empresa.com')
 
     const { registrarResultadoOrdem } = await import('@/lib/actions/saidas-actions')
     const result = await registrarResultadoOrdem('ordem-1', 'resolvida', null)
@@ -267,12 +272,14 @@ describe('registrarResultadoOrdem', () => {
   })
 
   it('retorna erro quando operacional_codigo é null', async () => {
-    const { createClient } = await import('@/lib/supabase/server')
-    vi.mocked(createClient).mockResolvedValueOnce(
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const { getSessionEmail } = await import('@/lib/auth/session')
+    vi.mocked(createAdminClient).mockReturnValue(
       buildSupabaseMock({
         adminData: { id: 'admin-1', role: 'operacional', operacional_codigo: null as never },
       }) as never,
     )
+    vi.mocked(getSessionEmail).mockResolvedValueOnce('tecnico@empresa.com')
 
     const { registrarResultadoOrdem } = await import('@/lib/actions/saidas-actions')
     const result = await registrarResultadoOrdem('ordem-1', 'resolvida', null)
@@ -280,10 +287,12 @@ describe('registrarResultadoOrdem', () => {
   })
 
   it('retorna erro quando ordemData não é encontrado', async () => {
-    const { createClient } = await import('@/lib/supabase/server')
-    vi.mocked(createClient).mockResolvedValueOnce(
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const { getSessionEmail } = await import('@/lib/auth/session')
+    vi.mocked(createAdminClient).mockReturnValue(
       buildSupabaseMock({ ordemData: null as never }) as never,
     )
+    vi.mocked(getSessionEmail).mockResolvedValueOnce('tecnico@empresa.com')
 
     const { registrarResultadoOrdem } = await import('@/lib/actions/saidas-actions')
     const result = await registrarResultadoOrdem('ordem-1', 'resolvida', null)
@@ -291,8 +300,9 @@ describe('registrarResultadoOrdem', () => {
   })
 
   it('retorna erro quando saída pertence a outro técnico', async () => {
-    const { createClient } = await import('@/lib/supabase/server')
-    vi.mocked(createClient).mockResolvedValueOnce(
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const { getSessionEmail } = await import('@/lib/auth/session')
+    vi.mocked(createAdminClient).mockReturnValue(
       buildSupabaseMock({
         adminData: { id: 'admin-1', role: 'operacional', operacional_codigo: 'OP001' },
         ordemData: {
@@ -301,6 +311,7 @@ describe('registrarResultadoOrdem', () => {
         },
       }) as never,
     )
+    vi.mocked(getSessionEmail).mockResolvedValueOnce('tecnico@empresa.com')
 
     const { registrarResultadoOrdem } = await import('@/lib/actions/saidas-actions')
     const result = await registrarResultadoOrdem('ordem-1', 'resolvida', null)
@@ -308,8 +319,10 @@ describe('registrarResultadoOrdem', () => {
   })
 
   it('retorna { error: null } no sucesso', async () => {
-    const { createClient } = await import('@/lib/supabase/server')
-    vi.mocked(createClient).mockResolvedValueOnce(buildSupabaseMock() as never)
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const { getSessionEmail } = await import('@/lib/auth/session')
+    vi.mocked(createAdminClient).mockReturnValue(buildSupabaseMock() as never)
+    vi.mocked(getSessionEmail).mockResolvedValueOnce('tecnico@empresa.com')
 
     const { registrarResultadoOrdem } = await import('@/lib/actions/saidas-actions')
     const result = await registrarResultadoOrdem('ordem-1', 'resolvida', 'tudo ok')
@@ -317,10 +330,12 @@ describe('registrarResultadoOrdem', () => {
   })
 
   it('repassa erro do RPC', async () => {
-    const { createClient } = await import('@/lib/supabase/server')
-    vi.mocked(createClient).mockResolvedValueOnce(
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const { getSessionEmail } = await import('@/lib/auth/session')
+    vi.mocked(createAdminClient).mockReturnValue(
       buildSupabaseMock({ rpcError: { message: 'Resultado já registrado' } }) as never,
     )
+    vi.mocked(getSessionEmail).mockResolvedValueOnce('tecnico@empresa.com')
 
     const { registrarResultadoOrdem } = await import('@/lib/actions/saidas-actions')
     const result = await registrarResultadoOrdem('ordem-1', 'nao_resolvida', null)
@@ -328,12 +343,14 @@ describe('registrarResultadoOrdem', () => {
   })
 
   it('retorna erro quando role é gestor (não operacional)', async () => {
-    const { createClient } = await import('@/lib/supabase/server')
-    vi.mocked(createClient).mockResolvedValueOnce(
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const { getSessionEmail } = await import('@/lib/auth/session')
+    vi.mocked(createAdminClient).mockReturnValue(
       buildSupabaseMock({
         adminData: { id: 'admin-1', role: 'gestor', operacional_codigo: 'OP001' },
       }) as never,
     )
+    vi.mocked(getSessionEmail).mockResolvedValueOnce('tecnico@empresa.com')
 
     const { registrarResultadoOrdem } = await import('@/lib/actions/saidas-actions')
     const result = await registrarResultadoOrdem('ordem-1', 'reagendada', null)

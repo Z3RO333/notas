@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import Image from 'next/image'
 import {
   Banknote,
@@ -27,12 +27,12 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { signOut } from 'next-auth/react'
 import { AppMainShell } from '@/components/layout/app-main-shell'
 import { ThemeSelector } from '@/components/theme/theme-selector'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { PrefetchLink } from '@/components/shared/prefetch-link'
-import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
 interface CockpitShellProps {
@@ -69,7 +69,7 @@ const NAV_LINKS: ShellNavLink[] = [
   { href: '/admin/copilot', label: 'Copilot', section: 'Gestao', icon: Sparkles, gestorOnly: true },
 ]
 
-const AUTH_FREE_PATHS = ['/login', '/reset-password']
+const AUTH_FREE_PATHS = ['/login']
 const SIDEBAR_STORAGE_KEY = 'cockpit:shell:sidebar-collapsed'
 
 function isAuthFreePath(pathname: string) {
@@ -179,7 +179,6 @@ function SidebarContent({
 
 export function CockpitShell({ children, userName, userRole }: CockpitShellProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const links = useMemo(() => getVisibleLinks(userRole), [userRole])
@@ -198,10 +197,7 @@ export function CockpitShell({ children, userName, userRole }: CockpitShellProps
   }
 
   async function handleLogout() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+    await signOut({ redirectTo: '/login' })
   }
 
   if (isAuthFreePath(pathname)) {

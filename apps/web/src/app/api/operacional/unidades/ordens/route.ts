@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
 
 type OperacionalOrderRow = {
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Sem permissao' }, { status: 403 })
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { searchParams } = new URL(request.url)
   const unidade = normalizeText(searchParams.get('unidade'))
   const startIso = normalizeText(searchParams.get('start'))

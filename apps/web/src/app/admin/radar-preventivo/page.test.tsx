@@ -4,8 +4,8 @@ import RadarPreventivoPage from './page'
 const rpcMock = vi.fn()
 const callGestaoBaseRpcMock = vi.fn()
 
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(async () => ({
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
     rpc: rpcMock,
   })),
 }))

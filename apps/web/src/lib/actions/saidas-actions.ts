@@ -1,7 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getSessionEmail } from '@/lib/auth/session'
 import { getAuthenticatedAdminActionContext } from '@/lib/actions/admin-action-support'
 import { buildPublishRoutePayload } from '@/lib/saidas/rota-integration'
 import type {
@@ -26,6 +27,12 @@ function getRotaApiUrl(): string {
   }
 
   return url.toString().replace(/\/$/, '')
+}
+
+function getRotaIntegrationSecret(): string {
+  const value = process.env.ROTA_INTEGRATION_SECRET?.trim()
+  if (!value) throw new Error('ROTA_INTEGRATION_SECRET não configurada no Cockpit')
+  return value
 }
 
 export async function criarSaidaOperacional(
@@ -116,15 +123,15 @@ export async function registrarResultadoOrdem(
   observacao: string | null,
 ): Promise<{ error: string | null }> {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const supabase = createAdminClient()
+    const email = await getSessionEmail()
 
-    if (!user?.email) return { error: 'Não autenticado' }
+    if (!email) return { error: 'Não autenticado' }
 
     const { data: adminData } = await supabase
       .from('administradores')
       .select('id, role, operacional_codigo')
-      .eq('email', user.email)
+      .eq('email', email)
       .maybeSingle()
 
     if (!adminData) return { error: 'Usuário não encontrado' }
@@ -223,8 +230,8 @@ export async function publicarSaidaNoRota(saidaId: string): Promise<PublishRotaR
       }
     }
 
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    if (sessionError || !session?.access_token) {
+    const publishedByEmail = await getSessionEmail()
+    if (!publishedByEmail) {
       return { data: null, error: 'Sessão expirada. Entre novamente para publicar no ROTA' }
     }
 
@@ -244,12 +251,13 @@ export async function publicarSaidaNoRota(saidaId: string): Promise<PublishRotaR
         })),
       },
       operational.auth_user_id,
+      publishedByEmail,
     )
 
     const response = await fetch(`${getRotaApiUrl()}/integration/publish-route`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${session.access_token}`,
+        Authorization: `Bearer ${getRotaIntegrationSecret()}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),

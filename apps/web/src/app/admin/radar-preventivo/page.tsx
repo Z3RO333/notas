@@ -1,7 +1,7 @@
 import { ChartLabelsProvider } from '@/components/charts/chart-labels-context'
 import { PageTitleBlock } from '@/components/shared/page-title-block'
 import { callGestaoBaseRpc } from '@/lib/graficos/gestao-base-rpc'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { GestaoBaseOrdem } from '@/lib/types/database'
 import {
   buildPreventiveAnalysis,
@@ -31,7 +31,7 @@ export default async function RadarPreventivoPage({
   const period = resolvePreventivePeriod(params, new Date())
   const rpcParams = buildPreventiveRpcParams(period, tipoOrdem)
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const [opcoesRes, preventiveResults] = await Promise.all([
     supabase.rpc('listar_gestao_filtros'),
