@@ -14,10 +14,13 @@
 -- falharia com "permission denied for function". Os dois GRANT EXECUTE
 -- abaixo foram adicionados por esse motivo (não estavam no plano original).
 
+-- Sem PASSWORD aqui de propósito: a role nasce sem senha (login por senha
+-- fica indisponível até alguém rodar ALTER ROLE ... WITH PASSWORD fora
+-- deste arquivo, direto no banco, para não commitar segredo em texto puro).
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'n8n_teams_bot') THEN
-    CREATE ROLE n8n_teams_bot LOGIN PASSWORD 'CHANGE_ME_ROTATE_BEFORE_MERGE';
+    CREATE ROLE n8n_teams_bot LOGIN;
   END IF;
 END $$;
 
