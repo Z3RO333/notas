@@ -57,6 +57,7 @@ function normalizeOrdersKpis(raw: Partial<OrdersWorkspaceKpis> | null | undefine
     concluidas: toNumber(raw?.concluidas),
     canceladas: toNumber(raw?.canceladas),
     avaliadas: toNumber(raw?.avaliadas),
+    aguardando_faturamento: toNumber(raw?.aguardando_faturamento),
     atrasadas: toNumber(raw?.atrasadas),
     sem_responsavel: toNumber(raw?.sem_responsavel),
   }

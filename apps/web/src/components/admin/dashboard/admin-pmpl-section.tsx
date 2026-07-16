@@ -59,6 +59,7 @@ export async function AdminPmplSection({
     concluidas: Number(rawPmplKpis.concluidas ?? 0),
     canceladas: Number(rawPmplKpis.canceladas ?? 0),
     avaliadas: Number(rawPmplKpis.avaliadas ?? 0),
+    aguardando_faturamento: Number(rawPmplKpis.aguardando_faturamento ?? 0),
     atrasadas: Number(rawPmplKpis.atrasadas ?? 0),
     sem_responsavel: Number(rawPmplKpis.sem_responsavel ?? 0),
   })

@@ -447,6 +447,7 @@ export interface OrdersWorkspaceKpis {
   concluidas: number
   canceladas: number
   avaliadas: number
+  aguardando_faturamento: number
   atrasadas: number
   sem_responsavel: number
 }

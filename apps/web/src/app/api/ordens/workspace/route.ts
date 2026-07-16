@@ -53,6 +53,7 @@ function mapKpis(value: Partial<OrdersWorkspaceKpis> | null | undefined): Orders
     concluidas: Number(value?.concluidas ?? 0),
     canceladas: Number(value?.canceladas ?? 0),
     avaliadas: Number(value?.avaliadas ?? 0),
+    aguardando_faturamento: Number(value?.aguardando_faturamento ?? 0),
     atrasadas: Number(value?.atrasadas ?? 0),
     sem_responsavel: Number(value?.sem_responsavel ?? 0),
   }

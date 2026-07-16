@@ -6,6 +6,7 @@ export type RawStatusBucket =
   | 'em_avaliacao'
   | 'avaliada'
   | 'nao_realizada'
+  | 'aguardando_faturamento'
   | 'concluida'
   | 'cancelada'
   | 'desconhecido'
@@ -20,7 +21,8 @@ const RAW_EXECUTION = new Set([
 const RAW_EVALUATION = new Set(['AVALIACAO_DA_EXECUCAO', 'AVALIACAO_DE_EXECUCAO'])
 const RAW_RATED = new Set(['EXECUCAO_SATISFATORIO', 'EXECUCAO_SATISFATORIA'])
 const RAW_NOT_EXECUTED = 'EXECUCAO_NAO_REALIZADA'
-const RAW_COMPLETED = new Set(['CONCLUIDO', 'CONCLUIDA', 'AGUARDANDO_FATURAMENTO_NF'])
+const RAW_AWAITING_INVOICE = new Set(['AGUARDANDO_FATURAMENTO_NF'])
+const RAW_COMPLETED = new Set(['CONCLUIDO', 'CONCLUIDA'])
 const RAW_CANCELED = new Set(['CANCELADO', 'CANCELADA'])
 
 export const RAW_ACTIVE_BUCKETS = new Set<RawStatusBucket>([
@@ -33,6 +35,7 @@ export const RAW_ACTIVE_BUCKETS = new Set<RawStatusBucket>([
 
 export const RAW_FINAL_BUCKETS = new Set<RawStatusBucket>([
   'avaliada',
+  'aguardando_faturamento',
   'concluida',
   'cancelada',
 ])
@@ -50,6 +53,7 @@ export function classifyRawStatusBucket(raw: string | null | undefined): RawStat
   if (RAW_EVALUATION.has(normalized)) return 'em_avaliacao'
   if (RAW_RATED.has(normalized)) return 'avaliada'
   if (normalized === RAW_NOT_EXECUTED) return 'nao_realizada'
+  if (RAW_AWAITING_INVOICE.has(normalized)) return 'aguardando_faturamento'
   if (RAW_COMPLETED.has(normalized)) return 'concluida'
   if (RAW_CANCELED.has(normalized)) return 'cancelada'
 
@@ -92,6 +96,10 @@ export function isRawOrderNaoRealizada(raw: string | null | undefined): boolean 
   return classifyRawStatusBucket(raw) === 'nao_realizada'
 }
 
+export function isRawOrderAguardandoFaturamento(raw: string | null | undefined): boolean {
+  return classifyRawStatusBucket(raw) === 'aguardando_faturamento'
+}
+
 export function isRawOrderConcluida(raw: string | null | undefined): boolean {
   return classifyRawStatusBucket(raw) === 'concluida'
 }
@@ -128,7 +136,7 @@ export function getRawStatusLabel(raw: string | null | undefined): string {
     case 'CONCLUIDA':
       return 'Concluída'
     case 'AGUARDANDO_FATURAMENTO_NF':
-      return 'Aguardando faturamento NF'
+      return 'Aguardando faturamento'
     case 'CANCELADO':
     case 'CANCELADA':
       return 'Cancelada'
@@ -144,6 +152,7 @@ export function getRawStatusClass(raw: string | null | undefined): string {
   if (bucket === 'em_avaliacao') return 'bg-violet-100 text-violet-700'
   if (bucket === 'avaliada') return 'bg-emerald-100 text-emerald-700'
   if (bucket === 'nao_realizada') return 'bg-red-100 text-red-700'
+  if (bucket === 'aguardando_faturamento') return 'bg-amber-100 text-amber-700'
   if (bucket === 'concluida') return 'bg-emerald-100 text-emerald-700'
   if (bucket === 'cancelada') return 'bg-slate-100 text-slate-600'
   return 'bg-zinc-100 text-zinc-600'
@@ -153,7 +162,7 @@ export function deriveOrdemStatusFromRaw(raw: string | null | undefined): OrdemS
   const bucket = classifyRawStatusBucket(raw)
   if (bucket === 'em_aberto') return 'aberta'
   if (bucket === 'em_execucao' || bucket === 'em_avaliacao' || bucket === 'nao_realizada') return 'em_tratativa'
-  if (bucket === 'avaliada' || bucket === 'concluida') return 'concluida'
+  if (bucket === 'avaliada' || bucket === 'concluida' || bucket === 'aguardando_faturamento') return 'concluida'
   if (bucket === 'cancelada') return 'cancelada'
   return 'desconhecido'
 }
