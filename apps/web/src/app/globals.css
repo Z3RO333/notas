@@ -166,3 +166,13 @@
 .accordion-grid > .accordion-content {
   overflow: hidden;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up {
+    animation: none;
+  }
+
+  .accordion-grid {
+    transition: none;
+  }
+}

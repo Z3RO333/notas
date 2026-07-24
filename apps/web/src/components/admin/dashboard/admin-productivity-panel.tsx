@@ -489,7 +489,7 @@ function RankingPodium({
   )
 
   return (
-    <div className="border-b bg-muted/10 px-6 pb-6 pt-4">
+    <div className="min-w-0 border-b bg-muted/10 px-3 pb-6 pt-4 sm:px-6">
       <div className="grid grid-cols-3 gap-3 md:gap-5">
         {PODIUM_LAYOUT.map((rank) => {
           const entry = entryByRank.get(rank)
@@ -501,15 +501,15 @@ function RankingPodium({
           const style = getPodiumStyle(rank)
 
           return (
-            <div key={entry.key} className={cn('flex flex-col items-center justify-end', style.column)}>
-              <div className="mb-3 flex flex-col items-center text-center">
+            <div key={entry.key} className={cn('min-w-0 flex flex-col items-center justify-end', style.column)}>
+              <div className="mb-3 flex min-w-0 w-full flex-col items-center text-center">
                 <Avatar
                   src={entry.avatarUrl}
                   nome={entry.name}
                   size={rank === 1 ? 'xl' : 'lg'}
                   className={style.avatar}
                 />
-                <p className="mt-3 line-clamp-2 text-sm font-semibold leading-tight">{entry.name}</p>
+                <p className="mt-3 line-clamp-2 w-full break-words text-sm font-semibold leading-tight">{entry.name}</p>
                 <p className="mt-1 text-xs font-semibold text-foreground/90">{entry.primary}</p>
                 <p className="text-[11px] text-muted-foreground">{entry.secondary}</p>
                 {entry.tertiary ? (
@@ -517,7 +517,7 @@ function RankingPodium({
                 ) : null}
               </div>
 
-              <div className={cn('flex w-full items-center justify-center rounded-t-[1.75rem] border px-3 py-4 text-center shadow-sm', style.pedestal)}>
+              <div className={cn('flex min-w-0 w-full items-center justify-center rounded-t-[1.75rem] border px-1 py-4 text-center shadow-sm sm:px-3', style.pedestal)}>
                 <span className="text-4xl font-black leading-none md:text-5xl">{rank}</span>
               </div>
             </div>
@@ -552,7 +552,7 @@ function OperationalPodiumCard({
   })
 
   return (
-    <Card>
+    <Card className="min-w-0 overflow-hidden">
       <CardHeader className="space-y-1">
         <CardTitle className="text-base">Pódio de operacionais</CardTitle>
         <p className="text-xs text-muted-foreground">
@@ -587,7 +587,7 @@ function AdminPodiumCard({
   }))
 
   return (
-    <Card>
+    <Card className="min-w-0 overflow-hidden">
       <CardHeader className="space-y-1">
         <CardTitle className="text-base">Pódio de administradores</CardTitle>
         <p className="text-xs text-muted-foreground">
@@ -742,8 +742,8 @@ function OperacionalSectionSkeleton() {
           <div key={i} className="h-28 rounded-lg border bg-muted/30" />
         ))}
       </div>
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="space-y-6 xl:col-span-2">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-3">
+        <div className="min-w-0 space-y-6 xl:col-span-2">
           <div className="h-64 rounded-lg border bg-muted/30" />
           <div className="h-72 rounded-lg border bg-muted/30" />
         </div>
@@ -762,8 +762,8 @@ function AdminSectionSkeleton() {
           <div key={i} className="h-28 rounded-lg border bg-muted/30" />
         ))}
       </div>
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="space-y-6 xl:col-span-2">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-3">
+        <div className="min-w-0 space-y-6 xl:col-span-2">
           <div className="h-64 rounded-lg border bg-muted/30" />
           <div className="h-72 rounded-lg border bg-muted/30" />
         </div>
@@ -961,8 +961,8 @@ async function OperacionalSection({ period, especialidade }: AdminProductivityPa
         />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="space-y-6 xl:col-span-2">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-3">
+        <div className="min-w-0 space-y-6 xl:col-span-2">
           <OperationalPodiumCard
             rows={rows}
             totalConcluidas={currentKpis.ordens_atendidas}
@@ -1172,8 +1172,8 @@ async function AdminSection({ period }: { period: AdminProductivityPeriod }) {
         />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="space-y-6 xl:col-span-2">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-3">
+        <div className="min-w-0 space-y-6 xl:col-span-2">
           <AdminPodiumCard rows={rows} scopeLabel={scopeLabel} />
           <AdminRankingCard rows={rows} scopeLabel={scopeLabel} />
         </div>

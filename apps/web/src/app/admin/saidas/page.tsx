@@ -14,7 +14,7 @@ export default async function SaidasPage() {
     .order('nome')
 
   return (
-    <div className="px-4 py-5 sm:px-6">
+    <div className="py-5">
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold">Saídas Operacionais</h1>

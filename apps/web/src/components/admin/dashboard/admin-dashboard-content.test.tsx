@@ -45,6 +45,7 @@ describe('AdminDashboardContent', () => {
     expect(screen.getByText('Produtividade Mensal')).toBeInTheDocument()
     expect(stickyWrapper).toHaveClass('sticky', 'top-14', 'z-20')
     expect(stickyWrapper).toHaveClass('backdrop-blur')
+    expect(stickyWrapper).not.toHaveClass('-mx-4', 'sm:-mx-6', 'lg:-mx-8')
     expect(screen.getByTestId('productivity-panel')).toBeInTheDocument()
   })
 })

@@ -28,7 +28,7 @@ export function Breadcrumb() {
   if (segments.length <= 1) return null  // Só "/admin" — sem breadcrumb
 
   return (
-    <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+    <nav aria-label="Breadcrumb" className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground">
       {segments.map((segment, idx) => {
         const href = '/' + segments.slice(0, idx + 1).join('/')
         const label = ADMIN_LABELS[segment] ?? segment

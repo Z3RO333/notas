@@ -45,7 +45,7 @@ export function CockpitKpiStrip({
 }: CockpitKpiStripProps) {
   return (
     <div className={cn('rounded-lg border bg-background/40 p-2', tone && frameToneClass[tone], className)}>
-      <div className={cn('grid gap-2 sm:grid-cols-2 xl:grid-cols-4', columnsClassName)}>
+      <div className={cn('grid grid-cols-2 gap-2 xl:grid-cols-4', columnsClassName)}>
         {items.map((item) => {
           const Icon = item.icon
           const content = (

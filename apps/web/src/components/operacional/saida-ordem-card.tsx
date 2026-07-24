@@ -12,7 +12,7 @@ import type { SaidaOrdem, SaidaOrdemResultado } from '@/lib/types/saidas'
 const RESULTADO_CONFIG = {
   resolvida:     { label: 'Resolvida',     icon: CheckCircle2, className: 'bg-green-500 hover:bg-green-600 text-white' },
   nao_resolvida: { label: 'Não resolvida', icon: XCircle,      className: 'bg-red-500 hover:bg-red-600 text-white' },
-  reagendada:    { label: 'Reagendada',    icon: Clock,        className: 'bg-yellow-500 hover:bg-yellow-600 text-white' },
+  reagendada:    { label: 'Reagendada',    icon: Clock,        className: 'bg-warning text-warning-foreground hover:bg-warning/90' },
 } as const
 
 const BADGE_VARIANT: Record<SaidaOrdemResultado, 'default' | 'secondary' | 'destructive'> = {

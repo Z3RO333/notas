@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { CollaboratorPanel } from '@/components/collaborator/collaborator-panel'
 import { NotaLookupBanner } from '@/components/notas/nota-lookup-banner'
 import { NotasKpiStrip } from '@/components/notas/notas-kpi-strip'
+import { Button } from '@/components/ui/button'
 import type { NotesPanelPageData } from '@/lib/notes/get-notes-panel-data'
 
 interface NotesPanelClientContentProps {
@@ -35,6 +36,7 @@ export function NotesPanelClientContent({ initialData, initialQueryString }: Not
     isFetching,
     isPlaceholderData,
     error,
+    refetch,
   } = useQuery({
     queryKey: ['notes-panel', queryString],
     queryFn: ({ signal }) => fetchNotesPanelData(queryString, signal),
@@ -67,8 +69,14 @@ export function NotesPanelClientContent({ initialData, initialQueryString }: Not
       )}
 
       {error instanceof Error ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error.message}
+        <div className="flex flex-col items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-destructive">Não foi possível atualizar o painel</p>
+            <p className="mt-1 text-sm text-muted-foreground">{error.message}</p>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
+            Tentar novamente
+          </Button>
         </div>
       ) : null}
 

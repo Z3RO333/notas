@@ -576,7 +576,7 @@ export function CollaboratorPanel({
 
       {viewMode === 'list' ? (
         <>
-          <div className="sticky top-14 z-40 bg-background/95 pb-3 pt-1 backdrop-blur">
+          <div className="bg-background/95 pb-3 pt-1 backdrop-blur lg:sticky lg:top-14 lg:z-40">
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               {visibleCollaborators.map((c) => (
                 <CollaboratorMiniCard

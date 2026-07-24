@@ -82,9 +82,22 @@ function isLinkActive(pathname: string, link: ShellNavLink) {
   return pathname === link.href || pathname.startsWith(`${link.href}/`)
 }
 
-function getVisibleLinks(userRole?: string | null) {
+export function getVisibleLinks(userRole?: string | null) {
   const canUseAdmin = userRole === 'gestor'
-  return NAV_LINKS.filter((link) => !link.gestorOnly || canUseAdmin)
+  const isViewer = userRole === 'viewer'
+
+  return NAV_LINKS.filter((link) => {
+    if (link.gestorOnly && !canUseAdmin) return false
+    if (isViewer && link.href === '/pedidos') return false
+    return true
+  })
+}
+
+export function getRoleLabel(userRole?: string | null) {
+  if (userRole === 'gestor') return 'Gestor'
+  if (userRole === 'viewer') return 'Visualizador'
+  if (userRole === 'admin') return 'Admin'
+  return 'Usuário'
 }
 
 function getActiveLink(pathname: string, links: ShellNavLink[]) {
@@ -283,7 +296,7 @@ export function CockpitShell({ children, userName, userRole }: CockpitShellProps
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{userName}</p>
-                      <p className="text-xs text-muted-foreground">{userRole === 'gestor' ? 'Gestor' : 'Admin'}</p>
+                      <p className="text-xs text-muted-foreground">{getRoleLabel(userRole)}</p>
                     </div>
                   </div>
                 ) : null}

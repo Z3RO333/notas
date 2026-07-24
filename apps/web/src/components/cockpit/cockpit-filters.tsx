@@ -84,7 +84,7 @@ export function CockpitFilters({
                 </Button>
               ) : <span />}
               <Button type="button" size="sm" onClick={() => setMobileOpen(false)}>
-                Aplicar
+                Fechar
               </Button>
             </div>
           </DialogPrimitive.Content>

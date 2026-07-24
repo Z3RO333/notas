@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, Search, X } from 'lucide-react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -121,7 +122,7 @@ export function PedidosPanel({ isGestor }: PedidosPanelProps) {
   const [anoExtracao, setAnoExtracao] = useState<string | null>(null)
   const [mesExtracao, setMesExtracao] = useState<string | null>(null)
 
-  const { data: admins, isPending, error } = usePedidosSummary({ q, status, anoExtracao, mesExtracao })
+  const { data: admins, isPending, error, refetch } = usePedidosSummary({ q, status, anoExtracao, mesExtracao })
   const { data: filtrosMeta } = usePedidosFiltrosMeta({ q, status, anoExtracao, mesExtracao })
   const meta = filtrosMeta ?? { availableAnos: [], availableMeses: [] }
   const kpis = filtrosMeta?.kpis ?? { total: 0, em_aberto: 0, encerrado: 0, cancelado: 0, valor_total: 0 }
@@ -181,9 +182,19 @@ export function PedidosPanel({ isGestor }: PedidosPanelProps) {
     return (
       <div className="space-y-4">
         <PedidosSubabaToggle value={subaba} onChange={setSubaba} />
-        <p className="text-sm text-destructive">
-          {error instanceof Error ? error.message : 'Erro ao carregar pedidos.'}
-        </p>
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="flex flex-col items-start gap-3 py-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-destructive">Não foi possível carregar os pedidos</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {error instanceof Error ? error.message : 'Tente novamente em alguns instantes.'}
+              </p>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -314,15 +325,23 @@ export function PedidosPanel({ isGestor }: PedidosPanelProps) {
                 return (
                   <Fragment key={admin.adminId}>
                     <tr
-                      className="cursor-pointer border-b last:border-0 transition-colors hover:bg-muted/20"
-                      onClick={() => handleRowClick(admin.adminId)}
+                      className="border-b last:border-0 transition-colors hover:bg-muted/20"
                     >
                       <td className="w-8 px-3 py-3 text-muted-foreground">
-                        {isExpanded ? (
-                          <ChevronDown className="h-3.5 w-3.5" />
-                        ) : (
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRowClick(admin.adminId)}
+                          aria-expanded={isExpanded}
+                          aria-controls={`pedidos-admin-${admin.adminId}`}
+                          aria-label={`${isExpanded ? 'Recolher' : 'Expandir'} pedidos de ${admin.nome}`}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          )}
+                        </button>
                       </td>
                       <td className="w-8 px-2 py-3 text-center text-xs text-muted-foreground">
                         #{index + 1}
@@ -365,7 +384,7 @@ export function PedidosPanel({ isGestor }: PedidosPanelProps) {
                       </td>
                     </tr>
                     {isExpanded && (
-                      <tr className="border-b bg-muted/5 last:border-0">
+                      <tr id={`pedidos-admin-${admin.adminId}`} className="border-b bg-muted/5 last:border-0">
                         <td colSpan={7} className="p-0">
                           <PedidosAccordion
                             key={admin.adminId}

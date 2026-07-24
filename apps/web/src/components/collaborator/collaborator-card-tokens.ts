@@ -3,7 +3,7 @@ export type CollaboratorMetricTone = 'neutral' | 'success' | 'warning' | 'danger
 
 export const COLLABORATOR_CARD_TOKENS = {
   base: 'rounded-lg border bg-card',
-  interactive: 'cursor-pointer transition-all hover:shadow-md',
+  interactive: 'cursor-pointer transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
   active: 'ring-2 ring-primary bg-primary/5',
   dimmed: 'opacity-60 grayscale',
   accent: {

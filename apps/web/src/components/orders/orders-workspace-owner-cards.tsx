@@ -1,7 +1,7 @@
 'use client'
 
-import { memo } from 'react'
-import { AlertTriangle, Clock3, LayoutGrid, Loader2, Rows3, TimerReset } from 'lucide-react'
+import { memo, useState } from 'react'
+import { AlertTriangle, ChevronDown, Clock3, LayoutGrid, Loader2, Rows3, TimerReset } from 'lucide-react'
 import { CollaboratorCardShell } from '@/components/collaborator/collaborator-card-shell'
 import { OrdersOwnerFullCard } from '@/components/orders/orders-owner-full-card'
 import { OrdersPoolCard } from '@/components/orders/orders-pool-card'
@@ -41,6 +41,7 @@ export interface OrdersWorkspaceOwnerCardsProps {
   nextCursor: OrdersWorkspaceCursor | null
   loadingMore: boolean
   rowsCount: number
+  defaultCollapsed?: boolean
   onViewModeChange: (value: string) => void
   onFilterUnassigned: () => void
   onFilterAll: () => void
@@ -67,6 +68,7 @@ export const OrdersWorkspaceOwnerCards = memo(function OrdersWorkspaceOwnerCards
   nextCursor,
   loadingMore,
   rowsCount,
+  defaultCollapsed = false,
   onViewModeChange,
   onFilterUnassigned,
   onFilterAll,
@@ -74,52 +76,77 @@ export const OrdersWorkspaceOwnerCards = memo(function OrdersWorkspaceOwnerCards
   onToggleSelection,
   onLoadMore,
 }: OrdersWorkspaceOwnerCardsProps) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed)
+  const contentCollapsed = isViewerMode ? false : collapsed
+
   return (
     <div className="rounded-lg border p-3">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold">Carteira por colaborador</p>
-        {showOwnerToolbar && (
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Select value={viewMode} onValueChange={onViewModeChange}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Visualização" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="list">
-                  <div className="flex items-center gap-2">
-                    <Rows3 className="h-4 w-4" />
-                    Lista vertical
-                  </div>
-                </SelectItem>
-                <SelectItem value="cards">
-                  <div className="flex items-center gap-2">
-                    <LayoutGrid className="h-4 w-4" />
-                    Cards completos
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+      <div className={contentCollapsed ? 'flex items-center justify-between gap-2' : 'mb-3 flex items-center justify-between gap-2'}>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">Carteira por colaborador</p>
+          <p className="text-xs text-muted-foreground">
+            {formatNumber(visibleOwners.length)} colaborador{visibleOwners.length !== 1 ? 'es' : ''} no escopo atual
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {!isViewerMode && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-expanded={!contentCollapsed}
+              aria-controls="orders-owner-cards-content"
+              onClick={() => setCollapsed((current) => !current)}
+            >
+              {contentCollapsed ? 'Mostrar carteira' : 'Ocultar carteira'}
+              <ChevronDown className={`h-4 w-4 transition-transform ${contentCollapsed ? '' : 'rotate-180'}`} />
+            </Button>
+          )}
+          {showOwnerToolbar && !contentCollapsed && (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Select value={viewMode} onValueChange={onViewModeChange}>
+                <SelectTrigger className="w-44">
+                  <SelectValue placeholder="Visualização" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="list">
+                    <div className="flex items-center gap-2">
+                      <Rows3 className="h-4 w-4" />
+                      Lista vertical
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="cards">
+                    <div className="flex items-center gap-2">
+                      <LayoutGrid className="h-4 w-4" />
+                      Cards completos
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
 
-            {!isViewerMode && canViewGlobal && semResponsavel > 0 && (
-              <button
-                type="button"
-                className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
-                onClick={onFilterUnassigned}
-              >
-                Sem responsável: {formatNumber(semResponsavel)}
-              </button>
-            )}
-            {!isViewerMode && canViewGlobal && (
-              <Button type="button" variant="outline" size="sm" onClick={onFilterAll}>
-                Todos
-              </Button>
-            )}
-          </div>
-        )}
+              {!isViewerMode && canViewGlobal && semResponsavel > 0 && (
+                <button
+                  type="button"
+                  className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/15"
+                  onClick={onFilterUnassigned}
+                >
+                  Sem responsável: {formatNumber(semResponsavel)}
+                </button>
+              )}
+              {!isViewerMode && canViewGlobal && (
+                <Button type="button" variant="outline" size="sm" onClick={onFilterAll}>
+                  Todos
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {viewMode === 'list' ? (
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+      {!contentCollapsed && (
+        <div id="orders-owner-cards-content">
+          {viewMode === 'list' ? (
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {visibleOwners.map((owner) => {
             const ownerKey = toOrderOwnerKey(owner.administrador_id)
             const active = isPrivateScope ? false : activeResponsavel === ownerKey
@@ -152,9 +179,9 @@ export const OrdersWorkspaceOwnerCards = memo(function OrdersWorkspaceOwnerCards
               />
             )
           })}
-        </div>
-      ) : (
-        <>
+            </div>
+          ) : (
+            <>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {ownerGroups.map((group) => (
               <OrdersOwnerFullCard
@@ -181,7 +208,9 @@ export const OrdersWorkspaceOwnerCards = memo(function OrdersWorkspaceOwnerCards
               </Button>
             </div>
           )}
-        </>
+            </>
+          )}
+        </div>
       )}
     </div>
   )

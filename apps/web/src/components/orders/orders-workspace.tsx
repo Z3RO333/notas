@@ -664,6 +664,31 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
         </p>
       )}
 
+      {presentation.showWorkspaceToolbar && (
+        <OrdersWorkspaceFiltersBar
+          filters={filters}
+          setFilters={setFilters}
+          searchInput={searchInput}
+          setSearchInput={setSearchInput}
+          searchInputRef={searchInputRef}
+          onSearchKeyDown={handleSearchKeyDown}
+          allLoadedSelected={allLoadedSelected}
+          onToggleSelectAllLoaded={toggleSelectAllLoaded}
+          copyFilterLoading={copyFilterLoading}
+          copyButtonLabel={copyButtonLabel}
+          onCopyOrders={handleCopyOrders}
+          copyUsesSelection={copyUsesSelection}
+          loadingInitial={loadingInitial}
+          rowsCount={rows.length}
+          responsavelOptions={responsavelOptions}
+          unitSelectOptions={unitSelectOptions}
+          smartSearch={smartSearch}
+          canViewGlobal={currentUser.canViewGlobal}
+          onExport={() => void exportOrdersToXlsx(rows)}
+          onRefresh={() => fetchWorkspace(true)}
+        />
+      )}
+
       {!presentation.isViewerMode && (
         <div className="flex items-center justify-end">
           <SupplierOrderLocator
@@ -712,37 +737,13 @@ export function OrdersWorkspace({ initialFilters, initialUser }: OrdersWorkspace
           nextCursor={nextCursor}
           loadingMore={loadingMore}
           rowsCount={rows.length}
+          defaultCollapsed={!presentation.isViewerMode}
           onViewModeChange={handleOwnerCardsViewModeChange}
           onFilterUnassigned={() => setFilters((prev) => ({ ...prev, responsavel: UNASSIGNED_ORDER_OWNER_KEY }))}
           onFilterAll={() => setFilters((prev) => ({ ...prev, responsavel: 'todos' }))}
           onToggleOwner={toggleOwnerFilter}
           onToggleSelection={toggleSelection}
           onLoadMore={() => fetchWorkspace(false, nextCursor)}
-        />
-      )}
-
-      {presentation.showWorkspaceToolbar && (
-        <OrdersWorkspaceFiltersBar
-          filters={filters}
-          setFilters={setFilters}
-          searchInput={searchInput}
-          setSearchInput={setSearchInput}
-          searchInputRef={searchInputRef}
-          onSearchKeyDown={handleSearchKeyDown}
-          allLoadedSelected={allLoadedSelected}
-          onToggleSelectAllLoaded={toggleSelectAllLoaded}
-          copyFilterLoading={copyFilterLoading}
-          copyButtonLabel={copyButtonLabel}
-          onCopyOrders={handleCopyOrders}
-          copyUsesSelection={copyUsesSelection}
-          loadingInitial={loadingInitial}
-          rowsCount={rows.length}
-          responsavelOptions={responsavelOptions}
-          unitSelectOptions={unitSelectOptions}
-          smartSearch={smartSearch}
-          canViewGlobal={currentUser.canViewGlobal}
-          onExport={() => void exportOrdersToXlsx(rows)}
-          onRefresh={() => fetchWorkspace(true)}
         />
       )}
 

@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode } from 'react'
+import type { ComponentType, KeyboardEvent, ReactNode } from 'react'
 import {
   BarChart3,
   Building2,
@@ -120,9 +120,19 @@ export function CollaboratorCardShell({
   const isSemResponsavel = cargo.label === 'SEM RESPONSÁVEL'
   const resolvedAccent = isSemResponsavel ? 'orange' : accent
 
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!onClick || (event.key !== 'Enter' && event.key !== ' ')) return
+    event.preventDefault()
+    onClick()
+  }
+
   return (
     <Card
       onClick={onClick}
+      onKeyDown={handleKeyDown}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-pressed={onClick ? active : undefined}
       className={cn(
         COLLABORATOR_CARD_TOKENS.base,
         variantTokens.card,

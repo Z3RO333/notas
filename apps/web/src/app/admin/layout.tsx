@@ -19,12 +19,10 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-3.5rem)] w-full flex-col pb-8">
+    <div className="flex min-h-[calc(100vh-3.5rem)] min-w-0 w-full flex-col overflow-x-clip pb-8">
       <AdminDashboardRoutingBootstrap />
-      <main className="min-w-0 w-full">
-        <div className="px-4 pt-4 sm:px-6">
-          <Breadcrumb />
-        </div>
+      <main className="min-w-0 w-full px-4 pt-4 sm:px-6 lg:px-8">
+        <Breadcrumb />
         {children}
       </main>
     </div>

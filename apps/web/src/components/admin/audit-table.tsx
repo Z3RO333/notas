@@ -37,7 +37,7 @@ export function AuditTable({ logs, perspectiva }: AuditTableProps) {
   return (
     <div className="space-y-6">
       {perspectiva.length > 0 && (
-        <div className="rounded-lg border">
+        <div className="overflow-x-auto rounded-lg border">
           <div className="border-b bg-muted/40 px-4 py-3">
             <h3 className="font-semibold text-sm">Perspectiva Administrativa (30 dias)</h3>
           </div>
@@ -65,11 +65,11 @@ export function AuditTable({ logs, perspectiva }: AuditTableProps) {
       )}
 
       {logs.length > 0 && (
-        <div className="rounded-lg border">
+        <div className="overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50">
-                <th className="px-4 py-3 text-left font-medium w-8" />
+                <th className="w-8 px-4 py-3 text-left font-medium"><span className="sr-only">Detalhes</span></th>
                 <th className="px-4 py-3 text-left font-medium">Data/Hora</th>
                 <th className="px-4 py-3 text-left font-medium">Gestor</th>
                 <th className="px-4 py-3 text-left font-medium">Ação</th>
@@ -84,12 +84,20 @@ export function AuditTable({ logs, perspectiva }: AuditTableProps) {
                 return (
                   <Fragment key={log.id}>
                     <tr
-                      className="border-b hover:bg-muted/30 cursor-pointer transition-colors"
-                      onClick={() => setExpandedId(isExpanded ? null : log.id)}
+                      className="border-b transition-colors hover:bg-muted/30"
                     >
                       <td className="px-4 py-3">
                         {log.detalhes ? (
-                          isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
+                          <button
+                            type="button"
+                            onClick={() => setExpandedId(isExpanded ? null : log.id)}
+                            aria-expanded={isExpanded}
+                            aria-controls={`audit-details-${log.id}`}
+                            aria-label={`${isExpanded ? 'Recolher' : 'Expandir'} detalhes do registro`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          </button>
                         ) : null}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
@@ -106,7 +114,7 @@ export function AuditTable({ logs, perspectiva }: AuditTableProps) {
                       </td>
                     </tr>
                     {isExpanded && log.detalhes && (
-                      <tr key={`${log.id}-details`} className="border-b bg-muted/20">
+                      <tr id={`audit-details-${log.id}`} key={`${log.id}-details`} className="border-b bg-muted/20">
                         <td />
                         <td colSpan={4} className="px-4 py-3">
                           <pre className="text-xs text-muted-foreground bg-muted rounded p-3 overflow-x-auto">

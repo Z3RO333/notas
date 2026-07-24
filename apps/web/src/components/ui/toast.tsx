@@ -27,15 +27,15 @@ export function useToast() {
 }
 
 const variantStyles: Record<ToastVariant, { bg: string; icon: typeof CheckCircle }> = {
-  success: { bg: 'border-green-200 bg-green-50', icon: CheckCircle },
-  error: { bg: 'border-red-200 bg-red-50', icon: AlertTriangle },
-  info: { bg: 'border-blue-200 bg-blue-50', icon: Info },
+  success: { bg: 'border-success/30 bg-success/10 text-foreground', icon: CheckCircle },
+  error: { bg: 'border-destructive/30 bg-destructive/10 text-foreground', icon: AlertTriangle },
+  info: { bg: 'border-info/30 bg-info/10 text-foreground', icon: Info },
 }
 
 const iconColor: Record<ToastVariant, string> = {
-  success: 'text-green-600',
-  error: 'text-red-600',
-  info: 'text-blue-600',
+  success: 'text-success',
+  error: 'text-destructive',
+  info: 'text-info',
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -83,13 +83,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   </ToastPrimitive.Description>
                 )}
               </div>
-              <ToastPrimitive.Close className="rounded-md p-1 opacity-0 transition-opacity hover:bg-black/5 group-hover:opacity-100">
+              <ToastPrimitive.Close
+                aria-label="Fechar notificação"
+                className="rounded-md p-1 opacity-70 transition-opacity hover:bg-foreground/5 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+              >
                 <X className="h-4 w-4" />
               </ToastPrimitive.Close>
             </ToastPrimitive.Root>
           )
         })}
-        <ToastPrimitive.Viewport className="fixed top-4 right-4 z-[100] flex max-h-screen w-full max-w-sm flex-col gap-2" />
+        <ToastPrimitive.Viewport className="fixed inset-x-4 top-4 z-[100] flex max-h-screen w-auto flex-col gap-2 sm:left-auto sm:right-4 sm:w-full sm:max-w-sm" />
       </ToastPrimitive.Provider>
     </ToastContext.Provider>
   )

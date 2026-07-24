@@ -15,7 +15,7 @@ export default async function SaidasNovaPage() {
     .order('nome')
 
   return (
-    <div className="px-4 py-5 sm:px-6">
+    <div className="py-5">
       <div className="mb-5">
         <h1 className="text-lg font-semibold">Nova saída operacional</h1>
         <p className="text-sm text-muted-foreground">Selecione o técnico e as ordens que ele vai atender</p>

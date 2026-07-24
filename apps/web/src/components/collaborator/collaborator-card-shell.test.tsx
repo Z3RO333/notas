@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { CheckCircle2, Clock3 } from 'lucide-react'
 import { CollaboratorCardShell } from '@/components/collaborator/collaborator-card-shell'
 import { getCargoPresentationByLabel } from '@/lib/collaborator/cargo-presentation'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 describe('CollaboratorCardShell', () => {
   it('renders hierarchy name > cargo > metrics in operational variant', () => {
@@ -79,5 +80,26 @@ describe('CollaboratorCardShell', () => {
     const rootCard = container.querySelector('.border-orange-200')
     expect(rootCard).toBeInTheDocument()
     expect(screen.getByText('SEM RESPONSÁVEL')).toBeInTheDocument()
+  })
+  it('supports keyboard activation when interactive', async () => {
+    const user = userEvent.setup()
+    const onClick = vi.fn()
+
+    render(
+      <CollaboratorCardShell
+        name="Mayky Castro"
+        avatarUrl={null}
+        cargo={getCargoPresentationByLabel('GERAL')}
+        onClick={onClick}
+      />
+    )
+
+    const card = screen.getByRole('button', { name: /Mayky Castro/i })
+    expect(card).toHaveAttribute('aria-pressed', 'false')
+    await user.click(card)
+    await user.keyboard('{Enter}')
+    await user.keyboard(' ')
+
+    expect(onClick).toHaveBeenCalledTimes(3)
   })
 })
