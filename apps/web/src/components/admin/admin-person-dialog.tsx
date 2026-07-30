@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -45,6 +46,7 @@ export function AdminPersonDialog({
   onFormChange,
   onSave,
 }: AdminPersonDialogProps) {
+  const [novoEmailAdicional, setNovoEmailAdicional] = useState('')
   const assignment = form.id
     ? resolvePmplAssignment({
       personId: form.id,
@@ -83,6 +85,55 @@ export function AdminPersonDialog({
               onChange={(event) => onFormChange((prev) => ({ ...prev, email: event.target.value }))}
               placeholder="pessoa@bemol.com.br"
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Emails adicionais</label>
+            <p className="text-xs text-muted-foreground">
+              Outras pessoas que acessam este mesmo perfil compartilhado (ex: Gestão de Incêndio).
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {form.emailsAdicionais.map((adicional) => (
+                <span
+                  key={adicional}
+                  className="flex items-center gap-1 rounded-full border bg-muted px-3 py-1 text-xs"
+                >
+                  {adicional}
+                  <button
+                    type="button"
+                    aria-label={`Remover ${adicional}`}
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => onFormChange((prev) => ({
+                      ...prev,
+                      emailsAdicionais: prev.emailsAdicionais.filter((item) => item !== adicional),
+                    }))}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                id="admin-person-email-adicional"
+                type="email"
+                placeholder="outrapessoa@bemol.com.br"
+                value={novoEmailAdicional}
+                onChange={(event) => setNovoEmailAdicional(event.target.value)}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const email = novoEmailAdicional.trim().toLowerCase()
+                  if (!email || form.emailsAdicionais.includes(email)) return
+                  onFormChange((prev) => ({ ...prev, emailsAdicionais: [...prev.emailsAdicionais, email] }))
+                  setNovoEmailAdicional('')
+                }}
+              >
+                Adicionar
+              </Button>
+            </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

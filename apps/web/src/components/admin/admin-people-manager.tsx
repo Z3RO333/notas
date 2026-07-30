@@ -58,6 +58,7 @@ export function AdminPeopleManager({
           emFerias: patch.emFerias ?? person.em_ferias,
           dataInicioFerias: patch.dataInicioFerias ?? person.data_inicio_ferias,
           dataFimFerias: patch.dataFimFerias ?? person.data_fim_ferias,
+          emailsAdicionais: person.emailsAdicionais,
         })
 
         toast({ title: 'Pessoa atualizada', variant: 'success' })
@@ -101,6 +102,7 @@ export function AdminPeopleManager({
           emFerias: form.emFerias,
           dataInicioFerias: form.dataInicioFerias || null,
           dataFimFerias: form.dataFimFerias || null,
+          emailsAdicionais: form.emailsAdicionais,
         })
 
         toast({
