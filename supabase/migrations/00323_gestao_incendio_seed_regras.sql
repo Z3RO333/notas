@@ -40,3 +40,16 @@ VALUES
   ('MANGUEIRA DO GERADOR',     'elevadores', false),
   ('MANGUEIRA DE ELEVA',       'elevadores', false)
 ON CONFLICT DO NOTHING;
+
+-- 5. Amplia palavras-chave de incêndio com variantes reais encontradas no
+--    banco (acentuação e erros de digitação recorrentes do texto SAP),
+--    descobertas ao validar esta migration contra dados reais.
+INSERT INTO public.regras_distribuicao (palavra_chave, especialidade, pula_cockpit)
+VALUES
+  ('BOMBA DE INCÊNDIO',    'criticos', false),  -- 29 notas reais, acentuado
+  ('CENTRAL DI INCÊNDIO',  'criticos', false),  -- 27 notas reais, typo "DI" recorrente
+  ('CENTRAL DE INCÊNDIO',  'criticos', false),  -- variante correta acentuada
+  ('COMBATE A INCÊNDIO',   'criticos', false),  -- 15 notas reais (EQUIP.COMBATE A INCÊNDIO / Complemento Inst.Combate a Incêndio)
+  ('PROJETO DE INCÊNDIO',  'criticos', false),  -- 7 notas reais (ATUALIZAÇÃO PROJETO DE INCÊNDIO)
+  ('ESTINTOR DE INCENDIO', 'criticos', false)   -- typo "ESTINTOR" por "EXTINTOR"
+ON CONFLICT DO NOTHING;
