@@ -8,7 +8,7 @@ export const ESPECIALIDADE_OPTIONS: Array<{ value: Especialidade; label: string 
   { value: 'cd_manaus', label: 'CD Manaus' },
   { value: 'cd_manaus_equip', label: 'CD Manaus Equip' },
   { value: 'cd_taruma', label: 'CD Taruma' },
-  { value: 'criticos', label: 'Críticos' },
+  { value: 'criticos', label: 'Gestão de Incêndio' },
 ]
 
 export const EMPTY_PERSON_FORM: PersonFormState = {
@@ -20,6 +20,7 @@ export const EMPTY_PERSON_FORM: PersonFormState = {
   emFerias: false,
   dataInicioFerias: '',
   dataFimFerias: '',
+  emailsAdicionais: [],
 }
 
 export function getEspecialidadeLabel(value: string): string {
@@ -37,6 +38,7 @@ export function toPersonFormState(person: AdminPerson): PersonFormState {
     emFerias: person.em_ferias,
     dataInicioFerias: person.data_inicio_ferias ?? '',
     dataFimFerias: person.data_fim_ferias ?? '',
+    emailsAdicionais: person.emailsAdicionais,
   }
 }
 

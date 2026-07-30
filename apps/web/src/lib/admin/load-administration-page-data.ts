@@ -67,6 +67,17 @@ async function loadAdminPeople(supabase: ReturnType<typeof createAdminClient>): 
     .neq('email', PMPL_FALLBACK_OWNER_EMAIL)
     .order('nome', { ascending: true })
 
+  const emailsResult = await supabase
+    .from('administrador_emails')
+    .select('administrador_id, email')
+
+  const emailsPorAdmin = new Map<string, string[]>()
+  for (const row of emailsResult.data ?? []) {
+    const lista = emailsPorAdmin.get(row.administrador_id) ?? []
+    lista.push(row.email)
+    emailsPorAdmin.set(row.administrador_id, lista)
+  }
+
   if (fullPeopleResult.error && isMissingVacationColumnsError(fullPeopleResult.error)) {
     const legacyPeopleResult = await supabase
       .from('administradores')
@@ -77,15 +88,19 @@ async function loadAdminPeople(supabase: ReturnType<typeof createAdminClient>): 
     if (legacyPeopleResult.error) throw legacyPeopleResult.error
 
     return (legacyPeopleResult.data ?? []).map((item) => ({
-      ...(item as Omit<AdminPerson, 'especialidade' | 'data_inicio_ferias' | 'data_fim_ferias'>),
+      ...(item as Omit<AdminPerson, 'especialidade' | 'data_inicio_ferias' | 'data_fim_ferias' | 'emailsAdicionais'>),
       especialidade: 'geral',
       data_inicio_ferias: null,
       data_fim_ferias: null,
+      emailsAdicionais: emailsPorAdmin.get(item.id) ?? [],
     })) as AdminPerson[]
   }
 
   if (fullPeopleResult.error) throw fullPeopleResult.error
-  return (fullPeopleResult.data ?? []) as AdminPerson[]
+  return (fullPeopleResult.data ?? []).map((item) => ({
+    ...item,
+    emailsAdicionais: emailsPorAdmin.get(item.id) ?? [],
+  })) as AdminPerson[]
 }
 
 async function loadSaturdayScheduleSlots(

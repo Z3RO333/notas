@@ -11,6 +11,7 @@ export interface AdminPerson {
   em_ferias: boolean
   data_inicio_ferias: string | null
   data_fim_ferias: string | null
+  emailsAdicionais: string[]
 }
 
 export interface PersonFormState {
@@ -23,6 +24,7 @@ export interface PersonFormState {
   emFerias: boolean
   dataInicioFerias: string
   dataFimFerias: string
+  emailsAdicionais: string[]
 }
 
 export interface AdminPeopleManagerProps {
