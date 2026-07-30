@@ -71,6 +71,8 @@ async function loadAdminPeople(supabase: ReturnType<typeof createAdminClient>): 
     .from('administrador_emails')
     .select('administrador_id, email')
 
+  if (emailsResult.error) throw emailsResult.error
+
   const emailsPorAdmin = new Map<string, string[]>()
   for (const row of emailsResult.data ?? []) {
     const lista = emailsPorAdmin.get(row.administrador_id) ?? []

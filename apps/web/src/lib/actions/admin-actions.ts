@@ -387,7 +387,21 @@ export async function salvarPessoaAdmin(params: SalvarPessoaAdminParams) {
   const emailsAdicionais = validarEmailsAdicionais(params.emailsAdicionais ?? [])
     .filter((adicional) => adicional !== email)
 
-  if (targetId) {
+  if (emailsAdicionais.length > 0) {
+    const { data: conflitos, error: conflitosError } = await supabase
+      .from('administradores')
+      .select('email')
+      .in('email', emailsAdicionais)
+
+    if (conflitosError) throw new Error(conflitosError.message)
+    if (conflitos && conflitos.length > 0) {
+      throw new Error(
+        `Email já é o principal de outro administrador: ${conflitos.map((c) => c.email).join(', ')}`
+      )
+    }
+  }
+
+  if (targetId && params.emailsAdicionais !== undefined) {
     // Substitui o conjunto inteiro: mais simples e correto que calcular
     // diff (add/remove), e o volume por admin é sempre pequeno (poucas
     // pessoas por perfil compartilhado).

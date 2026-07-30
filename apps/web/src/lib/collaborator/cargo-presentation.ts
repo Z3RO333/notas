@@ -14,7 +14,7 @@ export type CollaboratorCargoLabel =
   | typeof REFRIGERACAO_LABEL
   | 'CD MANAUS'
   | 'CD TURISMO'
-  | 'CRÍTICOS'
+  | 'Gestão de Incêndio'
   | 'GERAL'
   | typeof SEM_RESPONSAVEL_LABEL
 
@@ -50,7 +50,7 @@ const CARGO_PRESENTATION_BY_LABEL: Record<CollaboratorCargoLabel, Omit<Collabora
     badgeClassName: 'bg-blue-100 text-blue-800',
     iconKey: 'warehouse',
   },
-  'CRÍTICOS': {
+  'Gestão de Incêndio': {
     badgeClassName: 'bg-red-100 text-red-800',
     iconKey: 'flame',
   },
@@ -136,7 +136,7 @@ export function resolveCargoLabelFromEspecialidade(especialidade: string | null 
     case 'cd_taruma':
       return 'CD TURISMO'
     case 'criticos':
-      return 'CRÍTICOS'
+      return 'Gestão de Incêndio'
     case 'geral':
     case 'unknown':
     default:

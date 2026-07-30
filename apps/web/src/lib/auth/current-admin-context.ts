@@ -42,7 +42,7 @@ const loadCurrentAdminContext = cache(async (): Promise<CurrentAdminContext> => 
     .maybeSingle()
 
   if (error) {
-    console.error('getCurrentAdminContext administradores query failed:', error.message)
+    console.error('getCurrentAdminContext vw_administrador_por_email query failed:', error.message)
   }
 
   const role = normalizeUserRole(admin?.role)
