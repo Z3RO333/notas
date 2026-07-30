@@ -36,7 +36,7 @@ export async function getAuthenticatedAdminActionContext(): Promise<Authenticate
   if (!email) throw new Error('Nao autenticado')
 
   const { data: admin } = await supabase
-    .from('administradores')
+    .from('vw_administrador_por_email')
     .select('id, role')
     .eq('email', email)
     .single()
@@ -64,7 +64,7 @@ export async function getGestorOrMaintainerActionContext(): Promise<Authenticate
   if (!email) throw new Error('Nao autenticado')
 
   const { data: admin } = await supabase
-    .from('administradores')
+    .from('vw_administrador_por_email')
     .select('id, role')
     .eq('email', email)
     .single()

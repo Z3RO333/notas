@@ -12,7 +12,7 @@ export async function listarNotasOperacaoEstado(): Promise<NotaOperacaoEstadoRow
   const supabase = createAdminClient()
 
   const { data: admin } = await supabase
-    .from('administradores')
+    .from('vw_administrador_por_email')
     .select('id, role')
     .eq('email', email)
     .maybeSingle()

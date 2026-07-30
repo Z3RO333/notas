@@ -429,7 +429,7 @@ async function fetchAdminsByIds(supabase: RoutingSupabase, ids: string[]): Promi
 async function fetchAdminByEmail(supabase: RoutingSupabase, email: string): Promise<AdminRoutingRecord | null> {
   const rows = await fetchAdministradoresWithVacationFallback(supabase, (columns) => (
     supabase
-      .from('administradores')
+      .from('vw_administrador_por_email')
       .select(columns)
       .eq('email', email)
       .limit(1)

@@ -129,7 +129,7 @@ export async function registrarResultadoOrdem(
     if (!email) return { error: 'Não autenticado' }
 
     const { data: adminData } = await supabase
-      .from('administradores')
+      .from('vw_administrador_por_email')
       .select('id, role, operacional_codigo')
       .eq('email', email)
       .maybeSingle()

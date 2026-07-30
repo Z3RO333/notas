@@ -29,7 +29,7 @@ export async function middleware(request: NextRequest) {
 
   const supabase = createAdminClient()
   const { data: admin } = await supabase
-    .from('administradores')
+    .from('vw_administrador_por_email')
     .select('role, ativo')
     .eq('email', email)
     .maybeSingle()

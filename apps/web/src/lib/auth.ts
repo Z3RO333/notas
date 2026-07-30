@@ -30,7 +30,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       const supabase = createAdminClient()
       const { data: admin } = await supabase
-        .from('administradores')
+        .from('vw_administrador_por_email')
         .select('ativo')
         .eq('email', email)
         .maybeSingle()

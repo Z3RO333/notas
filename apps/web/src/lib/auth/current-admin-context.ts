@@ -36,7 +36,7 @@ const loadCurrentAdminContext = cache(async (): Promise<CurrentAdminContext> => 
 
   const supabase = createAdminClient()
   const { data: admin, error } = await supabase
-    .from('administradores')
+    .from('vw_administrador_por_email')
     .select('id, nome, role')
     .eq('email', email)
     .maybeSingle()
