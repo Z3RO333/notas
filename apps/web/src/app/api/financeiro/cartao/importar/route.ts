@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   }
 
   const { data: loggedAdmin, error: adminError } = await supabase
-    .from('administradores')
+    .from('vw_administrador_por_email')
     .select('id, role')
     .eq('email', email)
     .single()

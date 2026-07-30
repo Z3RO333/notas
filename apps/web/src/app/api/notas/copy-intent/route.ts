@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   }
 
   const adminResult = await supabase
-    .from('administradores')
+    .from('vw_administrador_por_email')
     .select('id, role, ativo')
     .eq('email', email)
     .maybeSingle()

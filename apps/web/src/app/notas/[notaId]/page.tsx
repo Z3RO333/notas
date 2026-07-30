@@ -43,7 +43,7 @@ export default async function NotaDetailPage({ params }: PageProps) {
   const admins = adminsResult.data ?? []
   const loggedAdminResult = email
     ? await supabase
-      .from('administradores')
+      .from('vw_administrador_por_email')
       .select('role')
       .eq('email', email)
       .single()

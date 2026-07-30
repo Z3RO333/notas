@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   const { role } = parsed.data
 
   const { data: admin, error: adminError } = await supabase
-    .from('administradores')
+    .from('vw_administrador_por_email')
     .select('id')
     .eq('email', email)
     .single()
@@ -100,7 +100,7 @@ export async function DELETE() {
   }
 
   const { data: admin, error: adminError } = await supabase
-    .from('administradores')
+    .from('vw_administrador_por_email')
     .select('id')
     .eq('email', email)
     .single()
