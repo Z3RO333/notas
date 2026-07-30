@@ -1,6 +1,7 @@
 'use server'
 
 import { BEMOL_EMAIL_DOMAIN } from '@/lib/auth/shared'
+import { validarEmailsAdicionais } from '@/lib/actions/admin-actions-emails'
 import {
   getSaturdayScheduleMonthWindow,
   mergeSaturdayScheduleRows,
@@ -42,6 +43,7 @@ interface SalvarPessoaAdminParams {
   emFerias: boolean
   dataInicioFerias?: string | null
   dataFimFerias?: string | null
+  emailsAdicionais?: string[]
 }
 
 interface SalvarConfigResponsavelPmplParams {
@@ -380,6 +382,29 @@ export async function salvarPessoaAdmin(params: SalvarPessoaAdminParams) {
 
     if (error) throw new Error(error.message)
     targetId = data.id
+  }
+
+  const emailsAdicionais = validarEmailsAdicionais(params.emailsAdicionais ?? [])
+    .filter((adicional) => adicional !== email)
+
+  if (targetId) {
+    // Substitui o conjunto inteiro: mais simples e correto que calcular
+    // diff (add/remove), e o volume por admin é sempre pequeno (poucas
+    // pessoas por perfil compartilhado).
+    const { error: deleteError } = await supabase
+      .from('administrador_emails')
+      .delete()
+      .eq('administrador_id', targetId)
+
+    if (deleteError) throw new Error(deleteError.message)
+
+    if (emailsAdicionais.length > 0) {
+      const { error: insertError } = await supabase
+        .from('administrador_emails')
+        .insert(emailsAdicionais.map((adicional) => ({ administrador_id: targetId, email: adicional })))
+
+      if (insertError) throw new Error(insertError.message)
+    }
   }
 
   await writeAdminAuditLog({
