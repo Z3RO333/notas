@@ -186,7 +186,7 @@ describe('registrarResultadoOrdem', () => {
     const rpc = vi.fn().mockResolvedValue({ error: rpcError })
 
     const from = vi.fn().mockImplementation((table: string) => {
-      if (table === 'administradores') {
+      if (table === 'administradores' || table === 'vw_administrador_por_email') {
         return {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
