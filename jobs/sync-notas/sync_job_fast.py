@@ -1012,7 +1012,7 @@ def read_new_notes(
 
     for row in rows:
         row_dict = row.asDict()
-        numero = _as_clean_text(row_dict.get("NUMERO_NOTA"))
+        numero = _normalize_numero_nota(row_dict.get("NUMERO_NOTA"))
         if not numero:
             skipped_sem_numero += 1
             continue
@@ -1023,7 +1023,7 @@ def read_new_notes(
         else:
             distinct_centros.add(centro)
 
-        ordem_sap = _as_clean_text(row_dict.get("ORDEM"))
+        ordem_sap = _normalize_ordem_codigo(row_dict.get("ORDEM"))
         if ordem_sap:
             notes_with_ordem_sap += 1
 

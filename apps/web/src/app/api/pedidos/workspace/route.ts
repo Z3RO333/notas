@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server'
 import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { canAccessPedidos } from '@/lib/pedidos/access'
+import {
+  buildPedidosContractMeta,
+  mapPedidosKpis,
+  normalizePedidoStatus,
+  normalizePedidoStatusEfetivo,
+} from '@/app/api/pedidos/_contract'
 import type {
   PedidoCompra,
-  PedidoCompraStatus,
-  PedidosKpis,
+  PedidoCompraStatusEfetivo,
   PedidosWorkspaceMeta,
   PedidosWorkspaceResponse,
 } from '@/lib/types/pedidos'
@@ -16,17 +22,22 @@ type PedidosWorkspaceRpcRow = PedidoCompra & {
 const PAGE_SIZE = 100
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
-const VALID_STATUS: readonly PedidoCompraStatus[] = ['em_aberto', 'encerrado', 'cancelado']
+const VALID_STATUS: readonly PedidoCompraStatusEfetivo[] = [
+  'em_aberto',
+  'encerrado',
+  'cancelado',
+  'indeterminado',
+]
 
 function normalizeSearchText(value: string | null | undefined): string | null {
   const normalized = (value ?? '').trim()
-  return normalized.length > 0 ? normalized : null
+  return normalized.length > 0 ? normalized.slice(0, 120) : null
 }
 
-function normalizeStatus(value: string | null | undefined): PedidoCompraStatus | 'all' {
+function normalizeStatus(value: string | null | undefined): PedidoCompraStatusEfetivo | 'all' {
   const normalized = (value ?? '').trim()
-  return VALID_STATUS.includes(normalized as PedidoCompraStatus)
-    ? (normalized as PedidoCompraStatus)
+  return VALID_STATUS.includes(normalized as PedidoCompraStatusEfetivo)
+    ? (normalized as PedidoCompraStatusEfetivo)
     : 'all'
 }
 
@@ -43,14 +54,14 @@ function normalizeCursorDate(value: string | null | undefined): string | null {
 
 function normalizeAno(value: string | null | undefined): string | null {
   const normalized = (value ?? '').trim()
-  if (normalized === 'all') return null
-  return normalized || '2026'
+  if (!normalized || normalized === 'all') return null
+  return /^\d{4}$/.test(normalized) ? normalized : null
 }
 
 function normalizeMes(value: string | null | undefined): string | null {
   const normalized = (value ?? '').trim()
   if (!normalized || normalized === 'all') return null
-  return normalized
+  return /^\d{6}$/.test(normalized) ? normalized : null
 }
 
 function shouldIncludeMeta(value: string | null | undefined, cursorReady: boolean): boolean {
@@ -60,17 +71,17 @@ function shouldIncludeMeta(value: string | null | undefined, cursorReady: boolea
   return !cursorReady
 }
 
-function mapKpis(value: Partial<PedidosKpis> | null | undefined): PedidosKpis {
-  return {
-    total: Number(value?.total ?? 0),
-    em_aberto: Number(value?.em_aberto ?? 0),
-    encerrado: Number(value?.encerrado ?? 0),
-    cancelado: Number(value?.cancelado ?? 0),
-    valor_total: Number(value?.valor_total ?? 0),
-  }
+function optionalNumber(value: unknown): number | undefined {
+  if (value === null || value === undefined || value === '') return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
 }
 
 function toPedidoCompraRow(row: PedidosWorkspaceRpcRow): PedidoCompra {
+  const statusEfetivo = normalizePedidoStatusEfetivo(row.status_efetivo ?? row.status)
+  const statusCompat = normalizePedidoStatus(row.status)
+    ?? (statusEfetivo === 'indeterminado' ? 'em_aberto' : statusEfetivo)
+
   return {
     id: row.id,
     documento_compras: row.documento_compras,
@@ -81,8 +92,15 @@ function toPedidoCompraRow(row: PedidosWorkspaceRpcRow): PedidoCompra {
     fornecedor_nome: row.fornecedor_nome,
     data_documento: row.data_documento,
     valor_liquido_total: row.valor_liquido_total,
-    status: row.status,
+    status: statusCompat,
+    status_header: row.status_header ?? null,
+    status_proc_raw: row.status_proc_raw ?? null,
+    status_efetivo: statusEfetivo,
+    status_indeterminado: row.status_indeterminado ?? statusEfetivo === 'indeterminado',
     tipo_documento: row.tipo_documento,
+    grupo_compradores: row.grupo_compradores ?? '112',
+    organizacao_compras: row.organizacao_compras ?? null,
+    data_criacao: row.data_criacao ?? null,
     mes_extracao: row.mes_extracao,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -90,6 +108,23 @@ function toPedidoCompraRow(row: PedidosWorkspaceRpcRow): PedidoCompra {
     fornecedor_owner_admin_id: row.fornecedor_owner_admin_id ?? null,
     fornecedor_owner_nome: row.fornecedor_owner_nome ?? null,
     na_carteira_especial: Boolean(row.na_carteira_especial),
+    criador_admin_id: row.criador_admin_id ?? null,
+    criador_admin_nome: row.criador_admin_nome ?? null,
+    responsavel_atual_id: row.administrador_id ?? null,
+    responsavel_atual_nome: row.responsavel_atual_nome ?? null,
+    itens_total: optionalNumber(row.itens_total),
+    itens_ativos: optionalNumber(row.itens_ativos),
+    itens_excluidos: optionalNumber(row.itens_excluidos),
+    valor_itens_total: optionalNumber(row.valor_itens_total),
+    valor_itens_ativos: optionalNumber(row.valor_itens_ativos),
+    valor_divergencia: optionalNumber(row.valor_divergencia),
+    source_bk_extracao: row.source_bk_extracao ?? null,
+    source_data_extracao: row.source_data_extracao ?? null,
+    source_last_seen_at: row.source_last_seen_at ?? null,
+    source_active: typeof row.source_active === 'boolean' ? row.source_active : undefined,
+    scope_quality: row.scope_quality ?? null,
+    status_quality: row.status_quality ?? null,
+    items_quality: row.items_quality ?? null,
   }
 }
 
@@ -103,8 +138,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
   }
 
-  if (!currentAdminContext.adminId || !currentAdminContext.role) {
-    return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
+  if (!currentAdminContext.adminId || !canAccessPedidos(currentAdminContext.role)) {
+    return NextResponse.json({ error: 'Sem permissao para acessar pedidos' }, { status: 403 })
   }
 
   const canViewGlobal = currentAdminContext.canViewGlobal
@@ -148,6 +183,8 @@ export async function GET(request: Request) {
           p_admin_filter: adminFilter,
           p_ano: anoExtracao,
           p_mes_extracao: mesExtracao,
+          p_status: status === 'all' ? null : status,
+          p_q: q,
         })
       : Promise.resolve({ data: null, error: null }),
     includeMeta
@@ -167,19 +204,24 @@ export async function GET(request: Request) {
   ])
 
   if (rowsResult.error) {
-    return NextResponse.json({ error: rowsResult.error.message }, { status: 500 })
+    console.error('pedidos/workspace rows:', rowsResult.error.message)
+    return NextResponse.json({ error: 'Falha ao carregar pedidos' }, { status: 500 })
   }
   if (kpisResult.error) {
-    return NextResponse.json({ error: kpisResult.error.message }, { status: 500 })
+    console.error('pedidos/workspace kpis:', kpisResult.error.message)
+    return NextResponse.json({ error: 'Falha ao carregar pedidos' }, { status: 500 })
   }
   if (anosResult.error) {
-    return NextResponse.json({ error: anosResult.error.message }, { status: 500 })
+    console.error('pedidos/workspace anos:', anosResult.error.message)
+    return NextResponse.json({ error: 'Falha ao carregar pedidos' }, { status: 500 })
   }
   if (mesesResult.error) {
-    return NextResponse.json({ error: mesesResult.error.message }, { status: 500 })
+    console.error('pedidos/workspace meses:', mesesResult.error.message)
+    return NextResponse.json({ error: 'Falha ao carregar pedidos' }, { status: 500 })
   }
   if (adminsResult.error) {
-    return NextResponse.json({ error: adminsResult.error.message }, { status: 500 })
+    console.error('pedidos/workspace admins:', adminsResult.error.message)
+    return NextResponse.json({ error: 'Falha ao carregar pedidos' }, { status: 500 })
   }
 
   const rowsWithCursor = (rowsResult.data ?? []) as PedidosWorkspaceRpcRow[]
@@ -188,7 +230,7 @@ export async function GET(request: Request) {
   const lastVisibleRow = visibleRows[visibleRows.length - 1] ?? null
   const meta: PedidosWorkspaceMeta | undefined = includeMeta
     ? {
-        kpis: mapKpis((kpisResult.data ?? null) as Partial<PedidosKpis> | null),
+        kpis: mapPedidosKpis(kpisResult.data),
         availableAdmins: (adminsResult.data ?? []) as Array<{ id: string; nome: string; avatar_url: string | null }>,
         availableAnos: ((anosResult.data ?? []) as Array<{ ano: string | null }>)
           .map((row) => row.ano)
@@ -196,6 +238,7 @@ export async function GET(request: Request) {
         availableMeses: ((mesesResult.data ?? []) as Array<{ mes_extracao: string | null }>)
           .map((row) => row.mes_extracao)
           .filter((value): value is string => Boolean(value)),
+        contract: buildPedidosContractMeta(kpisResult.data),
       }
     : undefined
 

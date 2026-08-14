@@ -89,6 +89,7 @@ export function getVisibleLinks(userRole?: string | null) {
   return NAV_LINKS.filter((link) => {
     if (link.gestorOnly && !canUseAdmin) return false
     if (isViewer && link.href === '/pedidos') return false
+    if (userRole === 'operacional' && link.href === '/pedidos') return false
     return true
   })
 }

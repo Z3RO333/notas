@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { canAccessPedidos } from '@/lib/pedidos/access'
+import { buildPedidosContractMeta } from '@/app/api/pedidos/_contract'
 import {
   buildCarteiraKpis,
   deriveAvailableAdmins,
-  filterCarteiraRowsByAdmin,
-  filterCarteiraRowsByTipo,
   isValidCarteiraTipo,
 } from '@/lib/pedidos/carteira-helpers'
 import type {
@@ -66,44 +66,50 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
   }
 
-  if (!currentAdminContext.adminId || !currentAdminContext.role) {
-    return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
+  if (!currentAdminContext.adminId || !canAccessPedidos(currentAdminContext.role)) {
+    return NextResponse.json({ error: 'Sem permissao para acessar pedidos' }, { status: 403 })
   }
 
   const canViewGlobal = currentAdminContext.canViewGlobal
 
-  const resumoResult = await supabase
-    .from('vw_pedidos_carteira_fornecedor_resumo')
-    .select(
-      'fornecedor_codigo, fornecedor_nome, tipo_carteira, admin_id, admin_nome, admin_avatar, qtd_pedidos, em_aberto, encerrado, cancelado, valor_total, documentos_compras, pedidos_contratos'
-    )
+  const [resumoResult, kpisResult] = await Promise.all([
+    supabase.rpc('listar_pedidos_carteira_fornecedor_resumo', {
+      p_admin_scope: canViewGlobal ? null : currentAdminContext.adminId,
+      p_tipo: tipo,
+    }),
+    supabase.rpc('calcular_kpis_pedidos_workspace', {
+      p_admin_scope: canViewGlobal ? null : currentAdminContext.adminId,
+      p_admin_filter: null,
+      p_ano: null,
+      p_mes_extracao: null,
+      p_status: null,
+      p_q: null,
+    }),
+  ])
 
   if (resumoResult.error) {
-    return NextResponse.json({ error: resumoResult.error.message }, { status: 500 })
+    console.error('pedidos/carteira resumo:', resumoResult.error.message)
+    return NextResponse.json({ error: 'Falha ao carregar carteira de pedidos' }, { status: 500 })
+  }
+  if (kpisResult.error) {
+    console.error('pedidos/carteira kpis:', kpisResult.error.message)
+    return NextResponse.json({ error: 'Falha ao carregar carteira de pedidos' }, { status: 500 })
   }
 
-  const allRows = ((resumoResult.data ?? []) as CarteiraResumoViewRow[]).map(toCarteiraRow)
-  const rowsForTipo = filterCarteiraRowsByTipo(allRows, tipo)
-
-  const availableAdmins = deriveAvailableAdmins(rowsForTipo).map((admin) => ({
-    id: admin.id,
-    nome: admin.nome,
-    avatar_url: admin.avatarUrl,
-  }))
-
-  // Escopo por pedido, não por dono nominal da carteira do fornecedor: um
-  // fornecedor pode ter pedidos individuais atribuídos a admins diferentes
-  // do dono registrado em pedidos_compra_carteira_fornecedor (ex: mesmo
-  // fornecedor atende duas categorias, cada uma com um responsável). Filtrar
-  // só por row.adminId vazava pedidos de outras pessoas pra quem não é gestor.
-  const rows = canViewGlobal
-    ? rowsForTipo
-    : filterCarteiraRowsByAdmin(rowsForTipo, tipo, currentAdminContext.adminId)
+  const rows = ((resumoResult.data ?? []) as CarteiraResumoViewRow[]).map(toCarteiraRow)
+  const availableAdmins = canViewGlobal
+    ? deriveAvailableAdmins(rows).map((admin) => ({
+        id: admin.id,
+        nome: admin.nome,
+        avatar_url: admin.avatarUrl,
+      }))
+    : []
 
   const response: PedidosCarteiraResponse = {
     rows,
     kpis: buildCarteiraKpis(rows),
     availableAdmins,
+    contract: buildPedidosContractMeta(kpisResult.data),
   }
 
   return NextResponse.json(response)

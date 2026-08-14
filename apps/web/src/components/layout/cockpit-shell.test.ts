@@ -10,6 +10,10 @@ describe('CockpitShell role presentation', () => {
     expect(getVisibleLinks('admin').map((link) => link.href)).toContain('/pedidos')
   })
 
+  it('hides Pedidos from the operacional role', () => {
+    expect(getVisibleLinks('operacional').map((link) => link.href)).not.toContain('/pedidos')
+  })
+
   it('labels viewer accounts without presenting them as admins', () => {
     expect(getRoleLabel('viewer')).toBe('Visualizador')
   })

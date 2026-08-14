@@ -1,40 +1,39 @@
 import { NextResponse } from 'next/server'
 import { getCurrentRequestAdminContext } from '@/lib/auth/request-admin-context'
 import { createAdminClient } from '@/lib/supabase/admin'
-import type { PedidoCompraStatus, PedidosFiltrosResponse, PedidosKpis } from '@/lib/types/pedidos'
+import { canAccessPedidos } from '@/lib/pedidos/access'
+import { buildPedidosContractMeta, mapPedidosKpis } from '@/app/api/pedidos/_contract'
+import type { PedidoCompraStatusEfetivo, PedidosFiltrosResponse } from '@/lib/types/pedidos'
 
-const VALID_STATUS: readonly PedidoCompraStatus[] = ['em_aberto', 'encerrado', 'cancelado']
+const VALID_STATUS: readonly PedidoCompraStatusEfetivo[] = [
+  'em_aberto',
+  'encerrado',
+  'cancelado',
+  'indeterminado',
+]
 
 function normalizeAno(value: string | null | undefined): string | null {
   const normalized = (value ?? '').trim()
   if (!normalized || normalized === 'all') return null
-  return normalized
+  return /^\d{4}$/.test(normalized) ? normalized : null
 }
 
 function normalizeMes(value: string | null | undefined): string | null {
   const normalized = (value ?? '').trim()
   if (!normalized || normalized === 'all') return null
-  return normalized
+  return /^\d{6}$/.test(normalized) ? normalized : null
 }
 
-function normalizeStatus(value: string | null | undefined): PedidoCompraStatus | null {
+function normalizeStatus(value: string | null | undefined): PedidoCompraStatusEfetivo | null {
   const normalized = (value ?? '').trim()
-  return VALID_STATUS.includes(normalized as PedidoCompraStatus) ? (normalized as PedidoCompraStatus) : null
+  return VALID_STATUS.includes(normalized as PedidoCompraStatusEfetivo)
+    ? (normalized as PedidoCompraStatusEfetivo)
+    : null
 }
 
 function normalizeSearchText(value: string | null | undefined): string | null {
   const normalized = (value ?? '').trim()
-  return normalized.length > 0 ? normalized : null
-}
-
-function mapKpis(value: Partial<PedidosKpis> | null | undefined): PedidosKpis {
-  return {
-    total: Number(value?.total ?? 0),
-    em_aberto: Number(value?.em_aberto ?? 0),
-    encerrado: Number(value?.encerrado ?? 0),
-    cancelado: Number(value?.cancelado ?? 0),
-    valor_total: Number(value?.valor_total ?? 0),
-  }
+  return normalized.length > 0 ? normalized.slice(0, 120) : null
 }
 
 export async function GET(request: Request) {
@@ -47,13 +46,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
   }
 
-  if (!currentAdminContext.adminId || !currentAdminContext.role) {
-    return NextResponse.json({ error: 'Administrador nao encontrado' }, { status: 403 })
+  if (!currentAdminContext.adminId || !canAccessPedidos(currentAdminContext.role)) {
+    return NextResponse.json({ error: 'Sem permissao para acessar pedidos' }, { status: 403 })
   }
 
   const url = new URL(request.url)
-  const anoExtracao = normalizeAno(url.searchParams.get('ano'))
-  const mesExtracao = normalizeMes(url.searchParams.get('mes'))
+  const anoDocumento = normalizeAno(url.searchParams.get('ano'))
+  const mesDocumento = normalizeMes(url.searchParams.get('mes'))
   const status = normalizeStatus(url.searchParams.get('status'))
   const q = normalizeSearchText(url.searchParams.get('q'))
   const adminScope = currentAdminContext.canViewGlobal ? null : currentAdminContext.adminId
@@ -66,26 +65,29 @@ export async function GET(request: Request) {
     supabase.rpc('listar_pedidos_workspace_meses', {
       p_admin_scope: adminScope,
       p_admin_filter: null,
-      p_ano: anoExtracao,
+      p_ano: anoDocumento,
     }),
     supabase.rpc('calcular_kpis_pedidos_workspace', {
       p_admin_scope: adminScope,
       p_admin_filter: null,
-      p_ano: anoExtracao,
-      p_mes_extracao: mesExtracao,
+      p_ano: anoDocumento,
+      p_mes_extracao: mesDocumento,
       p_status: status,
       p_q: q,
     }),
   ])
 
   if (anosResult.error) {
-    return NextResponse.json({ error: anosResult.error.message }, { status: 500 })
+    console.error('pedidos/filtros anos:', anosResult.error.message)
+    return NextResponse.json({ error: 'Falha ao carregar filtros de pedidos' }, { status: 500 })
   }
   if (mesesResult.error) {
-    return NextResponse.json({ error: mesesResult.error.message }, { status: 500 })
+    console.error('pedidos/filtros meses:', mesesResult.error.message)
+    return NextResponse.json({ error: 'Falha ao carregar filtros de pedidos' }, { status: 500 })
   }
   if (kpisResult.error) {
-    return NextResponse.json({ error: kpisResult.error.message }, { status: 500 })
+    console.error('pedidos/filtros kpis:', kpisResult.error.message)
+    return NextResponse.json({ error: 'Falha ao carregar filtros de pedidos' }, { status: 500 })
   }
 
   const response: PedidosFiltrosResponse = {
@@ -95,7 +97,8 @@ export async function GET(request: Request) {
     availableMeses: ((mesesResult.data ?? []) as Array<{ mes_extracao: string | null }>)
       .map((row) => row.mes_extracao)
       .filter((value): value is string => Boolean(value)),
-    kpis: mapKpis((kpisResult.data ?? null) as Partial<PedidosKpis> | null),
+    kpis: mapPedidosKpis(kpisResult.data),
+    contract: buildPedidosContractMeta(kpisResult.data),
   }
 
   return NextResponse.json(response)

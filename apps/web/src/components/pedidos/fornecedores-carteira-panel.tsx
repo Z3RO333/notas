@@ -66,7 +66,7 @@ interface FornecedoresCarteiraPanelProps {
 }
 
 export function FornecedoresCarteiraPanel({ isGestor, tipoCarteira }: FornecedoresCarteiraPanelProps) {
-  const { data, isPending, error } = useCarteiraFornecedores(tipoCarteira)
+  const { data, isPending, error, refetch } = useCarteiraFornecedores(tipoCarteira)
   const [busca, setBusca] = useState('')
   const [filtroAdmin, setFiltroAdmin] = useState(ALL_VALUE)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -76,7 +76,14 @@ export function FornecedoresCarteiraPanel({ isGestor, tipoCarteira }: Fornecedor
     return (
       <div className="space-y-4">
         <CockpitKpiStrip
-          items={[]}
+          items={[
+            { id: 'fornecedores', label: 'Fornecedores', value: '0', icon: ListChecks },
+            { id: 'pedidos', label: 'Pedidos', value: '0', icon: BarChart3 },
+            { id: 'em_aberto', label: 'Em aberto', value: '0', icon: BarChart3 },
+            { id: 'encerrado', label: 'Encerrados', value: '0', icon: CheckCircle2 },
+            { id: 'cancelado', label: 'Cancelados', value: '0', icon: XCircle },
+            { id: 'valor_total', label: 'Valor', value: 'R$ 0', icon: TrendingUp },
+          ]}
           loading
           columnsClassName="sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
         />
@@ -100,9 +107,12 @@ export function FornecedoresCarteiraPanel({ isGestor, tipoCarteira }: Fornecedor
 
   if (error) {
     return (
-      <p className="text-sm text-destructive">
-        {error instanceof Error ? error.message : 'Erro ao carregar carteira de fornecedores.'}
-      </p>
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardContent className="flex flex-col items-start gap-3 py-6 sm:flex-row sm:items-center sm:justify-between">
+          <div><p className="text-sm font-semibold text-destructive">Não foi possível carregar a carteira</p><p className="mt-1 text-sm text-muted-foreground">{error instanceof Error ? error.message : 'Erro ao carregar carteira de fornecedores.'}</p></div>
+          <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>Tentar novamente</Button>
+        </CardContent>
+      </Card>
     )
   }
 

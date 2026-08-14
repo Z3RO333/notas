@@ -55,5 +55,16 @@ export function usePedidosFilters({ initialFilters }: UsePedidosFiltersOptions) 
     syncFiltersToUrl(filters)
   }, [filters])
 
-  return { filters, setFilters, searchInput, setSearchInput, searchInputRef }
+  function resetFilters() {
+    setSearchInput('')
+    setFilters({
+      q: '',
+      status: 'all',
+      adminId: 'all',
+      anoExtracao: null,
+      mesExtracao: null,
+    })
+  }
+
+  return { filters, setFilters, searchInput, setSearchInput, searchInputRef, resetFilters }
 }

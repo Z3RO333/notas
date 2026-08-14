@@ -1,12 +1,14 @@
 'use client'
 
-import { BarChart3, CheckCircle2, ListChecks, TrendingUp, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock3, ListChecks, TrendingUp, UserRoundX } from 'lucide-react'
 import { CockpitKpiStrip, type CockpitKpiItem } from '@/components/cockpit/cockpit-kpi-strip'
-import type { PedidosKpis } from '@/lib/types/pedidos'
+import type { PedidoCompraStatusEfetivo, PedidosKpis } from '@/lib/types/pedidos'
 
 interface PedidosKpiStripProps {
   kpis: PedidosKpis
   loading?: boolean
+  activeStatus?: PedidoCompraStatusEfetivo | 'all'
+  onStatusChange?: (status: PedidoCompraStatusEfetivo | 'all') => void
 }
 
 function fmtCount(value: number): string {
@@ -22,19 +24,33 @@ function fmtCurrency(value: number): string {
   }).format(value)
 }
 
-export function PedidosKpiStrip({ kpis, loading = false }: PedidosKpiStripProps) {
+export function PedidosKpiStrip({
+  kpis,
+  loading = false,
+  activeStatus = 'all',
+  onStatusChange,
+}: PedidosKpiStripProps) {
+  const setStatus = (status: PedidoCompraStatusEfetivo | 'all') => (
+    onStatusChange ? () => onStatusChange(activeStatus === status ? 'all' : status) : undefined
+  )
   const items: CockpitKpiItem[] = [
     {
       id: 'total',
-      label: 'Total',
+      label: 'Pedidos no grupo 112',
       value: fmtCount(kpis.total),
       icon: ListChecks,
+      active: activeStatus === 'all',
+      onClick: setStatus('all'),
     },
     {
       id: 'em_aberto',
-      label: 'Abertos',
+      label: 'Em aberto',
       value: fmtCount(kpis.em_aberto),
-      icon: BarChart3,
+      helper: `${fmtCurrency(kpis.valor_em_aberto ?? 0)} em aberto`,
+      icon: Clock3,
+      tone: 'attention',
+      active: activeStatus === 'em_aberto',
+      onClick: setStatus('em_aberto'),
     },
     {
       id: 'encerrado',
@@ -42,19 +58,34 @@ export function PedidosKpiStrip({ kpis, loading = false }: PedidosKpiStripProps)
       value: fmtCount(kpis.encerrado),
       icon: CheckCircle2,
       tone: 'success',
+      active: activeStatus === 'encerrado',
+      onClick: setStatus('encerrado'),
     },
     {
-      id: 'cancelado',
-      label: 'Cancelados',
-      value: fmtCount(kpis.cancelado),
-      icon: XCircle,
-      tone: kpis.cancelado > 0 ? 'critical' : 'neutral',
-    },
-    {
-      id: 'valor_total',
-      label: 'Valor',
-      value: fmtCurrency(kpis.valor_total),
+      id: 'aging',
+      label: 'Abertos há mais de 90 dias',
+      value: fmtCount(kpis.abertos_mais_90_dias ?? 0),
+      helper: 'Idade pela data do documento',
       icon: TrendingUp,
+      tone: (kpis.abertos_mais_90_dias ?? 0) > 0 ? 'critical' : 'neutral',
+    },
+    {
+      id: 'sem_responsavel',
+      label: 'Sem responsável',
+      value: fmtCount(kpis.sem_responsavel ?? 0),
+      helper: 'Exigem atribuição',
+      icon: UserRoundX,
+      tone: (kpis.sem_responsavel ?? 0) > 0 ? 'critical' : 'neutral',
+    },
+    {
+      id: 'indeterminado',
+      label: 'Status a revisar',
+      value: fmtCount(kpis.status_indeterminado ?? kpis.indeterminado ?? 0),
+      helper: `${fmtCurrency(kpis.valor_total)} no recorte`,
+      icon: AlertTriangle,
+      tone: (kpis.status_indeterminado ?? kpis.indeterminado ?? 0) > 0 ? 'critical' : 'neutral',
+      active: activeStatus === 'indeterminado',
+      onClick: setStatus('indeterminado'),
     },
   ]
 
@@ -62,7 +93,7 @@ export function PedidosKpiStrip({ kpis, loading = false }: PedidosKpiStripProps)
     <CockpitKpiStrip
       items={items}
       loading={loading}
-      columnsClassName="sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
+      columnsClassName="sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
     />
   )
 }

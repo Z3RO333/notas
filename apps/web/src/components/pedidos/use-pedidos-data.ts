@@ -68,6 +68,7 @@ export function usePedidosData({ filters }: UsePedidosDataOptions) {
   const availableAdmins = firstPage?.meta?.availableAdmins ?? []
   const availableAnos = firstPage?.meta?.availableAnos ?? []
   const availableMeses = firstPage?.meta?.availableMeses ?? []
+  const contract = firstPage?.meta?.contract
   const loadingInitial = query.isPending && rows.length === 0
   const errorMessage = query.error instanceof Error ? query.error.message : query.error ? 'Falha ao carregar pedidos' : null
 
@@ -77,10 +78,12 @@ export function usePedidosData({ filters }: UsePedidosDataOptions) {
     availableAdmins,
     availableAnos,
     availableMeses,
+    contract,
     isFetching: query.isFetching,
     isFetchingNextPage: query.isFetchingNextPage,
     hasNextPage: query.hasNextPage,
     fetchNextPage: query.fetchNextPage,
+    refetch: query.refetch,
     loadingInitial,
     error: errorMessage,
   }

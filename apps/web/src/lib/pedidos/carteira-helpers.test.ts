@@ -91,7 +91,7 @@ describe('preventiva anual admin filter', () => {
 
     expect(result).toHaveLength(1)
     expect(result[0].pedidosContratos).toEqual([
-      { numero: '45001', admin_id: 'fabiola', admin_nome: 'Fabíola Tentunge', admin_avatar: null },
+      { numero: '45001', ciclo: 'MENSAL', admin_id: 'fabiola', admin_nome: 'Fabíola Tentunge', admin_avatar: null },
     ])
   })
 })
