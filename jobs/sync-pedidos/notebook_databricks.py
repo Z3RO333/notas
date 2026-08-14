@@ -40,7 +40,7 @@ TARGET_DOCUMENT_START = "2026-01-01"
 BATCH_H      = 500
 BATCH_I      = 500
 
-STATUS_MAP = {"02": "em_aberto", "03": "cancelado", "05": "encerrado"}
+STATUS_MAP = {"02": "em_aberto", "03": "em_aberto", "05": "encerrado"}
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -139,6 +139,7 @@ def fetch_headers(conn, sap_admin_map, sync_run_id, source_last_seen_at):
           c.DATA_DOCUMENTO,
           CAST(c.VALOR_TOTAL_LIB AS DOUBLE) AS VALOR_TOTAL_LIB,
           c.STATUS_PROC,
+          c.CODIGO_DE_ELIMINACAO AS HEADER_CODIGO_DE_ELIMINACAO,
           c.TIPO_DOCUMENTO_COMPRA,
           c.BK_EXTRACAO,
           c.MES_EXTRACAO,
@@ -163,6 +164,7 @@ def fetch_headers(conn, sap_admin_map, sync_run_id, source_last_seen_at):
         if not documento:
             continue
         status_raw = _s(r.get("STATUS_PROC"))
+        header_excluido = _s(r.get("HEADER_CODIGO_DE_ELIMINACAO")) is not None
         data_criacao = r.get("DATA_CRIACAO")
         data_doc = r.get("DATA_DOCUMENTO")
         data_extracao = r.get("DATA_EXTRACAO")
@@ -178,7 +180,7 @@ def fetch_headers(conn, sap_admin_map, sync_run_id, source_last_seen_at):
             "data_criacao":        str(data_criacao) if data_criacao else None,
             "data_documento":      str(data_doc) if data_doc else None,
             "valor_liquido_total": _f(r.get("VALOR_TOTAL_LIB")),
-            "status":              STATUS_MAP.get(status_raw or "", "em_aberto"),
+            "status":              "cancelado" if header_excluido else STATUS_MAP.get(status_raw or "", "em_aberto"),
             "tipo_documento":      _s(r.get("TIPO_DOCUMENTO_COMPRA")),
             "mes_extracao":        _s(r.get("MES_EXTRACAO")),
             "source_bk_extracao":  _s(r.get("BK_EXTRACAO")),
@@ -317,7 +319,7 @@ def apply_item_fallbacks(headers, items):
 
         stats = item_stats.get(doc)
         if (
-            header.get("status_proc_raw") == "02"
+            header.get("status_proc_raw") in {"02", "03"}
             and header.get("status") == "em_aberto"
             and stats is not None
             and stats["total"] > 0
