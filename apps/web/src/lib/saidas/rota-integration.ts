@@ -22,6 +22,33 @@ export interface PublishRoutePayload {
   }>
 }
 
+export interface ReassignRouteOrderPayload {
+  idempotency_key: string
+  order_number: string
+  source_cockpit_cargo_id: string
+  target_cockpit_cargo_id: string
+  target_operational_id: string
+  planned_date: string
+  reason: string | null
+  performed_by_email: string
+}
+
+export interface ReassignRouteOrderResponse {
+  reassignment_id: string
+  route_order_id: string
+  order_number: string
+  source_route_id: string
+  target_route_id: string
+  source_stop_id: string
+  target_stop_id: string
+  source_operational_id: string
+  target_operational_id: string
+  source_dispatch_id: string
+  target_dispatch_id: string
+  idempotency_key: string
+  idempotent: boolean
+}
+
 function normalizeUnitName(value: string | null): string {
   const trimmed = value?.trim()
   return trimmed || 'SEM UNIDADE'

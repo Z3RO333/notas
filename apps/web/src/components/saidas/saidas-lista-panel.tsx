@@ -11,12 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { OperacionalSaida, SaidaOperacionalStatus } from '@/lib/types/saidas'
 
 const STATUS_LABEL: Record<SaidaOperacionalStatus, string> = {
+  pendente_transferencia: 'Preparando transferência',
   em_rota: 'Em rota',
   finalizada: 'Finalizada',
   cancelada: 'Cancelada',
 }
 
 const STATUS_VARIANT: Record<SaidaOperacionalStatus, 'default' | 'secondary' | 'destructive'> = {
+  pendente_transferencia: 'secondary',
   em_rota: 'default',
   finalizada: 'secondary',
   cancelada: 'destructive',
@@ -89,6 +91,7 @@ export function SaidasListaPanel({ operacionais }: SaidasListaPanelProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__all__">Todos os status</SelectItem>
+            <SelectItem value="pendente_transferencia">Preparando transferência</SelectItem>
             <SelectItem value="em_rota">Em rota</SelectItem>
             <SelectItem value="finalizada">Finalizada</SelectItem>
             <SelectItem value="cancelada">Cancelada</SelectItem>

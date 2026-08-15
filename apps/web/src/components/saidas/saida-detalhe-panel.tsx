@@ -7,21 +7,26 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
 import { cancelarSaidaOperacional, publicarSaidaNoRota } from '@/lib/actions/saidas-actions'
+import { RedistribuirOrdemOperacionalDialog } from '@/components/saidas/redistribuir-ordem-operacional-dialog'
 import type {
   RotaDispatchStatus,
   RotaDispatchSummary,
+  RedistribuicaoOrdemResumo,
+  RedistribuicaoOrdemStatus,
   SaidaDetalhe,
   SaidaOperacionalStatus,
   SaidaOrdemResultado,
 } from '@/lib/types/saidas'
 
 const STATUS_LABEL: Record<SaidaOperacionalStatus, string> = {
+  pendente_transferencia: 'Preparando transferência',
   em_rota: 'Em rota',
   finalizada: 'Finalizada',
   cancelada: 'Cancelada',
 }
 
 const STATUS_VARIANT: Record<SaidaOperacionalStatus, 'default' | 'secondary' | 'destructive'> = {
+  pendente_transferencia: 'secondary',
   em_rota: 'default',
   finalizada: 'secondary',
   cancelada: 'destructive',
@@ -46,6 +51,25 @@ const ROTA_STATUS_LABEL: Record<RotaDispatchStatus, string> = {
   cancelled: 'Cancelada',
 }
 
+const REDISTRIBUICAO_STATUS_LABEL: Record<RedistribuicaoOrdemStatus, string> = {
+  pending: 'Pendente',
+  processing: 'Sincronizando',
+  failed: 'Falha — tentar novamente',
+  completed: 'Concluída',
+  cancelled: 'Cancelada',
+}
+
+const REDISTRIBUICAO_STATUS_VARIANT: Record<
+  RedistribuicaoOrdemStatus,
+  'default' | 'secondary' | 'destructive'
+> = {
+  pending: 'secondary',
+  processing: 'secondary',
+  failed: 'destructive',
+  completed: 'default',
+  cancelled: 'destructive',
+}
+
 function fmtDate(iso: string) {
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso))
 }
@@ -53,12 +77,20 @@ function fmtDate(iso: string) {
 interface SaidaDetalhePanelProps {
   saida: SaidaDetalhe
   rotaDispatch: RotaDispatchSummary | null
+  operacionais: Array<{ codigo: string; nome: string }>
+  redistribuicoes: RedistribuicaoOrdemResumo[]
 }
 
-export function SaidaDetalhePanel({ saida, rotaDispatch }: SaidaDetalhePanelProps) {
+export function SaidaDetalhePanel({
+  saida,
+  rotaDispatch,
+  operacionais,
+  redistribuicoes,
+}: SaidaDetalhePanelProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [isPending, startTransition] = useTransition()
+  const rotaPermiteRedistribuicao = rotaDispatch?.status === 'published' || rotaDispatch?.status === 'accepted'
 
   function handleCancelar() {
     if (!confirm('Cancelar esta saída?')) return
@@ -129,7 +161,7 @@ export function SaidaDetalhePanel({ saida, rotaDispatch }: SaidaDetalhePanelProp
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border/60 bg-muted/30">
-              {['Ordem', 'Unidade', 'Descrição', 'Status snapshot', 'Resultado', 'Observação'].map((h) => (
+              {['Ordem', 'Unidade', 'Descrição', 'Status snapshot', 'Resultado', 'Observação', 'Ações'].map((h) => (
                 <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
               ))}
             </tr>
@@ -149,11 +181,60 @@ export function SaidaDetalhePanel({ saida, rotaDispatch }: SaidaDetalhePanelProp
                   )}
                 </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{o.observacaoRetorno ?? '—'}</td>
+                <td className="px-4 py-3">
+                  {saida.status === 'em_rota' && rotaPermiteRedistribuicao && !o.resultado ? (
+                    <RedistribuirOrdemOperacionalDialog
+                      saidaOrdemId={o.id}
+                      ordemCodigo={o.ordemCodigo}
+                      operacionalAtualCodigo={saida.operacionalCodigo}
+                      operacionais={operacionais}
+                    />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {redistribuicoes.length > 0 && (
+        <section className="space-y-3" aria-labelledby="historico-redistribuicoes">
+          <div>
+            <h2 id="historico-redistribuicoes" className="text-sm font-semibold">
+              Histórico de redistribuições
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Movimentações entre operacionais no Cockpit e no ROTA. O SAP não é alterado nesta etapa.
+            </p>
+          </div>
+          <div className="space-y-2">
+            {redistribuicoes.map((redistribuicao) => (
+              <div
+                key={redistribuicao.id}
+                className="rounded-lg border border-border/60 bg-card/30 p-3"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium">
+                    Ordem <span className="font-mono">{redistribuicao.orderNumber}</span>
+                  </p>
+                  <Badge variant={REDISTRIBUICAO_STATUS_VARIANT[redistribuicao.status]}>
+                    {REDISTRIBUICAO_STATUS_LABEL[redistribuicao.status]}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {redistribuicao.sourceOperationalName} → {redistribuicao.targetOperationalName}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">{redistribuicao.motivo}</p>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Solicitada em {fmtDate(redistribuicao.createdAt)} · SAP não solicitado
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }

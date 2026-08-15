@@ -16,9 +16,18 @@ vi.mock('@/lib/actions/admin-action-support', () => ({
   getAuthenticatedAdminActionContext: vi.fn(),
 }))
 
+const ordemInput = [{
+  ordem_codigo: 'ORD001',
+  numero_nota: '12345',
+  unidade: 'UN01',
+  texto_breve: 'Manutenção',
+  status_ordem_raw_snapshot: 'EM_PROCESSAMENTO',
+  tipo_ordem: 'PM01',
+}]
+
 describe('criarSaidaOperacional', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
   it('retorna erro quando operacionalCodigo é vazio', async () => {
@@ -44,7 +53,7 @@ describe('criarSaidaOperacional', () => {
     vi.mocked(getAuthenticatedAdminActionContext).mockRejectedValueOnce(new Error('Não autorizado'))
 
     const { criarSaidaOperacional } = await import('@/lib/actions/saidas-actions')
-    const result = await criarSaidaOperacional('OP001', '2026-06-16', null, [])
+    const result = await criarSaidaOperacional('OP001', '2026-06-16', null, ordemInput)
     expect(result).toEqual({ data: null, error: 'Não autorizado' })
   })
 
@@ -55,7 +64,7 @@ describe('criarSaidaOperacional', () => {
     )
 
     const { criarSaidaOperacional } = await import('@/lib/actions/saidas-actions')
-    const result = await criarSaidaOperacional('OP001', '2026-06-16', null, [])
+    const result = await criarSaidaOperacional('OP001', '2026-06-16', null, ordemInput)
     expect(result).toEqual({ data: null, error: 'Administrador nao encontrado' })
   })
 
@@ -68,7 +77,7 @@ describe('criarSaidaOperacional', () => {
     })
 
     const { criarSaidaOperacional } = await import('@/lib/actions/saidas-actions')
-    const result = await criarSaidaOperacional('OP001', '2026-06-16', 'obs teste', [])
+    const result = await criarSaidaOperacional('OP001', '2026-06-16', 'obs teste', ordemInput)
     expect(result).toEqual({ data: { id: 'saida-uuid-123' }, error: null })
   })
 
@@ -112,14 +121,14 @@ describe('criarSaidaOperacional', () => {
     })
 
     const { criarSaidaOperacional } = await import('@/lib/actions/saidas-actions')
-    const result = await criarSaidaOperacional('OP001', '2026-06-16', null, [])
+    const result = await criarSaidaOperacional('OP001', '2026-06-16', null, ordemInput)
     expect(result).toEqual({ data: null, error: 'RPC falhou' })
   })
 })
 
 describe('cancelarSaidaOperacional', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
   it('retorna erro quando saidaId é vazio', async () => {
@@ -170,9 +179,175 @@ describe('cancelarSaidaOperacional', () => {
   })
 })
 
+describe('redistribuirOrdemOperacional', () => {
+  const command = {
+    command_id: '11111111-1111-4111-8111-111111111111',
+    idempotency_key: '22222222-2222-4222-8222-222222222222',
+    status: 'pending',
+    source_cockpit_cargo_id: '33333333-3333-4333-8333-333333333333',
+    target_cockpit_cargo_id: '44444444-4444-4444-8444-444444444444',
+    source_operational_code: '14606',
+    target_operational_code: '10262',
+    target_rota_operational_id: '55555555-5555-4555-8555-555555555555',
+    order_number: '40001234',
+    reason: 'Redistribuição de agenda',
+    planned_date: '2026-08-15',
+    attempt_count: 0,
+    next_retry_at: null,
+    rota_transfer_id: null,
+    sap_sync_status: 'not_requested',
+  }
+
+  beforeEach(() => {
+    vi.resetAllMocks()
+    process.env.ROTA_API_URL = 'https://rota.example.com/api'
+    process.env.ROTA_INTEGRATION_SECRET = 'test-integration-secret'
+  })
+
+  function buildContext({
+    rotaFails = false,
+    requestError = null as string | null,
+  } = {}) {
+    const rpc = vi.fn()
+    if (requestError) {
+      rpc.mockResolvedValueOnce({ data: null, error: { message: requestError } })
+      return { supabase: { rpc }, rpc }
+    }
+
+    rpc
+      .mockResolvedValueOnce({ data: command, error: null })
+      .mockResolvedValueOnce({ data: { ...command, status: 'processing', attempt_count: 1 }, error: null })
+
+    if (rotaFails) {
+      rpc.mockResolvedValueOnce({ data: { ...command, status: 'failed' }, error: null })
+    } else {
+      rpc.mockResolvedValueOnce({ data: { ...command, status: 'completed' }, error: null })
+    }
+
+    return { supabase: { rpc }, rpc }
+  }
+
+  it('move a mesma ordem no ROTA e confirma o comando no Cockpit', async () => {
+    const context = buildContext()
+    const { getAuthenticatedAdminActionContext } = await import('@/lib/actions/admin-action-support')
+    const { getSessionEmail } = await import('@/lib/auth/session')
+    vi.mocked(getAuthenticatedAdminActionContext).mockResolvedValue({
+      supabase: context.supabase as never,
+      admin: { id: '66666666-6666-4666-8666-666666666666', role: 'gestor' },
+    })
+    vi.mocked(getSessionEmail).mockResolvedValue('gestor@example.com')
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: vi.fn().mockResolvedValue({
+        reassignment_id: '77777777-7777-4777-8777-777777777777',
+        route_order_id: '88888888-8888-4888-8888-888888888888',
+        order_number: command.order_number,
+        source_route_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        target_route_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        source_stop_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+        target_stop_id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        source_operational_id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+        target_operational_id: command.target_rota_operational_id,
+        source_dispatch_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+        target_dispatch_id: 'ffffffff-eeee-4ddd-8ccc-bbbbbbbbbbbb',
+        idempotency_key: command.idempotency_key,
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { redistribuirOrdemOperacional } = await import('@/lib/actions/saidas-actions')
+    const result = await redistribuirOrdemOperacional({
+      saidaOrdemId: '99999999-9999-4999-8999-999999999999',
+      novoOperacionalCodigo: '10262',
+      motivo: 'Redistribuição de agenda',
+    })
+
+    expect(result).toEqual({
+      data: { commandId: command.command_id, targetSaidaId: command.target_cockpit_cargo_id },
+      error: null,
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://rota.example.com/api/integration/reassign-order',
+      expect.objectContaining({ method: 'POST', cache: 'no-store' }),
+    )
+    const request = fetchMock.mock.calls[0][1] as RequestInit
+    expect(JSON.parse(request.body as string)).toEqual(expect.objectContaining({
+      idempotency_key: command.idempotency_key,
+      order_number: command.order_number,
+      source_cockpit_cargo_id: command.source_cockpit_cargo_id,
+      target_cockpit_cargo_id: command.target_cockpit_cargo_id,
+      target_operational_id: command.target_rota_operational_id,
+      performed_by_email: 'gestor@example.com',
+    }))
+    expect(context.rpc).toHaveBeenLastCalledWith('confirmar_redistribuicao_ordem', {
+      p_redistribuicao_id: command.command_id,
+      p_admin_id: '66666666-6666-4666-8666-666666666666',
+      p_rota_transfer_id: '77777777-7777-4777-8777-777777777777',
+    })
+  })
+
+  it('bloqueia destino sem conta operacional ativa no ROTA', async () => {
+    const context = buildContext({
+      requestError: 'O novo operacional ainda não possui acesso ativo vinculado ao ROTA',
+    })
+    const { getAuthenticatedAdminActionContext } = await import('@/lib/actions/admin-action-support')
+    const { getSessionEmail } = await import('@/lib/auth/session')
+    vi.mocked(getAuthenticatedAdminActionContext).mockResolvedValue({
+      supabase: context.supabase as never,
+      admin: { id: '66666666-6666-4666-8666-666666666666', role: 'gestor' },
+    })
+    vi.mocked(getSessionEmail).mockResolvedValue('gestor@example.com')
+
+    const { redistribuirOrdemOperacional } = await import('@/lib/actions/saidas-actions')
+    const result = await redistribuirOrdemOperacional({
+      saidaOrdemId: '99999999-9999-4999-8999-999999999999',
+      novoOperacionalCodigo: '10262',
+      motivo: 'Redistribuição de agenda',
+    })
+
+    expect(result).toEqual({
+      data: null,
+      error: 'O novo operacional ainda não possui acesso ativo vinculado ao ROTA',
+    })
+    expect(context.rpc).toHaveBeenCalledTimes(1)
+  })
+
+  it('registra falha reconciliável quando o ROTA rejeita a movimentação', async () => {
+    const context = buildContext({ rotaFails: true })
+    const { getAuthenticatedAdminActionContext } = await import('@/lib/actions/admin-action-support')
+    const { getSessionEmail } = await import('@/lib/auth/session')
+    vi.mocked(getAuthenticatedAdminActionContext).mockResolvedValue({
+      supabase: context.supabase as never,
+      admin: { id: '66666666-6666-4666-8666-666666666666', role: 'gestor' },
+    })
+    vi.mocked(getSessionEmail).mockResolvedValue('gestor@example.com')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: vi.fn().mockResolvedValue({ error: 'Ordem já concluída no ROTA' }),
+    }))
+
+    const { redistribuirOrdemOperacional } = await import('@/lib/actions/saidas-actions')
+    const result = await redistribuirOrdemOperacional({
+      saidaOrdemId: '99999999-9999-4999-8999-999999999999',
+      novoOperacionalCodigo: '10262',
+      motivo: 'Redistribuição de agenda',
+    })
+
+    expect(result).toEqual({ data: null, error: 'Ordem já concluída no ROTA' })
+    expect(context.rpc).toHaveBeenLastCalledWith('registrar_falha_redistribuicao_ordem', {
+      p_redistribuicao_id: command.command_id,
+      p_admin_id: '66666666-6666-4666-8666-666666666666',
+      p_erro: 'Ordem já concluída no ROTA',
+    })
+  })
+})
+
 describe('registrarResultadoOrdem', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
   function buildSupabaseMock({

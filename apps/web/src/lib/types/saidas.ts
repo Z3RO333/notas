@@ -1,8 +1,9 @@
 // apps/web/src/lib/types/saidas.ts
 
-export type SaidaOperacionalStatus = 'em_rota' | 'finalizada' | 'cancelada'
+export type SaidaOperacionalStatus = 'pendente_transferencia' | 'em_rota' | 'finalizada' | 'cancelada'
 export type SaidaOrdemResultado = 'resolvida' | 'nao_resolvida' | 'reagendada'
 export type RotaDispatchStatus = 'published' | 'accepted' | 'rejected' | 'cancelled'
+export type RedistribuicaoOrdemStatus = 'pending' | 'processing' | 'failed' | 'completed' | 'cancelled'
 
 export interface RotaDispatchSummary {
   id: string
@@ -50,4 +51,16 @@ export interface CriarSaidaOrdemInput {
   texto_breve: string | null
   status_ordem_raw_snapshot: string | null
   tipo_ordem: string | null
+}
+
+export interface RedistribuicaoOrdemResumo {
+  id: string
+  orderNumber: string
+  sourceOperationalName: string
+  targetOperationalName: string
+  status: RedistribuicaoOrdemStatus
+  motivo: string
+  sapSyncStatus: 'not_requested' | 'pending' | 'synced' | 'failed'
+  createdAt: string
+  completedAt: string | null
 }
