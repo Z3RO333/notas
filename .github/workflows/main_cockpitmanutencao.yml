@@ -40,6 +40,7 @@ jobs:
           path: |
             apps/web
             !apps/web/node_modules
+            !apps/web/package-lock.json
 
   deploy-qas:
     runs-on: ubuntu-latest
