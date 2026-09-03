@@ -33,7 +33,7 @@ export function ReassignDialog({ notaId, notaNumero, currentAdminId, admins }: R
   const [error, setError] = useState('')
 
   const availableAdmins = admins.filter(
-    (a) => a.ativo && !a.em_ferias && a.role === 'admin' && a.id !== currentAdminId
+    (a) => a.ativo && !a.em_ferias && a.recebe_distribuicao && a.role === 'admin' && a.id !== currentAdminId
   )
 
   const adminOptions = availableAdmins.map((a) => ({ value: a.id, label: a.nome }))
