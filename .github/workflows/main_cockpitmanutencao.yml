@@ -35,6 +35,7 @@ jobs:
           cp -r public .next/standalone/public
           mkdir -p .next/standalone/.next
           cp -r .next/static .next/standalone/.next/static
+          printf '[config]\nSCM_DO_BUILD_DURING_DEPLOYMENT=false\n' > .next/standalone/.deployment
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -60,6 +61,7 @@ jobs:
           app-name: 'CockpitManutencaoQAS'
           slot-name: 'Production'
           package: .
+          startup-command: node server.js
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_QAS }}
 
   deploy-production:
@@ -80,4 +82,5 @@ jobs:
           app-name: 'CockpitManutencao'
           slot-name: 'Production'
           package: .
+          startup-command: node server.js
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_6775A5CD772543E99D59C9BB4F7E98AD }}
