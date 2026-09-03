@@ -35,7 +35,6 @@ jobs:
           cp -r public .next/standalone/public
           mkdir -p .next/standalone/.next
           cp -r .next/static .next/standalone/.next/static
-          printf '[config]\nSCM_DO_BUILD_DURING_DEPLOYMENT=false\n' > .next/standalone/.deployment
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
