@@ -33,11 +33,18 @@ jobs:
           npm install
           npm run build
 
+      - name: Prepare standalone artifact
+        run: |
+          mkdir -p /tmp/deploy/.next
+          cp -r apps/web/.next/standalone/. /tmp/deploy/
+          cp -r apps/web/.next/static /tmp/deploy/.next/static
+          cp -r apps/web/public /tmp/deploy/public
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: apps/web
+          path: /tmp/deploy
 
   deploy-qas:
     runs-on: ubuntu-latest
