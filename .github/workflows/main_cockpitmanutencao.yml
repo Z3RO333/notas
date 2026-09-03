@@ -1,5 +1,17 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
+# Deploy do Cockpit de Manutenção para Azure App Service (Linux, Node 22).
+#
+# NÃO usar azure/webapps-deploy nem o build do Oryx neste projeto:
+#   1. O `npm install` do Oryx quebra com o bug do npm 10 (`edgesOut`).
+#   2. Quando existe `oryx-manifest.toml` no wwwroot, o startup script do Azure roda
+#      `mv -f node_modules _del_node_modules` + `ln -sfn /node_modules ./node_modules`.
+#      Como `/node_modules` fica fora de `/home`, não persiste entre containers e o
+#      app sobe sem dependências (`Cannot find module 'next'`).
+#   3. Enquanto esse symlink existe, qualquer upload para `node_modules/` escreve
+#      *através* dele — visível pelo Kudu, invisível para o container da aplicação.
+#
+# Por isso: build standalone aqui, zip preservando permissões Unix, limpeza dos
+# artefatos do Oryx e extração direta via `PUT /api/zip/` (que não aciona o Oryx).
+# O App Service precisa de `SCM_DO_BUILD_DURING_DEPLOYMENT=false` e startup `node server.js`.
 
 name: Build and deploy Node.js app to Azure Web App - CockpitManutencao
 
@@ -20,7 +32,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Node.js version
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '22.x'
 
@@ -33,18 +45,28 @@ jobs:
           npm install
           npm run build
 
+      # O standalone traz um node_modules mínimo, mas não copia static/ nem public/.
       - name: Prepare standalone artifact
         run: |
           mkdir -p /tmp/deploy/.next
           cp -r apps/web/.next/standalone/. /tmp/deploy/
           cp -r apps/web/.next/static /tmp/deploy/.next/static
           cp -r apps/web/public /tmp/deploy/public
+          test -f /tmp/deploy/server.js || { echo "server.js ausente — output:'standalone' está no next.config.ts?"; exit 1; }
+          test -d /tmp/deploy/node_modules || { echo "node_modules ausente no standalone"; exit 1; }
+
+      # Zipar aqui (e não via upload-artifact) preserva as permissões Unix.
+      # Sem -y de propósito: symlinks são resolvidos e gravados como arquivos, que é
+      # o formato validado manualmente contra este App Service.
+      - name: Zip artifact
+        run: cd /tmp/deploy && zip -qr /tmp/deploy.zip .
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
-          name: node-app
-          path: /tmp/deploy
+          name: deploy-zip
+          path: /tmp/deploy.zip
+          retention-days: 5
 
   deploy-qas:
     runs-on: ubuntu-latest
@@ -52,19 +74,17 @@ jobs:
     if: github.ref == 'refs/heads/QAS'
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
-          name: node-app
+          name: deploy-zip
 
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'CockpitManutencaoQAS'
-          slot-name: 'Production'
-          package: .
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_QAS }}
+      - name: Deploy to Azure Web App (Kudu zip extract)
+        env:
+          PUBLISH_PROFILE: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_QAS }}
+        run: bash .github/scripts/deploy-kudu.sh
 
   deploy-production:
     runs-on: ubuntu-latest
@@ -72,16 +92,14 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
-          name: node-app
+          name: deploy-zip
 
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'CockpitManutencao'
-          slot-name: 'Production'
-          package: .
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_6775A5CD772543E99D59C9BB4F7E98AD }}
+      - name: Deploy to Azure Web App (Kudu zip extract)
+        env:
+          PUBLISH_PROFILE: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_6775A5CD772543E99D59C9BB4F7E98AD }}
+        run: bash .github/scripts/deploy-kudu.sh
